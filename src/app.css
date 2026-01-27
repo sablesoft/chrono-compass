@@ -1,11 +1,11 @@
+/* =========================
+   Base / Reset
+   ========================= */
+
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -13,28 +13,10 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
-}
-
-body {
+html, body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-}
-
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
-}
-
-.card {
-  padding: 2em;
 }
 
 #app {
@@ -44,34 +26,96 @@ h1 {
   text-align: initial;
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
+a {
   font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
+  color: var(--link);
+  text-decoration: inherit;
 }
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+a:hover {
+  color: var(--link-hover);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+/* =========================
+   Theme variables
+   Default = dark
+   ========================= */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #0b0c0f;
+  --fg: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.65);
+
+  --panel: rgba(231, 231, 234, 0.04);
+  --panel-border: rgba(231, 231, 234, 0.12);
+
+  --btn-bg: rgba(231, 231, 234, 0.06);
+  --btn-border: rgba(231, 231, 234, 0.18);
+
+  --ring: rgba(255, 255, 255, 0.12);
+  --spoke: rgba(255, 255, 255, 0.16);
+
+  --link: #8f96ff;
+  --link-hover: #a4aaff;
+}
+
+/* Light theme overrides */
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f7f7f9;
+  --fg: rgba(0, 0, 0, 0.90);
+  --muted: rgba(0, 0, 0, 0.60);
+
+  --panel: rgba(0, 0, 0, 0.04);
+  --panel-border: rgba(0, 0, 0, 0.10);
+
+  --btn-bg: rgba(0, 0, 0, 0.04);
+  --btn-border: rgba(0, 0, 0, 0.14);
+
+  --ring: rgba(0, 0, 0, 0.10);
+  --spoke: rgba(0, 0, 0, 0.14);
+
+  --link: #3b49ff;
+  --link-hover: #2f3dff;
+}
+
+/* Apply theme */
+html, body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* =========================
+   UI elements
+   ========================= */
+
+button {
+  border-radius: 10px;
+  border: 1px solid var(--btn-border);
+  padding: 0.6em 1.1em;
+  font-size: 1em;
+  font-weight: 600;
+  font-family: inherit;
+
+  background: var(--btn-bg);
+  color: var(--fg);
+
+  cursor: pointer;
+  transition: border-color 0.25s, background-color 0.25s, transform 0.08s;
+}
+
+button:hover {
+  border-color: var(--link);
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
 }

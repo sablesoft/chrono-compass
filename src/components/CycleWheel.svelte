@@ -341,19 +341,19 @@
             <span class="desc">{SPOKE_DESC[kind].N}</span>
         </div>
         <div class="infoRow">
-            <strong class="k">N:</strong>
+            <strong class="k">W:</strong>
             <span class="dt">{formatDateTime(anchors.W)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].W}</span>
         </div>
         <div class="infoRow">
-            <strong class="k">N:</strong>
+            <strong class="k">S:</strong>
             <span class="dt">{formatDateTime(anchors.S)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].S}</span>
         </div>
         <div class="infoRow">
-            <strong class="k">N:</strong>
+            <strong class="k">E+:</strong>
             <span class="dt">{formatDateTime(anchors.E_next)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].E_next}</span>
@@ -363,8 +363,8 @@
 
 <style>
     .panel {
-        border: 1px solid rgba(231, 231, 234, 0.12);
-        background: rgba(231, 231, 234, 0.04);
+        border: 1px solid var(--panel-border);
+        background: var(--panel);
         border-radius: 18px;
         padding: 18px;
         overflow: hidden;
@@ -398,8 +398,8 @@
     button {
         padding: 8px 10px;
         border-radius: 10px;
-        border: 1px solid rgba(231,231,234,0.18);
-        background: rgba(231,231,234,0.06);
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
         color: inherit;
         cursor: pointer;
     }
@@ -423,23 +423,19 @@
         display: grid;
         gap: 6px;
     }
-    .info strong { font-weight: 650; }
-    .infoRow{
+
+    .infoRow {
         display: grid;
         grid-template-columns: 3ch 15ch 3ch 1fr;
         align-items: baseline;
         column-gap: 10px;
+        padding: 2px 6px;
+        border-radius: 6px;
     }
-    .infoRow .k {
-        text-align: right;
-        opacity: 0.85;
-    }
-    .infoRow .dt {
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-        opacity: 0.95;
-    }
-    .infoRow .desc {
-        opacity: 0.6;
-    }
+
+    .infoRow .k { text-align: right; opacity: 0.85; }
+    .infoRow .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
+    .infoRow .desc { opacity: 0.6; }
+
+    .infoRow:hover { background: var(--hover); }
 </style>

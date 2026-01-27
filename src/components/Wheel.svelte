@@ -313,7 +313,7 @@
 </svg>
 
 <style>
-    svg { color: #e7e7ea; }
+    svg { color: var(--fg); } /* или просто: svg { color: currentColor; } если svg наследует */
     .spoke { cursor: pointer; user-select: none; }
 
     .pointer { transition: transform 420ms ease; }
@@ -321,7 +321,7 @@
 
     .spoke:focus { outline: none; }
     .spoke:focus-visible {
-        outline: 2px solid rgba(231, 231, 234, 0.35);
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
         outline-offset: 4px;
     }
 </style>

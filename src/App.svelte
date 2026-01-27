@@ -3,6 +3,7 @@
   import CycleWheel from './components/CycleWheel.svelte';
   import {formatDateTime, formatCoords, ms} from './lib/format';
   import { loadPlaces, addPlace, removePlace, type Place } from './lib/places/store';
+  import ThemeSwitcher from "./components/ThemeSwitcher.svelte";
 
   // global time (single source of truth)
   let selectedTs = Date.now();
@@ -126,6 +127,7 @@
       </div>
 
       <div class="right">
+        <ThemeSwitcher />
         <button on:click={toggleNow} class:active={isLive}>Now</button>
       </div>
     </header>
@@ -208,9 +210,9 @@
 <style>
   main {
     padding: 24px;
-    background: #0b0b0c;
+    background: var(--bg);
     min-height: 100vh;
-    color: #e7e7ea;
+    color: var(--fg);
     width: 100%;
     overflow-x: hidden;
     font-size: 18px;
@@ -221,53 +223,74 @@
     margin: 0 auto;
   }
 
+  /* topbar в 3 колонки */
   .topbar {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    justify-content: space-between;
-    gap: 14px;
+    padding: 16px 20px;
+    gap: 12px;
     margin-bottom: 14px;
   }
 
-  .h { font-size: 26px; font-weight: 700; opacity: 0.95; }
-  .sub { font-size: 22px; opacity: 0.75; margin-top: 2px; }
+  .left { justify-self: start; }
+  .center { justify-self: center; text-align: center; }
+  .right { justify-self: end; }
+
+  .h {
+    font-size: 38px;
+    font-weight: 650;
+    opacity: 0.95;
+  }
+
+  .time {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  .live {
+    margin-left: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
 
   button {
-    padding: 8px 10px;
-    border-radius: 10px;
-    border: 1px solid rgba(231,231,234,0.18);
-    background: rgba(231,231,234,0.06);
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
     color: inherit;
     cursor: pointer;
   }
+
   button.active {
-    border-color: rgba(231,231,234,0.35);
-    background: rgba(231,231,234,0.10);
+    background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
   }
 
+  /* location card */
   .location {
-    border: 1px solid rgba(231, 231, 234, 0.10);
-    background: rgba(231, 231, 234, 0.03);
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
     border-radius: 16px;
     padding: 12px 14px;
     margin-bottom: 16px;
   }
-  .line { font-size: 20px; opacity: 0.9; margin-bottom: 10px; }
-  .save { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+
   input {
     flex: 1;
     padding: 10px 12px;
     border-radius: 10px;
-    border: 1px solid rgba(231,231,234,0.14);
-    background: rgba(231,231,234,0.04);
+    border: 1px solid var(--input-border);
+    background: var(--input-bg);
     color: inherit;
     outline: none;
   }
-  .places { display: grid; gap: 8px; }
-  .place { display: flex; align-items: center; gap: 10px; }
-  .pick { padding: 6px 10px; border-radius: 10px; }
+
   .coords { font-size: 18px; opacity: 0.65; }
-  .del { margin-left: auto; padding: 6px 10px; opacity: 0.8; }
 
   .grid {
     display: grid;
@@ -277,64 +300,4 @@
   }
   @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
-
-  .note { margin-top: 14px; font-size: 18px; opacity: 0.55; }
-
-  .topbar {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center;
-    padding: 16px 20px;
-    gap: 12px;
-  }
-
-  /* левая колонка */
-  .left {
-    justify-self: start;
-  }
-
-  .h {
-    font-size: 22px;
-    font-weight: 650;
-    opacity: 0.95;
-  }
-
-  /* центр — главный якорь внимания */
-  .center {
-    justify-self: center;
-    text-align: center;
-  }
-
-  .time {
-    font-size: 28px;        /* ← крупно */
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    white-space: nowrap;
-  }
-
-  /* LIVE как маркер состояния, а не текст */
-  .live {
-    margin-left: 10px;
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    opacity: 0.7;
-  }
-
-  /* правая колонка */
-  .right {
-    justify-self: end;
-  }
-
-  button {
-    padding: 8px 14px;
-    border-radius: 12px;
-    border: 1px solid rgba(231,231,234,0.18);
-    background: rgba(231,231,234,0.06);
-    cursor: pointer;
-  }
-
-  button.active {
-    background: rgba(231,231,234,0.18);
-  }
 </style>
