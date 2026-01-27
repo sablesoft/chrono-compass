@@ -1,17 +1,16 @@
+<!-- src/components/CycleWheel.svelte -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import Wheel from './Wheel.svelte';
-
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
 
     import { getDayAnchors, angleFromDayAnchors, shiftDayCycle } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors, shiftMoonCycle } from '../lib/cycles/moon';
+    import { getYearAnchors, angleFromYearAnchors, shiftYearCycle } from '../lib/cycles/year';
 
     import { formatDateTime } from '../lib/format';
     import type { CycleKind, SpinCmd } from '../lib/cycles/types';
-
-    const ANIM_MS = 420;
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -24,6 +23,9 @@
 
     // emit change of global time
     export let onSelectTs: (ts: number) => void = () => {};
+
+    export let resetUiId = 0;
+    let lastResetUiId = 0;
 
     // UI state (local per wheel)
     let selectedSpokeIndex: number | null = null;
@@ -41,61 +43,41 @@
     // Responsive size
     let wheelSize = 360;
 
-    export let resetUiId = 0;
-    let lastResetUiId = 0;
-
-    // timers we want to be able to cancel
     let unlockTimer: ReturnType<typeof setTimeout> | null = null;
     let nextETimer: ReturnType<typeof setTimeout> | null = null;
 
-    // derived
     let anchors: Anchors;
     let spokeTimes: number[] = [];
     let pointerAngleDeg = 0;
     let progress = 0;
 
-    // direction of time (for Wheel “time-directed rotation”)
     let prevTs = selectedTs;
     let timeDir: -1 | 0 | 1 = 0;
 
     function clearTimers() {
-        if (unlockTimer) {
-            clearTimeout(unlockTimer);
-            unlockTimer = null;
-        }
-        if (nextETimer) {
-            clearTimeout(nextETimer);
-            nextETimer = null;
-        }
+        if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
+        if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
     }
 
-    function resetUiOnly() {
-        clearTimers();
-        selectedSpokeIndex = null;
-        activeSpokeIndex = null;
-        spinCmd = null;
-        isCycling = false;
+    function computeAnchors(): Anchors {
+        if (kind === 'moon') return getMoonAnchors(selectedTs);
+        if (kind === 'year') return getYearAnchors(selectedTs);
+        return getDayAnchors(selectedTs, lat, lon);
     }
 
-    function computeAnchors(ts: number): Anchors {
-        if (kind === 'moon') return getMoonAnchors(ts);
-        // year пока заглушка: day
-        return getDayAnchors(ts, lat, lon);
-    }
-
-    function computeAngle(ts: number, a: Anchors): number {
+    function computeAngle(ts: number, a: Anchors) {
         if (kind === 'moon') return angleFromMoonAnchors(ts, a);
-        // year пока заглушка: day
+        if (kind === 'year') return angleFromYearAnchors(ts, a);
         return angleFromDayAnchors(ts, a);
     }
 
-    function computeShiftedBase(cycleStartTs: number, dir: -1 | 1): number {
-        if (kind === 'moon') return shiftMoonCycle(cycleStartTs, dir);
-        // year пока заглушка: day
-        return shiftDayCycle(cycleStartTs, dir);
+    function shiftCycleBase(ts: number, dir: -1 | 1) {
+        if (kind === 'moon') return shiftMoonCycle(ts, dir);
+        if (kind === 'year') return shiftYearCycle(ts, dir);
+        return shiftDayCycle(ts, dir);
     }
 
-    // detect direction of the *incoming* global time changes
+    // direction of time changes (for Wheel: always rotate by time direction, not shortest)
     $: {
         if (selectedTs === prevTs) {
             timeDir = 0;
@@ -105,14 +87,17 @@
         }
     }
 
-    // external reset (Now button in App)
     $: if (resetUiId !== lastResetUiId) {
         lastResetUiId = resetUiId;
-        resetUiOnly();
+
+        clearTimers();
+        selectedSpokeIndex = null;
+        activeSpokeIndex = null;
+        spinCmd = null;
+        isCycling = false;
     }
 
-    // derived model for this wheel
-    $: anchors = computeAnchors(selectedTs);
+    $: anchors = computeAnchors();
     $: spokeTimes = buildSpokeTimes(anchors);
     $: pointerAngleDeg = computeAngle(selectedTs, anchors);
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
@@ -128,14 +113,10 @@
 
         const innerW = Math.max(0, wrapEl.clientWidth - pl - pr);
         const innerH = Math.max(0, wrapEl.clientHeight - pt - pb);
-
         const available = Math.floor(Math.min(innerW, innerH));
 
-        // Wheel uses internal padding visually; in our fixed VB version it’s mostly about container.
-        // Still keep the small “breathing room” factor.
-        const sizeByPad = Math.floor(available / 1.10);
-
-        wheelSize = Math.max(320, sizeByPad - 2);
+        // Wheel viewBox is fixed; visual padding is handled by radii.
+        wheelSize = Math.max(320, available - 2);
     }
 
     onMount(() => {
@@ -157,69 +138,66 @@
     });
 
     function onSelectSpoke(i: number) {
-        // user action overrides any pending animation state
+        // user click wins
         clearTimers();
         isCycling = false;
         spinCmd = null;
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
-
         onSelectTs(spokeTimes[i]);
     }
 
     function shiftCycle(dir: -1 | 1) {
         if (isCycling) return;
-
         clearTimers();
         isCycling = true;
 
-        // 1) choose which spoke to preserve across cycles
+        // keep the same spoke index across cycles
         const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // 2) compute next cycle anchors (IMPORTANT: shift from cycle start)
-        const shiftedBase = computeShiftedBase(anchors.E, dir);
-        const a2 = computeAnchors(shiftedBase);
-        const t2 = buildSpokeTimes(a2);
+        // shift from cycle start anchor (E) to avoid drift
+        const shiftedBase = shiftCycleBase(anchors.E, dir);
 
+        const a2 =
+            kind === 'moon' ? getMoonAnchors(shiftedBase)
+                : kind === 'year' ? getYearAnchors(shiftedBase)
+                    : getDayAnchors(shiftedBase, lat, lon);
+
+        const t2 = buildSpokeTimes(a2);
         const targetTs = t2[i];
         const targetAngleDeg = computeAngle(targetTs, a2);
 
-        // 3) command Wheel: 1 full turn + land on targetAngleDeg
+        // one full turn + land on target angle
         spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
 
-        // 4) update global time
         onSelectTs(targetTs);
 
-        // unlock after animation
         unlockTimer = setTimeout(() => {
             isCycling = false;
-            unlockTimer = null;
-        }, ANIM_MS + 30);
+        }, 420 + 30);
     }
 
     function onSelectNextE() {
         if (isCycling) return;
-
         clearTimers();
         isCycling = true;
 
         selectedSpokeIndex = null;
         activeSpokeIndex = null;
 
-        // animate to end-of-cycle (just before E_next)
+        // animate to end-of-cycle
         onSelectTs(anchors.end - 1);
 
-        // snap to next cycle start (exact E_next)
+        // snap to next cycle start
         nextETimer = setTimeout(() => {
             onSelectTs(anchors.end);
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
             isCycling = false;
-            nextETimer = null;
-        }, ANIM_MS);
+        }, 420);
     }
 </script>
 
@@ -227,9 +205,7 @@
     <header class="top">
         <div class="left">
             <div class="title">{title}</div>
-            <div class="sub">
-                {formatDateTime(selectedTs)} · {(progress * 100).toFixed(1)}%
-            </div>
+            <div class="sub">{formatDateTime(selectedTs)} · {(progress * 100).toFixed(1)}%</div>
         </div>
 
         <div class="right">
@@ -296,16 +272,12 @@
     button {
         padding: 8px 10px;
         border-radius: 10px;
-        border: 1px solid rgba(231, 231, 234, 0.18);
-        background: rgba(231, 231, 234, 0.06);
+        border: 1px solid rgba(231,231,234,0.18);
+        background: rgba(231,231,234,0.06);
         color: inherit;
         cursor: pointer;
     }
-
-    button:disabled {
-        opacity: 0.45;
-        cursor: default;
-    }
+    button:disabled { opacity: 0.45; cursor: default; }
 
     .wrap {
         display: grid;
@@ -325,8 +297,5 @@
         display: grid;
         gap: 4px;
     }
-
-    .info strong {
-        font-weight: 650;
-    }
+    .info strong { font-weight: 650; }
 </style>
