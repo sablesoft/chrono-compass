@@ -19,21 +19,21 @@
     // “ровно 1 оборот + приземление на targetAngleDeg”
     export let spinCmd: SpinCmd | null = null;
 
-    // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
+    // “если прыжок > цикл: 1 круг + до E + до target”
     export let preTurnCmd: PreTurnCmd | null = null;
 
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
 
-    //  1  => time forward => CCW (negative degrees)
-    // -1  => time back    => CW  (positive degrees)
+    //  1  => time forward => CCW (negative)
+    // -1  => time back    => CW  (positive)
     //  0  => unknown
     export let timeDir: -1 | 0 | 1 = 0;
 
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
-    // Single coordinate space
+    // --- Geometry (single coordinate space)
     const VB = 1000;
     const cx = VB / 2;
     const cy = VB / 2;
@@ -41,21 +41,6 @@
     const rOuter = VB * 0.42;
     const rInner = VB * 0.18;
     const rLabel = VB * 0.48;
-
-    // Continuous animation state (IMPORTANT: never reset to raw pointerAngle)
-    let displayAngle = pointerAngleDeg;
-    let lastAngle = pointerAngleDeg;
-
-    let lastSpinCmdId = 0;
-    let lastPreTurnCmdId = 0;
-
-    // Lock while doing a forced spin (pre-turn or spinCmd)
-    let spinLock = false;
-    let spinLockTarget = 0;
-    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
-
-    let noTransition = false;
-    let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
@@ -66,6 +51,21 @@
         return -stepDeg * i; // time-forward is CCW => negative
     }
 
+    // --- Animation state (continuous)
+    let displayAngle = pointerAngleDeg;
+    let lastAngle = pointerAngleDeg;
+
+    let lastSpinCmdId = 0;
+    let lastPreTurnCmdId = 0;
+
+    // lock while doing a forced spin (pre-turn or spinCmd)
+    let spinLock = false;
+    let spinLockTarget = 0;
+    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
+
+    let noTransition = false;
+    let resetTimer: ReturnType<typeof setTimeout> | null = null;
+
     function clearSnapMode() {
         if (resetTimer) {
             clearTimeout(resetTimer);
@@ -74,47 +74,61 @@
         noTransition = false;
     }
 
-    // Convert time direction to "degree sign" we must preserve:
-    // future => CCW => delta must be NEGATIVE
-    // past   => CW  => delta must be POSITIVE
-    function degSignFromTimeDir(dir: -1 | 1) {
-        return dir === 1 ? -1 : 1; // +1 future => -1 degrees, -1 past => +1 degrees
+    // --- helpers: directional movement on circle
+
+    function mod360(a: number) {
+        let m = a % 360;
+        if (m < 0) m += 360;
+        return m;
     }
 
-    // Pick an equivalent representation of baseAngle (±360k) so that:
-    // (t - current) has the correct sign (degSign), and is the "nearest" among those.
-    function normalizeByDegSign(baseAngle: number, current: number, degSign: 1 | -1) {
-        let t = baseAngle;
+    // Signed delta from "fromAngle" to "toAngle" moving strictly in the given direction.
+    // dir=1 (forward/CCW) => negative delta in [-359..0]
+    // dir=-1 (back/CW)    => positive delta in [0..359]
+    function deltaInDir(fromAngle: number, toAngle: number, dir: 1 | -1): number {
+        const f = mod360(fromAngle);
+        const t = mod360(toAngle);
 
-        // Keep numbers bounded
-        while (t - current > 720) t -= 360;
-        while (t - current < -720) t += 360;
-
-        // Force desired sign
-        while ((t - current) * degSign <= 0) {
-            t += 360 * degSign;
+        if (dir === 1) {
+            // CCW => angle decreases
+            return -((f - t + 360) % 360);
+        } else {
+            // CW => angle increases
+            return ((t - f + 360) % 360);
         }
-        return t;
     }
 
-    // Exactly one full turn in cmd dir, then land on targetAngleDeg (in that direction)
-    function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
-        // dir=+1 (future) => CCW => degSign=-1
-        // dir=-1 (past)   => CW  => degSign=+1
-        const degSign = degSignFromTimeDir(dir);
-
-        // First, ensure target is reached in the correct direction
-        const base = normalizeByDegSign(targetAngleDeg, current, degSign);
-
-        // Then add ONE guaranteed full cycle in the same direction
-        return base + 360 * degSign;
+    // Normal move (< cycle): minimal movement but ONLY in time direction
+    function computeDirectedTarget(toAngle: number, current: number, dir: 1 | -1): number {
+        const d = deltaInDir(current, toAngle, dir);
+        // if d=0, do nothing (no forced spin)
+        return current + d;
     }
 
-    // One full turn first, THEN land on current pointerAngleDeg (in the same direction)
-    function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
-        const degSign = degSignFromTimeDir(dir);
-        const base = normalizeByDegSign(currentTargetAngle, current, degSign);
-        return base + 360 * degSign;
+    // Button spin: exactly one full turn in dir, then land on targetAngleDeg (same direction, no shortest-path)
+    function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1): number {
+        const turn = -360 * dir; // forward(CCW) negative
+        const afterOneTurn = current + turn;
+
+        // from that point, move in same dir to target (minimal in that dir)
+        const d = deltaInDir(afterOneTurn, targetAngleDeg, dir);
+        return afterOneTurn + d;
+    }
+
+    // Big jump: 1 full turn returning to same angle, then go to E(0), then to target — all in same dir
+    function computePreTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1): number {
+        const turn = -360 * dir;
+
+        // 1) full cycle back to same angle
+        const a1 = current + turn;
+
+        // 2) to E (0)
+        const toE = deltaInDir(a1, 0, dir);
+        const a2 = a1 + toE;
+
+        // 3) from E to target
+        const toT = deltaInDir(a2, targetAngleDeg, dir);
+        return a2 + toT;
     }
 
     function startSpinLock(target: number) {
@@ -124,49 +138,54 @@
         if (spinLockTimer) clearTimeout(spinLockTimer);
         spinLockTimer = setTimeout(() => {
             spinLock = false;
-            spinLockTimer = null;
-        }, POINTER_ANIM_MS + 30);
+        }, POINTER_ANIM_MS + 20);
     }
 
     // Reactive: drive displayAngle
     $: {
-        // 1) lock — самый высокий приоритет
+        // lock has top priority
         if (spinLock) {
             displayAngle = spinLockTarget;
             lastAngle = spinLockTarget;
         } else {
-            // default movement: follow pointerAngleDeg but ONLY in timeDir (if known)
-            let target = pointerAngleDeg;
+            // determine direction for normal motion
+            const dir: 1 | -1 | null =
+                timeDir === 0 ? null : (timeDir > 0 ? 1 : -1);
 
-            if (timeDir !== 0) {
-                const degSign = degSignFromTimeDir(timeDir);
-                target = normalizeByDegSign(pointerAngleDeg, lastAngle, degSign);
-            } else {
-                // no direction info => keep it "close-ish" without forcing sign
-                // (so it doesn’t drift infinitely)
-                while (target - lastAngle > 180) target -= 360;
-                while (target - lastAngle < -180) target += 360;
+            // 1) explicit spin command (←/→) overrides everything
+            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+                const d = spinCmd.dir; // 1|-1
+                const target = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, d);
+
+                lastSpinCmdId = spinCmd.id;
+                startSpinLock(target);
+
+                displayAngle = target;
+                lastAngle = target;
             }
-
-            // 2) preTurn (дальний прыжок) — ниже spinCmd
-            if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
+            // 2) preTurn (big external jump): 1 turn + to E + to target
+            else if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
                 lastPreTurnCmdId = preTurnCmd.id;
 
-                const t = computePreTurnTarget(pointerAngleDeg, lastAngle, preTurnCmd.dir);
-                startSpinLock(t);
-                target = t;
-            }
+                const d = preTurnCmd.dir; // 1|-1
+                const target = computePreTurnTarget(pointerAngleDeg, lastAngle, d);
 
-            // 3) explicit spin command (←/→) — главный приоритет
-            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-                const t = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
-                lastSpinCmdId = spinCmd.id;
-                startSpinLock(t);
-                target = t;
-            }
+                startSpinLock(target);
 
-            displayAngle = target;
-            lastAngle = target;
+                displayAngle = target;
+                lastAngle = target;
+            }
+            // 3) normal movement: directed by time (not-shortest path)
+            else if (dir) {
+                const target = computeDirectedTarget(pointerAngleDeg, lastAngle, dir);
+                displayAngle = target;
+                lastAngle = target;
+            }
+            // 4) no direction known: snap (safe default)
+            else {
+                displayAngle = pointerAngleDeg;
+                lastAngle = pointerAngleDeg;
+            }
         }
     }
 

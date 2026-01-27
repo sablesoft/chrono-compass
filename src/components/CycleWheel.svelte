@@ -16,8 +16,6 @@
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
-    export let isLive = false;
-
     export let lat: number;
     export let lon: number;
 
@@ -50,7 +48,6 @@
     let progress = 0;
 
     // time direction for Wheel (future => CCW, past => CW)
-    let prevTs = selectedTs;
     let timeDir: -1 | 0 | 1 = 0;
 
     const ANIM_MS = 420;
@@ -59,8 +56,10 @@
 
     // --- important: detect external time jumps
     let selfChangeToken = 0; // increment before calling onSelectTs
-    let lastSeenToken = 0;
     let lastSeenTs = selectedTs;
+
+    // вместо токенов — надёжный флажок “это я сам поменял”
+    let pendingSelfTs: number | null = null;
 
     function clearTimers() {
         if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
@@ -80,7 +79,6 @@
 
     function emitSelectTs(ts: number) {
         selfChangeToken += 1;
-        lastSeenToken = selfChangeToken;
         onSelectTs(ts);
     }
 
@@ -107,45 +105,47 @@
     $: if (resetUiId !== lastResetUiId) {
         lastResetUiId = resetUiId;
         cancelLocalAnimationsAndUi();
-        prevTs = selectedTs;
         timeDir = 0;
     }
 
     // detect external selectedTs changes + compute timeDir + pre-turn for big jumps
     $: {
-        if (selectedTs !== lastSeenTs) {
-            const isExternal = (lastSeenToken !== selfChangeToken);
+        if (selectedTs === lastSeenTs) {
+            timeDir = 0;
+        } else {
+            const oldTs = lastSeenTs;
+            const delta = selectedTs - oldTs;
 
-            // direction always updates when ts changes
-            timeDir = selectedTs > prevTs ? 1 : -1;
-            prevTs = selectedTs;
+            // direction from old -> new
+            timeDir = delta > 0 ? 1 : -1;
 
-            // update lastSeen
+            // who initiated the change?
+            const isSelf = pendingSelfTs === selectedTs;
+            const isExternal = !isSelf;
+            pendingSelfTs = null;
+
+            // update last seen BEFORE any further logic depends on "current state"
             lastSeenTs = selectedTs;
 
-            // always drop one-shot preturn if we’re inside our own button animation
-            if (isCycling) {
-                // no-op
-            } else {
-                // if external, cancel our UI so we don’t “lie”
+            // if this wheel is currently doing its own ←/→ animation, don't inject preturn
+            if (!isCycling) {
+                // if external (another wheel / Now / manual date picker later) — drop local UI so we don't lie
                 if (isExternal) {
-                    if (!isLive) cancelLocalAnimationsAndUi();
                     cancelLocalAnimationsAndUi();
                 }
 
-                // If jump is larger than this wheel’s cycle: do 1 full pre-turn, then land.
-                // (Works for external changes AND manual spoke clicks from other wheels)
-                // Need anchors duration for current selectedTs.
+                // big jump detection: compare using oldTs (NOT lastSeenTs after update)
                 const a = computeAnchors(selectedTs);
                 const cycleMs = Math.max(1, a.end - a.start);
-                const absDelta = Math.abs(selectedTs - lastSeenTs); // <-- careful: lastSeenTs already updated
+                const absDelta = Math.abs(delta);
 
-                // We need previous value to compute delta reliably.
-                // So compute delta from prevTs BEFORE we overwrite it.
-                // We already overwrote prevTs above, so use lastSeenTsOld:
+                if (absDelta > cycleMs) {
+                    // one full cycle + to E + to target, in the same time direction
+                    preTurnCmd = { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 };
+                } else {
+                    preTurnCmd = null;
+                }
             }
-        } else {
-            timeDir = 0;
         }
     }
 
