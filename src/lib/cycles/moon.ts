@@ -67,17 +67,3 @@ export function getMoonAnchors(ts: number): Anchors {
 }
 
 export const angleFromMoonAnchors = angleFromAnchors;
-
-/**
- * Сдвиг лунного цикла на ±1 цикл.
- * ВАЖНО: вход лучше давать anchors.E (старт цикла).
- */
-export function shiftMoonCycle(cycleStartTs: number, dir: -1 | 1) {
-    if (dir > 0) {
-        // следующий старт цикла = первая четверть ПОСЛЕ текущего старта
-        return searchFirstQuarterAfter(cycleStartTs).date.getTime();
-    } else {
-        // предыдущий старт цикла = первая четверть на/до (cycleStart - eps)
-        return searchFirstQuarterAtOrBefore(cycleStartTs - EPS_MS).date.getTime();
-    }
-}

@@ -100,10 +100,3 @@ function segProgress(ts: number, a0: number, a1: number) {
 }
 
 export const angleFromYearAnchors = angleFromAnchors;
-
-// Сдвиг годового цикла на N лет (для ←/→)
-export function shiftYearCycle(ts: number, yearsDelta: number) {
-    const d = new Date(ts);
-    d.setUTCFullYear(d.getUTCFullYear() + yearsDelta);
-    return d.getTime();
-}

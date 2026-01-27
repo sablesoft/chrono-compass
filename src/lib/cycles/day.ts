@@ -47,10 +47,3 @@ export function getDayAnchors(ts: number, lat: number, lon: number): Anchors {
 }
 
 export const angleFromDayAnchors = angleFromAnchors;
-
-// Сдвиг цикла на N суток (для кнопок ←/→)
-export function shiftDayCycle(ts: number, daysDelta: number) {
-    const d = new Date(ts);
-    d.setDate(d.getDate() + daysDelta);
-    return d.getTime();
-}
