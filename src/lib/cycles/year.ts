@@ -2,12 +2,13 @@
 import type { Anchors } from './spokes';
 import { clamp01 } from './spokes';
 import { angleFromAnchors } from './angle';
+import {ms} from "../format";
 
 const MS_PER_DAY = 86400000;
 const JD_UNIX_EPOCH = 2440587.5; // 1970-01-01T00:00:00Z in Julian Day
 
 function jdToUnixMs(jd: number) {
-    return (jd - JD_UNIX_EPOCH) * MS_PER_DAY;
+    return ms((jd - JD_UNIX_EPOCH) * MS_PER_DAY);
 }
 
 // Meeus-style polynomial approximations for equinoxes/solstices (good enough for UI wheel).
@@ -57,11 +58,11 @@ function jdeDecemberSolstice(y: number) {
 }
 
 function yearEventsUtcMs(year: number) {
-    const E = jdToUnixMs(jdeMarchEquinox(year));
-    const N = jdToUnixMs(jdeJuneSolstice(year));
-    const W = jdToUnixMs(jdeSeptemberEquinox(year));
-    const S = jdToUnixMs(jdeDecemberSolstice(year));
-    const E_next = jdToUnixMs(jdeMarchEquinox(year + 1));
+    const E = ms(jdToUnixMs(jdeMarchEquinox(year)));
+    const N = ms(jdToUnixMs(jdeJuneSolstice(year)));
+    const W = ms(jdToUnixMs(jdeSeptemberEquinox(year)));
+    const S = ms(jdToUnixMs(jdeDecemberSolstice(year)));
+    const E_next = ms(jdToUnixMs(jdeMarchEquinox(year + 1)));
     return { E, N, W, S, E_next };
 }
 

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import CycleWheel from './components/CycleWheel.svelte';
-  import { formatDateTime, formatCoords } from './lib/format';
+  import {formatDateTime, formatCoords, ms} from './lib/format';
   import { loadPlaces, addPlace, removePlace, type Place } from './lib/places/store';
 
   // global time (single source of truth)
@@ -53,7 +53,7 @@
     // любое внешнее изменение времени должно выключать live
     // (иначе live перетрёт)
     stopLive();
-    selectedTs = ts;
+    selectedTs = ms(ts);
   }
 
   function onUserActivity() {

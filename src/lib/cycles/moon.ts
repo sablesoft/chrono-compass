@@ -2,68 +2,145 @@
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
+import {ms} from "../format";
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-const SAFE_WINDOW_DAYS = 80; // запас, чтобы точно захватить нужные события
-const EPS_MS = 60_000;       // 1 минута — чтобы не попасть в тот же event
+const DAY_MS = 86400_000;
+const SYNODIC_MONTH_DAYS = 29.530588853;
+const SYNODIC_MONTH_MS = SYNODIC_MONTH_DAYS * DAY_MS;
+const QUARTER_MS = SYNODIC_MONTH_MS / 4;
 
-function searchFirstQuarterAfter(ts: number, limitDays = 40) {
-    const t = Astronomy.SearchMoonPhase(90, new Date(ts + EPS_MS), limitDays);
-    if (!t) throw new Error('Moon: cannot find next first quarter');
-    return t;
+// Опора для аппроксимации
+const APPROX_EPOCH_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0, 0);
+
+// “точный” диапазон для astronomy-engine (можешь сузить/расширить)
+const EXACT_MIN_YEAR = 1600;
+const EXACT_MAX_YEAR = 2400;
+
+function isFiniteNumber(x: number) {
+    return Number.isFinite(x) && !Number.isNaN(x);
 }
 
-// Ищем "первую четверть на или до ts" так:
-// 1) стартуем сильно раньше
-// 2) ищем первую четверть ПОСЛЕ старта
-// 3) шагаем к следующим первым четвертям пока не перепрыгнем ts
+function safeDateFromTs(ts: number): Date | null {
+    if (!isFiniteNumber(ts)) return null;
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function utcYearFromTs(ts: number): number | null {
+    const d = safeDateFromTs(ts);
+    if (!d) return null;
+    const y = d.getUTCFullYear();
+    return Number.isNaN(y) ? null : y;
+}
+
+function approxMoonAnchors(ts: number): Anchors {
+    // цикл: FirstQuarter -> next FirstQuarter
+    const k = Math.floor((ts - APPROX_EPOCH_NEW_MOON_MS) / SYNODIC_MONTH_MS);
+    const newMoon0 = APPROX_EPOCH_NEW_MOON_MS + k * SYNODIC_MONTH_MS;
+
+    let first = newMoon0 + QUARTER_MS;
+    while (first > ts) first -= SYNODIC_MONTH_MS;
+    while (first + SYNODIC_MONTH_MS <= ts) first += SYNODIC_MONTH_MS;
+
+    const E = ms(first);
+    const N = ms(E + QUARTER_MS);
+    const W = ms(E + 2 * QUARTER_MS);
+    const S = ms(E + 3 * QUARTER_MS);
+    const E_next = ms(E + 4 * QUARTER_MS);
+
+    let anchors = { start: E, end: E_next, E, N, W, S, E_next };
+
+    console.log('approxMoonAnchors', ts, anchors);
+
+    return anchors;
+}
+
+function inExactRange(ts: number) {
+    const y = utcYearFromTs(ts);
+    if (y === null) return false;
+    return y >= EXACT_MIN_YEAR && y <= EXACT_MAX_YEAR;
+}
+
 function searchFirstQuarterAtOrBefore(ts: number) {
-    const start = ts - SAFE_WINDOW_DAYS * DAY_MS;
-    let cur = Astronomy.SearchMoonPhase(90, new Date(start), SAFE_WINDOW_DAYS);
-    if (!cur) throw new Error('Moon: cannot find first quarter in window');
+    const d = safeDateFromTs(ts);
+    if (!d) return null;
 
-    while (true) {
-        const next = Astronomy.SearchMoonPhase(90, new Date(cur.date.getTime() + EPS_MS), 40);
-        if (!next) break;
-
-        const nextTs = next.date.getTime();
-        if (nextTs <= ts) {
-            cur = next;
-            continue;
+    // расширяем окно
+    for (const w of [40, 80, 160, 320]) {
+        try {
+            const t = Astronomy.SearchMoonPhase(90, d, -w);
+            if (t) return t;
+        } catch {
+            return null;
         }
-        break;
     }
-
-    return cur;
+    return null;
 }
 
-/**
- * Лунный цикл: FirstQuarter -> next FirstQuarter
- * E=first quarter, N=full, W=third quarter, S=new, E_next=next first quarter
- */
+// function searchFirstQuarterAfter(ts: number) {
+//     const d = safeDateFromTs(ts);
+//     if (!d) return null;
+//
+//     for (const w of [40, 80, 160, 320]) {
+//         try {
+//             const t = Astronomy.SearchMoonPhase(90, d, +w);
+//             if (t && t.date.getTime() > ts) return t;
+//         } catch {
+//             return null;
+//         }
+//     }
+//     return null;
+// }
+
 export function getMoonAnchors(ts: number): Anchors {
-    // Гарантированно берём первую четверть <= ts
-    const prevFirst = searchFirstQuarterAtOrBefore(ts);
+    if (!isFiniteNumber(ts)) return approxMoonAnchors(Date.now());
+    ts = ms(ts);
 
-    // Дальше по порядку кварталов
-    const q1 = new Astronomy.MoonQuarter(1, prevFirst); // first quarter
-    const full = Astronomy.NextMoonQuarter(q1);         // quarter 2
-    const third = Astronomy.NextMoonQuarter(full);      // quarter 3
-    const newm = Astronomy.NextMoonQuarter(third);      // quarter 0
-    const nextFirst = Astronomy.NextMoonQuarter(newm);  // quarter 1
+    if (!inExactRange(ts)) return approxMoonAnchors(ts);
 
-    const E = q1.time.date.getTime();
-    const N = full.time.date.getTime();
-    const W = third.time.date.getTime();
-    const S = newm.time.date.getTime();
-    const E_next = nextFirst.time.date.getTime();
+    // КЛЮЧ: если стоим ровно на границе (E события),
+    // относимся к новому циклу => опорное событие берём строго ДО ts
+    const prevFirst = searchFirstQuarterAtOrBefore(ts + 1);
+    if (!prevFirst) return approxMoonAnchors(ts);
 
-    return {
-        start: E,
-        end: E_next,
-        E, N, W, S,
-        E_next
-    };
+    try {
+        const mq = new Astronomy.MoonQuarter(1, prevFirst);
+        const full = Astronomy.NextMoonQuarter(mq);
+        const third = Astronomy.NextMoonQuarter(full);
+        const newm = Astronomy.NextMoonQuarter(third);
+        const nextFirst = Astronomy.NextMoonQuarter(newm);
+
+        const E = ms(mq.time.date.getTime());
+        const N = ms(full.time.date.getTime());
+        const W = ms(third.time.date.getTime());
+        const S = ms(newm.time.date.getTime());
+        const E_next = ms(nextFirst.time.date.getTime());
+
+        if (![E, N, W, S, E_next].every(isFiniteNumber)) return approxMoonAnchors(ts);
+        return { start: E, end: E_next, E, N, W, S, E_next };
+    } catch {
+        return approxMoonAnchors(ts);
+    }
 }
 
 export const angleFromMoonAnchors = angleFromAnchors;
+
+// export function shiftMoonCycle(cycleStartTs: number, dir: -1 | 1) {
+//     if (!isFiniteNumber(cycleStartTs)) return Date.now();
+//
+//     // вне "точного" диапазона — просто аппроксимация
+//     if (!inExactRange(cycleStartTs)) {
+//         return ms(cycleStartTs + dir * SYNODIC_MONTH_MS);
+//     }
+//
+//     // ВАЖНО: избегаем ровно "на событии", сдвигаемся на 1ms
+//     if (dir > 0) {
+//         // следующий старт цикла = E_next текущего цикла
+//         const a = getMoonAnchors(ms(cycleStartTs) + 1);
+//         return ms(a.E_next);
+//     } else {
+//         // предыдущий старт цикла = E предыдущего цикла
+//         const aPrev = getMoonAnchors(ms(cycleStartTs) - 1);
+//         return ms(aPrev.E);
+//     }
+// }

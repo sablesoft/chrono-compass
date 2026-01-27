@@ -10,7 +10,7 @@
     import { getYearAnchors, angleFromYearAnchors } from '../lib/cycles/year';
     import { getPlatoAnchors, angleFromPlatoAnchors } from '../lib/cycles/plato';
 
-    import { formatDateTime } from '../lib/format';
+    import {formatDateTime, ms} from '../lib/format';
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
 
     export let kind: CycleKind = 'day';
@@ -88,9 +88,9 @@
     }
 
     function emitSelectTs(ts: number) {
-        // mark it as ours BEFORE changing global state
-        pendingSelfTs = ts;
-        onSelectTs(ts);
+        const t = ms(ts);
+        pendingSelfTs = t;
+        onSelectTs(t);
     }
 
     function computeAnchors(ts: number): Anchors {
@@ -115,6 +115,54 @@
         // “секунда до старта текущего” -> anchors предыдущего цикла
         const aPrev = computeAnchors(a.E - 1);
         return aPrev.E; // start of previous cycle
+    }
+
+    function shiftCycle(dir: -1 | 1) {
+        onUserActivity();
+        if (isCycling) return;
+        isCycling = true;
+
+        preTurnCmd = null;
+
+        const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
+        activeSpokeIndex = i;
+        selectedSpokeIndex = i;
+
+        let shiftedBase: number;
+        if (dir > 0) shiftedBase = nextCycleStart(anchors);
+        else shiftedBase = prevCycleStart(anchors);
+
+        const a2 = computeAnchors(shiftedBase);
+        const t2 = buildSpokeTimes(a2);
+
+        const targetTs = ms(t2[i]);          // <- на всякий, чтобы не было .75
+        const targetAngleDeg = computeAngle(targetTs, a2);
+
+        logCycle('shiftCycle', {
+            dir,
+            fromTs: selectedTs,
+            baseE: anchors.E,
+            baseE_next: anchors.E_next,
+            shiftedBase,
+            a2E: a2.E,
+            a2E_next: a2.E_next,
+            targetTs
+        });
+
+        if (ms(targetTs) === ms(selectedTs)) {
+            console.warn(`[${title}/${kind}] shiftCycle no-op (same targetTs)`, { targetTs, selectedTs, shiftedBase });
+            isCycling = false;
+            return;
+        }
+
+        spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
+        emitSelectTs(targetTs);
+
+        clearTimers();
+        unlockTimer = setTimeout(() => {
+            isCycling = false;
+            unlockTimer = null;
+        }, ANIM_MS + 30);
     }
 
     // resetUiId => явный сброс
@@ -220,47 +268,6 @@
 
         // within this wheel it's always inside current cycle, so no need to force preTurn here
         emitSelectTs(spokeTimes[i]);
-    }
-
-    function shiftCycle(dir: -1 | 1) {
-        onUserActivity();
-        if (isCycling) return;
-        isCycling = true;
-
-        preTurnCmd = null;
-
-        const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
-        activeSpokeIndex = i;
-        selectedSpokeIndex = i;
-
-        // IMPORTANT: base is real cycle boundary, not Date arithmetic
-        const shiftedBase = (dir > 0) ? nextCycleStart(anchors) : prevCycleStart(anchors);
-
-        const a2 = computeAnchors(shiftedBase);
-        const t2 = buildSpokeTimes(a2);
-
-        const targetTs = t2[i];
-        const targetAngleDeg = computeAngle(targetTs, a2);
-
-        logCycle('shiftCycle', {
-            dir,
-            fromTs: selectedTs,
-            baseE: anchors.E,
-            baseE_next: anchors.E_next,
-            shiftedBase,
-            a2E: a2.E,
-            a2E_next: a2.E_next,
-            targetTs
-        });
-
-        spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
-        emitSelectTs(targetTs);
-
-        clearTimers();
-        unlockTimer = setTimeout(() => {
-            isCycling = false;
-            unlockTimer = null;
-        }, ANIM_MS + 30);
     }
 
     function onSelectNextE() {
