@@ -395,7 +395,7 @@
 
     .infoRow {
         display: grid;
-        grid-template-columns: 3ch 15ch 3ch 1fr;
+        grid-template-columns: 4ch 19ch 3ch 1fr;
         align-items: baseline;
         column-gap: 10px;
         padding: 2px 6px;

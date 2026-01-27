@@ -5,18 +5,13 @@
 </script>
 
 <header class="bar">
-    <div class="brand">
-        <div class="title">Time Wheels</div>
-    </div>
-
-    <div class="slot loc">
-        <LocationPicker />
-    </div>
-
+    <div class="title">Time Wheels</div>
     <div class="slot time">
         <TimePicker />
     </div>
-
+    <div class="slot loc">
+        <LocationPicker />
+    </div>
     <div class="actions">
         <ThemeSwitcher />
     </div>
@@ -34,11 +29,12 @@
         margin-bottom: 14px;
     }
 
-    .title{ font-size: 20px; font-weight: 750; opacity: .95; }
-
-    .slot{ min-width: 0; }
-    .loc{ flex: 1 1 520px; }
-    .time{ flex: 1 1 520px; display:flex; justify-content:flex-start; }
+    .title {
+        margin: 0 20px 7px 20px;
+        font-size: 44px;
+        font-weight: 750;
+        opacity: .95;
+    }
 
     .actions{ margin-left:auto; display:flex; gap:10px; align-items:center; }
 </style>
