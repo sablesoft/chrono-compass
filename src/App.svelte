@@ -99,7 +99,7 @@
   <div class="container">
     <header class="topbar">
       <div class="title">
-        <div class="h">Wheels</div>
+        <div class="h">Time Wheels</div>
         <div class="sub">{formatDateTime(selectedTs)}{isLive ? ' · LIVE' : ''}</div>
       </div>
 
@@ -207,8 +207,8 @@
     margin-bottom: 14px;
   }
 
-  .h { font-size: 18px; font-weight: 700; opacity: 0.95; }
-  .sub { font-size: 13px; opacity: 0.75; margin-top: 2px; }
+  .h { font-size: 26px; font-weight: 700; opacity: 0.95; }
+  .sub { font-size: 22px; opacity: 0.75; margin-top: 2px; }
 
   button {
     padding: 8px 10px;
@@ -230,7 +230,7 @@
     padding: 12px 14px;
     margin-bottom: 16px;
   }
-  .line { font-size: 14px; opacity: 0.9; margin-bottom: 10px; }
+  .line { font-size: 20px; opacity: 0.9; margin-bottom: 10px; }
   .save { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
   input {
     flex: 1;
@@ -244,7 +244,7 @@
   .places { display: grid; gap: 8px; }
   .place { display: flex; align-items: center; gap: 10px; }
   .pick { padding: 6px 10px; border-radius: 10px; }
-  .coords { font-size: 12px; opacity: 0.65; }
+  .coords { font-size: 18px; opacity: 0.65; }
   .del { margin-left: auto; padding: 6px 10px; opacity: 0.8; }
 
   .grid {
@@ -256,5 +256,5 @@
   @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
 
-  .note { margin-top: 14px; font-size: 12px; opacity: 0.55; }
+  .note { margin-top: 14px; font-size: 18px; opacity: 0.55; }
 </style>

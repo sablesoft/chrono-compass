@@ -8,7 +8,7 @@
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
     import { getYearAnchors, angleFromYearAnchors } from '../lib/cycles/year';
-    import { getPlatoAnchors, angleFromPlatoAnchors } from '../lib/cycles/plato';
+    import {getPlatoAnchors, angleFromPlatoAnchors, shiftPlatoCycle} from '../lib/cycles/plato';
 
     import {formatDateTime, ms} from '../lib/format';
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
@@ -107,14 +107,15 @@
         return angleFromDayAnchors(ts, a);
     }
 
-    function nextCycleStart(a: Anchors) {
-        return a.E_next; // start of next cycle
+    function prevCycleStart(a: Anchors) {
+        if (kind === 'plato') return shiftPlatoCycle(a.E, -1);  // железно на 1 период назад
+        const aPrev = computeAnchors(a.E - 1);
+        return aPrev.E;
     }
 
-    function prevCycleStart(a: Anchors) {
-        // “секунда до старта текущего” -> anchors предыдущего цикла
-        const aPrev = computeAnchors(a.E - 1);
-        return aPrev.E; // start of previous cycle
+    function nextCycleStart(a: Anchors) {
+        if (kind === 'plato') return shiftPlatoCycle(a.E, +1);  // железно на 1 период вперёд
+        return a.E_next;
     }
 
     function shiftCycle(dir: -1 | 1) {
@@ -352,7 +353,7 @@
     }
 
     .title {
-        font-size: 22px;
+        font-size: 28px;
         font-weight: 650;
         opacity: 0.95;
     }
@@ -390,7 +391,7 @@
 
     .info {
         margin-top: 10px;
-        font-size: 18px;
+        font-size: 24px;
         line-height: 1.75;
         opacity: 0.82;
         display: grid;

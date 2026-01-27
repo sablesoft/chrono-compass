@@ -1,4 +1,7 @@
 // src/lib/format.ts
+const MAX_DATE_MS = 8.64e15;          // приблизительно предел Date
+const MIN_DATE_MS = -MAX_DATE_MS;
+
 function pad2(n: number) { return String(n).padStart(2, '0'); }
 function pad4(n: number) { return String(n).padStart(4, '0'); }
 
@@ -32,6 +35,12 @@ export function formatCoords(lat: number, lon: number) {
     return `${f(lat)}, ${f(lon)}`;
 }
 
-export function ms(ts: number) {
-    return Number.isFinite(ts) ? Math.trunc(ts) : ts; // или Math.round
+export function ms(x: number) {
+    if (!Number.isFinite(x)) return Date.now();
+    const t = Math.trunc(x);
+
+    // чуть-чуть оставим зазор, чтобы +1/-1 работало
+    if (t >= MAX_DATE_MS) return Math.trunc(MAX_DATE_MS - 1);
+    if (t <= MIN_DATE_MS) return Math.trunc(MIN_DATE_MS + 1);
+    return t;
 }

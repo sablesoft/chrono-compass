@@ -12,8 +12,8 @@ export default defineConfig({
       },
       manifest: {
         name: 'Wheels of Time',
-        short_name: 'Wheels',
-        description: 'Year / Moon / Day wheels (offline)',
+        short_name: 'Time Wheels',
+        description: 'Year / Moon / Day wheels (offline) and more',
         start_url: '/',
         display: 'standalone',
         background_color: '#0b0b0c',
