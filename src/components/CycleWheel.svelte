@@ -28,7 +28,7 @@
     let isCycling = false;
 
     let wrapEl: HTMLElement | null = null;
-    let wheelSize = 520;
+    let wheelSize = 480;
 
     function computeWheelSize() {
         if (!wrapEl) return;
@@ -41,7 +41,7 @@
         // Поэтому берём size = w / 1.10 и ещё чуть запас.
         const maxByWrap = Math.floor((w - 8) / 1.10);
 
-        wheelSize = Math.max(320, Math.min(720, maxByWrap));
+        wheelSize = Math.max(320, Math.min(640, Math.floor(w - 18*2 - 12*2 - 8)));
     }
 
     function onResize() {
@@ -184,13 +184,13 @@
     }
 
     .title {
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 650;
         opacity: 0.95;
     }
 
     .sub {
-        font-size: 15px;
+        font-size: 18px;
         opacity: 0.75;
         margin-top: 2px;
     }
@@ -218,7 +218,7 @@
     .wrap {
         display: grid;
         place-items: center;
-        padding: 12px;
+        /*padding: 12px;*/
         width: 100%;
         max-width: 100%;
         overflow: hidden;
@@ -226,8 +226,8 @@
 
     .info {
         margin-top: 10px;
-        font-size: 15px;
-        line-height: 1.6;
+        font-size: 18px;
+        line-height: 1.75;
         opacity: 0.82;
         display: grid;
         gap: 4px;

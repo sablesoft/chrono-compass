@@ -12,122 +12,65 @@
     const stepDeg = 360 / spokeCount;
     const POINTER_ANIM_MS = 420;
 
-    // UI
-    export let size = 360;
+    export let size = 340;          // внешний размер SVG (px)
     export let showLabels = true;
 
-    // one-shot spin command from parent
     export let spinCmd: { id: number; dir: 1 | -1 } | null = null;
 
-    // Controlled inputs
-    export let selectedSpokeIndex: number | null = null; // 0..15 for highlight, null = none
-    export let pointerAngleDeg = 0; // base angle (E=0, N=-90, ...)
+    export let selectedSpokeIndex: number | null = null;
+    export let pointerAngleDeg = 0;
 
-    // Callbacks
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
     let lastSpinCmdId = 0;
+    let pendingExtraDeg = 0;
 
-    // Internal animation state (continuous angle)
     let animAngle = pointerAngleDeg;
-    let lastAngle = pointerAngleDeg;
-
-    // Spin lock: while active, ignore reactive base changes and keep fixed target
-    let spinLock = false;
-    let spinLockTarget = 0;
-    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
 
     let noTransition = false;
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const pad = () => size * 0.05;
-    const cx = () => (size + pad() * 2) / 2;
-    const cy = () => (size + pad() * 2) / 2;
-    const rOuter = () => size * 0.44;
-    const rInner = () => size * 0.18;
-    const rLabel = () => size * 0.50;
+    const safe = () => 2; // px. спасает от субпикселей + толщин линий
+    const pad = () => Math.ceil(size * 0.09) + safe();
+    const innerSize = () => size - pad() * 2;
+
+    const cx = () => size / 2;
+    const cy = () => size / 2;
+
+    // радиусы считаем от innerSize, чтобы всё гарантированно влезло
+    const rOuter = () => innerSize() * 0.44;
+    const rInner = () => innerSize() * 0.18;
+    const rLabel = () => innerSize() * 0.50;
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
-        return {
-            x: cx() + r * Math.cos(rad),
-            y: cy() + r * Math.sin(rad),
-        };
+        return { x: cx() + r * Math.cos(rad), y: cy() + r * Math.sin(rad) };
     }
 
     function spokeAngleDeg(i: number) {
         return -stepDeg * i;
     }
 
+    $: {
+        if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+            pendingExtraDeg += -360 * spinCmd.dir;
+            lastSpinCmdId = spinCmd.id;
+        }
+
+        const target = pointerAngleDeg + pendingExtraDeg;
+
+        if (noTransition) {
+            animAngle = target;
+        } else {
+            animAngle = target;
+        }
+
+        pendingExtraDeg = 0;
+    }
+
     function handleSpokeActivate(i: number) {
         onSelectSpoke(i);
-    }
-
-    // Choose an equivalent representation of baseAngle that is closest to current (shortest adjustment).
-    function normalizeToClosest(baseAngle: number, current: number) {
-        let t = baseAngle;
-        while (t - current > 180) t -= 360;
-        while (t - current < -180) t += 360;
-        return t;
-    }
-
-    // Force at least one full turn in given direction, then land on an equivalent of baseAngle.
-    // dir=1 => forward => CCW => negative
-    // dir=-1 => back    => CW  => positive
-    function computeFullTurnTarget(baseAngle: number, current: number, dir: 1 | -1) {
-        const turn = -360 * dir;
-        // Start with "one turn away from the nearest representation"
-        let base = normalizeToClosest(baseAngle, current);
-        let target = base + turn;
-
-        // Ensure direction and "really a full turn"
-        // (threshold prevents accidental ~0..200deg moves)
-        const wantSign = Math.sign(turn);
-        let delta = target - current;
-
-        while (Math.sign(delta) !== wantSign || Math.abs(delta) < 300) {
-            target += turn;
-            delta = target - current;
-        }
-
-        return target;
-    }
-
-    function startSpinLock(target: number) {
-        spinLock = true;
-        spinLockTarget = target;
-
-        if (spinLockTimer) clearTimeout(spinLockTimer);
-        spinLockTimer = setTimeout(() => {
-            spinLock = false;
-        }, POINTER_ANIM_MS + 20);
-    }
-
-    // Reactive: drive animation
-    $: {
-        // If we are in the middle of a forced spin, keep its fixed target
-        if (spinLock) {
-            animAngle = spinLockTarget;
-            lastAngle = spinLockTarget;
-        } else {
-            let target = normalizeToClosest(pointerAngleDeg, lastAngle);
-
-            // New spin command: compute once, lock, and ignore further pointerAngleDeg jitter
-            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-                target = computeFullTurnTarget(pointerAngleDeg, lastAngle, spinCmd.dir);
-                lastSpinCmdId = spinCmd.id;
-                startSpinLock(target);
-            }
-
-            if (noTransition) {
-                animAngle = target;
-                lastAngle = target;
-            } else {
-                animAngle = target;
-                lastAngle = target;
-            }
-        }
     }
 
     function handleNextE() {
@@ -139,23 +82,20 @@
         resetTimer = setTimeout(() => {
             noTransition = true;
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    noTransition = false;
-                });
+                requestAnimationFrame(() => { noTransition = false; });
             });
         }, POINTER_ANIM_MS);
     }
 
     onDestroy(() => {
         if (resetTimer) clearTimeout(resetTimer);
-        if (spinLockTimer) clearTimeout(spinLockTimer);
     });
 </script>
 
 <svg
         width={size}
         height={size}
-        viewBox={`0 0 ${size + pad() * 2} ${size + pad() * 2}`}
+        viewBox={`0 0 ${size} ${size}`}
         aria-label="Wheel"
 >
     <circle cx={cx()} cy={cy()} r={rOuter()} fill="none" stroke="currentColor" stroke-opacity="0.25" />
@@ -194,23 +134,23 @@
                         x={pt.x} y={pt.y}
                         text-anchor="middle"
                         dominant-baseline="middle"
-                        font-size={size * 0.042}
+                        font-size={innerSize() * 0.045}
                         fill="currentColor"
-                        fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
+                        fill-opacity={selectedSpokeIndex === i ? 1 : 0.7}
                 >
                     {label}
                 </text>
 
                 {#if i === 0}
-                    {@const pt2 = { x: pt.x, y: pt.y + size * 0.055 }}
+                    {@const pt2 = { x: pt.x, y: pt.y + innerSize() * 0.06 }}
 
                     <text
                             x={pt2.x} y={pt2.y}
                             text-anchor="middle"
                             dominant-baseline="middle"
-                            font-size={size * 0.034}
+                            font-size={innerSize() * 0.038}
                             fill="currentColor"
-                            fill-opacity={0.55}
+                            fill-opacity={0.65}
                     >
                         E+
                     </text>
@@ -218,7 +158,7 @@
                     <circle
                             cx={pt2.x}
                             cy={pt2.y}
-                            r={size * 0.04}
+                            r={innerSize() * 0.045}
                             fill="transparent"
                             on:click|stopPropagation={handleNextE}
                             role="button"
@@ -234,7 +174,7 @@
                 {/if}
             {/if}
 
-            <circle cx={p2.x} cy={p2.y} r={size * 0.045} fill="transparent" />
+            <circle cx={p2.x} cy={p2.y} r={innerSize() * 0.05} fill="transparent" />
         </g>
     {/each}
 
@@ -250,18 +190,17 @@
                 stroke-width="3"
                 stroke-linecap="round"
         />
-        <circle cx={cx() + rOuter()} cy={cy()} r={size * 0.02} fill="currentColor" />
+        <circle cx={cx() + rOuter()} cy={cy()} r={innerSize() * 0.022} fill="currentColor" />
     </g>
 
-    <circle cx={cx()} cy={cy()} r={size * 0.012} fill="currentColor" />
+    <circle cx={cx()} cy={cy()} r={innerSize() * 0.012} fill="currentColor" />
 </svg>
 
 <style>
-    svg { color: #e7e7ea; }
+    svg { color: #e7e7ea; display: block; }
     .spoke { cursor: pointer; user-select: none; }
     .pointer { transition: transform 420ms ease; }
     .pointer.noTransition { transition: none; }
-
     .spoke:focus { outline: none; }
     .spoke:focus-visible {
         outline: 2px solid rgba(231, 231, 234, 0.35);

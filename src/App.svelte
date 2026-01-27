@@ -131,6 +131,7 @@
     color: #e7e7ea;
     width: 100%;
     overflow-x: hidden;
+    font-size: 18px;
   }
 
   /* вот это ключ */
