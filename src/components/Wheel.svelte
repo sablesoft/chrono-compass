@@ -17,8 +17,11 @@
     export let size = 360;
     export let showLabels = true;
 
-    export let spinCmd: SpinCmd | null = null;     // “ровно 1 оборот + приземление на targetAngleDeg”
-    export let preTurnCmd: PreTurnCmd | null = null; // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
+    // “ровно 1 оборот + приземление на targetAngleDeg”
+    export let spinCmd: SpinCmd | null = null;
+
+    // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
+    export let preTurnCmd: PreTurnCmd | null = null;
 
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
@@ -72,68 +75,65 @@
         noTransition = false;
     }
 
-    // Choose equivalent representation so that we don't "snap back" by 360,
-    // and (if dir known) so that delta sign matches time direction.
-    function normalizeByDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
+    // Nearest equivalent (no direction preference)
+    function normalizeNearest(baseAngle: number, current: number) {
         let t = baseAngle;
+        while (t - current > 180) t -= 360;
+        while (t - current < -180) t += 360;
+        return t;
+    }
 
-        // keep numbers bounded
-        while (t - current > 720) t -= 360;
-        while (t - current < -720) t += 360;
+    // Pick an equivalent angle so that:
+    // - it stays "near" current
+    // - if dir is known, delta sign matches time direction
+    //   (future => CCW => negative delta, past => CW => positive delta)
+    function normalizeByDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
+        let t = normalizeNearest(baseAngle, current);
 
-        if (dir === 0) {
-            // pick the nearest equivalent (avoid huge jumps)
-            while (t - current > 180) t -= 360;
-            while (t - current < -180) t += 360;
-            return t;
-        }
+        if (dir === 0) return t;
 
-        // future => CCW => negative delta
-        // past   => CW  => positive delta
         const wantSign = dir > 0 ? -1 : 1;
-
         let delta = t - current;
 
-        // shift by full turns until sign matches
-        while (Math.sign(delta) !== wantSign && Math.abs(delta) > 1e-9) {
+        // If delta has wrong sign AND it's not basically zero, shift by one full turn.
+        if (Math.abs(delta) > 1e-9 && Math.sign(delta) !== wantSign) {
             t += 360 * wantSign;
             delta = t - current;
         }
 
-        // if exactly same, still keep "motion direction" continuity
-        if (Math.abs(delta) < 1e-9) t += 360 * wantSign;
-
+        // IMPORTANT: if delta is ~0, DO NOT force a ±360 here.
+        // Otherwise you'll get random "extra turns" when time updates to same spoke.
         return t;
     }
 
     // Exactly one full turn in dir, then land on targetAngleDeg (equivalent rep).
+    // No "beauty loops" and no extra full turns.
     function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
-        const turn = -360 * dir; // forward(CCW) negative
+        const turn = -360 * dir; // forward(CCW) is negative
         const wantSign = Math.sign(turn);
 
-        // normalize target near current first
-        let t = targetAngleDeg;
-        while (t - current > 720) t -= 360;
-        while (t - current < -720) t += 360;
+        // first, pick nearest representation to current
+        let t = normalizeNearest(targetAngleDeg, current);
 
-        // ensure landing delta sign matches the spin direction
-        while (Math.sign(t - current) !== wantSign && Math.abs(t - current) > 1e-9) {
+        // ensure landing delta sign matches direction (unless it's exactly 0)
+        const d0 = t - current;
+        if (Math.abs(d0) > 1e-9 && Math.sign(d0) !== wantSign) {
             t += 360 * wantSign;
         }
 
-        // add exactly one requested full turn
-        t += turn;
-
-        // ensure it's visually a real spin (not tiny)
-        while (Math.abs(t - current) < 300) t += turn;
-
-        return t;
+        // then add exactly one full turn
+        return t + turn;
     }
 
-    // One full turn first, THEN land on pointerAngleDeg (current target)
+    // One full turn first, THEN land on pointerAngleDeg (the current target).
+    // This MUST be exactly one full turn, not "one plus whatever normalize did".
     function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
-        const base = normalizeByDirection(currentTargetAngle, current, dir);
-        return base + (-360 * dir);
+        const turn = -360 * dir;
+
+        // Use nearest first (may be 0 delta), then add exactly one turn.
+        // This guarantees exactly 1 full cycle pre-spin, never 2.
+        const base = normalizeNearest(currentTargetAngle, current);
+        return base + turn;
     }
 
     function startSpinLock(target: number) {
@@ -156,32 +156,31 @@
         // 2) explicit spin command (←/→)
         else if (spinCmd && spinCmd.id !== lastSpinCmdId) {
             const target = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
-
             lastSpinCmdId = spinCmd.id;
             startSpinLock(target);
 
             displayAngle = target;
             lastAngle = target;
         }
-        // 3) preTurn (big jump)
+        // 3) preTurn (big jump): exactly one full turn, then the next tick will "fly" toward pointerAngleDeg
         else if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
             lastPreTurnCmdId = preTurnCmd.id;
 
+            // if no direction, do nothing special (just go to pointer)
             if (timeDir !== 0) {
-                const target = computePreTurnTarget(pointerAngleDeg, lastAngle, preTurnCmd.dir);
-
+                const dir: 1 | -1 = preTurnCmd.dir;
+                const target = computePreTurnTarget(pointerAngleDeg, lastAngle, dir);
                 startSpinLock(target);
 
                 displayAngle = target;
                 lastAngle = target;
             } else {
-                // unknown direction -> snap to nearest equivalent (no wild spins)
-                const t = normalizeByDirection(pointerAngleDeg, lastAngle, 0);
+                const t = normalizeNearest(pointerAngleDeg, lastAngle);
                 displayAngle = t;
                 lastAngle = t;
             }
         }
-        // 4) no commands: KEEP CONTINUITY (this is the key fix)
+        // 4) normal movement: keep continuity + follow time direction if known
         else {
             const t = normalizeByDirection(pointerAngleDeg, lastAngle, timeDir);
             displayAngle = t;
@@ -231,11 +230,11 @@
                 aria-label={`Spoke ${label}`}
                 on:click={() => handleSpokeActivate(i)}
                 on:keydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleSpokeActivate(i);
-        }
-      }}
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSpokeActivate(i);
+                }
+            }}
         >
             <line
                     x1={p1.x} y1={p1.y}
@@ -282,11 +281,11 @@
                             tabindex="0"
                             aria-label="Next cycle (E+)"
                             on:keydown|stopPropagation={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleNextE();
-              }
-            }}
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleNextE();
+                            }
+                        }}
                     />
                 {/if}
             {/if}
