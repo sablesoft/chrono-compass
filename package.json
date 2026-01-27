@@ -14,8 +14,9 @@
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^24.10.1",
     "@types/suncalc": "^1.9.2",
+    "@typescript-eslint/types": "^8.54.0",
     "svelte": "^5.43.8",
-    "svelte-check": "^4.3.4",
+    "svelte-check": "^4.3.5",
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vite-plugin-pwa": "^1.2.0"

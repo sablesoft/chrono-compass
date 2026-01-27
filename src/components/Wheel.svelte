@@ -16,23 +16,32 @@
     export let size = 360;
     export let showLabels = true;
 
+    // one-shot spin command from parent
+    export let spinCmd: { id: number; dir: 1 | -1 } | null = null;
+
     // Controlled inputs
     export let selectedSpokeIndex: number | null = null; // 0..15 for highlight, null = none
-    export let pointerAngleDeg = 0; // any angle (we use negative for CCW-forward)
+    export let pointerAngleDeg = 0; // base angle (E=0, N=-90, ...)
 
     // Callbacks
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
-    // Internal animation state
+    let lastSpinCmdId = 0;
+
+    // Internal animation state (continuous angle)
     let animAngle = pointerAngleDeg;
     let lastAngle = pointerAngleDeg;
+
+    // Spin lock: while active, ignore reactive base changes and keep fixed target
+    let spinLock = false;
+    let spinLockTarget = 0;
+    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
 
     let noTransition = false;
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
     const pad = () => size * 0.05;
-
     const cx = () => (size + pad() * 2) / 2;
     const cy = () => (size + pad() * 2) / 2;
     const rOuter = () => size * 0.44;
@@ -47,68 +56,89 @@
         };
     }
 
-    // Spoke geometry: time-forward is CCW => negative angles
     function spokeAngleDeg(i: number) {
         return -stepDeg * i;
-    }
-
-    // Keep pointerAngle in a “continuous” representation that matches the direction of time.
-    // We do NOT choose the shortest arc; we choose the direction implied by delta sign:
-    //  - if target is "ahead" in time, it should rotate CCW (more negative)
-    //  - if target is "back" in time, it should rotate CW (more positive)
-    function applyTimeDirectedAngle(target: number, current: number) {
-        // We want the delta in degrees as-is, not shortest-path.
-        // But target might jump between equivalent representations (e.g., 0 and -360).
-        // We'll pick the representation that preserves direction (sign) relative to current.
-        // Heuristic: keep target within +/- 720 of current, then adjust by 360 steps
-        // to keep delta magnitude consistent with raw change, not shortest.
-        let t = target;
-
-        // Bring t closer in range first (avoid huge numbers growing forever)
-        while (t - current > 720) t -= 360;
-        while (t - current < -720) t += 360;
-
-        return t;
-    }
-
-    // Reactive: drive animation towards incoming pointerAngleDeg
-    $: {
-        // If we are in "snap without transition" mode, don't animate
-        if (noTransition) {
-            animAngle = pointerAngleDeg;
-            lastAngle = pointerAngleDeg;
-        } else {
-            const t = applyTimeDirectedAngle(pointerAngleDeg, lastAngle);
-            animAngle = t;
-            lastAngle = t;
-        }
     }
 
     function handleSpokeActivate(i: number) {
         onSelectSpoke(i);
     }
 
+    // Choose an equivalent representation of baseAngle that is closest to current (shortest adjustment).
+    function normalizeToClosest(baseAngle: number, current: number) {
+        let t = baseAngle;
+        while (t - current > 180) t -= 360;
+        while (t - current < -180) t += 360;
+        return t;
+    }
+
+    // Force at least one full turn in given direction, then land on an equivalent of baseAngle.
+    // dir=1 => forward => CCW => negative
+    // dir=-1 => back    => CW  => positive
+    function computeFullTurnTarget(baseAngle: number, current: number, dir: 1 | -1) {
+        const turn = -360 * dir;
+        // Start with "one turn away from the nearest representation"
+        let base = normalizeToClosest(baseAngle, current);
+        let target = base + turn;
+
+        // Ensure direction and "really a full turn"
+        // (threshold prevents accidental ~0..200deg moves)
+        const wantSign = Math.sign(turn);
+        let delta = target - current;
+
+        while (Math.sign(delta) !== wantSign || Math.abs(delta) < 300) {
+            target += turn;
+            delta = target - current;
+        }
+
+        return target;
+    }
+
+    function startSpinLock(target: number) {
+        spinLock = true;
+        spinLockTarget = target;
+
+        if (spinLockTimer) clearTimeout(spinLockTimer);
+        spinLockTimer = setTimeout(() => {
+            spinLock = false;
+        }, POINTER_ANIM_MS + 20);
+    }
+
+    // Reactive: drive animation
+    $: {
+        // If we are in the middle of a forced spin, keep its fixed target
+        if (spinLock) {
+            animAngle = spinLockTarget;
+            lastAngle = spinLockTarget;
+        } else {
+            let target = normalizeToClosest(pointerAngleDeg, lastAngle);
+
+            // New spin command: compute once, lock, and ignore further pointerAngleDeg jitter
+            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+                target = computeFullTurnTarget(pointerAngleDeg, lastAngle, spinCmd.dir);
+                lastSpinCmdId = spinCmd.id;
+                startSpinLock(target);
+            }
+
+            if (noTransition) {
+                animAngle = target;
+                lastAngle = target;
+            } else {
+                animAngle = target;
+                lastAngle = target;
+            }
+        }
+    }
+
     function handleNextE() {
         if (resetTimer) clearTimeout(resetTimer);
 
-        // We assume parent will advance cycle and set pointerAngleDeg accordingly.
-        // Here we only do the visual "snap" trick to avoid an extra spin when
-        // parent switches from end-of-cycle angle back to 0° (same direction).
-        // Strategy:
-        // 1) let parent animate to end-of-cycle by setting pointerAngleDeg near -360
-        // 2) after animation duration, parent will likely set pointerAngleDeg to 0 (new cycle start)
-        // 3) we temporarily disable transition for that snap
         noTransition = false;
-
         onSelectNextE();
 
-        // Disable transition slightly after click so the “to end of cycle” part still animates.
-        // Parent should set end-of-cycle immediately; snap back to 0 happens after its logic.
-        // We just give an escape hatch: parent can call nextE and then set angle to 0 later.
         resetTimer = setTimeout(() => {
             noTransition = true;
             requestAnimationFrame(() => {
-                // Re-enable transitions next frame after snap has applied
                 requestAnimationFrame(() => {
                     noTransition = false;
                 });
@@ -118,6 +148,7 @@
 
     onDestroy(() => {
         if (resetTimer) clearTimeout(resetTimer);
+        if (spinLockTimer) clearTimeout(spinLockTimer);
     });
 </script>
 
@@ -194,11 +225,11 @@
                             tabindex="0"
                             aria-label="Next cycle (E+)"
                             on:keydown|stopPropagation={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  handleNextE();
-                                }
-                            }}
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleNextE();
+              }
+            }}
                     />
                 {/if}
             {/if}
@@ -230,10 +261,8 @@
     .spoke { cursor: pointer; user-select: none; }
     .pointer { transition: transform 420ms ease; }
     .pointer.noTransition { transition: none; }
-    .spoke:focus {
-        outline: none;
-    }
 
+    .spoke:focus { outline: none; }
     .spoke:focus-visible {
         outline: 2px solid rgba(231, 231, 234, 0.35);
         outline-offset: 4px;

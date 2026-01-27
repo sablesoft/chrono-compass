@@ -1,0 +1,1 @@
+export type CycleKind = 'day' | 'moon' | 'year';

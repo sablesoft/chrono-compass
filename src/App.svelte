@@ -1,132 +1,159 @@
 <script lang="ts">
-  import Wheel from './Wheel.svelte';
-  import SunCalc from 'suncalc';
+  import CycleWheel from './components/CycleWheel.svelte';
+  import { formatDateTime, formatCoords } from './lib/format';
+  import { loadPlaces, addPlace, removePlace, type Place } from './lib/places/store';
 
-  const SPOKES = 16;
-  const ANIM_MS = 420;
-
-  // Paraty (примерно). Потом сделаем UI для выбора.
-  let lat = -23.22;
-  let lon = -44.72;
-
-  // выбранный момент времени (истина)
+  // global time (single source of truth)
   let selectedTs = Date.now();
 
-  // подсветка спицы только когда кликнули по спице
-  let selectedSpokeIndex: number | null = null;
+  // location
+  let lat = -23.22;
+  let lon = -44.72;
+  let placeName = 'Paraty (manual)';
 
-  function getCycleStartForDay(day: Date) {
-    const t = SunCalc.getTimes(day, lat, lon);
-    // E = sunrise
-    return t.sunrise.getTime();
-  }
-
-  function getCycleWindow(ts: number) {
-    // вычисляем "рассвет, содержащий выбранный момент"
-    const d = new Date(ts);
-    const startToday = getCycleStartForDay(d);
-
-    let start = startToday;
-    if (ts < startToday) {
-      const prev = new Date(d);
-      prev.setDate(prev.getDate() - 1);
-      start = getCycleStartForDay(prev);
-    }
-
-    const next = new Date(start);
-    next.setDate(next.getDate() + 1);
-    const end = getCycleStartForDay(next);
-
-    return { start, end };
-  }
-
-  function clamp01(x: number) {
-    return Math.max(0, Math.min(1, x));
-  }
-
-  function formatTime(ts: number) {
-    return new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  }
-
-  function spokeTs(i: number, start: number, end: number) {
-    const dur = end - start;
-    return start + (dur * i) / SPOKES;
-  }
-
-  // производные величины для UI
-  $: cycle = getCycleWindow(selectedTs);
-  $: durationMs = cycle.end - cycle.start;
-  $: progress = clamp01((selectedTs - cycle.start) / durationMs);
-  $: pointerAngleDeg = -360 * progress;
-
-  function onSelectSpoke(i: number) {
-    selectedSpokeIndex = i;
-    selectedTs = spokeTs(i, cycle.start, cycle.end);
-  }
-
-  function onSelectNextE() {
-    // докручиваем до конца цикла (почти до следующего рассвета),
-    // затем снапим на начало нового цикла (точно следующий рассвет)
-    selectedSpokeIndex = null;
-    selectedTs = cycle.end - 1;
-
-    setTimeout(() => {
-      selectedTs = cycle.end;   // это уже новый цикл, start==end прошлого
-      selectedSpokeIndex = 0;
-    }, ANIM_MS);
-  }
+  // saved places
+  let places: Place[] = [];
+  let newPlaceName = '';
 
   function setNow() {
-    selectedSpokeIndex = null;
     selectedTs = Date.now();
   }
 
-  // (пока без "живого режима часов" — это будет следующим этапом)
+  function onSelectTs(ts: number) {
+    selectedTs = ts;
+  }
+
+  function load() {
+    places = loadPlaces();
+  }
+
+  function saveCurrentPlace() {
+    const name = newPlaceName.trim();
+    if (!name) return;
+    addPlace(name, lat, lon);
+    newPlaceName = '';
+    load();
+  }
+
+  function pickPlace(p: Place) {
+    lat = p.lat;
+    lon = p.lon;
+    placeName = p.name;
+  }
+
+  function delPlace(p: Place) {
+    places = removePlace(p.id);
+  }
+
+  // init
+  load();
 </script>
 
 <main>
-  <header>
-    <h1>Day wheel (Paraty)</h1>
-    <button on:click={setNow}>Now</button>
-  </header>
+  <div class="container">
+    <header class="topbar">
+      <div class="title">
+        <div class="h">Wheels</div>
+        <div class="sub">{formatDateTime(selectedTs)}</div>
+      </div>
 
-  <div class="wrap">
-    <Wheel
-            size={640}
-            selectedSpokeIndex={selectedSpokeIndex}
-            pointerAngleDeg={pointerAngleDeg}
-            onSelectSpoke={onSelectSpoke}
-            onSelectNextE={onSelectNextE}
-    />
+      <div class="actions">
+        <button on:click={setNow}>Now</button>
+      </div>
+    </header>
+
+    <section class="location">
+      <div class="line">
+        <strong>Location:</strong> {placeName} · {formatCoords(lat, lon)}
+      </div>
+
+      <div class="save">
+        <input
+                placeholder="Save current coords as…"
+                bind:value={newPlaceName}
+        />
+        <button on:click={saveCurrentPlace}>Save</button>
+      </div>
+
+      {#if places.length > 0}
+        <div class="places">
+          {#each places as p (p.id)}
+            <div class="place">
+              <button class="pick" on:click={() => pickPlace(p)}>{p.name}</button>
+              <span class="coords">{formatCoords(p.lat, p.lon)}</span>
+              <button class="del" on:click={() => delPlace(p)}>✕</button>
+            </div>
+          {/each}
+        </div>
+      {/if}
+    </section>
+
+    <section class="grid">
+      <CycleWheel
+              title="Day"
+              kind="day"
+              {lat}
+              {lon}
+              {selectedTs}
+              onSelectTs={onSelectTs}
+      />
+
+      <CycleWheel
+              title="Moon"
+              kind="moon"
+              {lat}
+              {lon}
+              {selectedTs}
+              onSelectTs={onSelectTs}
+      />
+
+      <CycleWheel
+              title="Year"
+              kind="year"
+              {lat}
+              {lon}
+              {selectedTs}
+              onSelectTs={onSelectTs}
+      />
+    </section>
+
+    <footer class="note">
+      Пока Moon/Year используют day-математику как заглушку. Дальше подключим реальные якоря.
+    </footer>
   </div>
-
-  <section class="info">
-    <div><strong>Selected:</strong> {formatTime(selectedTs)}</div>
-    <div><strong>Cycle start (sunrise):</strong> {formatTime(cycle.start)}</div>
-    <div><strong>Cycle end (next sunrise):</strong> {formatTime(cycle.end)}</div>
-    <div><strong>Progress:</strong> {(progress * 100).toFixed(1)}%</div>
-  </section>
 </main>
 
 <style>
   main {
     padding: 24px;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
     background: #0b0b0c;
     min-height: 100vh;
     color: #e7e7ea;
+    width: 100%;
+    overflow-x: hidden;
   }
-  header {
+
+  /* вот это ключ */
+  .container {
+    width: min(1600px, calc(100vw - 48px));
+    margin: 0 auto;
+  }
+  .topbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
   }
-  h1 {
-    margin: 0;
+  .h {
     font-size: 18px;
-    font-weight: 600;
-    opacity: 0.9;
+    font-weight: 700;
+    opacity: 0.95;
+  }
+  .sub {
+    font-size: 13px;
+    opacity: 0.75;
+    margin-top: 2px;
   }
   button {
     padding: 8px 10px;
@@ -136,17 +163,80 @@
     color: inherit;
     cursor: pointer;
   }
-  .wrap {
-    display: inline-block;
-    padding: 18px;
-    border-radius: 18px;
-    border: 1px solid rgba(231, 231, 234, 0.12);
-    background: rgba(231, 231, 234, 0.04);
+  .location {
+    border: 1px solid rgba(231, 231, 234, 0.10);
+    background: rgba(231, 231, 234, 0.03);
+    border-radius: 16px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
   }
-  .info {
+  .line {
+    font-size: 14px;
+    opacity: 0.9;
+    margin-bottom: 10px;
+  }
+  .save {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  input {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(231,231,234,0.14);
+    background: rgba(231,231,234,0.04);
+    color: inherit;
+    outline: none;
+  }
+  .places {
+    display: grid;
+    gap: 8px;
+  }
+  .place {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pick {
+    padding: 6px 10px;
+    border-radius: 10px;
+  }
+  .coords {
+    font-size: 12px;
+    opacity: 0.65;
+  }
+  .del {
+    margin-left: auto;
+    padding: 6px 10px;
+    opacity: 0.8;
+  }
+
+  .grid {
+    display: grid;
+    gap: 14px;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  /* планшет/ноут: 2 колонки */
+  @media (min-width: 980px) {
+    .grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  /* реально широкий экран: 3 */
+  @media (min-width: 1400px) {
+    .grid {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+  }
+  .note {
     margin-top: 14px;
-    opacity: 0.85;
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 12px;
+    opacity: 0.55;
   }
 </style>
+
