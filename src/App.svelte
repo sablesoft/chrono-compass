@@ -15,11 +15,15 @@
   let places: Place[] = [];
   let newPlaceName = '';
 
+  let resetUiId = 0;
+
   function setNow() {
     selectedTs = Date.now();
+    resetUiId += 1; // <-- сигнал всем колёсам сбросить подсветку/active
   }
 
   function onSelectTs(ts: number) {
+    console.log('App onSelectTs', new Date(ts).toISOString(), ts);
     selectedTs = ts;
   }
 
@@ -95,6 +99,7 @@
               {lat}
               {lon}
               {selectedTs}
+              {resetUiId}
               onSelectTs={onSelectTs}
       />
 
@@ -104,6 +109,7 @@
               {lat}
               {lon}
               {selectedTs}
+              {resetUiId}
               onSelectTs={onSelectTs}
       />
 
@@ -113,6 +119,7 @@
               {lat}
               {lon}
               {selectedTs}
+              {resetUiId}
               onSelectTs={onSelectTs}
       />
     </section>
@@ -131,7 +138,7 @@
     color: #e7e7ea;
     width: 100%;
     overflow-x: hidden;
-    font-size: 18px;
+    font-size: 24px;
   }
 
   /* вот это ключ */
@@ -147,12 +154,12 @@
     margin-bottom: 14px;
   }
   .h {
-    font-size: 18px;
+    font-size: 28px;
     font-weight: 700;
     opacity: 0.95;
   }
   .sub {
-    font-size: 13px;
+    font-size: 24px;
     opacity: 0.75;
     margin-top: 2px;
   }
@@ -240,4 +247,3 @@
     opacity: 0.55;
   }
 </style>
-

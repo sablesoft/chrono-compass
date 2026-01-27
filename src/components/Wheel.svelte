@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import type { SpinCmd } from '../lib/cycles/types';
 
     const labels = [
         'E','ENE','NE','NNE',
@@ -12,89 +13,138 @@
     const stepDeg = 360 / spokeCount;
     const POINTER_ANIM_MS = 420;
 
-    // Render size in px (ONLY)
     export let size = 360;
     export let showLabels = true;
+    export let timeDir: -1 | 0 | 1 = 0;
 
-    export let spinCmd: { id: number; dir: 1 | -1 } | null = null;
+    export let spinCmd: SpinCmd | null = null;
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
 
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
-    // Single coordinate space for drawing (ALWAYS)
+    // viewBox space
     const VB = 1000;
     const cx = VB / 2;
     const cy = VB / 2;
 
-    // “Air” for labels is handled by choosing radii, not by resizing viewBox.
     const rOuter = VB * 0.42;
     const rInner = VB * 0.18;
     const rLabel = VB * 0.48;
 
-    let lastSpinCmdId = 0;
-    let pendingExtraDeg = 0;
+    // animation state
+    let displayAngle = pointerAngleDeg;
 
-    let animAngle = pointerAngleDeg;
-
+    // state flags
     let noTransition = false;
-    let resetTimer: ReturnType<typeof setTimeout> | null = null;
+    let isSpinning = false;
+
+    // bookkeeping
+    let lastSpinCmdId = 0;
+    let snapTimer: ReturnType<typeof setTimeout> | null = null;
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
-        return {
-            x: cx + r * Math.cos(rad),
-            y: cy + r * Math.sin(rad),
-        };
+        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
     }
 
     function spokeAngleDeg(i: number) {
-        // time-forward is CCW => negative
+        // forward-in-time is CCW => negative angles
         return -stepDeg * i;
     }
 
-    $: {
-        if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-            pendingExtraDeg += -360 * spinCmd.dir;
-            lastSpinCmdId = spinCmd.id;
+    function normalizeToClosest(baseAngle: number, current: number) {
+        let t = baseAngle;
+        while (t - current > 180) t -= 360;
+        while (t - current < -180) t += 360;
+        return t;
+    }
+
+    function clearTimers() {
+        if (snapTimer) {
+            clearTimeout(snapTimer);
+            snapTimer = null;
+        }
+    }
+
+    function cancelSpin() {
+        clearTimers();
+        isSpinning = false;
+        noTransition = false;
+    }
+
+    function normalizeInDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
+        if (dir === 0) return normalizeToClosest(baseAngle, current);
+
+        // CCW forward => we want delta negative when dir=1
+        // CW backward => we want delta positive when dir=-1
+        const wantSign = dir === 1 ? -1 : 1;
+
+        // start from closest representation
+        let t = normalizeToClosest(baseAngle, current);
+        let delta = t - current;
+
+        // if delta sign doesn't match desired, push by full turns until it does
+        // this enforces long-way travel if needed.
+        while (Math.sign(delta) !== wantSign && delta !== 0) {
+            t += 360 * wantSign; // if wantSign=-1 => t -= 360
+            delta = t - current;
         }
 
-        animAngle = pointerAngleDeg + pendingExtraDeg;
-        pendingExtraDeg = 0;
+        // Edge case: if exactly same angle (delta=0) but timeDir requests movement,
+        // we keep it (no visual move) — this is OK for "same angle different cycle" cases
+        // which are handled via spinCmd anyway.
+        return t;
+    }
+
+    $: if (!isSpinning) {
+        displayAngle = normalizeInDirection(pointerAngleDeg, displayAngle, timeDir);
+    }
+
+    // 2) handle new spin command (one full turn + snap to clean target)
+    $: if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+        clearTimers();
+        isSpinning = true;
+
+        const turn = -360 * spinCmd.dir; // dir=1 => forward(CCW) => -360
+        const clean = normalizeToClosest(spinCmd.targetAngleDeg, displayAngle);
+        const spun = clean + turn;
+
+        // animate to spun
+        displayAngle = spun;
+        lastSpinCmdId = spinCmd.id;
+
+        // after animation, snap silently to clean (and end spinning)
+        snapTimer = setTimeout(() => {
+            noTransition = true;
+            displayAngle = clean;
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    noTransition = false;
+                    isSpinning = false;
+                });
+            });
+
+            snapTimer = null;
+        }, POINTER_ANIM_MS + 5);
     }
 
     function handleSpokeActivate(i: number) {
+        cancelSpin();
         onSelectSpoke(i);
     }
 
     function handleNextE() {
-        if (resetTimer) clearTimeout(resetTimer);
-
-        noTransition = false;
+        cancelSpin();
         onSelectNextE();
-
-        resetTimer = setTimeout(() => {
-            noTransition = true;
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    noTransition = false;
-                });
-            });
-        }, POINTER_ANIM_MS);
     }
 
-    onDestroy(() => {
-        if (resetTimer) clearTimeout(resetTimer);
-    });
+    onDestroy(() => cancelSpin());
 </script>
 
-<svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${VB} ${VB}`}
-        aria-label="Wheel"
->
+<svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
@@ -178,7 +228,7 @@
     <g
             class="pointer"
             class:noTransition={noTransition}
-            style={`transform: rotate(${animAngle}deg); transform-origin: ${cx}px ${cy}px;`}
+            transform={`rotate(${displayAngle} ${cx} ${cy})`}
     >
         <line
                 x1={cx} y1={cy}
@@ -196,6 +246,7 @@
 <style>
     svg { color: #e7e7ea; }
     .spoke { cursor: pointer; user-select: none; }
+
     .pointer { transition: transform 420ms ease; }
     .pointer.noTransition { transition: none; }
 

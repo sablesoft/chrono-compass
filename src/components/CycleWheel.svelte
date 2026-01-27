@@ -5,8 +5,7 @@
     import type { Anchors } from '../lib/cycles/spokes';
     import { getDayAnchors, angleFromDayAnchors, shiftDayCycle } from '../lib/cycles/day';
     import { formatDateTime } from '../lib/format';
-
-    export type CycleKind = 'day' | 'moon' | 'year';
+    import type { CycleKind, SpinCmd } from '../lib/cycles/types';
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -24,7 +23,7 @@
     let selectedSpokeIndex: number | null = null;
     let activeSpokeIndex: number | null = null;
 
-    let spinCmd: { id: number; dir: 1 | -1 } | null = null;
+    let spinCmd: SpinCmd | null = null;
     let spinCmdId = 0;
 
     let isCycling = false;
@@ -36,6 +35,25 @@
     // Responsive size
     let wheelSize = 360;
 
+    export let resetUiId = 0;
+    let lastResetUiId = 0;
+
+    let unlockTimer: ReturnType<typeof setTimeout> | null = null;
+    let nextETimer: ReturnType<typeof setTimeout> | null = null;
+
+    let anchors: Anchors;
+    let spokeTimes: number[];
+    let pointerAngleDeg = 0;
+    let progress = 0;
+
+    let prevTs = selectedTs;
+    let timeDir: -1 | 0 | 1 = 0;
+
+    function clearTimers() {
+        if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
+        if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
+    }
+
     function computeAnchors(): Anchors {
         // пока только day
         return getDayAnchors(selectedTs, lat, lon);
@@ -46,9 +64,31 @@
         return angleFromDayAnchors(selectedTs, anchors);
     }
 
-    $: anchors = computeAnchors();
+    $: console.log(title, 'selectedTs', selectedTs, 'pointerAngleDeg', pointerAngleDeg);
+
+    $: {
+        if (selectedTs === prevTs) {
+            timeDir = 0;
+        } else {
+            timeDir = selectedTs > prevTs ? 1 : -1;
+            prevTs = selectedTs;
+        }
+    }
+
+    $: if (resetUiId !== lastResetUiId) {
+        lastResetUiId = resetUiId;
+
+        clearTimers();
+
+        selectedSpokeIndex = null;
+        activeSpokeIndex = null;
+        spinCmd = null;
+        isCycling = false;
+    }
+
+    $: anchors = getDayAnchors(selectedTs, lat, lon);
     $: spokeTimes = buildSpokeTimes(anchors);
-    $: pointerAngleDeg = computeAngle();
+    $: pointerAngleDeg = angleFromDayAnchors(selectedTs, anchors);
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
 
     function recomputeWheelSize() {
@@ -94,13 +134,16 @@
     });
 
     onDestroy(() => {
+        clearTimers();
         if (ro && wrapEl) ro.unobserve(wrapEl);
         ro?.disconnect();
         window.removeEventListener('resize', recomputeWheelSize);
     });
 
     function onSelectSpoke(i: number) {
-        if (isCycling) return;
+        // пользователь кликнул — значит его действие важнее любой анимации
+        isCycling = false;
+        spinCmd = null;
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
@@ -108,23 +151,29 @@
     }
 
     function shiftCycle(dir: -1 | 1) {
+        clearTimers();
         if (isCycling) return;
         isCycling = true;
 
+        // 1) какую спицу хотим сохранить
         const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // full-circle animation (exactly one turn)
-        spinCmd = { id: ++spinCmdId, dir };
-
-        // shift the cycle base time
-        const shifted = shiftDayCycle(selectedTs, dir);
-
-        const a2 = getDayAnchors(shifted, lat, lon);
+        // 2) считаем целевой цикл и целевую спицу В НЁМ
+        const shiftedBase = shiftDayCycle(anchors.E, dir); // важно: от начала цикла
+        const a2 = getDayAnchors(shiftedBase, lat, lon);
         const t2 = buildSpokeTimes(a2);
 
-        onSelectTs(t2[i]);
+        const targetTs = t2[i];
+        const targetAngleDeg = angleFromDayAnchors(targetTs, a2);
+
+        // 3) даём команду Wheel: ровно 1 оборот + приземлиться на нужный угол
+        spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
+
+        // 4) меняем глобальное время
+        onSelectTs(targetTs);
+        console.log(title, 'set ts', targetTs);
 
         setTimeout(() => {
             isCycling = false;
@@ -132,6 +181,7 @@
     }
 
     function onSelectNextE() {
+        clearTimers();
         if (isCycling) return;
         isCycling = true;
 
@@ -140,10 +190,12 @@
 
         // animate to end-of-cycle
         onSelectTs(anchors.end - 1);
+        console.log(title, 'set ts', anchors.end - 1);
 
         // snap to next cycle start
         setTimeout(() => {
             onSelectTs(anchors.end);
+            console.log(title, 'set ts', anchors.end);
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
             isCycling = false;
@@ -155,9 +207,7 @@
     <header class="top">
         <div class="left">
             <div class="title">{title}</div>
-            <div class="sub">
-                {formatDateTime(selectedTs)} · {(progress * 100).toFixed(1)}%
-            </div>
+            <div class="sub">{(progress * 100).toFixed(1)}%</div>
         </div>
 
         <div class="right">
@@ -173,6 +223,7 @@
                 selectedSpokeIndex={selectedSpokeIndex}
                 pointerAngleDeg={pointerAngleDeg}
                 spinCmd={spinCmd}
+                timeDir={timeDir}
                 onSelectSpoke={onSelectSpoke}
                 onSelectNextE={onSelectNextE}
         />
