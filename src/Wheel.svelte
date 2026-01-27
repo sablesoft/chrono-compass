@@ -17,6 +17,8 @@
     export let selectedIndex = 0;
     export let showLabels = true;
 
+    export let onSelect: (index: number) => void = () => {};
+
     let currentIndex = selectedIndex;
     let animAngle = angleDeg(currentIndex);
     let suppressNextAnim = false;
@@ -46,7 +48,7 @@
     function onSpokeClick(i: number) {
         if (resetTimer) clearTimeout(resetTimer);
 
-        selectedIndex = i;
+        onSelect(i);
 
         if (i === NEXT_E_INDEX) {
             resetTimer = setTimeout(() => {
@@ -58,7 +60,7 @@
                 animAngle = angleDeg(0);
 
                 suppressNextAnim = true;
-                selectedIndex = 0;
+                onSelect(0);
 
                 requestAnimationFrame(() => {
                     noTransition = false;

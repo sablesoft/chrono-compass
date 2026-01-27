@@ -8,7 +8,10 @@
   <h1>Wheels</h1>
 
   <div class="wrap">
-    <Wheel size={640} bind:selectedIndex />
+    <Wheel size={640}
+           selectedIndex={selectedIndex}
+           onSelect={(index) => (selectedIndex = index)}
+    />
   </div>
 
   <p class="hint">Click a spoke to move the pointer.</p>
