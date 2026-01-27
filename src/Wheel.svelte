@@ -8,22 +8,27 @@
         'S','SSE','SE','ESE'
     ] as const;
 
-    const NEXT_E_INDEX = 16;
     const spokeCount = 16;
     const stepDeg = 360 / spokeCount;
     const POINTER_ANIM_MS = 420;
 
+    // UI
     export let size = 360;
-    export let selectedIndex = 0;
     export let showLabels = true;
 
-    export let onSelect: (index: number) => void = () => {};
+    // Controlled inputs
+    export let selectedSpokeIndex: number | null = null; // 0..15 for highlight, null = none
+    export let pointerAngleDeg = 0; // any angle (we use negative for CCW-forward)
 
-    let currentIndex = selectedIndex;
-    let animAngle = angleDeg(currentIndex);
-    let suppressNextAnim = false;
+    // Callbacks
+    export let onSelectSpoke: (index: number) => void = () => {};
+    export let onSelectNextE: () => void = () => {};
+
+    // Internal animation state
+    let animAngle = pointerAngleDeg;
+    let lastAngle = pointerAngleDeg;
+
     let noTransition = false;
-
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
     const cx = () => size / 2;
@@ -31,11 +36,6 @@
     const rOuter = () => size * 0.44;
     const rInner = () => size * 0.18;
     const rLabel = () => size * 0.49;
-
-    function angleDeg(i: number) {
-        // движение времени = против часовой
-        return -stepDeg * i;
-    }
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
@@ -45,49 +45,78 @@
         };
     }
 
-    function onSpokeClick(i: number) {
+    // Spoke geometry: time-forward is CCW => negative angles
+    function spokeAngleDeg(i: number) {
+        return -stepDeg * i;
+    }
+
+    // Keep pointerAngle in a “continuous” representation that matches the direction of time.
+    // We do NOT choose the shortest arc; we choose the direction implied by delta sign:
+    //  - if target is "ahead" in time, it should rotate CCW (more negative)
+    //  - if target is "back" in time, it should rotate CW (more positive)
+    function applyTimeDirectedAngle(target: number, current: number) {
+        // We want the delta in degrees as-is, not shortest-path.
+        // But target might jump between equivalent representations (e.g., 0 and -360).
+        // We'll pick the representation that preserves direction (sign) relative to current.
+        // Heuristic: keep target within +/- 720 of current, then adjust by 360 steps
+        // to keep delta magnitude consistent with raw change, not shortest.
+        let t = target;
+
+        // Bring t closer in range first (avoid huge numbers growing forever)
+        while (t - current > 720) t -= 360;
+        while (t - current < -720) t += 360;
+
+        return t;
+    }
+
+    // Reactive: drive animation towards incoming pointerAngleDeg
+    $: {
+        // If we are in "snap without transition" mode, don't animate
+        if (noTransition) {
+            animAngle = pointerAngleDeg;
+            lastAngle = pointerAngleDeg;
+        } else {
+            const t = applyTimeDirectedAngle(pointerAngleDeg, lastAngle);
+            animAngle = t;
+            lastAngle = t;
+        }
+    }
+
+    function handleSpokeActivate(i: number) {
+        onSelectSpoke(i);
+    }
+
+    function handleNextE() {
         if (resetTimer) clearTimeout(resetTimer);
 
-        onSelect(i);
+        // We assume parent will advance cycle and set pointerAngleDeg accordingly.
+        // Here we only do the visual "snap" trick to avoid an extra spin when
+        // parent switches from end-of-cycle angle back to 0° (same direction).
+        // Strategy:
+        // 1) let parent animate to end-of-cycle by setting pointerAngleDeg near -360
+        // 2) after animation duration, parent will likely set pointerAngleDeg to 0 (new cycle start)
+        // 3) we temporarily disable transition for that snap
+        noTransition = false;
 
-        if (i === NEXT_E_INDEX) {
-            resetTimer = setTimeout(() => {
-                // выключаем transition на один кадр
-                noTransition = true;
+        onSelectNextE();
 
-                // принудительно синхронизируем состояние
-                currentIndex = 0;
-                animAngle = angleDeg(0);
-
-                suppressNextAnim = true;
-                onSelect(0);
-
+        // Disable transition slightly after click so the “to end of cycle” part still animates.
+        // Parent should set end-of-cycle immediately; snap back to 0 happens after its logic.
+        // We just give an escape hatch: parent can call nextE and then set angle to 0 later.
+        resetTimer = setTimeout(() => {
+            noTransition = true;
+            requestAnimationFrame(() => {
+                // Re-enable transitions next frame after snap has applied
                 requestAnimationFrame(() => {
                     noTransition = false;
                 });
-            }, POINTER_ANIM_MS);
-        }
+            });
+        }, POINTER_ANIM_MS);
     }
 
     onDestroy(() => {
         if (resetTimer) clearTimeout(resetTimer);
     });
-
-    $: {
-        if (suppressNextAnim) {
-            suppressNextAnim = false;
-        } else {
-            const targetIndex =
-                selectedIndex === NEXT_E_INDEX ? spokeCount : selectedIndex;
-
-            const delta = targetIndex - currentIndex;
-
-            if (delta !== 0) {
-                animAngle += -stepDeg * delta;
-                currentIndex = targetIndex;
-            }
-        }
-    }
 </script>
 
 <svg
@@ -100,7 +129,7 @@
     <circle cx={cx()} cy={cy()} r={rInner()} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
     {#each labels as label, i (label)}
-        {@const a = angleDeg(i)}
+        {@const a = spokeAngleDeg(i)}
         {@const p1 = polarToXY(rInner(), a)}
         {@const p2 = polarToXY(rOuter(), a)}
         {@const pt = polarToXY(rLabel(), a)}
@@ -109,11 +138,12 @@
                 class="spoke"
                 role="button"
                 tabindex="0"
-                on:click={() => onSpokeClick(i)}
+                aria-label={`Spoke ${label}`}
+                on:click={() => handleSpokeActivate(i)}
                 on:keydown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          onSpokeClick(i);
+          handleSpokeActivate(i);
         }
       }}
         >
@@ -121,7 +151,7 @@
                     x1={p1.x} y1={p1.y}
                     x2={p2.x} y2={p2.y}
                     stroke="currentColor"
-                    stroke-opacity={i === selectedIndex ? 0.9 : 0.35}
+                    stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
                     stroke-width={i % 4 === 0 ? 2.5 : 1.5}
                     stroke-linecap="round"
             />
@@ -133,7 +163,7 @@
                         dominant-baseline="middle"
                         font-size={size * 0.042}
                         fill="currentColor"
-                        fill-opacity={i === selectedIndex ? 1 : 0.65}
+                        fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
                 >
                     {label}
                 </text>
@@ -147,7 +177,7 @@
                             dominant-baseline="middle"
                             font-size={size * 0.034}
                             fill="currentColor"
-                            fill-opacity={selectedIndex === NEXT_E_INDEX ? 1 : 0.55}
+                            fill-opacity={0.55}
                     >
                         E+
                     </text>
@@ -157,9 +187,16 @@
                             cy={pt2.y}
                             r={size * 0.04}
                             fill="transparent"
-                            on:click|stopPropagation={() => onSpokeClick(NEXT_E_INDEX)}
+                            on:click|stopPropagation={handleNextE}
                             role="button"
                             tabindex="0"
+                            aria-label="Next cycle (E+)"
+                            on:keydown|stopPropagation={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleNextE();
+                                }
+                            }}
                     />
                 {/if}
             {/if}
@@ -187,20 +224,16 @@
 </svg>
 
 <style>
-    svg {
-        color: #e7e7ea;
+    svg { color: #e7e7ea; }
+    .spoke { cursor: pointer; user-select: none; }
+    .pointer { transition: transform 420ms ease; }
+    .pointer.noTransition { transition: none; }
+    .spoke:focus {
+        outline: none;
     }
 
-    .spoke {
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .pointer {
-        transition: transform 420ms ease;
-    }
-
-    .pointer.noTransition {
-        transition: none;
+    .spoke:focus-visible {
+        outline: 2px solid rgba(231, 231, 234, 0.35);
+        outline-offset: 4px;
     }
 </style>

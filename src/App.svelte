@@ -1,20 +1,48 @@
 <script lang="ts">
   import Wheel from './Wheel.svelte';
 
-  let selectedIndex = 0;
+  // пока: привязка "угол = спица"
+  let selectedSpokeIndex: number | null = 0;
+  let pointerAngleDeg = 0;
+
+  const spokeCount = 16;
+  const stepDeg = 360 / spokeCount;
+
+  function spokeToAngle(i: number) {
+    // time-forward is CCW => negative
+    return -stepDeg * i;
+  }
+
+  function onSelectSpoke(i: number) {
+    selectedSpokeIndex = i;
+    pointerAngleDeg = spokeToAngle(i);
+  }
+
+  function onSelectNextE() {
+    // "end of cycle" then "snap to next cycle start"
+    selectedSpokeIndex = null;         // подсветку можно убрать на момент перехода
+    pointerAngleDeg = -360;            // докрутка до конца
+    setTimeout(() => {
+      pointerAngleDeg = 0;             // новый цикл, начало
+      selectedSpokeIndex = 0;
+    }, 420);
+  }
 </script>
 
 <main>
   <h1>Wheels</h1>
 
   <div class="wrap">
-    <Wheel size={640}
-           selectedIndex={selectedIndex}
-           onSelect={(index) => (selectedIndex = index)}
+    <Wheel
+            size={640}
+            selectedSpokeIndex={selectedSpokeIndex}
+            pointerAngleDeg={pointerAngleDeg}
+            onSelectSpoke={onSelectSpoke}
+            onSelectNextE={onSelectNextE}
     />
   </div>
 
-  <p class="hint">Click a spoke to move the pointer.</p>
+  <p class="hint">Click a spoke to move the pointer. E+ moves to next cycle.</p>
 </main>
 
 <style>
