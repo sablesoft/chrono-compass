@@ -43,6 +43,18 @@
     const rInner = VB * 0.18;
     const rLabel = VB * 0.48;
 
+    function isFiniteNumber(x: unknown): x is number {
+        return typeof x === 'number' && Number.isFinite(x);
+    }
+
+    function safeAngle(x: unknown, fallback: number) {
+        return isFiniteNumber(x) ? x : fallback;
+    }
+
+    function safeDir(x: unknown): -1 | 0 | 1 {
+        return x === 1 || x === -1 || x === 0 ? x : 0;
+    }
+
     // Continuous animation state
     let displayAngle = pointerAngleDeg;
     let lastAngle = pointerAngleDeg;
@@ -86,52 +98,39 @@
     // Pick an equivalent angle so that:
     // - it stays "near" current
     // - if dir is known, delta sign matches time direction
-    //   (future => CCW => negative delta, past => CW => positive delta)
     function normalizeByDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
         let t = normalizeNearest(baseAngle, current);
 
         if (dir === 0) return t;
 
-        const wantSign = dir > 0 ? -1 : 1;
+        const wantSign = dir > 0 ? -1 : 1; // future => CCW => negative delta
         let delta = t - current;
 
-        // If delta has wrong sign AND it's not basically zero, shift by one full turn.
         if (Math.abs(delta) > 1e-9 && Math.sign(delta) !== wantSign) {
             t += 360 * wantSign;
             delta = t - current;
         }
-
-        // IMPORTANT: if delta is ~0, DO NOT force a ±360 here.
-        // Otherwise you'll get random "extra turns" when time updates to same spoke.
         return t;
     }
 
     // Exactly one full turn in dir, then land on targetAngleDeg (equivalent rep).
-    // No "beauty loops" and no extra full turns.
     function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
         const turn = -360 * dir; // forward(CCW) is negative
         const wantSign = Math.sign(turn);
 
-        // first, pick nearest representation to current
         let t = normalizeNearest(targetAngleDeg, current);
 
-        // ensure landing delta sign matches direction (unless it's exactly 0)
         const d0 = t - current;
         if (Math.abs(d0) > 1e-9 && Math.sign(d0) !== wantSign) {
             t += 360 * wantSign;
         }
 
-        // then add exactly one full turn
         return t + turn;
     }
 
-    // One full turn first, THEN land on pointerAngleDeg (the current target).
-    // This MUST be exactly one full turn, not "one plus whatever normalize did".
+    // One full turn first, THEN land on pointerAngleDeg.
     function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
         const turn = -360 * dir;
-
-        // Use nearest first (may be 0 delta), then add exactly one turn.
-        // This guarantees exactly 1 full cycle pre-spin, never 2.
         const base = normalizeNearest(currentTargetAngle, current);
         return base + turn;
     }
@@ -148,41 +147,51 @@
 
     // Reactive: drive displayAngle
     $: {
+        // guard: never let NaN enter the system
+        const current = safeAngle(lastAngle, 0);
+        lastAngle = current;
+
+        const ptr = safeAngle(pointerAngleDeg, lastAngle);
+        const dir0 = safeDir(timeDir);
+
         // 1) lock — highest priority
         if (spinLock) {
-            displayAngle = spinLockTarget;
-            lastAngle = spinLockTarget;
+            const t = safeAngle(spinLockTarget, lastAngle);
+            displayAngle = t;
+            lastAngle = t;
         }
         // 2) explicit spin command (←/→)
         else if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-            const target = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
             lastSpinCmdId = spinCmd.id;
-            startSpinLock(target);
 
+            const cmdDir: 1 | -1 = spinCmd.dir;
+            const targetBase = safeAngle(spinCmd.targetAngleDeg, lastAngle);
+            const target = computeFullTurnTarget(targetBase, lastAngle, cmdDir);
+
+            startSpinLock(target);
             displayAngle = target;
             lastAngle = target;
         }
-        // 3) preTurn (big jump): exactly one full turn, then the next tick will "fly" toward pointerAngleDeg
+        // 3) preTurn (big jump): exactly one full turn, then next tick lands naturally
         else if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
             lastPreTurnCmdId = preTurnCmd.id;
 
-            // if no direction, do nothing special (just go to pointer)
-            if (timeDir !== 0) {
-                const dir: 1 | -1 = preTurnCmd.dir;
-                const target = computePreTurnTarget(pointerAngleDeg, lastAngle, dir);
-                startSpinLock(target);
+            const cmdDir: 1 | -1 = preTurnCmd.dir;
 
+            if (cmdDir === 1 || cmdDir === -1) {
+                const target = computePreTurnTarget(ptr, lastAngle, cmdDir);
+                startSpinLock(target);
                 displayAngle = target;
                 lastAngle = target;
             } else {
-                const t = normalizeNearest(pointerAngleDeg, lastAngle);
+                const t = normalizeNearest(ptr, lastAngle);
                 displayAngle = t;
                 lastAngle = t;
             }
         }
         // 4) normal movement: keep continuity + follow time direction if known
         else {
-            const t = normalizeByDirection(pointerAngleDeg, lastAngle, timeDir);
+            const t = normalizeByDirection(ptr, lastAngle, dir0);
             displayAngle = t;
             lastAngle = t;
         }
@@ -230,11 +239,11 @@
                 aria-label={`Spoke ${label}`}
                 on:click={() => handleSpokeActivate(i)}
                 on:keydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleSpokeActivate(i);
-                }
-            }}
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleSpokeActivate(i);
+        }
+      }}
         >
             <line
                     x1={p1.x} y1={p1.y}
@@ -281,11 +290,11 @@
                             tabindex="0"
                             aria-label="Next cycle (E+)"
                             on:keydown|stopPropagation={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleNextE();
-                            }
-                        }}
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleNextE();
+              }
+            }}
                     />
                 {/if}
             {/if}
@@ -297,7 +306,7 @@
     <g
             class="pointer"
             class:noTransition={noTransition}
-            transform={`rotate(${displayAngle} ${cx} ${cy})`}
+            transform={`rotate(${safeAngle(displayAngle, 0)} ${cx} ${cy})`}
     >
         <line
                 x1={cx} y1={cy}
@@ -313,7 +322,7 @@
 </svg>
 
 <style>
-    svg { color: var(--fg); } /* или просто: svg { color: currentColor; } если svg наследует */
+    svg { color: var(--fg); }
     .spoke { cursor: pointer; user-select: none; }
 
     .pointer { transition: transform 420ms ease; }

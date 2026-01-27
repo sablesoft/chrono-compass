@@ -8,11 +8,11 @@
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
     import { getYearAnchors, angleFromYearAnchors } from '../lib/cycles/year';
-    import {getPlatoAnchors, angleFromPlatoAnchors, shiftPlatoCycle} from '../lib/cycles/plato';
+    import { getPlatoAnchors, angleFromPlatoAnchors, shiftPlatoCycle } from '../lib/cycles/plato';
 
-    import {formatDateTime, ms} from '../lib/format';
+    import { formatDateTime, ms } from '../lib/format';
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
-    import {SPOKE_DESC} from "../lib/cycles/labels";
+    import { SPOKE_DESC } from '../lib/cycles/labels';
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -54,6 +54,8 @@
     let timeDir: -1 | 0 | 1 = 0;
 
     const ANIM_MS = 420;
+    const SHIFT_EPS_MS = 1; // critical for boundary no-op bugs
+
     let unlockTimer: ReturnType<typeof setTimeout> | null = null;
     let nextETimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -66,24 +68,12 @@
         if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
     }
 
-    function logCycle(tag: string, extra: Record<string, any> = {}) {
-        const now = Date.now();
-        console.log(`[${title}/${kind}] ${tag}`, {
-            selectedTs,
-            nextCurrentTm: now,
-            E: anchors?.E,
-            E_next: anchors?.E_next,
-            ...extra
-        });
-    }
-
     function cancelLocalAnimationsAndUi() {
         clearTimers();
         isCycling = false;
         spinCmd = null;
         preTurnCmd = null;
 
-        // при внешнем прыжке лучше гасить подсветку: иначе UI “врет”
         selectedSpokeIndex = null;
         activeSpokeIndex = null;
     }
@@ -109,13 +99,13 @@
     }
 
     function prevCycleStart(a: Anchors) {
-        if (kind === 'plato') return shiftPlatoCycle(a.E, -1);  // железно на 1 период назад
-        const aPrev = computeAnchors(a.E - 1);
+        if (kind === 'plato') return shiftPlatoCycle(a.E, -1);
+        const aPrev = computeAnchors(a.E - SHIFT_EPS_MS);
         return aPrev.E;
     }
 
     function nextCycleStart(a: Anchors) {
-        if (kind === 'plato') return shiftPlatoCycle(a.E, +1);  // железно на 1 период вперёд
+        if (kind === 'plato') return shiftPlatoCycle(a.E, +1);
         return a.E_next;
     }
 
@@ -130,26 +120,16 @@
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
+        // IMPORTANT: step inside target cycle, not on boundary
         let shiftedBase: number;
-        if (dir > 0) shiftedBase = nextCycleStart(anchors);
-        else shiftedBase = prevCycleStart(anchors);
+        if (dir > 0) shiftedBase = nextCycleStart(anchors) + SHIFT_EPS_MS;
+        else shiftedBase = prevCycleStart(anchors) + SHIFT_EPS_MS;
 
         const a2 = computeAnchors(shiftedBase);
         const t2 = buildSpokeTimes(a2);
 
-        const targetTs = ms(t2[i]);          // <- на всякий, чтобы не было .75
+        const targetTs = ms(t2[i]);
         const targetAngleDeg = computeAngle(targetTs, a2);
-
-        logCycle('shiftCycle', {
-            dir,
-            fromTs: selectedTs,
-            baseE: anchors.E,
-            baseE_next: anchors.E_next,
-            shiftedBase,
-            a2E: a2.E,
-            a2E_next: a2.E_next,
-            targetTs
-        });
 
         if (ms(targetTs) === ms(selectedTs)) {
             console.warn(`[${title}/${kind}] shiftCycle no-op (same targetTs)`, { targetTs, selectedTs, shiftedBase });
@@ -167,7 +147,7 @@
         }, ANIM_MS + 30);
     }
 
-    // resetUiId => явный сброс
+    // resetUiId => explicit reset
     let lastResetUiId = 0;
     $: if (resetUiId !== lastResetUiId) {
         lastResetUiId = resetUiId;
@@ -193,26 +173,16 @@
 
             lastSeenTs = selectedTs;
 
-            // While this wheel runs its own button animation, do not inject anything.
-            if (isCycling) {
-                // keep commands as-is
-            } else {
+            if (!isCycling) {
                 if (!isSelf) {
-                    // external change (other wheel / Now / picking date later)
                     cancelLocalAnimationsAndUi();
 
-                    // decide if we want a “pre-turn” (jump bigger than one cycle)
                     const aNow = computeAnchors(selectedTs);
                     const cycleMs = Math.max(1, aNow.end - aNow.start);
 
-                    if (absDelta > cycleMs) {
-                        preTurnCmd = { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 };
-                    } else {
-                        preTurnCmd = null;
-                    }
-                } else {
-                    // self change: do NOT inject preTurn here, and do NOT cancel our spinCmd
-                    // (otherwise ←/→ will “double-spin”)
+                    preTurnCmd = absDelta > cycleMs
+                        ? { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 }
+                        : null;
                 }
             }
         }
@@ -241,6 +211,8 @@
         wheelSize = Math.max(320, sizeByPad - 2);
     }
 
+    let usingWindowResize = false;
+
     onMount(() => {
         queueMicrotask(recomputeWheelSize);
 
@@ -248,6 +220,7 @@
             ro = new ResizeObserver(recomputeWheelSize);
             ro.observe(wrapEl);
         } else {
+            usingWindowResize = true;
             window.addEventListener('resize', recomputeWheelSize);
         }
     });
@@ -256,19 +229,16 @@
         clearTimers();
         if (ro && wrapEl) ro.unobserve(wrapEl);
         ro?.disconnect();
-        window.removeEventListener('resize', recomputeWheelSize);
+        if (usingWindowResize) window.removeEventListener('resize', recomputeWheelSize);
     });
 
     function onSelectSpoke(i: number) {
         onUserActivity();
-
-        // user action overrides our local animations
         cancelLocalAnimationsAndUi();
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
 
-        // within this wheel it's always inside current cycle, so no need to force preTurn here
         emitSelectTs(spokeTimes[i]);
     }
 
@@ -282,9 +252,8 @@
 
         clearTimers();
 
-        // target must be captured BEFORE changing selectedTs
         const endTs = anchors.E_next;
-        const endMinus1 = endTs - 1;
+        const endMinus1 = endTs - SHIFT_EPS_MS;
 
         preTurnCmd = null;
         spinCmd = null;
@@ -437,5 +406,7 @@
     .infoRow .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
     .infoRow .desc { opacity: 0.6; }
 
-    .infoRow:hover { background: var(--hover); }
+    .infoRow:hover {
+        background: var(--hover, rgba(255,255,255,0.04));
+    }
 </style>
