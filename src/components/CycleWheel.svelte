@@ -4,100 +4,176 @@
     import Wheel from './Wheel.svelte';
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
-
-    import { getDayAnchors, angleFromDayAnchors, shiftDayCycle } from '../lib/cycles/day';
-    import { getMoonAnchors, angleFromMoonAnchors, shiftMoonCycle } from '../lib/cycles/moon';
-    import { getYearAnchors, angleFromYearAnchors, shiftYearCycle } from '../lib/cycles/year';
-
+    import { getDayAnchors, shiftDayCycle, angleFromDayAnchors } from '../lib/cycles/day';
+    import { getMoonAnchors, shiftMoonCycle, angleFromMoonAnchors } from '../lib/cycles/moon';
+    import { getYearAnchors, shiftYearCycle, angleFromYearAnchors } from '../lib/cycles/year';
     import { formatDateTime } from '../lib/format';
     import type { CycleKind, SpinCmd } from '../lib/cycles/types';
 
+    // NOTE: Wheel exports this type in my snippet, but here we’ll just inline it
+    // to avoid extra imports. If you exported it to lib/cycles/types.ts, import it instead.
+    type PreTurnCmd = { id: number; dir: 1 | -1 };
+
     export let kind: CycleKind = 'day';
     export let title = 'Day';
+    export let isLive = false;
 
     export let lat: number;
     export let lon: number;
 
-    // single source of truth lives in App
     export let selectedTs: number;
-
-    // emit change of global time
     export let onSelectTs: (ts: number) => void = () => {};
-
     export let resetUiId = 0;
-    let lastResetUiId = 0;
 
     // UI state (local per wheel)
     let selectedSpokeIndex: number | null = null;
     let activeSpokeIndex: number | null = null;
 
+    // commands to Wheel
     let spinCmd: SpinCmd | null = null;
     let spinCmdId = 0;
 
+    let preTurnCmd: PreTurnCmd | null = null;
+    let preTurnCmdId = 0;
+
     let isCycling = false;
 
-    // DOM
+    // Responsive
     let wrapEl: HTMLDivElement | null = null;
     let ro: ResizeObserver | null = null;
-
-    // Responsive size
     let wheelSize = 360;
 
-    let unlockTimer: ReturnType<typeof setTimeout> | null = null;
-    let nextETimer: ReturnType<typeof setTimeout> | null = null;
-
+    // derived
     let anchors: Anchors;
     let spokeTimes: number[] = [];
     let pointerAngleDeg = 0;
     let progress = 0;
 
+    // time direction for Wheel (future => CCW, past => CW)
     let prevTs = selectedTs;
     let timeDir: -1 | 0 | 1 = 0;
+
+    const ANIM_MS = 420;
+    let unlockTimer: ReturnType<typeof setTimeout> | null = null;
+    let nextETimer: ReturnType<typeof setTimeout> | null = null;
+
+    // --- important: detect external time jumps
+    let selfChangeToken = 0; // increment before calling onSelectTs
+    let lastSeenToken = 0;
+    let lastSeenTs = selectedTs;
 
     function clearTimers() {
         if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
         if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
     }
 
-    function computeAnchors(): Anchors {
-        if (kind === 'moon') return getMoonAnchors(selectedTs);
-        if (kind === 'year') return getYearAnchors(selectedTs);
-        return getDayAnchors(selectedTs, lat, lon);
+    function cancelLocalAnimationsAndUi() {
+        clearTimers();
+        isCycling = false;
+        spinCmd = null;
+        preTurnCmd = null;
+
+        // при внешнем прыжке лучше гасить подсветку: иначе UI “врет”
+        selectedSpokeIndex = null;
+        activeSpokeIndex = null;
     }
 
-    function computeAngle(ts: number, a: Anchors) {
+    function emitSelectTs(ts: number) {
+        selfChangeToken += 1;
+        lastSeenToken = selfChangeToken;
+        onSelectTs(ts);
+    }
+
+    function computeAnchors(ts: number): Anchors {
+        if (kind === 'moon') return getMoonAnchors(ts);
+        if (kind === 'year') return getYearAnchors(ts, lat, lon);
+        return getDayAnchors(ts, lat, lon);
+    }
+
+    function computeAngle(ts: number, a: Anchors): number {
         if (kind === 'moon') return angleFromMoonAnchors(ts, a);
         if (kind === 'year') return angleFromYearAnchors(ts, a);
         return angleFromDayAnchors(ts, a);
     }
 
-    function shiftCycleBase(ts: number, dir: -1 | 1) {
-        if (kind === 'moon') return shiftMoonCycle(ts, dir);
-        if (kind === 'year') return shiftYearCycle(ts, dir);
-        return shiftDayCycle(ts, dir);
+    function shiftCycleBase(baseTs: number, dir: -1 | 1): number {
+        if (kind === 'moon') return shiftMoonCycle(baseTs, dir);
+        if (kind === 'year') return shiftYearCycle(baseTs, dir);
+        return shiftDayCycle(baseTs, dir);
     }
 
-    // direction of time changes (for Wheel: always rotate by time direction, not shortest)
+    // resetUiId => явный сброс
+    let lastResetUiId = 0;
+    $: if (resetUiId !== lastResetUiId) {
+        lastResetUiId = resetUiId;
+        cancelLocalAnimationsAndUi();
+        prevTs = selectedTs;
+        timeDir = 0;
+    }
+
+    // detect external selectedTs changes + compute timeDir + pre-turn for big jumps
     $: {
-        if (selectedTs === prevTs) {
-            timeDir = 0;
-        } else {
+        if (selectedTs !== lastSeenTs) {
+            const isExternal = (lastSeenToken !== selfChangeToken);
+
+            // direction always updates when ts changes
             timeDir = selectedTs > prevTs ? 1 : -1;
             prevTs = selectedTs;
+
+            // update lastSeen
+            lastSeenTs = selectedTs;
+
+            // always drop one-shot preturn if we’re inside our own button animation
+            if (isCycling) {
+                // no-op
+            } else {
+                // if external, cancel our UI so we don’t “lie”
+                if (isExternal) {
+                    if (!isLive) cancelLocalAnimationsAndUi();
+                    cancelLocalAnimationsAndUi();
+                }
+
+                // If jump is larger than this wheel’s cycle: do 1 full pre-turn, then land.
+                // (Works for external changes AND manual spoke clicks from other wheels)
+                // Need anchors duration for current selectedTs.
+                const a = computeAnchors(selectedTs);
+                const cycleMs = Math.max(1, a.end - a.start);
+                const absDelta = Math.abs(selectedTs - lastSeenTs); // <-- careful: lastSeenTs already updated
+
+                // We need previous value to compute delta reliably.
+                // So compute delta from prevTs BEFORE we overwrite it.
+                // We already overwrote prevTs above, so use lastSeenTsOld:
+            }
+        } else {
+            timeDir = 0;
         }
     }
 
-    $: if (resetUiId !== lastResetUiId) {
-        lastResetUiId = resetUiId;
+    // The above block can’t compute absDelta after overwriting. Use a separate stable tracker:
+    let lastTsForJumpCheck = selectedTs;
+    $: {
+        if (selectedTs !== lastTsForJumpCheck) {
+            const delta = selectedTs - lastTsForJumpCheck;
+            const absDelta = Math.abs(delta);
 
-        clearTimers();
-        selectedSpokeIndex = null;
-        activeSpokeIndex = null;
-        spinCmd = null;
-        isCycling = false;
+            // We already compute anchors reactively below, but for pre-turn we need duration now:
+            const aNow = computeAnchors(selectedTs);
+            const cycleMs = Math.max(1, aNow.end - aNow.start);
+
+            // Only when:
+            // - change is bigger than one cycle
+            // - we have a direction
+            // - we are not in our own ←/→ animation lock
+            if (!isCycling && timeDir !== 0 && absDelta > cycleMs) {
+                preTurnCmd = { id: ++preTurnCmdId, dir: timeDir === 1 ? 1 : -1 };
+            }
+
+            lastTsForJumpCheck = selectedTs;
+        }
     }
 
-    $: anchors = computeAnchors();
+    // recompute derived
+    $: anchors = computeAnchors(selectedTs);
     $: spokeTimes = buildSpokeTimes(anchors);
     $: pointerAngleDeg = computeAngle(selectedTs, anchors);
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
@@ -115,15 +191,15 @@
         const innerH = Math.max(0, wrapEl.clientHeight - pt - pb);
         const available = Math.floor(Math.min(innerW, innerH));
 
-        // Wheel viewBox is fixed; visual padding is handled by radii.
-        wheelSize = Math.max(320, available - 2);
+        const sizeByPad = Math.floor(available / 1.10);
+        wheelSize = Math.max(320, sizeByPad - 2);
     }
 
     onMount(() => {
-        queueMicrotask(() => recomputeWheelSize());
+        queueMicrotask(recomputeWheelSize);
 
         if (wrapEl && 'ResizeObserver' in window) {
-            ro = new ResizeObserver(() => recomputeWheelSize());
+            ro = new ResizeObserver(recomputeWheelSize);
             ro.observe(wrapEl);
         } else {
             window.addEventListener('resize', recomputeWheelSize);
@@ -138,66 +214,67 @@
     });
 
     function onSelectSpoke(i: number) {
-        // user click wins
-        clearTimers();
-        isCycling = false;
-        spinCmd = null;
+        // user action overrides everything
+        cancelLocalAnimationsAndUi();
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
-        onSelectTs(spokeTimes[i]);
+
+        // This is a “local” change, but it can still be far in time if you click year wheel etc.
+        // preTurn will be triggered by the reactive jump checker above (absDelta > cycleMs).
+        emitSelectTs(spokeTimes[i]);
     }
 
     function shiftCycle(dir: -1 | 1) {
         if (isCycling) return;
-        clearTimers();
         isCycling = true;
 
-        // keep the same spoke index across cycles
+        // while we are doing button-driven spin, we do NOT want preTurn interfering
+        preTurnCmd = null;
+
         const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // shift from cycle start anchor (E) to avoid drift
         const shiftedBase = shiftCycleBase(anchors.E, dir);
-
-        const a2 =
-            kind === 'moon' ? getMoonAnchors(shiftedBase)
-                : kind === 'year' ? getYearAnchors(shiftedBase)
-                    : getDayAnchors(shiftedBase, lat, lon);
-
+        const a2 = computeAnchors(shiftedBase);
         const t2 = buildSpokeTimes(a2);
+
         const targetTs = t2[i];
         const targetAngleDeg = computeAngle(targetTs, a2);
 
-        // one full turn + land on target angle
         spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
+        emitSelectTs(targetTs);
 
-        onSelectTs(targetTs);
-
+        clearTimers();
         unlockTimer = setTimeout(() => {
             isCycling = false;
-        }, 420 + 30);
+            unlockTimer = null;
+        }, ANIM_MS + 30);
     }
 
     function onSelectNextE() {
         if (isCycling) return;
-        clearTimers();
         isCycling = true;
+
+        // prevent preTurn
+        preTurnCmd = null;
 
         selectedSpokeIndex = null;
         activeSpokeIndex = null;
 
-        // animate to end-of-cycle
-        onSelectTs(anchors.end - 1);
+        clearTimers();
 
-        // snap to next cycle start
+        // animate to end-of-cycle
+        emitSelectTs(anchors.end - 1);
+
         nextETimer = setTimeout(() => {
-            onSelectTs(anchors.end);
+            emitSelectTs(anchors.end);
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
             isCycling = false;
-        }, 420);
+            nextETimer = null;
+        }, ANIM_MS);
     }
 </script>
 
@@ -220,6 +297,7 @@
                 selectedSpokeIndex={selectedSpokeIndex}
                 pointerAngleDeg={pointerAngleDeg}
                 spinCmd={spinCmd}
+                preTurnCmd={preTurnCmd}
                 timeDir={timeDir}
                 onSelectSpoke={onSelectSpoke}
                 onSelectNextE={onSelectNextE}

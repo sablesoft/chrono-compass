@@ -6,3 +6,8 @@ export type SpinCmd = {
     // куда приземлиться после полного оборота
     targetAngleDeg: number;
 };
+
+export type PreTurnCmd = {
+    id: number;
+    dir: 1 | -1;
+};

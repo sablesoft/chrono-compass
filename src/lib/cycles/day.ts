@@ -1,6 +1,7 @@
 import SunCalc from 'suncalc';
 import type { Anchors } from './spokes';
 import { clamp01 } from './spokes';
+import {angleFromAnchors} from "./angle";
 
 function segProgress(ts: number, a0: number, a1: number) {
     if (a1 === a0) return 0;
@@ -45,24 +46,7 @@ export function getDayAnchors(ts: number, lat: number, lon: number): Anchors {
     };
 }
 
-// Угол указателя (астрономически “кривой” по времени)
-export function angleFromDayAnchors(ts: number, a: Anchors) {
-    // E=0, N=-90, W=-180, S=-270, E+=-360
-    if (ts < a.N) {
-        const p = segProgress(ts, a.E, a.N);
-        return -90 * p;
-    }
-    if (ts < a.W) {
-        const p = segProgress(ts, a.N, a.W);
-        return -90 - 90 * p;
-    }
-    if (ts < a.S) {
-        const p = segProgress(ts, a.W, a.S);
-        return -180 - 90 * p;
-    }
-    const p = segProgress(ts, a.S, a.E_next);
-    return -270 - 90 * p;
-}
+export const angleFromDayAnchors = angleFromAnchors;
 
 // Сдвиг цикла на N суток (для кнопок ←/→)
 export function shiftDayCycle(ts: number, daysDelta: number) {

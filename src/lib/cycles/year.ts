@@ -1,6 +1,7 @@
 // src/lib/cycles/year.ts
 import type { Anchors } from './spokes';
 import { clamp01 } from './spokes';
+import { angleFromAnchors } from './angle';
 
 const MS_PER_DAY = 86400000;
 const JD_UNIX_EPOCH = 2440587.5; // 1970-01-01T00:00:00Z in Julian Day
@@ -65,7 +66,11 @@ function yearEventsUtcMs(year: number) {
 }
 
 // Годовой цикл: March equinox -> next March equinox
-export function getYearAnchors(ts: number): Anchors {
+export function getYearAnchors(
+    ts: number,
+    lat: number,
+    lon: number
+): Anchors {
     const d = new Date(ts);
     const y = d.getUTCFullYear();
 
@@ -94,24 +99,7 @@ function segProgress(ts: number, a0: number, a1: number) {
     return clamp01((ts - a0) / (a1 - a0));
 }
 
-// Угол указателя (астрономически “кривой” по времени) для годовых якорей
-export function angleFromYearAnchors(ts: number, a: Anchors) {
-    // E=0, N=-90, W=-180, S=-270, E+=-360
-    if (ts < a.N) {
-        const p = segProgress(ts, a.E, a.N);
-        return -90 * p;
-    }
-    if (ts < a.W) {
-        const p = segProgress(ts, a.N, a.W);
-        return -90 - 90 * p;
-    }
-    if (ts < a.S) {
-        const p = segProgress(ts, a.W, a.S);
-        return -180 - 90 * p;
-    }
-    const p = segProgress(ts, a.S, a.E_next);
-    return -270 - 90 * p;
-}
+export const angleFromYearAnchors = angleFromAnchors;
 
 // Сдвиг годового цикла на N лет (для ←/→)
 export function shiftYearCycle(ts: number, yearsDelta: number) {

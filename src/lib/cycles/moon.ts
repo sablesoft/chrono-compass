@@ -1,6 +1,7 @@
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from './spokes';
 import { clamp01 } from './spokes';
+import {angleFromAnchors} from "./angle";
 
 function segProgress(ts: number, a0: number, a1: number) {
     if (a1 === a0) return 0;
@@ -46,23 +47,7 @@ export function getMoonAnchors(ts: number): Anchors {
     };
 }
 
-export function angleFromMoonAnchors(ts: number, a: Anchors) {
-    // E=0, N=-90, W=-180, S=-270, E+=-360
-    if (ts < a.N) {
-        const p = segProgress(ts, a.E, a.N);
-        return -90 * p;
-    }
-    if (ts < a.W) {
-        const p = segProgress(ts, a.N, a.W);
-        return -90 - 90 * p;
-    }
-    if (ts < a.S) {
-        const p = segProgress(ts, a.W, a.S);
-        return -180 - 90 * p;
-    }
-    const p = segProgress(ts, a.S, a.E_next);
-    return -270 - 90 * p;
-}
+export const angleFromMoonAnchors = angleFromAnchors;
 
 /**
  * Сдвиг лунного цикла на ±1 цикл.

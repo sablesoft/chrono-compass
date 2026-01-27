@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
-    import type { SpinCmd } from '../lib/cycles/types';
+    import type { SpinCmd, PreTurnCmd } from '../lib/cycles/types';
 
     const labels = [
         'E','ENE','NE','NNE',
@@ -15,16 +15,25 @@
 
     export let size = 360;
     export let showLabels = true;
-    export let timeDir: -1 | 0 | 1 = 0;
 
+    // “ровно 1 оборот + приземление на targetAngleDeg”
     export let spinCmd: SpinCmd | null = null;
+
+    // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
+    export let preTurnCmd: PreTurnCmd | null = null;
+
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
+
+    //  1  => time forward => CCW (negative degrees)
+    // -1  => time back    => CW  (positive degrees)
+    //  0  => unknown
+    export let timeDir: -1 | 0 | 1 = 0;
 
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
-    // viewBox space
+    // Single coordinate space
     const VB = 1000;
     const cx = VB / 2;
     const cy = VB / 2;
@@ -33,16 +42,20 @@
     const rInner = VB * 0.18;
     const rLabel = VB * 0.48;
 
-    // animation state
+    // Continuous animation state (IMPORTANT: never reset to raw pointerAngle)
     let displayAngle = pointerAngleDeg;
+    let lastAngle = pointerAngleDeg;
 
-    // state flags
-    let noTransition = false;
-    let isSpinning = false;
-
-    // bookkeeping
     let lastSpinCmdId = 0;
-    let snapTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastPreTurnCmdId = 0;
+
+    // Lock while doing a forced spin (pre-turn or spinCmd)
+    let spinLock = false;
+    let spinLockTarget = 0;
+    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
+
+    let noTransition = false;
+    let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
@@ -50,98 +63,136 @@
     }
 
     function spokeAngleDeg(i: number) {
-        // forward-in-time is CCW => negative angles
-        return -stepDeg * i;
+        return -stepDeg * i; // time-forward is CCW => negative
     }
 
-    function normalizeToClosest(baseAngle: number, current: number) {
-        let t = baseAngle;
-        while (t - current > 180) t -= 360;
-        while (t - current < -180) t += 360;
-        return t;
-    }
-
-    function clearTimers() {
-        if (snapTimer) {
-            clearTimeout(snapTimer);
-            snapTimer = null;
+    function clearSnapMode() {
+        if (resetTimer) {
+            clearTimeout(resetTimer);
+            resetTimer = null;
         }
-    }
-
-    function cancelSpin() {
-        clearTimers();
-        isSpinning = false;
         noTransition = false;
     }
 
-    function normalizeInDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
-        if (dir === 0) return normalizeToClosest(baseAngle, current);
+    // Convert time direction to "degree sign" we must preserve:
+    // future => CCW => delta must be NEGATIVE
+    // past   => CW  => delta must be POSITIVE
+    function degSignFromTimeDir(dir: -1 | 1) {
+        return dir === 1 ? -1 : 1; // +1 future => -1 degrees, -1 past => +1 degrees
+    }
 
-        // CCW forward => we want delta negative when dir=1
-        // CW backward => we want delta positive when dir=-1
-        const wantSign = dir === 1 ? -1 : 1;
+    // Pick an equivalent representation of baseAngle (±360k) so that:
+    // (t - current) has the correct sign (degSign), and is the "nearest" among those.
+    function normalizeByDegSign(baseAngle: number, current: number, degSign: 1 | -1) {
+        let t = baseAngle;
 
-        // start from closest representation
-        let t = normalizeToClosest(baseAngle, current);
-        let delta = t - current;
+        // Keep numbers bounded
+        while (t - current > 720) t -= 360;
+        while (t - current < -720) t += 360;
 
-        // if delta sign doesn't match desired, push by full turns until it does
-        // this enforces long-way travel if needed.
-        while (Math.sign(delta) !== wantSign && delta !== 0) {
-            t += 360 * wantSign; // if wantSign=-1 => t -= 360
-            delta = t - current;
+        // Force desired sign
+        while ((t - current) * degSign <= 0) {
+            t += 360 * degSign;
         }
-
-        // Edge case: if exactly same angle (delta=0) but timeDir requests movement,
-        // we keep it (no visual move) — this is OK for "same angle different cycle" cases
-        // which are handled via spinCmd anyway.
         return t;
     }
 
-    $: if (!isSpinning) {
-        displayAngle = normalizeInDirection(pointerAngleDeg, displayAngle, timeDir);
+    // Exactly one full turn in cmd dir, then land on targetAngleDeg (in that direction)
+    function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
+        // dir=+1 (future) => CCW => degSign=-1
+        // dir=-1 (past)   => CW  => degSign=+1
+        const degSign = degSignFromTimeDir(dir);
+
+        // First, ensure target is reached in the correct direction
+        const base = normalizeByDegSign(targetAngleDeg, current, degSign);
+
+        // Then add ONE guaranteed full cycle in the same direction
+        return base + 360 * degSign;
     }
 
-    // 2) handle new spin command (one full turn + snap to clean target)
-    $: if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-        clearTimers();
-        isSpinning = true;
+    // One full turn first, THEN land on current pointerAngleDeg (in the same direction)
+    function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
+        const degSign = degSignFromTimeDir(dir);
+        const base = normalizeByDegSign(currentTargetAngle, current, degSign);
+        return base + 360 * degSign;
+    }
 
-        const turn = -360 * spinCmd.dir; // dir=1 => forward(CCW) => -360
-        const clean = normalizeToClosest(spinCmd.targetAngleDeg, displayAngle);
-        const spun = clean + turn;
+    function startSpinLock(target: number) {
+        spinLock = true;
+        spinLockTarget = target;
 
-        // animate to spun
-        displayAngle = spun;
-        lastSpinCmdId = spinCmd.id;
+        if (spinLockTimer) clearTimeout(spinLockTimer);
+        spinLockTimer = setTimeout(() => {
+            spinLock = false;
+            spinLockTimer = null;
+        }, POINTER_ANIM_MS + 30);
+    }
 
-        // after animation, snap silently to clean (and end spinning)
-        snapTimer = setTimeout(() => {
-            noTransition = true;
-            displayAngle = clean;
+    // Reactive: drive displayAngle
+    $: {
+        // 1) lock — самый высокий приоритет
+        if (spinLock) {
+            displayAngle = spinLockTarget;
+            lastAngle = spinLockTarget;
+        } else {
+            // default movement: follow pointerAngleDeg but ONLY in timeDir (if known)
+            let target = pointerAngleDeg;
 
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    noTransition = false;
-                    isSpinning = false;
-                });
-            });
+            if (timeDir !== 0) {
+                const degSign = degSignFromTimeDir(timeDir);
+                target = normalizeByDegSign(pointerAngleDeg, lastAngle, degSign);
+            } else {
+                // no direction info => keep it "close-ish" without forcing sign
+                // (so it doesn’t drift infinitely)
+                while (target - lastAngle > 180) target -= 360;
+                while (target - lastAngle < -180) target += 360;
+            }
 
-            snapTimer = null;
-        }, POINTER_ANIM_MS + 5);
+            // 2) preTurn (дальний прыжок) — ниже spinCmd
+            if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
+                lastPreTurnCmdId = preTurnCmd.id;
+
+                const t = computePreTurnTarget(pointerAngleDeg, lastAngle, preTurnCmd.dir);
+                startSpinLock(t);
+                target = t;
+            }
+
+            // 3) explicit spin command (←/→) — главный приоритет
+            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+                const t = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
+                lastSpinCmdId = spinCmd.id;
+                startSpinLock(t);
+                target = t;
+            }
+
+            displayAngle = target;
+            lastAngle = target;
+        }
     }
 
     function handleSpokeActivate(i: number) {
-        cancelSpin();
+        clearSnapMode();
         onSelectSpoke(i);
     }
 
     function handleNextE() {
-        cancelSpin();
+        clearSnapMode();
         onSelectNextE();
+
+        resetTimer = setTimeout(() => {
+            noTransition = true;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    noTransition = false;
+                });
+            });
+        }, POINTER_ANIM_MS);
     }
 
-    onDestroy(() => cancelSpin());
+    onDestroy(() => {
+        if (resetTimer) clearTimeout(resetTimer);
+        if (spinLockTimer) clearTimeout(spinLockTimer);
+    });
 </script>
 
 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">

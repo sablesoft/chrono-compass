@@ -1,10 +1,15 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import CycleWheel from './components/CycleWheel.svelte';
   import { formatDateTime, formatCoords } from './lib/format';
   import { loadPlaces, addPlace, removePlace, type Place } from './lib/places/store';
 
   // global time (single source of truth)
   let selectedTs = Date.now();
+
+  // LIVE clock mode
+  let isLive = true;
+  let tickTimer: ReturnType<typeof setInterval> | null = null;
 
   // location
   let lat = -23.22;
@@ -15,16 +20,49 @@
   let places: Place[] = [];
   let newPlaceName = '';
 
+  // signal wheels to reset local UI (highlight/active/spin state)
   let resetUiId = 0;
 
-  function setNow() {
+  function startLive() {
+    if (isLive) return;
+    isLive = true;
     selectedTs = Date.now();
-    resetUiId += 1; // <-- сигнал всем колёсам сбросить подсветку/active
+    resetUiId += 1; // сброс подсветок при входе в live
   }
 
-  function onSelectTs(ts: number) {
-    console.log('App onSelectTs', new Date(ts).toISOString(), ts);
+  function stopLive() {
+    if (!isLive) return;
+    isLive = false;
+  }
+
+  function toggleNow() {
+    if (isLive) {
+      // выключаем live, ничего больше не делаем
+      isLive = false;
+      return;
+    }
+
+    // включаем live
+    isLive = true;
+    selectedTs = Date.now();
+    resetUiId += 1; // сброс подсветок/локальных состояний колёс
+  }
+
+  // reason: 'user' => выключаем live, 'system' => не выключаем
+  function onSelectTs(ts: number, reason: 'user' | 'system' = 'user') {
+    if (reason === 'user') stopLive();
     selectedTs = ts;
+  }
+
+  function setupTicker() {
+    if (tickTimer) clearInterval(tickTimer);
+
+    // Обновляем сразу, затем каждую минуту (по минутной границе опционально позже)
+    tickTimer = setInterval(() => {
+      if (!isLive) return;
+      // В live НЕ трогаем resetUiId: иначе будут постоянные сбросы UI
+      onSelectTs(Date.now(), 'system');
+    }, 60_000);
   }
 
   function load() {
@@ -40,17 +78,26 @@
   }
 
   function pickPlace(p: Place) {
+    // смена места — это пользовательское действие => выключаем live
+    stopLive();
     lat = p.lat;
     lon = p.lon;
     placeName = p.name;
+    resetUiId += 1;
   }
 
   function delPlace(p: Place) {
     places = removePlace(p.id);
   }
 
-  // init
-  load();
+  onMount(() => {
+    load();
+    setupTicker();
+  });
+
+  onDestroy(() => {
+    if (tickTimer) clearInterval(tickTimer);
+  });
 </script>
 
 <main>
@@ -58,11 +105,11 @@
     <header class="topbar">
       <div class="title">
         <div class="h">Wheels</div>
-        <div class="sub">{formatDateTime(selectedTs)}</div>
+        <div class="sub">{formatDateTime(selectedTs)}{isLive ? ' · LIVE' : ''}</div>
       </div>
 
       <div class="actions">
-        <button on:click={setNow}>Now</button>
+        <button on:click={toggleNow} class:active={isLive}>Now</button>
       </div>
     </header>
 
@@ -72,10 +119,7 @@
       </div>
 
       <div class="save">
-        <input
-                placeholder="Save current coords as…"
-                bind:value={newPlaceName}
-        />
+        <input placeholder="Save current coords as…" bind:value={newPlaceName} />
         <button on:click={saveCurrentPlace}>Save</button>
       </div>
 
@@ -100,7 +144,8 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              onSelectTs={onSelectTs}
+              isLive={isLive}
+              onSelectTs={(ts) => onSelectTs(ts, 'user')}
       />
 
       <CycleWheel
@@ -110,7 +155,8 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              onSelectTs={onSelectTs}
+              isLive={isLive}
+              onSelectTs={(ts) => onSelectTs(ts, 'user')}
       />
 
       <CycleWheel
@@ -120,12 +166,13 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              onSelectTs={onSelectTs}
+              isLive={isLive}
+              onSelectTs={(ts) => onSelectTs(ts, 'user')}
       />
     </section>
 
     <footer class="note">
-      Пока Moon/Year используют day-математику как заглушку. Дальше подключим реальные якоря.
+      LIVE обновляется раз в минуту. Любое действие на колесе выключает LIVE.
     </footer>
   </div>
 </main>
@@ -138,14 +185,14 @@
     color: #e7e7ea;
     width: 100%;
     overflow-x: hidden;
-    font-size: 24px;
+    font-size: 18px;
   }
 
-  /* вот это ключ */
   .container {
     width: clamp(1200px, calc(100vw - 48px), 2600px);
     margin: 0 auto;
   }
+
   .topbar {
     display: flex;
     align-items: center;
@@ -153,16 +200,10 @@
     gap: 14px;
     margin-bottom: 14px;
   }
-  .h {
-    font-size: 28px;
-    font-weight: 700;
-    opacity: 0.95;
-  }
-  .sub {
-    font-size: 24px;
-    opacity: 0.75;
-    margin-top: 2px;
-  }
+
+  .h { font-size: 18px; font-weight: 700; opacity: 0.95; }
+  .sub { font-size: 13px; opacity: 0.75; margin-top: 2px; }
+
   button {
     padding: 8px 10px;
     border-radius: 10px;
@@ -171,6 +212,11 @@
     color: inherit;
     cursor: pointer;
   }
+  button.active {
+    border-color: rgba(231,231,234,0.35);
+    background: rgba(231,231,234,0.10);
+  }
+
   .location {
     border: 1px solid rgba(231, 231, 234, 0.10);
     background: rgba(231, 231, 234, 0.03);
@@ -178,17 +224,8 @@
     padding: 12px 14px;
     margin-bottom: 16px;
   }
-  .line {
-    font-size: 14px;
-    opacity: 0.9;
-    margin-bottom: 10px;
-  }
-  .save {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 10px;
-  }
+  .line { font-size: 14px; opacity: 0.9; margin-bottom: 10px; }
+  .save { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
   input {
     flex: 1;
     padding: 10px 12px;
@@ -198,28 +235,11 @@
     color: inherit;
     outline: none;
   }
-  .places {
-    display: grid;
-    gap: 8px;
-  }
-  .place {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .pick {
-    padding: 6px 10px;
-    border-radius: 10px;
-  }
-  .coords {
-    font-size: 12px;
-    opacity: 0.65;
-  }
-  .del {
-    margin-left: auto;
-    padding: 6px 10px;
-    opacity: 0.8;
-  }
+  .places { display: grid; gap: 8px; }
+  .place { display: flex; align-items: center; gap: 10px; }
+  .pick { padding: 6px 10px; border-radius: 10px; }
+  .coords { font-size: 12px; opacity: 0.65; }
+  .del { margin-left: auto; padding: 6px 10px; opacity: 0.8; }
 
   .grid {
     display: grid;
@@ -227,23 +247,8 @@
     grid-template-columns: 1fr;
     align-items: start;
   }
+  @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
 
-  /* планшет/ноут: 2 колонки */
-  @media (min-width: 980px) {
-    .grid {
-      grid-template-columns: 1fr 1fr;
-    }
-  }
-
-  /* реально широкий экран: 3 */
-  @media (min-width: 1400px) {
-    .grid {
-      grid-template-columns: 1fr 1fr 1fr;
-    }
-  }
-  .note {
-    margin-top: 14px;
-    font-size: 12px;
-    opacity: 0.55;
-  }
+  .note { margin-top: 14px; font-size: 12px; opacity: 0.55; }
 </style>
