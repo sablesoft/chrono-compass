@@ -8,6 +8,7 @@
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
     import { getYearAnchors, angleFromYearAnchors } from '../lib/cycles/year';
+    import { getPlatoAnchors, angleFromPlatoAnchors } from '../lib/cycles/plato';
 
     import { formatDateTime } from '../lib/format';
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
@@ -95,12 +96,14 @@
     function computeAnchors(ts: number): Anchors {
         if (kind === 'moon') return getMoonAnchors(ts);
         if (kind === 'year') return getYearAnchors(ts, lat, lon);
+        if (kind === 'plato') return getPlatoAnchors(ts);
         return getDayAnchors(ts, lat, lon);
     }
 
     function computeAngle(ts: number, a: Anchors): number {
         if (kind === 'moon') return angleFromMoonAnchors(ts, a);
         if (kind === 'year') return angleFromYearAnchors(ts, a);
+        if (kind === 'plato') return angleFromPlatoAnchors(ts, a);
         return angleFromDayAnchors(ts, a);
     }
 

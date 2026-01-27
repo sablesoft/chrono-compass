@@ -164,6 +164,17 @@
               onUserActivity={onUserActivity}
               onSelectTs={onSelectTs}
       />
+
+      <CycleWheel
+              title="Plato"
+              kind="plato"
+              {lat}
+              {lon}
+              {selectedTs}
+              {resetUiId}
+              onUserActivity={onUserActivity}
+              onSelectTs={onSelectTs}
+      />
     </section>
 
     <footer class="note">

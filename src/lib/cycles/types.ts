@@ -1,4 +1,4 @@
-export type CycleKind = 'day' | 'moon' | 'year';
+export type CycleKind = 'day' | 'moon' | 'year' | 'plato';
 
 export type SpinCmd = {
     id: number;
