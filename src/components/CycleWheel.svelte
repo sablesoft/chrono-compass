@@ -1,11 +1,17 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import Wheel from './Wheel.svelte';
+
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
+
     import { getDayAnchors, angleFromDayAnchors, shiftDayCycle } from '../lib/cycles/day';
+    import { getMoonAnchors, angleFromMoonAnchors, shiftMoonCycle } from '../lib/cycles/moon';
+
     import { formatDateTime } from '../lib/format';
     import type { CycleKind, SpinCmd } from '../lib/cycles/types';
+
+    const ANIM_MS = 420;
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -38,34 +44,58 @@
     export let resetUiId = 0;
     let lastResetUiId = 0;
 
+    // timers we want to be able to cancel
     let unlockTimer: ReturnType<typeof setTimeout> | null = null;
     let nextETimer: ReturnType<typeof setTimeout> | null = null;
 
+    // derived
     let anchors: Anchors;
-    let spokeTimes: number[];
+    let spokeTimes: number[] = [];
     let pointerAngleDeg = 0;
     let progress = 0;
 
+    // direction of time (for Wheel “time-directed rotation”)
     let prevTs = selectedTs;
     let timeDir: -1 | 0 | 1 = 0;
 
     function clearTimers() {
-        if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
-        if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
+        if (unlockTimer) {
+            clearTimeout(unlockTimer);
+            unlockTimer = null;
+        }
+        if (nextETimer) {
+            clearTimeout(nextETimer);
+            nextETimer = null;
+        }
     }
 
-    function computeAnchors(): Anchors {
-        // пока только day
-        return getDayAnchors(selectedTs, lat, lon);
+    function resetUiOnly() {
+        clearTimers();
+        selectedSpokeIndex = null;
+        activeSpokeIndex = null;
+        spinCmd = null;
+        isCycling = false;
     }
 
-    function computeAngle() {
-        // пока только day
-        return angleFromDayAnchors(selectedTs, anchors);
+    function computeAnchors(ts: number): Anchors {
+        if (kind === 'moon') return getMoonAnchors(ts);
+        // year пока заглушка: day
+        return getDayAnchors(ts, lat, lon);
     }
 
-    $: console.log(title, 'selectedTs', selectedTs, 'pointerAngleDeg', pointerAngleDeg);
+    function computeAngle(ts: number, a: Anchors): number {
+        if (kind === 'moon') return angleFromMoonAnchors(ts, a);
+        // year пока заглушка: day
+        return angleFromDayAnchors(ts, a);
+    }
 
+    function computeShiftedBase(cycleStartTs: number, dir: -1 | 1): number {
+        if (kind === 'moon') return shiftMoonCycle(cycleStartTs, dir);
+        // year пока заглушка: day
+        return shiftDayCycle(cycleStartTs, dir);
+    }
+
+    // detect direction of the *incoming* global time changes
     $: {
         if (selectedTs === prevTs) {
             timeDir = 0;
@@ -75,60 +105,46 @@
         }
     }
 
+    // external reset (Now button in App)
     $: if (resetUiId !== lastResetUiId) {
         lastResetUiId = resetUiId;
-
-        clearTimers();
-
-        selectedSpokeIndex = null;
-        activeSpokeIndex = null;
-        spinCmd = null;
-        isCycling = false;
+        resetUiOnly();
     }
 
-    $: anchors = getDayAnchors(selectedTs, lat, lon);
+    // derived model for this wheel
+    $: anchors = computeAnchors(selectedTs);
     $: spokeTimes = buildSpokeTimes(anchors);
-    $: pointerAngleDeg = angleFromDayAnchors(selectedTs, anchors);
+    $: pointerAngleDeg = computeAngle(selectedTs, anchors);
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
 
     function recomputeWheelSize() {
         if (!wrapEl) return;
 
         const style = getComputedStyle(wrapEl);
-
         const pl = parseFloat(style.paddingLeft) || 0;
         const pr = parseFloat(style.paddingRight) || 0;
         const pt = parseFloat(style.paddingTop) || 0;
         const pb = parseFloat(style.paddingBottom) || 0;
 
-        // реальная внутренняя область контейнера
         const innerW = Math.max(0, wrapEl.clientWidth - pl - pr);
         const innerH = Math.max(0, wrapEl.clientHeight - pt - pb);
 
-        // берём минимальную сторону — круг должен влезать целиком
         const available = Math.floor(Math.min(innerW, innerH));
 
-        // Wheel использует pad() = size * 0.05 с каждой стороны → ~10% сверху
-        // значит реальный SVG ≈ size * 1.10
+        // Wheel uses internal padding visually; in our fixed VB version it’s mostly about container.
+        // Still keep the small “breathing room” factor.
         const sizeByPad = Math.floor(available / 1.10);
 
-        // минимальный разумный размер, но БЕЗ верхнего потолка
         wheelSize = Math.max(320, sizeByPad - 2);
     }
 
     onMount(() => {
-        // first render size
-        queueMicrotask(() => {
-            recomputeWheelSize();
-        });
+        queueMicrotask(() => recomputeWheelSize());
 
         if (wrapEl && 'ResizeObserver' in window) {
-            ro = new ResizeObserver(() => {
-                recomputeWheelSize();
-            });
+            ro = new ResizeObserver(() => recomputeWheelSize());
             ro.observe(wrapEl);
         } else {
-            // fallback
             window.addEventListener('resize', recomputeWheelSize);
         }
     });
@@ -141,65 +157,69 @@
     });
 
     function onSelectSpoke(i: number) {
-        // пользователь кликнул — значит его действие важнее любой анимации
+        // user action overrides any pending animation state
+        clearTimers();
         isCycling = false;
         spinCmd = null;
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
+
         onSelectTs(spokeTimes[i]);
     }
 
     function shiftCycle(dir: -1 | 1) {
-        clearTimers();
         if (isCycling) return;
+
+        clearTimers();
         isCycling = true;
 
-        // 1) какую спицу хотим сохранить
+        // 1) choose which spoke to preserve across cycles
         const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // 2) считаем целевой цикл и целевую спицу В НЁМ
-        const shiftedBase = shiftDayCycle(anchors.E, dir); // важно: от начала цикла
-        const a2 = getDayAnchors(shiftedBase, lat, lon);
+        // 2) compute next cycle anchors (IMPORTANT: shift from cycle start)
+        const shiftedBase = computeShiftedBase(anchors.E, dir);
+        const a2 = computeAnchors(shiftedBase);
         const t2 = buildSpokeTimes(a2);
 
         const targetTs = t2[i];
-        const targetAngleDeg = angleFromDayAnchors(targetTs, a2);
+        const targetAngleDeg = computeAngle(targetTs, a2);
 
-        // 3) даём команду Wheel: ровно 1 оборот + приземлиться на нужный угол
+        // 3) command Wheel: 1 full turn + land on targetAngleDeg
         spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
 
-        // 4) меняем глобальное время
+        // 4) update global time
         onSelectTs(targetTs);
-        console.log(title, 'set ts', targetTs);
 
-        setTimeout(() => {
+        // unlock after animation
+        unlockTimer = setTimeout(() => {
             isCycling = false;
-        }, 420 + 30);
+            unlockTimer = null;
+        }, ANIM_MS + 30);
     }
 
     function onSelectNextE() {
-        clearTimers();
         if (isCycling) return;
+
+        clearTimers();
         isCycling = true;
 
         selectedSpokeIndex = null;
         activeSpokeIndex = null;
 
-        // animate to end-of-cycle
+        // animate to end-of-cycle (just before E_next)
         onSelectTs(anchors.end - 1);
-        console.log(title, 'set ts', anchors.end - 1);
 
-        // snap to next cycle start
-        setTimeout(() => {
+        // snap to next cycle start (exact E_next)
+        nextETimer = setTimeout(() => {
             onSelectTs(anchors.end);
-            console.log(title, 'set ts', anchors.end);
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
             isCycling = false;
-        }, 420);
+            nextETimer = null;
+        }, ANIM_MS);
     }
 </script>
 
@@ -207,7 +227,9 @@
     <header class="top">
         <div class="left">
             <div class="title">{title}</div>
-            <div class="sub">{(progress * 100).toFixed(1)}%</div>
+            <div class="sub">
+                {formatDateTime(selectedTs)} · {(progress * 100).toFixed(1)}%
+            </div>
         </div>
 
         <div class="right">
@@ -216,7 +238,6 @@
         </div>
     </header>
 
-    <!-- IMPORTANT: this wrapper defines the available box for the wheel -->
     <div class="wrap" bind:this={wrapEl}>
         <Wheel
                 size={wheelSize}
@@ -275,19 +296,21 @@
     button {
         padding: 8px 10px;
         border-radius: 10px;
-        border: 1px solid rgba(231,231,234,0.18);
-        background: rgba(231,231,234,0.06);
+        border: 1px solid rgba(231, 231, 234, 0.18);
+        background: rgba(231, 231, 234, 0.06);
         color: inherit;
         cursor: pointer;
     }
-    button:disabled { opacity: 0.45; cursor: default; }
 
-    /* This box is what we measure */
+    button:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
     .wrap {
         display: grid;
         place-items: center;
         padding: 12px;
-        /* give it a predictable height so ResizeObserver has both axes */
         aspect-ratio: 1 / 1;
         width: 100%;
         max-width: 100%;
@@ -302,5 +325,8 @@
         display: grid;
         gap: 4px;
     }
-    .info strong { font-weight: 650; }
+
+    .info strong {
+        font-weight: 650;
+    }
 </style>
