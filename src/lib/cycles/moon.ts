@@ -1,11 +1,40 @@
+// src/lib/cycles/moon.ts
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from './spokes';
-import { clamp01 } from './spokes';
-import {angleFromAnchors} from "./angle";
+import { angleFromAnchors } from './angle';
 
-function segProgress(ts: number, a0: number, a1: number) {
-    if (a1 === a0) return 0;
-    return clamp01((ts - a0) / (a1 - a0));
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SAFE_WINDOW_DAYS = 80; // запас, чтобы точно захватить нужные события
+const EPS_MS = 60_000;       // 1 минута — чтобы не попасть в тот же event
+
+function searchFirstQuarterAfter(ts: number, limitDays = 40) {
+    const t = Astronomy.SearchMoonPhase(90, new Date(ts + EPS_MS), limitDays);
+    if (!t) throw new Error('Moon: cannot find next first quarter');
+    return t;
+}
+
+// Ищем "первую четверть на или до ts" так:
+// 1) стартуем сильно раньше
+// 2) ищем первую четверть ПОСЛЕ старта
+// 3) шагаем к следующим первым четвертям пока не перепрыгнем ts
+function searchFirstQuarterAtOrBefore(ts: number) {
+    const start = ts - SAFE_WINDOW_DAYS * DAY_MS;
+    let cur = Astronomy.SearchMoonPhase(90, new Date(start), SAFE_WINDOW_DAYS);
+    if (!cur) throw new Error('Moon: cannot find first quarter in window');
+
+    while (true) {
+        const next = Astronomy.SearchMoonPhase(90, new Date(cur.date.getTime() + EPS_MS), 40);
+        if (!next) break;
+
+        const nextTs = next.date.getTime();
+        if (nextTs <= ts) {
+            cur = next;
+            continue;
+        }
+        break;
+    }
+
+    return cur;
 }
 
 /**
@@ -13,22 +42,17 @@ function segProgress(ts: number, a0: number, a1: number) {
  * E=first quarter, N=full, W=third quarter, S=new, E_next=next first quarter
  */
 export function getMoonAnchors(ts: number): Anchors {
-    // Ищем "текущую" первую четверть (до ts), в пределах 40 дней (хватает с запасом)
-    const prevFirst = Astronomy.SearchMoonPhase(90, new Date(ts), -40);
-    if (!prevFirst) {
-        throw new Error('Moon: cannot find previous first quarter within 40 days');
-    }
+    // Гарантированно берём первую четверть <= ts
+    const prevFirst = searchFirstQuarterAtOrBefore(ts);
 
-    // Старт цикла = первая четверть
-    let mq = new Astronomy.MoonQuarter(1, prevFirst);
+    // Дальше по порядку кварталов
+    const q1 = new Astronomy.MoonQuarter(1, prevFirst); // first quarter
+    const full = Astronomy.NextMoonQuarter(q1);         // quarter 2
+    const third = Astronomy.NextMoonQuarter(full);      // quarter 3
+    const newm = Astronomy.NextMoonQuarter(third);      // quarter 0
+    const nextFirst = Astronomy.NextMoonQuarter(newm);  // quarter 1
 
-    // Дальше по порядку событий
-    const full = Astronomy.NextMoonQuarter(mq);        // quarter 2
-    const third = Astronomy.NextMoonQuarter(full);     // quarter 3
-    const newm = Astronomy.NextMoonQuarter(third);     // quarter 0
-    const nextFirst = Astronomy.NextMoonQuarter(newm); // quarter 1
-
-    const E = mq.time.date.getTime();
+    const E = q1.time.date.getTime();
     const N = full.time.date.getTime();
     const W = third.time.date.getTime();
     const S = newm.time.date.getTime();
@@ -37,12 +61,7 @@ export function getMoonAnchors(ts: number): Anchors {
     return {
         start: E,
         end: E_next,
-
-        E,
-        N,
-        W,
-        S,
-
+        E, N, W, S,
         E_next
     };
 }
@@ -51,16 +70,14 @@ export const angleFromMoonAnchors = angleFromAnchors;
 
 /**
  * Сдвиг лунного цикла на ±1 цикл.
- * На вход лучше давать "старт цикла" (anchors.E), как ты уже делаешь в day.
+ * ВАЖНО: вход лучше давать anchors.E (старт цикла).
  */
 export function shiftMoonCycle(cycleStartTs: number, dir: -1 | 1) {
-    // Чтобы не поймать тот же самый event, чуть сдвигаем старт
-    const start = new Date(cycleStartTs + (dir > 0 ? 60_000 : -60_000));
-
-    const limitDays = dir > 0 ? 40 : -40;
-    const t = Astronomy.SearchMoonPhase(90, start, limitDays);
-    if (!t) {
-        throw new Error('Moon: cannot shift first quarter within 40 days');
+    if (dir > 0) {
+        // следующий старт цикла = первая четверть ПОСЛЕ текущего старта
+        return searchFirstQuarterAfter(cycleStartTs).date.getTime();
+    } else {
+        // предыдущий старт цикла = первая четверть на/до (cycleStart - eps)
+        return searchFirstQuarterAtOrBefore(cycleStartTs - EPS_MS).date.getTime();
     }
-    return t.date.getTime();
 }

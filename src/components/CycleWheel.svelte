@@ -257,21 +257,32 @@
         if (isCycling) return;
         isCycling = true;
 
-        // prevent preTurn
-        preTurnCmd = null;
-
         selectedSpokeIndex = null;
         activeSpokeIndex = null;
 
         clearTimers();
 
+        // ВАЖНО: зафиксировать цель ДО изменения selectedTs,
+        // иначе anchors пересчитаются и "end" станет другим.
+        const endTs = anchors.E_next;          // ← E+ (start of next cycle)
+        const endMinus1 = endTs - 1;           // для "докрутки до конца"
+
+        // Для E+ это ВСЕГДА движение вперёд по времени.
+        // Если у тебя Wheel учитывает timeDir, он должен быть 1.
+        // (Если timeDir у тебя вычисляется реактивно — оно станет 1 само,
+        // но так мы избегаем редких гонок.)
+        timeDir = 1;
+
         // animate to end-of-cycle
-        emitSelectTs(anchors.end - 1);
+        emitSelectTs(endMinus1);
 
         nextETimer = setTimeout(() => {
-            emitSelectTs(anchors.end);
+            emitSelectTs(endTs);
+
+            // по UI — встаём на E (индекс 0)
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
+
             isCycling = false;
             nextETimer = null;
         }, ANIM_MS);
