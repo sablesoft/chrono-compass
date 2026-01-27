@@ -31,11 +31,13 @@
     let noTransition = false;
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const cx = () => size / 2;
-    const cy = () => size / 2;
+    const pad = () => size * 0.05;
+
+    const cx = () => (size + pad() * 2) / 2;
+    const cy = () => (size + pad() * 2) / 2;
     const rOuter = () => size * 0.44;
     const rInner = () => size * 0.18;
-    const rLabel = () => size * 0.49;
+    const rLabel = () => size * 0.50;
 
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
@@ -122,7 +124,7 @@
 <svg
         width={size}
         height={size}
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox={`0 0 ${size + pad() * 2} ${size + pad() * 2}`}
         aria-label="Wheel"
 >
     <circle cx={cx()} cy={cy()} r={rOuter()} fill="none" stroke="currentColor" stroke-opacity="0.25" />
