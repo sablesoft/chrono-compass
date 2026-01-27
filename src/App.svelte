@@ -8,8 +8,8 @@
   let selectedTs = Date.now();
 
   // LIVE clock mode
-  let isLive = true;
-  let tickTimer: ReturnType<typeof setInterval> | null = null;
+  let isLive = false;
+  let liveTimer: ReturnType<typeof setInterval> | null = null;
 
   // location
   let lat = -23.22;
@@ -26,43 +26,38 @@
   function startLive() {
     if (isLive) return;
     isLive = true;
+
+    // поставить "сейчас" сразу
     selectedTs = Date.now();
-    resetUiId += 1; // сброс подсветок при входе в live
+    resetUiId += 1; // сбросить UI/локи на колёсах
+
+    // обновлять раз в минуту (с выравниванием можно позже)
+    liveTimer = setInterval(() => {
+      selectedTs = Date.now();
+    }, 60_000);
   }
 
   function stopLive() {
     if (!isLive) return;
     isLive = false;
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
   }
 
   function toggleNow() {
-    if (isLive) {
-      // выключаем live, ничего больше не делаем
-      isLive = false;
-      return;
-    }
-
-    // включаем live
-    isLive = true;
-    selectedTs = Date.now();
-    resetUiId += 1; // сброс подсветок/локальных состояний колёс
+    if (isLive) stopLive();
+    else startLive();
   }
 
   // reason: 'user' => выключаем live, 'system' => не выключаем
-  function onSelectTs(ts: number, reason: 'user' | 'system' = 'user') {
-    if (reason === 'user') stopLive();
+  function onSelectTs(ts: number) {
+    // любое внешнее изменение времени должно выключать live
+    // (иначе live перетрёт)
+    stopLive();
     selectedTs = ts;
   }
 
-  function setupTicker() {
-    if (tickTimer) clearInterval(tickTimer);
-
-    // Обновляем сразу, затем каждую минуту (по минутной границе опционально позже)
-    tickTimer = setInterval(() => {
-      if (!isLive) return;
-      // В live НЕ трогаем resetUiId: иначе будут постоянные сбросы UI
-      onSelectTs(Date.now(), 'system');
-    }, 60_000);
+  function onUserActivity() {
+    stopLive();
   }
 
   function load() {
@@ -92,11 +87,11 @@
 
   onMount(() => {
     load();
-    setupTicker();
+    startLive();
   });
 
   onDestroy(() => {
-    if (tickTimer) clearInterval(tickTimer);
+    if (liveTimer) clearInterval(liveTimer);
   });
 </script>
 
@@ -144,8 +139,8 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              isLive={isLive}
-              onSelectTs={(ts) => onSelectTs(ts, 'user')}
+              onUserActivity={onUserActivity}
+              onSelectTs={onSelectTs}
       />
 
       <CycleWheel
@@ -155,8 +150,8 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              isLive={isLive}
-              onSelectTs={(ts) => onSelectTs(ts, 'user')}
+              onUserActivity={onUserActivity}
+              onSelectTs={onSelectTs}
       />
 
       <CycleWheel
@@ -166,8 +161,8 @@
               {lon}
               {selectedTs}
               {resetUiId}
-              isLive={isLive}
-              onSelectTs={(ts) => onSelectTs(ts, 'user')}
+              onUserActivity={onUserActivity}
+              onSelectTs={onSelectTs}
       />
     </section>
 

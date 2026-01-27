@@ -4,23 +4,24 @@
     import Wheel from './Wheel.svelte';
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
-    import { getDayAnchors, shiftDayCycle, angleFromDayAnchors } from '../lib/cycles/day';
-    import { getMoonAnchors, shiftMoonCycle, angleFromMoonAnchors } from '../lib/cycles/moon';
-    import { getYearAnchors, shiftYearCycle, angleFromYearAnchors } from '../lib/cycles/year';
-    import { formatDateTime } from '../lib/format';
-    import type { CycleKind, SpinCmd } from '../lib/cycles/types';
 
-    // NOTE: Wheel exports this type in my snippet, but here we’ll just inline it
-    // to avoid extra imports. If you exported it to lib/cycles/types.ts, import it instead.
-    type PreTurnCmd = { id: number; dir: 1 | -1 };
+    import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
+    import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
+    import { getYearAnchors, angleFromYearAnchors } from '../lib/cycles/year';
+
+    import { formatDateTime } from '../lib/format';
+    import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
+
     export let lat: number;
     export let lon: number;
 
     export let selectedTs: number;
     export let onSelectTs: (ts: number) => void = () => {};
+    export let onUserActivity: () => void = () => {};
+
     export let resetUiId = 0;
 
     // UI state (local per wheel)
@@ -54,16 +55,24 @@
     let unlockTimer: ReturnType<typeof setTimeout> | null = null;
     let nextETimer: ReturnType<typeof setTimeout> | null = null;
 
-    // --- important: detect external time jumps
-    let selfChangeToken = 0; // increment before calling onSelectTs
-    let lastSeenTs = selectedTs;
-
-    // вместо токенов — надёжный флажок “это я сам поменял”
+    // --- self-change marker (critical!)
     let pendingSelfTs: number | null = null;
+    let lastSeenTs = selectedTs;
 
     function clearTimers() {
         if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
         if (nextETimer) { clearTimeout(nextETimer); nextETimer = null; }
+    }
+
+    function logCycle(tag: string, extra: Record<string, any> = {}) {
+        const now = Date.now();
+        console.log(`[${title}/${kind}] ${tag}`, {
+            selectedTs,
+            nextCurrentTm: now,
+            E: anchors?.E,
+            E_next: anchors?.E_next,
+            ...extra
+        });
     }
 
     function cancelLocalAnimationsAndUi() {
@@ -78,7 +87,8 @@
     }
 
     function emitSelectTs(ts: number) {
-        selfChangeToken += 1;
+        // mark it as ours BEFORE changing global state
+        pendingSelfTs = ts;
         onSelectTs(ts);
     }
 
@@ -94,10 +104,14 @@
         return angleFromDayAnchors(ts, a);
     }
 
-    function shiftCycleBase(baseTs: number, dir: -1 | 1): number {
-        if (kind === 'moon') return shiftMoonCycle(baseTs, dir);
-        if (kind === 'year') return shiftYearCycle(baseTs, dir);
-        return shiftDayCycle(baseTs, dir);
+    function nextCycleStart(a: Anchors) {
+        return a.E_next; // start of next cycle
+    }
+
+    function prevCycleStart(a: Anchors) {
+        // “секунда до старта текущего” -> anchors предыдущего цикла
+        const aPrev = computeAnchors(a.E - 1);
+        return aPrev.E; // start of previous cycle
     }
 
     // resetUiId => явный сброс
@@ -106,69 +120,48 @@
         lastResetUiId = resetUiId;
         cancelLocalAnimationsAndUi();
         timeDir = 0;
+        lastSeenTs = selectedTs;
+        pendingSelfTs = null;
     }
 
-    // detect external selectedTs changes + compute timeDir + pre-turn for big jumps
+    // detect selectedTs changes, compute timeDir, inject preTurn ONLY for external big jumps
     $: {
         if (selectedTs === lastSeenTs) {
             timeDir = 0;
         } else {
             const oldTs = lastSeenTs;
             const delta = selectedTs - oldTs;
-
-            // direction from old -> new
-            timeDir = delta > 0 ? 1 : -1;
-
-            // who initiated the change?
-            const isSelf = pendingSelfTs === selectedTs;
-            const isExternal = !isSelf;
-            pendingSelfTs = null;
-
-            // update last seen BEFORE any further logic depends on "current state"
-            lastSeenTs = selectedTs;
-
-            // if this wheel is currently doing its own ←/→ animation, don't inject preturn
-            if (!isCycling) {
-                // if external (another wheel / Now / manual date picker later) — drop local UI so we don't lie
-                if (isExternal) {
-                    cancelLocalAnimationsAndUi();
-                }
-
-                // big jump detection: compare using oldTs (NOT lastSeenTs after update)
-                const a = computeAnchors(selectedTs);
-                const cycleMs = Math.max(1, a.end - a.start);
-                const absDelta = Math.abs(delta);
-
-                if (absDelta > cycleMs) {
-                    // one full cycle + to E + to target, in the same time direction
-                    preTurnCmd = { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 };
-                } else {
-                    preTurnCmd = null;
-                }
-            }
-        }
-    }
-
-    // The above block can’t compute absDelta after overwriting. Use a separate stable tracker:
-    let lastTsForJumpCheck = selectedTs;
-    $: {
-        if (selectedTs !== lastTsForJumpCheck) {
-            const delta = selectedTs - lastTsForJumpCheck;
             const absDelta = Math.abs(delta);
 
-            // We already compute anchors reactively below, but for pre-turn we need duration now:
-            const aNow = computeAnchors(selectedTs);
-            const cycleMs = Math.max(1, aNow.end - aNow.start);
+            timeDir = delta > 0 ? 1 : -1;
 
-            // Only when:
-            // - change is bigger than one cycle
-            // - we have a direction
-            // - we are not in our own ←/→ animation lock
-            if (!isCycling && timeDir !== 0 && absDelta > cycleMs) {
-                preTurnCmd = { id: ++preTurnCmdId, dir: timeDir === 1 ? 1 : -1 };
+            const isSelf = (pendingSelfTs === selectedTs);
+            pendingSelfTs = null;
+
+            lastSeenTs = selectedTs;
+
+            // While this wheel runs its own button animation, do not inject anything.
+            if (isCycling) {
+                // keep commands as-is
+            } else {
+                if (!isSelf) {
+                    // external change (other wheel / Now / picking date later)
+                    cancelLocalAnimationsAndUi();
+
+                    // decide if we want a “pre-turn” (jump bigger than one cycle)
+                    const aNow = computeAnchors(selectedTs);
+                    const cycleMs = Math.max(1, aNow.end - aNow.start);
+
+                    if (absDelta > cycleMs) {
+                        preTurnCmd = { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 };
+                    } else {
+                        preTurnCmd = null;
+                    }
+                } else {
+                    // self change: do NOT inject preTurn here, and do NOT cancel our spinCmd
+                    // (otherwise ←/→ will “double-spin”)
+                }
             }
-
-            lastTsForJumpCheck = selectedTs;
         }
     }
 
@@ -214,34 +207,48 @@
     });
 
     function onSelectSpoke(i: number) {
-        // user action overrides everything
+        onUserActivity();
+
+        // user action overrides our local animations
         cancelLocalAnimationsAndUi();
 
         selectedSpokeIndex = i;
         activeSpokeIndex = i;
 
-        // This is a “local” change, but it can still be far in time if you click year wheel etc.
-        // preTurn will be triggered by the reactive jump checker above (absDelta > cycleMs).
+        // within this wheel it's always inside current cycle, so no need to force preTurn here
         emitSelectTs(spokeTimes[i]);
     }
 
     function shiftCycle(dir: -1 | 1) {
+        onUserActivity();
         if (isCycling) return;
         isCycling = true;
 
-        // while we are doing button-driven spin, we do NOT want preTurn interfering
         preTurnCmd = null;
 
         const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        const shiftedBase = shiftCycleBase(anchors.E, dir);
+        // IMPORTANT: base is real cycle boundary, not Date arithmetic
+        const shiftedBase = (dir > 0) ? nextCycleStart(anchors) : prevCycleStart(anchors);
+
         const a2 = computeAnchors(shiftedBase);
         const t2 = buildSpokeTimes(a2);
 
         const targetTs = t2[i];
         const targetAngleDeg = computeAngle(targetTs, a2);
+
+        logCycle('shiftCycle', {
+            dir,
+            fromTs: selectedTs,
+            baseE: anchors.E,
+            baseE_next: anchors.E_next,
+            shiftedBase,
+            a2E: a2.E,
+            a2E_next: a2.E_next,
+            targetTs
+        });
 
         spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
         emitSelectTs(targetTs);
@@ -254,6 +261,7 @@
     }
 
     function onSelectNextE() {
+        onUserActivity();
         if (isCycling) return;
         isCycling = true;
 
@@ -262,27 +270,19 @@
 
         clearTimers();
 
-        // ВАЖНО: зафиксировать цель ДО изменения selectedTs,
-        // иначе anchors пересчитаются и "end" станет другим.
-        const endTs = anchors.E_next;          // ← E+ (start of next cycle)
-        const endMinus1 = endTs - 1;           // для "докрутки до конца"
+        // target must be captured BEFORE changing selectedTs
+        const endTs = anchors.E_next;
+        const endMinus1 = endTs - 1;
 
-        // Для E+ это ВСЕГДА движение вперёд по времени.
-        // Если у тебя Wheel учитывает timeDir, он должен быть 1.
-        // (Если timeDir у тебя вычисляется реактивно — оно станет 1 само,
-        // но так мы избегаем редких гонок.)
-        timeDir = 1;
+        preTurnCmd = null;
+        spinCmd = null;
 
-        // animate to end-of-cycle
         emitSelectTs(endMinus1);
 
         nextETimer = setTimeout(() => {
             emitSelectTs(endTs);
-
-            // по UI — встаём на E (индекс 0)
             selectedSpokeIndex = 0;
             activeSpokeIndex = 0;
-
             isCycling = false;
             nextETimer = null;
         }, ANIM_MS);

@@ -1,3 +1,4 @@
+<!-- src/components/Wheel.svelte -->
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import type { SpinCmd, PreTurnCmd } from '../lib/cycles/types';
@@ -16,11 +17,8 @@
     export let size = 360;
     export let showLabels = true;
 
-    // “ровно 1 оборот + приземление на targetAngleDeg”
-    export let spinCmd: SpinCmd | null = null;
-
-    // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
-    export let preTurnCmd: PreTurnCmd | null = null;
+    export let spinCmd: SpinCmd | null = null;     // “ровно 1 оборот + приземление на targetAngleDeg”
+    export let preTurnCmd: PreTurnCmd | null = null; // “сделай 1 полный оборот, потом приземлись на pointerAngleDeg”
 
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
@@ -74,10 +72,8 @@
         noTransition = false;
     }
 
-    // Choose equivalent representation so that delta sign matches time direction.
-    // dir semantics here:
-    //  dir =  1 => want negative delta (CCW)
-    //  dir = -1 => want positive delta (CW)
+    // Choose equivalent representation so that we don't "snap back" by 360,
+    // and (if dir known) so that delta sign matches time direction.
     function normalizeByDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
         let t = baseAngle;
 
@@ -85,47 +81,59 @@
         while (t - current > 720) t -= 360;
         while (t - current < -720) t += 360;
 
-        if (dir === 0) return t;
+        if (dir === 0) {
+            // pick the nearest equivalent (avoid huge jumps)
+            while (t - current > 180) t -= 360;
+            while (t - current < -180) t += 360;
+            return t;
+        }
 
-        const wantSign = dir > 0 ? -1 : 1; // forward => negative, back => positive
+        // future => CCW => negative delta
+        // past   => CW  => positive delta
+        const wantSign = dir > 0 ? -1 : 1;
 
         let delta = t - current;
 
-        // shift by full turns until delta has the wanted sign
-        while (Math.sign(delta) !== wantSign) {
+        // shift by full turns until sign matches
+        while (Math.sign(delta) !== wantSign && Math.abs(delta) > 1e-9) {
             t += 360 * wantSign;
             delta = t - current;
         }
 
-        // if exactly same angle, still move one full turn in direction (so we don't "freeze")
+        // if exactly same, still keep "motion direction" continuity
         if (Math.abs(delta) < 1e-9) t += 360 * wantSign;
 
         return t;
     }
 
-    // Exactly one full turn in cmd.dir, then land on targetAngleDeg (same direction, no “reverse”).
-    function computeSpinCmdTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
-        // dir=1 => forward => CCW => negative
-        // dir=-1 => back    => CW  => positive
-        const landing = normalizeByDirection(targetAngleDeg, current, dir);
-        let target = landing + (-360 * dir); // one extra full turn in the SAME direction
+    // Exactly one full turn in dir, then land on targetAngleDeg (equivalent rep).
+    function computeFullTurnTarget(targetAngleDeg: number, current: number, dir: 1 | -1) {
+        const turn = -360 * dir; // forward(CCW) negative
+        const wantSign = Math.sign(turn);
 
-        // ensure it really looks like a spin (not almost-zero due to numeric weirdness)
-        const delta = target - current;
-        if (Math.abs(delta) < 300) target += (-360 * dir);
+        // normalize target near current first
+        let t = targetAngleDeg;
+        while (t - current > 720) t -= 360;
+        while (t - current < -720) t += 360;
 
-        return target;
+        // ensure landing delta sign matches the spin direction
+        while (Math.sign(t - current) !== wantSign && Math.abs(t - current) > 1e-9) {
+            t += 360 * wantSign;
+        }
+
+        // add exactly one requested full turn
+        t += turn;
+
+        // ensure it's visually a real spin (not tiny)
+        while (Math.abs(t - current) < 300) t += turn;
+
+        return t;
     }
 
-    // One full turn first, THEN land on the *current* pointerAngleDeg, in given dir.
+    // One full turn first, THEN land on pointerAngleDeg (current target)
     function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
-        const landing = normalizeByDirection(currentTargetAngle, current, dir);
-        let target = landing + (-360 * dir);
-
-        const delta = target - current;
-        if (Math.abs(delta) < 300) target += (-360 * dir);
-
-        return target;
+        const base = normalizeByDirection(currentTargetAngle, current, dir);
+        return base + (-360 * dir);
     }
 
     function startSpinLock(target: number) {
@@ -135,45 +143,49 @@
         if (spinLockTimer) clearTimeout(spinLockTimer);
         spinLockTimer = setTimeout(() => {
             spinLock = false;
-            spinLockTimer = null;
         }, POINTER_ANIM_MS + 20);
     }
 
     // Reactive: drive displayAngle
     $: {
-        // 0) lock — highest priority
+        // 1) lock — highest priority
         if (spinLock) {
             displayAngle = spinLockTarget;
             lastAngle = spinLockTarget;
-        } else {
-            // base “idle” target must ALSO respect time direction,
-            // otherwise after a command finishes you get a “reverse correction”.
-            let target = normalizeByDirection(pointerAngleDeg, lastAngle, timeDir);
+        }
+        // 2) explicit spin command (←/→)
+        else if (spinCmd && spinCmd.id !== lastSpinCmdId) {
+            const target = computeFullTurnTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
 
-            // 1) preTurn: one full turn, then land on pointerAngleDeg
-            if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
-                lastPreTurnCmdId = preTurnCmd.id;
-
-                if (timeDir !== 0) {
-                    target = computePreTurnTarget(pointerAngleDeg, lastAngle, preTurnCmd.dir);
-                    startSpinLock(target);
-                } else {
-                    // no direction => just snap
-                    target = pointerAngleDeg;
-                }
-            }
-
-            // 2) spinCmd: exactly one full turn + land on cmd.targetAngleDeg
-            // spinCmd overrides preTurn if both arrive same tick
-            if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-                lastSpinCmdId = spinCmd.id;
-
-                target = computeSpinCmdTarget(spinCmd.targetAngleDeg, lastAngle, spinCmd.dir);
-                startSpinLock(target);
-            }
+            lastSpinCmdId = spinCmd.id;
+            startSpinLock(target);
 
             displayAngle = target;
             lastAngle = target;
+        }
+        // 3) preTurn (big jump)
+        else if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
+            lastPreTurnCmdId = preTurnCmd.id;
+
+            if (timeDir !== 0) {
+                const target = computePreTurnTarget(pointerAngleDeg, lastAngle, preTurnCmd.dir);
+
+                startSpinLock(target);
+
+                displayAngle = target;
+                lastAngle = target;
+            } else {
+                // unknown direction -> snap to nearest equivalent (no wild spins)
+                const t = normalizeByDirection(pointerAngleDeg, lastAngle, 0);
+                displayAngle = t;
+                lastAngle = t;
+            }
+        }
+        // 4) no commands: KEEP CONTINUITY (this is the key fix)
+        else {
+            const t = normalizeByDirection(pointerAngleDeg, lastAngle, timeDir);
+            displayAngle = t;
+            lastAngle = t;
         }
     }
 
@@ -305,8 +317,6 @@
     svg { color: #e7e7ea; }
     .spoke { cursor: pointer; user-select: none; }
 
-    /* IMPORTANT: transition applies to presentation attribute 'transform' in many browsers,
-       but if you ever switch back to CSS transform, keep duration same as POINTER_ANIM_MS */
     .pointer { transition: transform 420ms ease; }
     .pointer.noTransition { transition: none; }
 
