@@ -12,16 +12,26 @@
     const stepDeg = 360 / spokeCount;
     const POINTER_ANIM_MS = 420;
 
-    export let size = 340;          // внешний размер SVG (px)
+    // Render size in px (ONLY)
+    export let size = 360;
     export let showLabels = true;
 
     export let spinCmd: { id: number; dir: 1 | -1 } | null = null;
-
     export let selectedSpokeIndex: number | null = null;
     export let pointerAngleDeg = 0;
 
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
+
+    // Single coordinate space for drawing (ALWAYS)
+    const VB = 1000;
+    const cx = VB / 2;
+    const cy = VB / 2;
+
+    // “Air” for labels is handled by choosing radii, not by resizing viewBox.
+    const rOuter = VB * 0.42;
+    const rInner = VB * 0.18;
+    const rLabel = VB * 0.48;
 
     let lastSpinCmdId = 0;
     let pendingExtraDeg = 0;
@@ -31,24 +41,16 @@
     let noTransition = false;
     let resetTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const safe = () => 2; // px. спасает от субпикселей + толщин линий
-    const pad = () => Math.ceil(size * 0.09) + safe();
-    const innerSize = () => size - pad() * 2;
-
-    const cx = () => size / 2;
-    const cy = () => size / 2;
-
-    // радиусы считаем от innerSize, чтобы всё гарантированно влезло
-    const rOuter = () => innerSize() * 0.44;
-    const rInner = () => innerSize() * 0.18;
-    const rLabel = () => innerSize() * 0.50;
-
     function polarToXY(r: number, deg: number) {
         const rad = (deg * Math.PI) / 180;
-        return { x: cx() + r * Math.cos(rad), y: cy() + r * Math.sin(rad) };
+        return {
+            x: cx + r * Math.cos(rad),
+            y: cy + r * Math.sin(rad),
+        };
     }
 
     function spokeAngleDeg(i: number) {
+        // time-forward is CCW => negative
         return -stepDeg * i;
     }
 
@@ -58,14 +60,7 @@
             lastSpinCmdId = spinCmd.id;
         }
 
-        const target = pointerAngleDeg + pendingExtraDeg;
-
-        if (noTransition) {
-            animAngle = target;
-        } else {
-            animAngle = target;
-        }
-
+        animAngle = pointerAngleDeg + pendingExtraDeg;
         pendingExtraDeg = 0;
     }
 
@@ -82,7 +77,9 @@
         resetTimer = setTimeout(() => {
             noTransition = true;
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => { noTransition = false; });
+                requestAnimationFrame(() => {
+                    noTransition = false;
+                });
             });
         }, POINTER_ANIM_MS);
     }
@@ -95,17 +92,17 @@
 <svg
         width={size}
         height={size}
-        viewBox={`0 0 ${size} ${size}`}
+        viewBox={`0 0 ${VB} ${VB}`}
         aria-label="Wheel"
 >
-    <circle cx={cx()} cy={cy()} r={rOuter()} fill="none" stroke="currentColor" stroke-opacity="0.25" />
-    <circle cx={cx()} cy={cy()} r={rInner()} fill="none" stroke="currentColor" stroke-opacity="0.18" />
+    <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
+    <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
     {#each labels as label, i (label)}
         {@const a = spokeAngleDeg(i)}
-        {@const p1 = polarToXY(rInner(), a)}
-        {@const p2 = polarToXY(rOuter(), a)}
-        {@const pt = polarToXY(rLabel(), a)}
+        {@const p1 = polarToXY(rInner, a)}
+        {@const p2 = polarToXY(rOuter, a)}
+        {@const pt = polarToXY(rLabel, a)}
 
         <g
                 class="spoke"
@@ -125,7 +122,7 @@
                     x2={p2.x} y2={p2.y}
                     stroke="currentColor"
                     stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
-                    stroke-width={i % 4 === 0 ? 2.5 : 1.5}
+                    stroke-width={i % 4 === 0 ? 7 : 4}
                     stroke-linecap="round"
             />
 
@@ -134,23 +131,23 @@
                         x={pt.x} y={pt.y}
                         text-anchor="middle"
                         dominant-baseline="middle"
-                        font-size={innerSize() * 0.045}
+                        font-size={VB * 0.042}
                         fill="currentColor"
-                        fill-opacity={selectedSpokeIndex === i ? 1 : 0.7}
+                        fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
                 >
                     {label}
                 </text>
 
                 {#if i === 0}
-                    {@const pt2 = { x: pt.x, y: pt.y + innerSize() * 0.06 }}
+                    {@const pt2 = { x: pt.x, y: pt.y + VB * 0.055 }}
 
                     <text
                             x={pt2.x} y={pt2.y}
                             text-anchor="middle"
                             dominant-baseline="middle"
-                            font-size={innerSize() * 0.038}
+                            font-size={VB * 0.034}
                             fill="currentColor"
-                            fill-opacity={0.65}
+                            fill-opacity={0.55}
                     >
                         E+
                     </text>
@@ -158,7 +155,7 @@
                     <circle
                             cx={pt2.x}
                             cy={pt2.y}
-                            r={innerSize() * 0.045}
+                            r={VB * 0.04}
                             fill="transparent"
                             on:click|stopPropagation={handleNextE}
                             role="button"
@@ -174,33 +171,34 @@
                 {/if}
             {/if}
 
-            <circle cx={p2.x} cy={p2.y} r={innerSize() * 0.05} fill="transparent" />
+            <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
         </g>
     {/each}
 
     <g
             class="pointer"
             class:noTransition={noTransition}
-            style={`transform: rotate(${animAngle}deg); transform-origin: ${cx()}px ${cy()}px;`}
+            style={`transform: rotate(${animAngle}deg); transform-origin: ${cx}px ${cy}px;`}
     >
         <line
-                x1={cx()} y1={cy()}
-                x2={cx() + rOuter()} y2={cy()}
+                x1={cx} y1={cy}
+                x2={cx + rOuter} y2={cy}
                 stroke="currentColor"
-                stroke-width="3"
+                stroke-width="9"
                 stroke-linecap="round"
         />
-        <circle cx={cx() + rOuter()} cy={cy()} r={innerSize() * 0.022} fill="currentColor" />
+        <circle cx={cx + rOuter} cy={cy} r={VB * 0.02} fill="currentColor" />
     </g>
 
-    <circle cx={cx()} cy={cy()} r={innerSize() * 0.012} fill="currentColor" />
+    <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
 </svg>
 
 <style>
-    svg { color: #e7e7ea; display: block; }
+    svg { color: #e7e7ea; }
     .spoke { cursor: pointer; user-select: none; }
     .pointer { transition: transform 420ms ease; }
     .pointer.noTransition { transition: none; }
+
     .spoke:focus { outline: none; }
     .spoke:focus-visible {
         outline: 2px solid rgba(231, 231, 234, 0.35);

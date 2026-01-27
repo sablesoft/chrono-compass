@@ -136,7 +136,7 @@
 
   /* вот это ключ */
   .container {
-    width: min(1600px, calc(100vw - 48px));
+    width: clamp(1200px, calc(100vw - 48px), 2600px);
     margin: 0 auto;
   }
   .topbar {

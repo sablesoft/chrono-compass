@@ -1,10 +1,12 @@
 <script lang="ts">
+    import { onMount, onDestroy } from 'svelte';
     import Wheel from './Wheel.svelte';
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
     import { getDayAnchors, angleFromDayAnchors, shiftDayCycle } from '../lib/cycles/day';
-    import type { CycleKind } from '../lib/cycles/types';
     import { formatDateTime } from '../lib/format';
+
+    export type CycleKind = 'day' | 'moon' | 'year';
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -27,56 +29,75 @@
 
     let isCycling = false;
 
-    let wrapEl: HTMLElement | null = null;
-    let wheelSize = 480;
+    // DOM
+    let wrapEl: HTMLDivElement | null = null;
+    let ro: ResizeObserver | null = null;
 
-    function computeWheelSize() {
-        if (!wrapEl) return;
-
-        // ширина именно контейнера под колесо
-        const w = wrapEl.clientWidth;
-
-        // Wheel внутри добавляет pad() = size*0.05 с каждой стороны во viewBox,
-        // т.е. фактическая “занимаемая” ширина ~ size*1.10.
-        // Поэтому берём size = w / 1.10 и ещё чуть запас.
-        const maxByWrap = Math.floor((w - 8) / 1.10);
-
-        wheelSize = Math.max(320, Math.min(640, Math.floor(w - 18*2 - 12*2 - 8)));
-    }
-
-    function onResize() {
-        computeWheelSize();
-    }
+    // Responsive size
+    let wheelSize = 360;
 
     function computeAnchors(): Anchors {
-        // пока только day, но kind используем, чтобы IDE не ныла
-        switch (kind) {
-            case 'day':
-            case 'moon':
-            case 'year':
-            default:
-                return getDayAnchors(selectedTs, lat, lon);
-        }
+        // пока только day
+        return getDayAnchors(selectedTs, lat, lon);
     }
 
     function computeAngle() {
-        switch (kind) {
-            case 'day':
-            case 'moon':
-            case 'year':
-            default:
-                return angleFromDayAnchors(selectedTs, anchors);
-        }
+        // пока только day
+        return angleFromDayAnchors(selectedTs, anchors);
     }
 
-    // Compute per wheel
     $: anchors = computeAnchors();
     $: spokeTimes = buildSpokeTimes(anchors);
     $: pointerAngleDeg = computeAngle();
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
 
-    // recompute size whenever layout changes
-    $: computeWheelSize();
+    function recomputeWheelSize() {
+        if (!wrapEl) return;
+
+        const style = getComputedStyle(wrapEl);
+
+        const pl = parseFloat(style.paddingLeft) || 0;
+        const pr = parseFloat(style.paddingRight) || 0;
+        const pt = parseFloat(style.paddingTop) || 0;
+        const pb = parseFloat(style.paddingBottom) || 0;
+
+        // реальная внутренняя область контейнера
+        const innerW = Math.max(0, wrapEl.clientWidth - pl - pr);
+        const innerH = Math.max(0, wrapEl.clientHeight - pt - pb);
+
+        // берём минимальную сторону — круг должен влезать целиком
+        const available = Math.floor(Math.min(innerW, innerH));
+
+        // Wheel использует pad() = size * 0.05 с каждой стороны → ~10% сверху
+        // значит реальный SVG ≈ size * 1.10
+        const sizeByPad = Math.floor(available / 1.10);
+
+        // минимальный разумный размер, но БЕЗ верхнего потолка
+        wheelSize = Math.max(320, sizeByPad - 2);
+    }
+
+    onMount(() => {
+        // first render size
+        queueMicrotask(() => {
+            recomputeWheelSize();
+        });
+
+        if (wrapEl && 'ResizeObserver' in window) {
+            ro = new ResizeObserver(() => {
+                recomputeWheelSize();
+            });
+            ro.observe(wrapEl);
+        } else {
+            // fallback
+            window.addEventListener('resize', recomputeWheelSize);
+        }
+    });
+
+    onDestroy(() => {
+        if (ro && wrapEl) ro.unobserve(wrapEl);
+        ro?.disconnect();
+        window.removeEventListener('resize', recomputeWheelSize);
+    });
 
     function onSelectSpoke(i: number) {
         if (isCycling) return;
@@ -94,11 +115,12 @@
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // full-circle animation
+        // full-circle animation (exactly one turn)
         spinCmd = { id: ++spinCmdId, dir };
 
-        // shift cycle (day = +/-1 day)
+        // shift the cycle base time
         const shifted = shiftDayCycle(selectedTs, dir);
+
         const a2 = getDayAnchors(shifted, lat, lon);
         const t2 = buildSpokeTimes(a2);
 
@@ -129,8 +151,6 @@
     }
 </script>
 
-<svelte:window on:resize={onResize} />
-
 <section class="panel">
     <header class="top">
         <div class="left">
@@ -146,6 +166,7 @@
         </div>
     </header>
 
+    <!-- IMPORTANT: this wrapper defines the available box for the wheel -->
     <div class="wrap" bind:this={wrapEl}>
         <Wheel
                 size={wheelSize}
@@ -184,7 +205,7 @@
     }
 
     .title {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 650;
         opacity: 0.95;
     }
@@ -198,7 +219,6 @@
     .right {
         display: flex;
         gap: 10px;
-        flex: 0 0 auto;
     }
 
     button {
@@ -209,16 +229,15 @@
         color: inherit;
         cursor: pointer;
     }
+    button:disabled { opacity: 0.45; cursor: default; }
 
-    button:disabled {
-        opacity: 0.45;
-        cursor: default;
-    }
-
+    /* This box is what we measure */
     .wrap {
         display: grid;
         place-items: center;
-        /*padding: 12px;*/
+        padding: 12px;
+        /* give it a predictable height so ResizeObserver has both axes */
+        aspect-ratio: 1 / 1;
         width: 100%;
         max-width: 100%;
         overflow: hidden;
@@ -232,8 +251,5 @@
         display: grid;
         gap: 4px;
     }
-
-    .info strong {
-        font-weight: 650;
-    }
+    .info strong { font-weight: 650; }
 </style>
