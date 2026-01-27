@@ -9,7 +9,6 @@
 
   // LIVE clock mode
   let isLive = false;
-  let liveTimer: ReturnType<typeof setInterval> | null = null;
 
   // location
   let lat = -23.22;
@@ -22,31 +21,6 @@
 
   // signal wheels to reset local UI (highlight/active/spin state)
   let resetUiId = 0;
-
-  function startLive() {
-    if (isLive) return;
-    isLive = true;
-
-    // поставить "сейчас" сразу
-    selectedTs = Date.now();
-    resetUiId += 1; // сбросить UI/локи на колёсах
-
-    // обновлять раз в минуту (с выравниванием можно позже)
-    liveTimer = setInterval(() => {
-      selectedTs = Date.now();
-    }, 60_000);
-  }
-
-  function stopLive() {
-    if (!isLive) return;
-    isLive = false;
-    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
-  }
-
-  function toggleNow() {
-    if (isLive) stopLive();
-    else startLive();
-  }
 
   // reason: 'user' => выключаем live, 'system' => не выключаем
   function onSelectTs(ts: number) {
@@ -85,6 +59,41 @@
     places = removePlace(p.id);
   }
 
+  let liveTimer: ReturnType<typeof setInterval> | null = null;
+  let liveAlignTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function startLive() {
+    if (isLive) return;
+    isLive = true;
+
+    selectedTs = Date.now();
+    resetUiId += 1;
+
+    // 1) выравниваемся на следующую границу минуты
+    const now = Date.now();
+    const msToNextMinute = 60_000 - (now % 60_000);
+
+    if (liveAlignTimer) clearTimeout(liveAlignTimer);
+    liveAlignTimer = setTimeout(() => {
+      // ровно на границе минуты
+      selectedTs = Date.now();
+
+      // 2) дальше — строго каждые 60s
+      if (liveTimer) clearInterval(liveTimer);
+      liveTimer = setInterval(() => {
+        selectedTs = Date.now();
+      }, 60_000);
+    }, msToNextMinute + 5); // +5ms буфер на таймеры/планировщик
+  }
+
+  function stopLive() {
+    if (!isLive) return;
+    isLive = false;
+
+    if (liveAlignTimer) { clearTimeout(liveAlignTimer); liveAlignTimer = null; }
+    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+  }
+
   onMount(() => {
     load();
     startLive();
@@ -98,12 +107,20 @@
 <main>
   <div class="container">
     <header class="topbar">
-      <div class="title">
+      <div class="left">
         <div class="h">Time Wheels</div>
-        <div class="sub">{formatDateTime(selectedTs)}{isLive ? ' · LIVE' : ''}</div>
       </div>
 
-      <div class="actions">
+      <div class="center">
+        <div class="time">
+          {formatDateTime(selectedTs)}
+          {#if isLive}
+            <span class="live">LIVE</span>
+          {/if}
+        </div>
+      </div>
+
+      <div class="right">
         <button on:click={toggleNow} class:active={isLive}>Now</button>
       </div>
     </header>
@@ -257,4 +274,62 @@
   @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
 
   .note { margin-top: 14px; font-size: 18px; opacity: 0.55; }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 12px;
+  }
+
+  /* левая колонка */
+  .left {
+    justify-self: start;
+  }
+
+  .h {
+    font-size: 22px;
+    font-weight: 650;
+    opacity: 0.95;
+  }
+
+  /* центр — главный якорь внимания */
+  .center {
+    justify-self: center;
+    text-align: center;
+  }
+
+  .time {
+    font-size: 28px;        /* ← крупно */
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+
+  /* LIVE как маркер состояния, а не текст */
+  .live {
+    margin-left: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+  }
+
+  /* правая колонка */
+  .right {
+    justify-self: end;
+  }
+
+  button {
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(231,231,234,0.18);
+    background: rgba(231,231,234,0.06);
+    cursor: pointer;
+  }
+
+  button.active {
+    background: rgba(231,231,234,0.18);
+  }
 </style>
