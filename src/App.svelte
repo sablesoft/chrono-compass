@@ -55,6 +55,11 @@
     resetUiId += 1;
   }
 
+  function toggleNow() {
+    if (isLive) stopLive();
+    else startLive();
+  }
+
   function delPlace(p: Place) {
     places = removePlace(p.id);
   }

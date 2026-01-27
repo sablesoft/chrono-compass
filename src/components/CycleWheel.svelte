@@ -12,6 +12,7 @@
 
     import {formatDateTime, ms} from '../lib/format';
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
+    import {SPOKE_DESC} from "../lib/cycles/labels";
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -327,11 +328,36 @@
     </div>
 
     <div class="info">
-        <div><strong>E:</strong> {formatDateTime(anchors.E)}</div>
-        <div><strong>N:</strong> {formatDateTime(anchors.N)}</div>
-        <div><strong>W:</strong> {formatDateTime(anchors.W)}</div>
-        <div><strong>S:</strong> {formatDateTime(anchors.S)}</div>
-        <div><strong>E+:</strong> {formatDateTime(anchors.E_next)}</div>
+        <div class="infoRow">
+            <strong class="k">E:</strong>
+            <span class="dt">{formatDateTime(anchors.E)}</span>
+            <span>—</span>
+            <span class="desc">{SPOKE_DESC[kind].E}</span>
+        </div>
+        <div class="infoRow">
+            <strong class="k">N:</strong>
+            <span class="dt">{formatDateTime(anchors.N)}</span>
+            <span>—</span>
+            <span class="desc">{SPOKE_DESC[kind].N}</span>
+        </div>
+        <div class="infoRow">
+            <strong class="k">N:</strong>
+            <span class="dt">{formatDateTime(anchors.W)}</span>
+            <span>—</span>
+            <span class="desc">{SPOKE_DESC[kind].W}</span>
+        </div>
+        <div class="infoRow">
+            <strong class="k">N:</strong>
+            <span class="dt">{formatDateTime(anchors.S)}</span>
+            <span>—</span>
+            <span class="desc">{SPOKE_DESC[kind].S}</span>
+        </div>
+        <div class="infoRow">
+            <strong class="k">N:</strong>
+            <span class="dt">{formatDateTime(anchors.E_next)}</span>
+            <span>—</span>
+            <span class="desc">{SPOKE_DESC[kind].E_next}</span>
+        </div>
     </div>
 </section>
 
@@ -395,7 +421,25 @@
         line-height: 1.75;
         opacity: 0.82;
         display: grid;
-        gap: 4px;
+        gap: 6px;
     }
     .info strong { font-weight: 650; }
+    .infoRow{
+        display: grid;
+        grid-template-columns: 3ch 15ch 3ch 1fr;
+        align-items: baseline;
+        column-gap: 10px;
+    }
+    .infoRow .k {
+        text-align: right;
+        opacity: 0.85;
+    }
+    .infoRow .dt {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        opacity: 0.95;
+    }
+    .infoRow .desc {
+        opacity: 0.6;
+    }
 </style>
