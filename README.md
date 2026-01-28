@@ -1,47 +1,54 @@
-# Svelte + TS + Vite
+# ChronoCompass
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+**ChronoCompass** is an experimental visual time instrument that treats time as a set of directional cycles rather than a linear stream.
 
-## Recommended IDE Setup
+It combines astronomical and symbolic time models with a compass-like interface: days, lunar phases, years, and long cycles are represented as rotating wheels aligned to cardinal directions (E, N, W, S). The result is a tool for exploring *where* you are in time, not just *when*.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+## ✨ Key ideas
 
-## Need an official Svelte framework?
+- Time as **cycles**, not a timeline
+- Orientation through **directions** (East / North / West / South)
+- Multiple layers of time running simultaneously
+- Clear distinction between **PAST**, **FUTURE**, and **LIVE (now)**
+- Minimal UI, high semantic density
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+## 🧭 What it does
 
-## Technical considerations
+- Visualizes several time cycles:
+    - Day cycle
+    - Moon cycle
+    - Year cycle
+    - Extended / symbolic cycles
+- Allows manual navigation through time
+- Supports LIVE mode (auto-following the present moment)
+- Lets you jump to past or future moments instantly
+- Reacts to geographic location (latitude / longitude)
 
-**Why use this over SvelteKit?**
+## 🛠 Tech stack
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+- **Svelte**
+- **TypeScript**
+- Native browser `datetime-local` controls (no heavy date libraries)
+- Custom state stores for time and location
+- CSS variables for theming (light / dark)
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+## 🎯 Status
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+This is a **research / exploration project**.
+APIs, visuals, and internal logic may change freely.
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+ChronoCompass is designed as a foundation for:
+- alternative time interfaces
+- creative tools
+- games
+- worldbuilding systems
+- experimental calendars
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
+## 📜 License
 
-**Why include `.vscode/extensions.json`?**
+MIT — use it, fork it, remix it, break it, rebuild it.  
+Attribution appreciated but not required.
 
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
+---
 
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from 'svelte/store'
-export default writable(0)
-```
+If you’re interested in time as a navigable space rather than a ticking counter — welcome.
