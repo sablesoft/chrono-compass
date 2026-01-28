@@ -36,6 +36,8 @@
     export let onSelectSpoke: (index: number) => void = () => {};
     export let onSelectNextE: () => void = () => {};
 
+    export let onSelectBoundary: (index: number) => void = () => {};
+
     // Single coordinate space
     const VB = 1000;
     const cx = VB / 2;
@@ -44,6 +46,19 @@
     const rOuter = VB * 0.42;
     const rInner = VB * 0.18;
     const rLabel = VB * 0.48;
+
+    const rTickOuter = rOuter;
+    const rTickInner = rOuter - VB * 0.03; // длина зарубки
+
+    function boundaryAngleDeg(i: number) {
+        // between spoke i and i+1
+        return -(i + 0.5) * stepDeg;
+    }
+
+    function handleBoundaryActivate(i: number) {
+        clearSnapMode();
+        onSelectBoundary(i);
+    }
 
     function isFiniteNumber(x: unknown): x is number {
         return typeof x === 'number' && Number.isFinite(x);
@@ -286,6 +301,34 @@
 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
+    <!-- clickable house-boundary ticks -->
+    {#each Array(spokeCount) as _, i (i)}
+        {@const a = boundaryAngleDeg(i)}
+        {@const pA = polarToXY(rOuter * 0.93, a)}
+        {@const pB = polarToXY(rOuter * 1.02, a)}
+        {@const pHit = polarToXY(rOuter * 1.02, a)}
+        <g class="tick"
+            role="button"
+            tabindex="0"
+            aria-label={`House boundary ${i + 1}`}
+            on:click={() => handleBoundaryActivate(i)}
+            on:keydown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleBoundaryActivate(i);
+                }
+            }}>
+            <line x1={pA.x} y1={pA.y}
+                x2={pB.x} y2={pB.y}
+                class="tickLine"/>
+
+            <!-- hit area -->
+            <circle cx={pHit.x}
+                    cy={pHit.y}
+                    r={VB * 0.03}
+                    fill="transparent"/>
+        </g>
+    {/each}
     <!-- quadrant tint ring -->
     <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
         <!-- SE(-45) -> NE(-135) : RED -->
@@ -497,5 +540,22 @@
         fill-opacity: 1;
         transform: scale(1.01);
         filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 55%));
+    }
+    .tick { cursor: pointer; }
+    .tickLine{
+        stroke: currentColor;
+        stroke-opacity: 0.32;
+        stroke-width: 5;
+        stroke-linecap: round;
+        transition: stroke-opacity 120ms ease;
+    }
+
+    .tick:hover .tickLine{
+        stroke-opacity: 0.75;
+    }
+
+    .tick:focus { outline: none; }
+    .tick:focus-visible .tickLine{
+        stroke-opacity: 0.9;
     }
 </style>

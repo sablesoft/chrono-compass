@@ -71,6 +71,70 @@
     let nowTimer: ReturnType<typeof setInterval> | null = null;
     let nowAlignTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // --- house boundaries (midpoints between spokes) ---
+    const SPOKES = 16;
+
+    function wrapIntoCycle(ts: number, cycleStart: number, cycleMs: number) {
+        // bring ts into [cycleStart .. cycleStart+cycleMs)
+        let x = ts;
+        while (x < cycleStart) x += cycleMs;
+        while (x >= cycleStart + cycleMs) x -= cycleMs;
+        return ms(x);
+    }
+
+    function midpointInCycle(a: number, b: number, cycleStart: number, cycleMs: number) {
+        let b2 = b;
+        if (b2 < a) b2 += cycleMs;     // unwrap across end
+        const mid = a + (b2 - a) / 2;
+        return wrapIntoCycle(mid, cycleStart, cycleMs);
+    }
+
+    let boundaryTimes: number[] = []; // length 16, boundary[i] between spoke i and i+1
+
+    $: {
+        const cycleMs = Math.max(1, anchors.end - anchors.start);
+
+        boundaryTimes = Array.from({ length: SPOKES }, (_, i) => {
+            const a = spokeTimes[i];
+            const b = spokeTimes[(i + 1) % SPOKES];
+            return midpointInCycle(a, b, anchors.start, cycleMs);
+        });
+    }
+
+    function onSelectBoundary(i: number) {
+        onUserActivity();
+        cancelLocalAnimationsAndUi();
+        emitSelectTs(boundaryTimes[i]);
+    }
+
+    function houseStartTs(i: number) {
+        if (i === 0) {
+            // special: start of E house is midpoint between prev-cycle ESE and current E
+            const prevBase = prevCycleStart(anchors);
+            const aPrev = computeAnchors(prevBase);
+            const spokesPrev = buildSpokeTimes(aPrev);
+
+            const prevESE = spokesPrev[15];   // ESE in previous cycle
+            const curE = spokeTimes[0];       // E in current cycle
+
+            // midpoint between prevESE and curE (curE is "after" prevESE chronologically)
+            return ms((prevESE + curE) / 2);
+        }
+
+        return boundaryTimes[(i - 1 + SPOKES) % SPOKES];
+    }
+
+    function houseEndTs(i: number) {
+        // end boundary is between this spoke and next spoke
+        return boundaryTimes[i];
+    }
+
+    function jumpTo(ts: number) {
+        onUserActivity();
+        cancelLocalAnimationsAndUi();
+        emitSelectTs(ts);
+    }
+
     function clearNowTimers() {
         if (nowAlignTimer) { clearTimeout(nowAlignTimer); nowAlignTimer = null; }
         if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
@@ -353,6 +417,7 @@
                 showNowPointer={showNowPointer}
                 nowPointerAngleDeg={nowPointerAngleDeg}
                 onClickNow={() => startLive()}
+                onSelectBoundary={onSelectBoundary}
         />
     </div>
 
@@ -362,24 +427,89 @@
             <span class="dt">{formatDateTime(anchors.E)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].E}</span>
+
+            <span class="houseBtns">
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House start: ${formatDateTime(houseStartTs(0))}`}
+                        on:click={() => jumpTo(houseStartTs(0))}>
+                  start
+                </button>
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House end: ${formatDateTime(houseEndTs(0))}`}
+                        on:click={() => jumpTo(houseEndTs(0))}>
+                  end
+                </button>
+            </span>
         </div>
         <div class="infoRow">
             <strong class="k">N:</strong>
             <span class="dt">{formatDateTime(anchors.N)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].N}</span>
+            <span class="houseBtns">
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House start: ${formatDateTime(houseStartTs(4))}`}
+                        on:click={() => jumpTo(houseStartTs(4))}>
+                  start
+                </button>
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House end: ${formatDateTime(houseEndTs(4))}`}
+                        on:click={() => jumpTo(houseEndTs(4))}>
+                  end
+                </button>
+            </span>
         </div>
         <div class="infoRow">
             <strong class="k">W:</strong>
             <span class="dt">{formatDateTime(anchors.W)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].W}</span>
+            <span class="houseBtns">
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House start: ${formatDateTime(houseStartTs(8))}`}
+                        on:click={() => jumpTo(houseStartTs(8))}>
+                  start
+                </button>
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House end: ${formatDateTime(houseEndTs(8))}`}
+                        on:click={() => jumpTo(houseEndTs(8))}>
+                  end
+                </button>
+            </span>
         </div>
         <div class="infoRow">
             <strong class="k">S:</strong>
             <span class="dt">{formatDateTime(anchors.S)}</span>
             <span>—</span>
             <span class="desc">{SPOKE_DESC[kind].S}</span>
+            <span class="houseBtns">
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House start: ${formatDateTime(houseStartTs(12))}`}
+                        on:click={() => jumpTo(houseStartTs(12))}>
+                  start
+                </button>
+                <button
+                        type="button"
+                        class="hb"
+                        title={`House end: ${formatDateTime(houseEndTs(12))}`}
+                        on:click={() => jumpTo(houseEndTs(12))}>
+                  end
+                </button>
+            </span>
         </div>
         <div class="infoRow">
             <strong class="k">E+:</strong>
@@ -455,8 +585,8 @@
 
     .infoRow {
         display: grid;
-        grid-template-columns: 2ch 17ch 2ch 1fr;
-        align-items: baseline;
+        grid-template-columns: 3ch 15ch 2ch 1fr 120px;
+        align-items: center;
         column-gap: 10px;
         padding: 2px 6px;
         border-radius: 6px;
@@ -468,6 +598,27 @@
 
     .infoRow:hover {
         background: var(--hover, rgba(255,255,255,0.04));
+    }
+    .houseBtns{
+        display: inline-flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    .hb{
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: inherit;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 800;
+        opacity: 0.9;
+    }
+    .hb:hover{
+        opacity: 1;
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
     }
     .navBtn{
         padding: 8px 10px;
