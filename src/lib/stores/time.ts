@@ -61,7 +61,21 @@ export function startLive() {
     }, msToNextMinute + 5);
 }
 
+// src/lib/stores/time.ts
 export function toggleLive() {
-    if (get(isLive)) stopLive();
-    else startLive();
+    isLive.update((v) => {
+        const next = !v;
+
+        if (next) {
+            // включаем live
+            selectedTs.set(ms(Date.now()));
+            startLive();
+        } else {
+            // выключаем live: приземлимся на "сейчас", чтобы не было FUTURE из-за дрейфа
+            stopLive();
+            selectedTs.set(ms(Date.now()));
+        }
+
+        return next;
+    });
 }

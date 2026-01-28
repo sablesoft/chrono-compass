@@ -1,39 +1,34 @@
 <!-- src/components/TimePicker.svelte -->
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
+    import { onDestroy } from 'svelte';
     import { formatDateTime, ms } from '../lib/format';
     import { selectedTs, isLive, setSelectedTs, toggleLive } from '../lib/stores/time';
+
+    type TimeState = 'LIVE' | 'FUTURE' | 'PAST';
 
     let open = false;
     let draft = '';
 
-    // store values (subscribed manually)
     let currentTs = ms(Date.now());
     let live = false;
 
-    // real "now" ticker for badge (keeps FUTURE/PAST updating)
-    let nowTs = ms(Date.now());
-    let nowTimer: ReturnType<typeof setInterval> | null = null;
+    // локальная машина состояний для бейджа
+    let timeState: TimeState = 'PAST';
 
-    const unsub1 = selectedTs.subscribe((v) => {
-        currentTs = ms(v);
-        if (!open) draft = toLocalInputValue(currentTs);
-    });
+    // следим за переходом LIVE -> not LIVE, чтобы "Stop => PAST" всегда мгновенно
+    let prevLive = false;
 
-    const unsub2 = isLive.subscribe((v) => (live = v));
+    // FUTURE watcher timer (только когда реально нужен)
+    let futureTimer: ReturnType<typeof setInterval> | null = null;
+    let futureTargetSec = 0;
+    let localNowSec = 0;
 
-    onMount(() => {
-        // update "now" periodically (lightweight). 1s feels snappy; can be 10s if you want.
-        nowTimer = setInterval(() => {
-            nowTs = ms(Date.now());
-        }, 1000);
-    });
-
-    onDestroy(() => {
-        unsub1();
-        unsub2();
-        if (nowTimer) clearInterval(nowTimer);
-    });
+    function clearFutureTimer() {
+        if (futureTimer) {
+            clearInterval(futureTimer);
+            futureTimer = null;
+        }
+    }
 
     function toLocalInputValue(ts: number) {
         const d = new Date(ts);
@@ -50,9 +45,82 @@
         return ms(new Date(v).getTime());
     }
 
-    // Badge: LIVE / PAST / FUTURE (stable, no jitter)
-    const NOW_EPS = 60_000; // 1 minute tolerance
-    $: timeState = live ? 'LIVE' : (currentTs < (nowTs - NOW_EPS) ? 'PAST' : 'FUTURE');
+    function computeStateFromTs(ts: number) {
+        if (live) return 'LIVE' as const;
+        const now = Date.now();
+        return ts > now ? ('FUTURE' as const) : ('PAST' as const);
+    }
+
+    function startFutureWatcher(targetTs: number) {
+        clearFutureTimer();
+
+        futureTargetSec = Math.floor(ms(targetTs) / 1000);
+        localNowSec = Math.floor(ms(Date.now()) / 1000);
+
+        // если уже не будущее — не запускаем
+        if (futureTargetSec <= localNowSec) {
+            timeState = 'PAST';
+            return;
+        }
+
+        timeState = 'FUTURE';
+
+        futureTimer = setInterval(() => {
+            localNowSec += 1;
+
+            if (localNowSec >= futureTargetSec) {
+                timeState = 'PAST';
+                clearFutureTimer();
+            }
+        }, 1000);
+    }
+
+    function recomputeStateAndTimers() {
+        clearFutureTimer();
+
+        if (live) {
+            timeState = 'LIVE';
+            return;
+        }
+
+        // если не live — FUTURE нуждается в watch-таймере, PAST нет
+        const now = Date.now();
+        if (currentTs > now) {
+            startFutureWatcher(currentTs);
+        } else {
+            timeState = 'PAST';
+        }
+    }
+
+    // подписки на store
+    const unsub1 = selectedTs.subscribe((v) => {
+        currentTs = ms(v);
+        if (!open) draft = toLocalInputValue(currentTs);
+
+        // любое изменение выбранного момента пересобирает FUTURE-таймер (если нужно)
+        recomputeStateAndTimers();
+    });
+
+    const unsub2 = isLive.subscribe((v) => {
+        live = v;
+
+        // переход LIVE -> not LIVE (кнопка Stop): моментально PAST и никаких таймеров
+        if (prevLive && !live) {
+            clearFutureTimer();
+            timeState = 'PAST';
+        } else {
+            // остальные случаи: обычная логика
+            recomputeStateAndTimers();
+        }
+
+        prevLive = live;
+    });
+
+    onDestroy(() => {
+        unsub1();
+        unsub2();
+        clearFutureTimer();
+    });
 
     function toggle() {
         open = !open;
@@ -61,13 +129,11 @@
 
     function apply() {
         const t = fromLocalInputValue(draft);
-        if (Number.isFinite(t)) setSelectedTs(t); // should turn live off inside the store action
+        if (Number.isFinite(t)) setSelectedTs(t); // user => выключит live (в сторе)
         open = false;
     }
 
-    function close() {
-        open = false;
-    }
+    function close() { open = false; }
 
     function onKey(e: KeyboardEvent) {
         if (!open) return;
@@ -99,9 +165,10 @@
         />
     {/if}
 
-    <div class="timeGroup">
+    <!-- unified block -->
+    <div class="face">
         <span class="seg state {timeState}">
-            {timeState}
+          {timeState}
         </span>
         <button
                 class="seg timeBtn"
@@ -109,6 +176,7 @@
                 on:click={toggle}
                 aria-haspopup="dialog"
                 aria-expanded={open}
+                title="Pick date & time"
         >
             {formatDateTime(currentTs)}
         </button>
@@ -125,119 +193,108 @@
 </div>
 
 <style>
-    .wrap { position: relative; min-width: 0; }
-    .timeGroup{
+    .wrap {
+        position: relative; min-width: 0;
+        margin-right: 20px;
+    }
+
+    /* unified block */
+    .face{
         display: inline-flex;
         align-items: stretch;
-
         border-radius: 14px;
-        overflow: hidden;
-
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
+        overflow: hidden; /* важно: чтобы внутри не было "скруглений" */
     }
+
     .seg{
-        display:flex;
-        align-items:center;
-        justify-content:center;
-
-        height: 44px;
-        padding: 0 14px;
-
-        font-size: 16px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 14px;
         border: 0;
         background: transparent;
         color: inherit;
-
-        white-space: nowrap;
-    }
-    .timeGroup .seg{
-        border-radius: 0 !important;
+        cursor: default;
     }
 
-    /* вертикальные разделители */
+    /* vertical dividers */
     .seg + .seg{
         border-left: 1px solid var(--btn-border);
     }
-    /* STATE: LIVE / PAST / FUTURE */
-    .seg.state{
-        width: 90px;
-        font-size: 18px;
+
+    /* fixed widths */
+    .state{
+        width: 96px;
+        font-size: 16px;
         font-weight: 1000;
-        letter-spacing: .14em;
+        letter-spacing: .10em;
+        text-transform: uppercase;
+        cursor: default;
+        user-select: none;
     }
 
-    /* TIME */
-    .seg.timeBtn{
+    .timeBtn{
         width: 260px;
+        justify-content: center;
         font-size: 20px;
-        font-weight: 850;
+        font-weight: 900;
         letter-spacing: .02em;
+        white-space: nowrap;
         cursor: pointer;
     }
 
-    /* NOW / STOP */
-    .seg.nowBtn{
-        width: 86px;
+    .nowBtn{
+        width: 96px;
         font-size: 20px;
         font-weight: 800;
         cursor: pointer;
     }
-    /* LIVE */
-    .seg.state.LIVE{
+
+    .nowBtn.active{
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
+    }
+
+    /* state colors */
+    .state.LIVE {
         color: color-mix(in oklab, #00ff9c, var(--fg) 30%);
         background: color-mix(in oklab, var(--btn-bg), #00ff9c 18%);
     }
-
-    /* PAST — синий */
-    .seg.state.PAST{
+    .state.FUTURE {
+        color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%);
+        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 22%);
+    }
+    .state.PAST {
         color: color-mix(in oklab, var(--accent-blue), var(--fg) 35%);
         background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 18%);
     }
 
-    /* FUTURE — золото */
-    .seg.state.FUTURE{
-        color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 22%);
-    }
-    .nowBtn{
-        margin-left: 2px;
-        font-size: 16px;
-        padding: 10px 14px;
-        border-radius: 12px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-    }
-    .seg.nowBtn.active{
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-    }
-
+    /* popup */
     .pop{
         position:absolute;
         top: calc(100% + 10px);
         right: 0;
         z-index: 50;
-        width: 360px;
+        width: 450px;
         border-radius: 14px;
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        padding: 14px;
+        padding: 16px;
         box-shadow: 0 10px 30px rgba(0,0,0,.25);
         font-size: 16px;
     }
 
-    .row{ display:grid; gap: 10px; }
+    .row{ display:grid; gap: 12px; }
     .hint{
-        font-size: 14px;
-        font-weight: 800;
-        opacity: 0.9;
+        font-size: 16px;
+        font-weight: 900;
+        opacity: 0.95;
         letter-spacing: .02em;
     }
 
     input{
-        font-size: 16px;
+        font-size: 18px;
         padding: 12px 12px;
         border-radius: 12px;
         border: 1px solid var(--input-border);
@@ -252,6 +309,7 @@
         gap:10px;
         margin-top: 14px;
     }
+
     .btns button{
         font-size: 16px;
         padding: 10px 14px;
@@ -277,6 +335,7 @@
     }
 
     @media (max-width: 520px){
-        .pop{ width: min(360px, calc(100vw - 32px)); }
+        .pop{ width: min(380px, calc(100vw - 32px)); }
+        .timeBtn{ width: 220px; }
     }
 </style>

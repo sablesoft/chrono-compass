@@ -51,8 +51,8 @@ a:hover {
   --fg: rgba(255, 255, 255, 0.92);
   --muted: rgba(255, 255, 255, 0.65);
 
-  --panel: rgba(231, 231, 234, 0.04);
-  --panel-border: rgba(231, 231, 234, 0.12);
+  --panel: #15161b;
+  --panel-border: #23242b;
 
   --btn-bg: rgba(231, 231, 234, 0.06);
   --btn-border: rgba(231, 231, 234, 0.18);
@@ -77,8 +77,8 @@ html[data-theme="light"] {
   --fg: rgba(0, 0, 0, 0.90);
   --muted: rgba(0, 0, 0, 0.60);
 
-  --panel: rgba(0, 0, 0, 0.04);
-  --panel-border: rgba(0, 0, 0, 0.10);
+  --panel: #ffffff;
+  --panel-border: #d6d8de;
 
   --btn-bg: rgba(0, 0, 0, 0.04);
   --btn-border: rgba(0, 0, 0, 0.14);
