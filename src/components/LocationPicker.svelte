@@ -237,7 +237,7 @@
         user-select: none;
         white-space: nowrap;
 
-        padding: 7px 20px;     /* было 10px 14px */
+        padding: 5px 20px;     /* было 10px 14px */
         line-height: 1;         /* важно */
         min-height: 44px;       /* чтобы совпало с TimePicker */
 
