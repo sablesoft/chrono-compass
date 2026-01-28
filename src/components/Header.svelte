@@ -18,6 +18,23 @@
 </header>
 
 <style>
+    header {
+        position: sticky;
+        top: 0;
+        z-index: 100; /* выше колес */
+
+        /* чтобы не было "прозрачного наложения" */
+        background: var(--bg);
+
+        /* визуальное отделение */
+        border-bottom: 1px solid var(--panel-border);
+
+        /* небольшой padding, если нужно */
+        padding-top: 6px;
+        padding-bottom: 6px;
+        backdrop-filter: blur(6px);
+        background: color-mix(in oklab, var(--bg), transparent 10%);
+    }
     .bar{
         display:flex;
         align-items:center;

@@ -113,7 +113,7 @@
     min-height: 100vh;
     color: var(--fg);
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: visible;
     font-size: 18px;
   }
 
