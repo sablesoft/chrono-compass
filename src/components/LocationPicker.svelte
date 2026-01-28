@@ -222,7 +222,7 @@
            (у тебя там 10px 14px) */
     }
 
-    .seg{
+    .seg {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -237,7 +237,7 @@
         user-select: none;
         white-space: nowrap;
 
-        padding: 5px 20px;     /* было 10px 14px */
+        padding: 0 7px;     /* было 10px 14px */
         line-height: 1;         /* важно */
         min-height: 44px;       /* чтобы совпало с TimePicker */
 
@@ -250,15 +250,15 @@
 
     /* fixed widths like TimePicker segments */
     .label{
-        width: 160px;
-        justify-content: flex-start;
+        width: 180px;
+        justify-content: center;
         overflow: hidden;
         text-overflow: ellipsis;
         font-weight: 850;
     }
 
     .coord{
-        width: 60px;              /* фикс для lat/lon */
+        width: 100px;              /* фикс для lat/lon */
         font-weight: 900;
         opacity: 0.92;
     }

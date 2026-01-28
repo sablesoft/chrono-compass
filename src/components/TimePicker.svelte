@@ -2,7 +2,8 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { formatDateTime, ms } from '../lib/format';
-    import { selectedTs, isLive, setSelectedTs, toggleLive } from '../lib/stores/time';
+    import {selectedTs, isLive, setSelectedTs, toggleLive, onUserActivity} from '../lib/stores/time';
+    import MomentControl from './MomentControl.svelte';
 
     type TimeState = 'LIVE' | 'FUTURE' | 'PAST';
 
@@ -89,7 +90,6 @@
         pickerEl.value = toLocalInputValue(currentTs);
 
         // Chrome/Edge/Safari (частично): нативный вызов
-        // @ts-expect-error showPicker not in TS lib
         if (typeof pickerEl.showPicker === 'function') pickerEl.showPicker();
         else pickerEl.click();
     }
@@ -133,6 +133,8 @@
             🗓️
         </button>
 
+        <MomentControl buttonClass="seg mc-seg" ts={$selectedTs} onUserActivity={onUserActivity} />
+
         <button
                 class="seg nowBtn"
                 type="button"
@@ -155,9 +157,12 @@
 </div>
 
 <style>
-    .wrap { position: relative; min-width: 0; margin-right: 20px; }
+    .wrap {
+        position: relative;
+        min-width: 0;
+    }
 
-    .face{
+    .face {
         display: inline-flex;
         align-items: stretch;
         border-radius: 14px;
@@ -165,12 +170,31 @@
         background: var(--btn-bg);
         overflow: hidden;
     }
+    .face :global(button.seg) {
+        border-radius: 0;
+        background: transparent;
+        outline: none;
+        box-shadow: none;
+    }
 
-    .seg{
+    .face :global(button.seg:hover) {
+        outline: none;
+        box-shadow: none;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
+    }
+
+    .face :global(button.seg:focus),
+    .face :global(button.seg:focus-visible) {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .seg {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 10px 14px;
+        padding: 7px 5px;
         border: 0;
         background: transparent;
         color: inherit;
@@ -179,7 +203,7 @@
     }
 
     .seg + .seg{
-        border-left: 1px solid var(--btn-border);
+        border-left: 1px solid var(--btn-border) !important;
     }
 
     /* fixed widths */
@@ -192,9 +216,9 @@
     }
 
     .timeText{
-        width: 250px; /* фикс */
-        font-size: 20px;
-        font-weight: 900;
+        width: 240px; /* фикс */
+        font-size: 18px;
+        font-weight: 850;
         letter-spacing: .02em;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
@@ -215,6 +239,7 @@
         font-size: 20px;
         font-weight: 800;
         cursor: pointer;
+        background-color: var(--btn-bg) !important;
         border-top-left-radius: 0;
         border-bottom-left-radius: 0;
     }

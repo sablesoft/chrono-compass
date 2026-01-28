@@ -51,7 +51,13 @@
     unsubLoc?.(); unsubLoc = null;
     unsubTime?.(); unsubTime = null;
   });
+
+  const isDev = import.meta.env.DEV;
 </script>
+
+<svelte:head>
+  <title>ChronoCompass{isDev ? ' — DEV' : ''}</title>
+</svelte:head>
 
 <main>
   <div class="container">

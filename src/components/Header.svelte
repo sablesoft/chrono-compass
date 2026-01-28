@@ -55,7 +55,7 @@
         display:flex;
         align-items:center;
         gap:14px;
-        padding:10px 10px;
+        padding:15px 10px;
         border:1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 16px;
