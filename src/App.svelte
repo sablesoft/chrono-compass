@@ -4,7 +4,7 @@
   import CycleWheel from './components/CycleWheel.svelte';
   import Header from './components/Header.svelte';
 
-  import { currentLocation } from './lib/stores/location';
+  import { currentLocation, initLocation } from './lib/stores/location';
   import {
     selectedTs as selectedTsStore,
     setSelectedTs,
@@ -32,6 +32,7 @@
   }
 
   onMount(() => {
+    initLocation();
     unsubLoc = currentLocation.subscribe((v) => {
       lat = v.lat;
       lon = v.lon;
@@ -102,9 +103,9 @@
       />
     </section>
 
-    <footer class="note">
-      LIVE обновляется раз в минуту. Любое действие выключает LIVE.
-    </footer>
+<!--    <footer class="note">-->
+<!--      LIVE обновляется раз в минуту. Любое действие выключает LIVE.-->
+<!--    </footer>-->
   </div>
 </main>
 

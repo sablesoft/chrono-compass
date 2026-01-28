@@ -22,12 +22,7 @@ export type SavedLocation = {
 
 const LS_KEY_CURRENT = 'timewheels.location.current.v1';
 const LS_KEY_SAVED = 'timewheels.location.saved.v1';
-
-const DEFAULT: CurrentLocation = {
-    lat: -23.22,
-    lon: -44.72,
-    label: 'Paraty (manual)',
-};
+const DEFAULT: CurrentLocation = { lat: 0, lon: 0, label: 'Greenwich' };
 
 function isFiniteNum(x: unknown): x is number {
     return typeof x === 'number' && Number.isFinite(x);
@@ -119,15 +114,31 @@ export const savedLocations = writable<SavedLocation[]>(
 
 // persist on changes
 if (typeof window !== 'undefined') {
-    currentLocation.subscribe((v) => persistCurrent(v));
+    // currentLocation.subscribe((v) => persistCurrent(v));
     savedLocations.subscribe((v) => persistSaved(v));
 }
 
 // -------- public API used by LocationPicker --------
 
 export function setCurrentLocation(loc: CurrentLocation) {
+    // по умолчанию считаем "пользовательским" действием => персистим
+    setCurrentLocationPersistent(loc);
+}
+
+function setCurrentLocationInternal(loc: CurrentLocation) {
     const s = sanitizeCurrent(loc) ?? DEFAULT;
     currentLocation.set(s);
+}
+
+export function setCurrentLocationPersistent(loc: CurrentLocation) {
+    const s = sanitizeCurrent(loc) ?? DEFAULT;
+    currentLocation.set(s);
+    if (typeof window !== 'undefined') persistCurrent(s);
+}
+
+export function setCurrentLocationTransient(loc: CurrentLocation) {
+    // ставим в store, но НЕ пишем в localStorage
+    setCurrentLocationInternal(loc);
 }
 
 export function saveCurrentLocation(loc?: CurrentLocation) {
@@ -170,9 +181,132 @@ export function createEmptyIfNone() {
     const cur = get(currentLocation);
     const item: SavedLocation = {
         id: makeId(),
-        label: cur.label || 'Paraty (manual)',
+        label: cur.label || 'Your location name...',
         lat: cur.lat,
         lon: cur.lon,
     };
     savedLocations.set([item]);
+}
+
+// ---- Geolocation (temporary current, not saved) ----
+
+export type GeoStatus = 'idle' | 'loading' | 'ok' | 'denied' | 'unavailable' | 'error';
+
+export const geoStatus = writable<GeoStatus>('idle');
+export const geoError = writable<string>('');
+
+// одноразово: попытаться поставить currentLocation из GPS, НЕ сохраняя
+export async function trySetGeolocationAsCurrentOnce(opts?: {
+    timeoutMs?: number;
+    maximumAgeMs?: number;
+    highAccuracy?: boolean;
+}) {
+    if (typeof window === 'undefined') return;
+
+    if (!('geolocation' in navigator)) {
+        geoStatus.set('unavailable');
+        return;
+    }
+
+    geoStatus.set('loading');
+    geoError.set('');
+
+    const timeout = opts?.timeoutMs ?? 8000;
+    const maximumAge = opts?.maximumAgeMs ?? 60_000;
+    const enableHighAccuracy = opts?.highAccuracy ?? false;
+
+    return new Promise<void>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = normalizeLat(pos.coords.latitude);
+                const lon = normalizeLon(pos.coords.longitude);
+
+                // ВАЖНО: только currentLocation — никаких saveCurrentLocation()
+                setCurrentLocation({
+                    lat,
+                    lon,
+                    label: 'Current (GPS)',
+                });
+
+                geoStatus.set('ok');
+                resolve();
+            },
+            (err) => {
+                // 1 = denied, 2 = unavailable, 3 = timeout
+                if (err?.code === 1) geoStatus.set('denied');
+                else if (err?.code === 2) geoStatus.set('unavailable');
+                else geoStatus.set('error');
+
+                geoError.set(err?.message ?? 'Geolocation error');
+                resolve();
+            },
+            { enableHighAccuracy, timeout, maximumAge }
+        );
+    });
+}
+
+function epsEq(a: number, b: number, eps = 1e-9) {
+    return Math.abs(a - b) < eps;
+}
+
+function findSavedByCoords(list: SavedLocation[], cur: CurrentLocation) {
+    return list.find(p => epsEq(p.lat, cur.lat) && epsEq(p.lon, cur.lon));
+}
+
+async function tryGetGeolocation(opts?: {
+    timeoutMs?: number;
+    maximumAgeMs?: number;
+    highAccuracy?: boolean;
+}): Promise<CurrentLocation | null> {
+    if (typeof window === 'undefined') return null;
+    if (!('geolocation' in navigator)) return null;
+
+    const timeout = opts?.timeoutMs ?? 8000;
+    const maximumAge = opts?.maximumAgeMs ?? 60_000;
+    const enableHighAccuracy = opts?.highAccuracy ?? false;
+
+    return new Promise((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                resolve({
+                    lat: normalizeLat(pos.coords.latitude),
+                    lon: normalizeLon(pos.coords.longitude),
+                    label: 'Current (GPS)',
+                });
+            },
+            () => resolve(null),
+            { enableHighAccuracy, timeout, maximumAge }
+        );
+    });
+}
+
+// Вызывай один раз на старте приложения (onMount)
+export async function initLocation() {
+    if (typeof window === 'undefined') return;
+
+    const saved = get(savedLocations);
+
+    // 1) Если есть сохранённые — current = текущий сохранённый, иначе первый сохранённый
+    if (saved.length > 0) {
+        const lsCur = loadCurrentFromLS(); // твоя функция уже есть
+        const hit = findSavedByCoords(saved, lsCur);
+        const pick = hit ?? saved[0];
+
+        const cur: CurrentLocation = { lat: pick.lat, lon: pick.lon, label: pick.label };
+
+        // это “сохранённый профиль”, значит фиксируем его как current в LS
+        setCurrentLocationPersistent(cur);
+        return;
+    }
+
+    // 2) Если сохранённых нет — НЕ используем LS current вообще.
+    //    Пробуем GPS без сохранения
+    const gps = await tryGetGeolocation({ timeoutMs: 8000, maximumAgeMs: 60_000, highAccuracy: false });
+    if (gps) {
+        setCurrentLocationTransient(gps); // важно: без localStorage
+        return;
+    }
+
+    // 3) Если GPS не получилось — Greenwich fallback (тоже без localStorage, чтобы на след. запуск снова пробовать GPS)
+    setCurrentLocationTransient(DEFAULT);
 }
