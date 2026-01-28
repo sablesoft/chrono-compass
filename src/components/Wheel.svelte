@@ -339,6 +339,7 @@
                     />
                 {/if}
                 <text
+                        class="spokeLabel"
                         x={pt.x} y={pt.y}
                         text-anchor="middle"
                         dominant-baseline="middle"
@@ -350,35 +351,38 @@
                 </text>
 
                 {#if i === 0}
-                    {@const pt2 = { x: pt.x, y: pt.y + VB * 0.055 }}
+                    {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
 
-                    <text
-                            x={pt2.x} y={pt2.y}
-                            text-anchor="middle"
-                            dominant-baseline="middle"
-                            font-size={VB * 0.034}
-                            fill="currentColor"
-                            fill-opacity={0.55}
-                    >
-                        E+
-                    </text>
+                    <g class="eplus">
+                        <circle
+                                class="eplusHit"
+                                cx={pt2.x}
+                                cy={pt2.y}
+                                r={VB * 0.04}
+                                fill="transparent"
+                                on:click|stopPropagation={handleNextE}
+                                role="button"
+                                tabindex="0"
+                                aria-label="Next cycle (E+)"
+                                on:keydown|stopPropagation={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  handleNextE();
+                                }
+                              }}/>
 
-                    <circle
-                            cx={pt2.x}
-                            cy={pt2.y}
-                            r={VB * 0.04}
-                            fill="transparent"
-                            on:click|stopPropagation={handleNextE}
-                            role="button"
-                            tabindex="0"
-                            aria-label="Next cycle (E+)"
-                            on:keydown|stopPropagation={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleNextE();
-              }
-            }}
-                    />
+                        <text
+                                class="spokeLabel eplusLabel"
+                                x={pt2.x} y={pt2.y}
+                                text-anchor="middle"
+                                dominant-baseline="middle"
+                                font-size={VB * 0.034}
+                                fill="currentColor"
+                                fill-opacity={0.55}
+                        >
+                            E+
+                        </text>
+                    </g>
                 {/if}
             {/if}
 
@@ -468,5 +472,23 @@
     .nowPointer:hover circle {
         stroke-opacity: 0.85;
         fill-opacity: 0.9;
+    }
+    .spokeLabel{
+        transition: fill-opacity 120ms ease, transform 120ms ease;
+        pointer-events: auto;
+    }
+
+    /* оставь для обычных меток */
+    .spokeLabel:hover{
+        fill-opacity: 1;
+        transform: scale(1.01);
+        filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 55%));
+    }
+
+    /* а для E+ — по группе (потому что сверху hit-circle) */
+    .eplus:hover .eplusLabel{
+        fill-opacity: 1;
+        transform: scale(1.01);
+        filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 55%));
     }
 </style>
