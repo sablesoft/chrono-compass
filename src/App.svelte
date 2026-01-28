@@ -58,7 +58,7 @@
 
     <section class="grid">
       <CycleWheel
-              title="Day"
+              title="Day - Diurnal Cycle"
               kind="day"
               {lat}
               {lon}
@@ -69,7 +69,7 @@
       />
 
       <CycleWheel
-              title="Moon"
+              title="Moon - Synodic Cycle"
               kind="moon"
               {lat}
               {lon}
@@ -80,7 +80,7 @@
       />
 
       <CycleWheel
-              title="Year"
+              title="Year - Solar Cycle"
               kind="year"
               {lat}
               {lon}
@@ -91,7 +91,7 @@
       />
 
       <CycleWheel
-              title="Plato"
+              title="Plato - Precession Cycle"
               kind="plato"
               {lat}
               {lon}
