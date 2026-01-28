@@ -326,8 +326,17 @@
         </div>
 
         <div class="right">
-            <button on:click={() => shiftCycle(-1)} disabled={isCycling}>←</button>
-            <button on:click={() => shiftCycle(1)} disabled={isCycling}>→</button>
+            <button type="button"
+                    class="navBtn"
+                    title={`Previous ${title}`}
+                    on:click={() => shiftCycle(-1)}
+                    disabled={isCycling}>←</button>
+
+            <button type="button"
+                    class="navBtn"
+                    title={`Next ${title}`}
+                    on:click={() => shiftCycle(1)}
+                    disabled={isCycling}>→</button>
         </div>
     </header>
 
@@ -459,5 +468,35 @@
 
     .infoRow:hover {
         background: var(--hover, rgba(255,255,255,0.04));
+    }
+    .navBtn{
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: inherit;
+        cursor: pointer;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+
+    .navBtn:hover:not(:disabled){
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        transform: translateY(-1px);
+    }
+
+    .navBtn:active:not(:disabled){
+        transform: translateY(0px);
+    }
+
+    .navBtn:focus-visible{
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
+        outline-offset: 3px;
+    }
+
+    .navBtn:disabled{
+        opacity: 0.45;
+        cursor: default;
+        transform: none;
     }
 </style>
