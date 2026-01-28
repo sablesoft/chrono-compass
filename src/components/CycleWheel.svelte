@@ -441,11 +441,15 @@
 
     <div class="info">
         <div class="infoRow">
-            <strong class="k">E:</strong>
-            <span class="dt">{formatDateTime(anchors.E)}</span>
-            <span>—</span>
-            <span class="desc">{SPOKE_DESC[kind].E}</span>
-
+            <button class="jump"
+                    type="button"
+                    title="Go to E"
+                    on:click={() => { onUserActivity(); onSelectTs(anchors.E); }}>
+                    <strong class="k">E:</strong>
+                    <span class="dt">{formatDateTime(anchors.E)}</span>
+                    <span>—</span>
+                    <span class="desc">{SPOKE_DESC[kind].E}</span>
+            </button>
             <span class="houseBtns">
                 <button
                         type="button"
@@ -464,10 +468,15 @@
             </span>
         </div>
         <div class="infoRow">
-            <strong class="k">N:</strong>
-            <span class="dt">{formatDateTime(anchors.N)}</span>
-            <span>—</span>
-            <span class="desc">{SPOKE_DESC[kind].N}</span>
+            <button class="jump"
+                    type="button"
+                    title="Go to N"
+                    on:click={() => { onUserActivity(); onSelectTs(anchors.N); }}>
+                    <strong class="k">N:</strong>
+                    <span class="dt">{formatDateTime(anchors.N)}</span>
+                    <span>—</span>
+                    <span class="desc">{SPOKE_DESC[kind].N}</span>
+            </button>
             <span class="houseBtns">
                 <button
                         type="button"
@@ -486,10 +495,15 @@
             </span>
         </div>
         <div class="infoRow">
-            <strong class="k">W:</strong>
-            <span class="dt">{formatDateTime(anchors.W)}</span>
-            <span>—</span>
-            <span class="desc">{SPOKE_DESC[kind].W}</span>
+            <button class="jump"
+                    type="button"
+                    title="Go to W"
+                    on:click={() => { onUserActivity(); onSelectTs(anchors.W); }}>
+                    <strong class="k">W:</strong>
+                    <span class="dt">{formatDateTime(anchors.W)}</span>
+                    <span>—</span>
+                    <span class="desc">{SPOKE_DESC[kind].W}</span>
+            </button>
             <span class="houseBtns">
                 <button
                         type="button"
@@ -508,10 +522,15 @@
             </span>
         </div>
         <div class="infoRow">
-            <strong class="k">S:</strong>
-            <span class="dt">{formatDateTime(anchors.S)}</span>
-            <span>—</span>
-            <span class="desc">{SPOKE_DESC[kind].S}</span>
+            <button class="jump"
+                    type="button"
+                    title="Go to S"
+                    on:click={() => { onUserActivity(); onSelectTs(anchors.S); }}>
+                <strong class="k">S:</strong>
+                <span class="dt">{formatDateTime(anchors.S)}</span>
+                <span class="sep">—</span>
+                <span class="desc">{SPOKE_DESC[kind].S}</span>
+            </button>
             <span class="houseBtns">
                 <button
                         type="button"
@@ -530,10 +549,15 @@
             </span>
         </div>
         <div class="infoRow">
-            <strong class="k">E+:</strong>
-            <span class="dt">{formatDateTime(anchors.E_next)}</span>
-            <span>—</span>
-            <span class="desc">{SPOKE_DESC[kind].E_next}</span>
+            <button class="jump"
+                    type="button"
+                    title="Go to E+"
+                    on:click={() => { onUserActivity(); onSelectTs(anchors.E_next); }}>
+                    <strong class="k">E+:</strong>
+                    <span class="dt">{formatDateTime(anchors.E_next)}</span>
+                    <span>—</span>
+                    <span class="desc">{SPOKE_DESC[kind].E_next}</span>
+            </button>
         </div>
     </div>
 </section>
@@ -572,15 +596,36 @@
         gap: 10px;
     }
 
-    button {
+    .navBtn {
         padding: 8px 10px;
         border-radius: 10px;
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;
         cursor: pointer;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
     }
-    button:disabled { opacity: 0.45; cursor: default; }
+
+    .navBtn:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        transform: translateY(-1px);
+    }
+
+    .navBtn:active:not(:disabled) {
+        transform: translateY(0px);
+    }
+
+    .navBtn:focus-visible {
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
+        outline-offset: 3px;
+    }
+
+    .navBtn:disabled {
+        opacity: 0.45;
+        cursor: default;
+        transform: none;
+    }
 
     .wrap {
         display: grid;
@@ -601,29 +646,83 @@
         gap: 6px;
     }
 
+    /* ROW = 2 columns: left info + right buttons */
     .infoRow {
         display: grid;
-        grid-template-columns: 3ch 15ch 2ch 1fr 120px;
+        grid-template-columns: 1fr auto;
         align-items: center;
-        column-gap: 10px;
-        padding: 2px 6px;
-        border-radius: 6px;
+        gap: 10px;
+        padding: 4px 6px;
+        border-radius: 10px;
     }
 
-    .infoRow .k { text-align: right; opacity: 0.85; }
-    .infoRow .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
-    .infoRow .desc { opacity: 0.6; font-weight: bold; }
+    /* clickable "left side" (keeps old 4-col layout inside) */
+    .jump {
+        display: grid;
+        grid-template-columns: 32px auto 18px 1fr;
+        align-items: center;
+        gap: 6px;
 
-    .infoRow:hover {
-        background: var(--hover, rgba(255,255,255,0.04));
+        width: 100%;
+        min-width: 0;
+
+        background: transparent;
+        border: 0;
+        padding: 6px 8px;
+        border-radius: 8px;
+
+        text-align: left;
+        font: inherit;
+        color: inherit;
+
+        cursor: pointer;
     }
-    .houseBtns{
+
+    .jump:hover {
+        background: color-mix(in oklab, var(--fg), transparent 92%);
+    }
+
+    .jump:active {
+        background: color-mix(in oklab, var(--fg), transparent 88%);
+    }
+
+    .jump:focus-visible {
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
+        outline-offset: 2px;
+    }
+
+    .k {
+        text-align: right;
+        opacity: 0.85;
+    }
+
+    .dt {
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        opacity: 0.95;
+    }
+
+    .sep {
+        opacity: 0.4;
+    }
+
+    .desc {
+        opacity: 0.6;
+        font-weight: 700;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .houseBtns {
         display: inline-flex;
         justify-content: flex-end;
         gap: 8px;
+        align-items: center;
     }
 
-    .hb{
+    .hb {
         padding: 6px 10px;
         border-radius: 10px;
         border: 1px solid var(--btn-border);
@@ -633,37 +732,26 @@
         font-size: 14px;
         font-weight: 800;
         opacity: 0.9;
-    }
-    .hb:hover{
-        opacity: 1;
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-    }
-    .navBtn{
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
     }
 
-    .navBtn:hover:not(:disabled){
+    .hb:hover {
+        opacity: 1;
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
         transform: translateY(-1px);
     }
 
-    .navBtn:active:not(:disabled){
+    .hb:active {
         transform: translateY(0px);
     }
 
-    .navBtn:focus-visible{
-        outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
-        outline-offset: 3px;
+    .hb:focus-visible {
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
+        outline-offset: 2px;
     }
 
-    .navBtn:disabled{
+    .hb:disabled {
         opacity: 0.45;
         cursor: default;
         transform: none;
