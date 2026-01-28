@@ -2,6 +2,10 @@
 
 **ChronoCompass** is an experimental visual time instrument that treats time as a set of directional cycles rather than a linear stream.
 
+<p align="center">
+  <img src="docs/screens/screenshoot.png" alt="ChronoCompass — visual time compass" width="900">
+</p>
+
 It combines astronomical and symbolic time models with a compass-like interface: days, lunar phases, years, and long cycles are represented as rotating wheels aligned to cardinal directions (E, N, W, S). The result is a tool for exploring *where* you are in time, not just *when*.
 
 ## ✨ Key ideas
