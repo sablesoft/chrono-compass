@@ -425,19 +425,21 @@
         </g>
     {/if}
 
-    <g
-            class="pointer"
-            class:noTransition={noTransition}
-            transform={`rotate(${safeAngle(displayAngle, 0)} ${cx} ${cy})`}
-    >
-        <line
-                x1={cx} y1={cy}
-                x2={cx + rOuter} y2={cy}
-                stroke="currentColor"
-                stroke-width="9"
-                stroke-linecap="round"
-        />
-        <circle cx={cx + rOuter} cy={cy} r={VB * 0.02} fill="currentColor" />
+    <g transform={`translate(${cx} ${cy})`}>
+        <g
+                class="pointer"
+                class:noTransition={noTransition}
+                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
+        >
+            <line
+                    x1="0" y1="0"
+                    x2={rOuter} y2="0"
+                    stroke="currentColor"
+                    stroke-width="9"
+                    stroke-linecap="round"
+            />
+            <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
+        </g>
     </g>
 
     <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
@@ -447,7 +449,12 @@
     svg { color: var(--fg); }
     .spoke { cursor: pointer; user-select: none; }
 
-    .pointer { transition: transform 420ms ease; }
+    .pointer {
+        transition: transform 420ms ease;
+        transform-origin: 0 0; /* важный момент: крутим вокруг локального нуля */
+        will-change: transform; /* помогает против "лягушачьих" прыжков */
+    }
+    .pointer.noTransition { transition: none; }
     .pointer.noTransition { transition: none; }
 
     .spoke:focus { outline: none; }
