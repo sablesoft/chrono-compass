@@ -75,6 +75,38 @@
         return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
     }
 
+    function arcPath(r: number, a0: number, a1: number) {
+        // дуга по меньшему пути, но для четверти это всегда 90°
+        const p0 = polarToXY(r, a0);
+        const p1 = polarToXY(r, a1);
+        // sweep=1 рисует по часовой стрелке (в SVG), но у нас углы уже со знаком —
+        // поэтому проще всегда рисовать sweep=1 и подбирать a0/a1 как ниже.
+        return `A ${r} ${r} 0 0 1 ${p1.x} ${p1.y}`;
+    }
+
+    function ringSectorPath(a0: number, a1: number) {
+        const o0 = polarToXY(rOuter, a0);
+        const o1 = polarToXY(rOuter, a1);
+        const i1 = polarToXY(rInner, a1);
+        const i0 = polarToXY(rInner, a0);
+
+        // quarter => always small arc
+        const largeArc = 0;
+
+        // SVG sweep: 1 = clockwise, 0 = counterclockwise
+        // В твоей системе углы часто идут убыванием (CCW), так что sweepOuter чаще 0.
+        const sweepOuter = a1 >= a0 ? 1 : 0;
+        const sweepInner = sweepOuter ? 0 : 1;
+
+        return [
+            `M ${o0.x} ${o0.y}`,
+            `A ${rOuter} ${rOuter} 0 ${largeArc} ${sweepOuter} ${o1.x} ${o1.y}`,
+            `L ${i1.x} ${i1.y}`,
+            `A ${rInner} ${rInner} 0 ${largeArc} ${sweepInner} ${i0.x} ${i0.y}`,
+            'Z'
+        ].join(' ');
+    }
+
     function spokeAngleDeg(i: number) {
         return -stepDeg * i; // time-forward is CCW => negative
     }
@@ -225,6 +257,17 @@
 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
+    <!-- quadrant tint ring -->
+    <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
+        <!-- SE(-45) -> NE(-135) : RED -->
+        <path d={ringSectorPath(-45, -135)} class="q q-red" />
+        <!-- NE(-135) -> NW(-225) : WHITE -->
+        <path d={ringSectorPath(-135, -225)} class="q q-white" />
+        <!-- NW(-225) -> SW(-315) : BLUE -->
+        <path d={ringSectorPath(-225, -315)} class="q q-blue" />
+        <!-- SW(-315) -> SE(-405) : GOLD -->
+        <path d={ringSectorPath(-315, -405)} class="q q-gold" />
+    </g>
 
     {#each labels as label, i (label)}
         {@const a = spokeAngleDeg(i)}
@@ -333,4 +376,13 @@
         outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
         outline-offset: 4px;
     }
+    .quadrants .q{
+        fill-opacity: 0.16;          /* можно 0.12..0.22 */
+        stroke: none;
+    }
+
+    .quadrants .q-red   { fill: var(--accent-red); }
+    .quadrants .q-white { fill: var(--accent-white); }
+    .quadrants .q-blue  { fill: var(--accent-blue); }
+    .quadrants .q-gold  { fill: var(--accent-gold); }
 </style>

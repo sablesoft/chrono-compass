@@ -43,9 +43,10 @@ a:hover {
 :root {
   color-scheme: dark;
 
-  --accent-red:    oklch(70% 0.13 28);
-  --accent-blue:   oklch(72% 0.11 255);
-  --accent-gold:   oklch(78% 0.14 85);
+  --accent-red: oklch(0.593 0.161 29.955);
+  --accent-white:  oklch(92% 0.02 95);
+  --accent-blue: oklch(0.559 0.129 255.347);
+  --accent-gold: oklch(0.711 0.139 82.569);
 
   --bg: #0b0c0f;
   --fg: rgba(255, 255, 255, 0.92);
@@ -69,9 +70,10 @@ html[data-theme="light"] {
   color-scheme: light;
 
   /* semantic accents */
-  --accent-red:    oklch(62% 0.14 28);   /* мягкий красный */
-  --accent-blue:   oklch(64% 0.12 255);  /* спокойный синий */
-  --accent-gold:   oklch(72% 0.14 85);   /* тёплое золото */
+  --accent-red: oklch(0.566 0.164 29.068);   /* мягкий красный */
+  --accent-white:  oklch(96% 0.01 95);
+  --accent-blue: oklch(0.587 0.153 256.133);  /* спокойный синий */
+  --accent-gold: oklch(0.743 0.151 82.574);   /* тёплое золото */
 
   --bg: #f7f7f9;
   --fg: rgba(0, 0, 0, 0.90);
