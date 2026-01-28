@@ -2,9 +2,11 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
+    import logo from '../../public/icons/compass-transparent.svg?raw';
 </script>
 
 <header class="bar">
+    <div class="logo">{@html logo}</div>
     <div class="title">Chrono Compass</div>
     <div class="slot time">
         <TimePicker />
@@ -35,11 +37,25 @@
         backdrop-filter: blur(6px);
         background: color-mix(in oklab, var(--bg), transparent 10%);
     }
-    .bar{
+    .logo {
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 5px;
+    }
+
+    .logo svg {
+        width: 100%;
+        height: 100%;
+        fill: currentColor;
+    }
+    .bar {
         display:flex;
         align-items:center;
         gap:14px;
-        padding:14px 18px;
+        padding:10px 10px;
         border:1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 16px;
@@ -47,9 +63,9 @@
     }
 
     .title {
-        margin: 0 20px 7px 20px;
-        font-size: 44px;
-        font-weight: 750;
+        margin: 0 10px 5px 0;
+        font-size: 34px;
+        font-weight: 850;
         opacity: .95;
     }
 

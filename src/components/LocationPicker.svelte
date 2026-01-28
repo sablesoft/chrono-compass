@@ -230,7 +230,7 @@
         background: transparent;
         color: inherit;
         min-width: 0;
-        font-size: 20px;
+        font-size: 18px;
         font-weight: 900;
         letter-spacing: .02em;
         font-variant-numeric: tabular-nums;
@@ -250,7 +250,7 @@
 
     /* fixed widths like TimePicker segments */
     .label{
-        width: 260px;              /* как твой timeInput ~260 */
+        width: 160px;
         justify-content: flex-start;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -258,7 +258,7 @@
     }
 
     .coord{
-        width: 150px;              /* фикс для lat/lon */
+        width: 60px;              /* фикс для lat/lon */
         font-weight: 900;
         opacity: 0.92;
     }
