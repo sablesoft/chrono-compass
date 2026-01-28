@@ -103,9 +103,6 @@
       />
     </section>
 
-<!--    <footer class="note">-->
-<!--      LIVE обновляется раз в минуту. Любое действие выключает LIVE.-->
-<!--    </footer>-->
   </div>
 </main>
 
@@ -133,10 +130,4 @@
   }
   @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
-
-  .note {
-    margin-top: 14px;
-    font-size: 18px;
-    opacity: 0.55;
-  }
 </style>

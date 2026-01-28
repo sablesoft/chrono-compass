@@ -45,10 +45,10 @@ a:hover {
 :root {
   color-scheme: dark;
 
-  --accent-red: oklch(0.593 0.161 29.955);
-  --accent-white:  oklch(92% 0.02 95);
-  --accent-blue: oklch(0.559 0.129 255.347);
-  --accent-gold: oklch(0.711 0.139 82.569);
+  --accent-red:    oklch(70% 0.13 28);
+  --accent-blue:   oklch(72% 0.11 255);
+  --accent-gold:   oklch(78% 0.14 85);
+  --accent-white:  oklch(96% 0.015 95);
 
   --bg: #0b0c0f;
   --fg: rgba(255, 255, 255, 0.92);
