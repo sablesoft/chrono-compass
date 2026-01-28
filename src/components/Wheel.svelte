@@ -76,11 +76,8 @@
     }
 
     function arcPath(r: number, a0: number, a1: number) {
-        // дуга по меньшему пути, но для четверти это всегда 90°
         const p0 = polarToXY(r, a0);
         const p1 = polarToXY(r, a1);
-        // sweep=1 рисует по часовой стрелке (в SVG), но у нас углы уже со знаком —
-        // поэтому проще всегда рисовать sweep=1 и подбирать a0/a1 как ниже.
         return `A ${r} ${r} 0 0 1 ${p1.x} ${p1.y}`;
     }
 
@@ -92,9 +89,7 @@
 
         // quarter => always small arc
         const largeArc = 0;
-
         // SVG sweep: 1 = clockwise, 0 = counterclockwise
-        // В твоей системе углы часто идут убыванием (CCW), так что sweepOuter чаще 0.
         const sweepOuter = a1 >= a0 ? 1 : 0;
         const sweepInner = sweepOuter ? 0 : 1;
 
@@ -176,6 +171,23 @@
             spinLock = false;
         }, POINTER_ANIM_MS + 20);
     }
+
+    function mod(n: number, m: number) {
+        return ((n % m) + m) % m;
+    }
+
+    function nearestSpokeIndexFromAngle(angleDeg: number) {
+        // spokes are at -stepDeg * i
+        // pointer is rotated by displayAngle
+        const raw = (-angleDeg) / stepDeg;
+        const i = Math.round(raw);
+        return mod(i, spokeCount);
+    }
+
+    let nearestSpokeIndex = 0;
+
+    // use the *displayed* angle (same as pointer transform) so highlight follows animation smoothly
+    $: nearestSpokeIndex = nearestSpokeIndexFromAngle(safeAngle(displayAngle, 0));
 
     // Reactive: drive displayAngle
     $: {
@@ -298,6 +310,17 @@
             />
 
             {#if showLabels}
+                {#if i === nearestSpokeIndex}
+                    <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r={VB * 0.054}
+                            fill="transparent"
+                            stroke="currentColor"
+                            stroke-opacity="0.55"
+                            stroke-width="3"
+                    />
+                {/if}
                 <text
                         x={pt.x} y={pt.y}
                         text-anchor="middle"
