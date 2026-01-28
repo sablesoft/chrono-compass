@@ -5,7 +5,7 @@
 </script>
 
 <header class="bar">
-    <div class="title">Time Wheels</div>
+    <div class="title">Chrono Compass</div>
     <div class="slot time">
         <TimePicker />
     </div>
