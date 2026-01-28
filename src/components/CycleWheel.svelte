@@ -322,7 +322,7 @@
     <header class="top">
         <div class="left">
             <div class="title">{title}</div>
-            <div class="sub">{formatDateTime(selectedTs)} · {(progress * 100).toFixed(1)}%</div>
+            <div class="sub">{(progress * 100).toFixed(1)}%</div>
         </div>
 
         <div class="right">
@@ -408,13 +408,13 @@
     }
 
     .title {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: 650;
         opacity: 0.95;
     }
 
     .sub {
-        font-size: 18px;
+        font-size: 14px;
         opacity: 0.75;
         margin-top: 2px;
     }
@@ -446,7 +446,7 @@
 
     .info {
         margin-top: 10px;
-        font-size: 24px;
+        font-size: 18px;
         line-height: 1.75;
         opacity: 0.82;
         display: grid;
@@ -455,7 +455,7 @@
 
     .infoRow {
         display: grid;
-        grid-template-columns: 4ch 19ch 3ch 1fr;
+        grid-template-columns: 2ch 17ch 2ch 1fr;
         align-items: baseline;
         column-gap: 10px;
         padding: 2px 6px;
@@ -464,7 +464,7 @@
 
     .infoRow .k { text-align: right; opacity: 0.85; }
     .infoRow .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
-    .infoRow .desc { opacity: 0.6; }
+    .infoRow .desc { opacity: 0.6; font-weight: bold; }
 
     .infoRow:hover {
         background: var(--hover, rgba(255,255,255,0.04));

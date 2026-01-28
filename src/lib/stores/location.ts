@@ -20,8 +20,8 @@ export type SavedLocation = {
     lon: number;
 };
 
-const LS_KEY_CURRENT = 'timewheels.location.current.v1';
-const LS_KEY_SAVED = 'timewheels.location.saved.v1';
+const LS_KEY_CURRENT = 'chrono-com.location.current.v1';
+const LS_KEY_SAVED = 'chrono-com.location.saved.v1';
 const DEFAULT: CurrentLocation = { lat: 0, lon: 0, label: 'Greenwich' };
 
 function isFiniteNum(x: unknown): x is number {
