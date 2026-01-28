@@ -2,7 +2,7 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
-    import logo from '../../public/icons/compass-transparent.svg?raw';
+    import logo from '../../public/logo-transparent-512.svg?raw';
 </script>
 
 <header class="bar">

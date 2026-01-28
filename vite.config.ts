@@ -7,20 +7,38 @@ export default defineConfig({
     svelte(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'robots.txt'], // опционально
+      includeAssets: [
+        'favicon.ico',
+        'favicon.svg',
+        'apple-touch-icon-180x180.png',
+        'robots.txt'
+      ],
       manifest: {
         name: 'ChronoCompass',
         short_name: 'ChronoCompass',
-        description: 'Time wheels for day, moon, solar year, and precession cycles.',
+        description: 'Time wheels for day, moon, solar year, and other cycles.',
         theme_color: '#0b0b0f',
         background_color: '#0b0b0f',
         display: 'standalone',
         start_url: '/',
         scope: '/',
         icons: [
-          { src: '/pwa-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/pwa-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/pwa-512-maskable.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: '/maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable'
+          }
         ]
       },
       workbox: {

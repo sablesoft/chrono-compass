@@ -15,6 +15,7 @@
     "@types/node": "^24.10.1",
     "@types/suncalc": "^1.9.2",
     "@typescript-eslint/types": "^8.54.0",
+    "@vite-pwa/assets-generator": "^1.0.2",
     "svelte": "^5.43.8",
     "svelte-check": "^4.3.5",
     "typescript": "~5.9.3",
