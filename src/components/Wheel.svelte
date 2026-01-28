@@ -2,6 +2,7 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import type { SpinCmd, PreTurnCmd } from '../lib/cycles/types';
+    import { formatDateTime } from '../lib/format';
     export let nowPointerAngleDeg: number | null = null;
     export let showNowPointer = false;
     export let onClickNow: () => void = () => {};
@@ -18,6 +19,8 @@
 
     export let size = 360;
     export let showLabels = true;
+
+    export let houseBoundaries: number[] = [];
 
     // “ровно 1 оборот + приземление на targetAngleDeg”
     export let spinCmd: SpinCmd | null = null;
@@ -37,6 +40,8 @@
     export let onSelectNextE: () => void = () => {};
 
     export let onSelectBoundary: (index: number) => void = () => {};
+
+    export let spokeTimes: number[] = [];
 
     // Single coordinate space
     const VB = 1000;
@@ -318,6 +323,7 @@
                     handleBoundaryActivate(i);
                 }
             }}>
+            <title>{formatDateTime(houseBoundaries[i])}</title>
             <line x1={pA.x} y1={pA.y}
                 x2={pB.x} y2={pB.y}
                 class="tickLine"/>
@@ -347,8 +353,7 @@
         {@const p2 = polarToXY(rOuter, a)}
         {@const pt = polarToXY(rLabel, a)}
 
-        <g
-                class="spoke"
+        <g      class="spoke"
                 role="button"
                 tabindex="0"
                 aria-label={`Spoke ${label}`}
@@ -360,6 +365,7 @@
         }
       }}
         >
+            <title>{spokeTimes[i] ? formatDateTime(spokeTimes[i]) : ''}</title>
             <line
                     x1={p1.x} y1={p1.y}
                     x2={p2.x} y2={p2.y}
@@ -413,6 +419,7 @@
                                   handleNextE();
                                 }
                               }}/>
+                        <title>{spokeTimes[16] ? formatDateTime(spokeTimes[16]) : ''}</title>
 
                         <text
                                 class="spokeLabel eplusLabel"

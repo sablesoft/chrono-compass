@@ -74,6 +74,20 @@
     // --- house boundaries (midpoints between spokes) ---
     const SPOKES = 16;
 
+    function buildHouseBoundaries(spokes: number[]): number[] {
+        const n = spokes.length;
+        const out: number[] = [];
+
+        for (let i = 0; i < n; i++) {
+            const cur = spokes[i];
+            const next = spokes[(i + 1) % n];
+
+            out.push(Math.round((cur + next) / 2));
+        }
+
+        return out;
+    }
+
     function wrapIntoCycle(ts: number, cycleStart: number, cycleMs: number) {
         // bring ts into [cycleStart .. cycleStart+cycleMs)
         let x = ts;
@@ -250,6 +264,8 @@
         pendingSelfTs = null;
     }
 
+    $: houseBoundaries = buildHouseBoundaries(spokeTimes);
+
     // detect selectedTs changes, compute timeDir, inject preTurn ONLY for external big jumps
     $: {
         if (selectedTs === lastSeenTs) {
@@ -410,8 +426,10 @@
                 selectedSpokeIndex={selectedSpokeIndex}
                 pointerAngleDeg={pointerAngleDeg}
                 spinCmd={spinCmd}
+                spokeTimes={spokeTimes}
                 preTurnCmd={preTurnCmd}
                 timeDir={timeDir}
+                houseBoundaries={houseBoundaries}
                 onSelectSpoke={onSelectSpoke}
                 onSelectNextE={onSelectNextE}
                 showNowPointer={showNowPointer}
