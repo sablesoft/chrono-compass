@@ -14,6 +14,9 @@
     import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
     import { SPOKE_DESC } from '../lib/cycles/labels';
 
+    import { startLive, isLive } from '../lib/stores/time';
+    import { get } from 'svelte/store';
+
     export let kind: CycleKind = 'day';
     export let title = 'Day';
 
@@ -62,6 +65,32 @@
     // --- self-change marker (critical!)
     let pendingSelfTs: number | null = null;
     let lastSeenTs = selectedTs;
+
+    let nowTs = ms(Date.now());
+
+    let nowTimer: ReturnType<typeof setInterval> | null = null;
+    let nowAlignTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearNowTimers() {
+        if (nowAlignTimer) { clearTimeout(nowAlignTimer); nowAlignTimer = null; }
+        if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
+    }
+
+    function startNowTicker() {
+        // обновление 1 раз в минуту, с выравниванием на границу минуты
+        clearNowTimers();
+        nowTs = ms(Date.now());
+
+        const now = Date.now();
+        const msToNextMinute = 60_000 - (now % 60_000);
+
+        nowAlignTimer = setTimeout(() => {
+            nowTs = ms(Date.now());
+            nowTimer = setInterval(() => {
+                nowTs = ms(Date.now());
+            }, 60_000);
+        }, msToNextMinute + 5);
+    }
 
     function clearTimers() {
         if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
@@ -194,6 +223,23 @@
     $: pointerAngleDeg = computeAngle(selectedTs, anchors);
     $: progress = progressLinear(selectedTs, anchors.start, anchors.end);
 
+    let showNowPointer = false;
+    let nowPointerAngleDeg: number | null = null;
+
+    $: {
+        const live = get(isLive);
+
+        if (live) {
+            showNowPointer = false;
+            nowPointerAngleDeg = null;
+        } else {
+            // now должен быть внутри текущего цикла этого колеса (anchors от selectedTs)
+            const inside = nowTs >= anchors.start && nowTs <= anchors.end;
+            showNowPointer = inside;
+            nowPointerAngleDeg = inside ? computeAngle(nowTs, anchors) : null;
+        }
+    }
+
     function recomputeWheelSize() {
         if (!wrapEl) return;
 
@@ -215,6 +261,7 @@
 
     onMount(() => {
         queueMicrotask(recomputeWheelSize);
+        startNowTicker();
 
         if (wrapEl && 'ResizeObserver' in window) {
             ro = new ResizeObserver(recomputeWheelSize);
@@ -227,6 +274,7 @@
 
     onDestroy(() => {
         clearTimers();
+        clearNowTimers();
         if (ro && wrapEl) ro.unobserve(wrapEl);
         ro?.disconnect();
         if (usingWindowResize) window.removeEventListener('resize', recomputeWheelSize);
@@ -293,6 +341,9 @@
                 timeDir={timeDir}
                 onSelectSpoke={onSelectSpoke}
                 onSelectNextE={onSelectNextE}
+                showNowPointer={showNowPointer}
+                nowPointerAngleDeg={nowPointerAngleDeg}
+                onClickNow={() => startLive()}
         />
     </div>
 

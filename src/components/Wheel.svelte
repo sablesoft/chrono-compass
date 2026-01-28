@@ -2,7 +2,9 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import type { SpinCmd, PreTurnCmd } from '../lib/cycles/types';
-
+    export let nowPointerAngleDeg: number | null = null;
+    export let showNowPointer = false;
+    export let onClickNow: () => void = () => {};
     const labels = [
         'E','ENE','NE','NNE',
         'N','NNW','NW','WNW',
@@ -120,6 +122,21 @@
         while (t - current > 180) t -= 360;
         while (t - current < -180) t += 360;
         return t;
+    }
+
+    let nowDisplayAngle = 0;
+    let lastNowAngle = 0;
+
+    $: {
+        if (!showNowPointer || nowPointerAngleDeg === null) {
+            // можно ничего не трогать, или при желании сбросить:
+            // nowDisplayAngle = lastNowAngle;
+        } else {
+            const target = safeAngle(nowPointerAngleDeg, lastNowAngle);
+            const t = normalizeNearest(target, lastNowAngle);
+            nowDisplayAngle = t;
+            lastNowAngle = t;
+        }
     }
 
     // Pick an equivalent angle so that:
@@ -369,6 +386,41 @@
         </g>
     {/each}
 
+    {#if showNowPointer && nowPointerAngleDeg !== null}
+        <g
+                class="nowPointer"
+                transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}
+        >
+            <line
+                    x1={cx} y1={cy}
+                    x2={cx + rOuter} y2={cy}
+                    stroke="var(--accent-live)"
+                    stroke-width="10"
+                    stroke-linecap="round"
+                    stroke-opacity="0.35"
+            />
+
+            <!-- кликабельная точка: вернуть в LIVE -->
+            <circle
+                    cx={cx + rOuter}
+                    cy={cy}
+                    r={VB * 0.018}
+                    fill="var(--accent-live)"
+                    fill-opacity="0.65"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Go LIVE (now)"
+                    on:click|stopPropagation={onClickNow}
+                    on:keydown|stopPropagation={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClickNow();
+        }
+      }}
+            />
+        </g>
+    {/if}
+
     <g
             class="pointer"
             class:noTransition={noTransition}
@@ -408,4 +460,13 @@
     .quadrants .q-white { fill: var(--accent-white); }
     .quadrants .q-blue  { fill: var(--accent-blue); }
     .quadrants .q-gold  { fill: var(--accent-gold); }
+    .nowPointer { transition: transform 420ms ease; }
+    .nowPointer circle {
+        cursor: pointer;
+    }
+    .nowPointer:hover line,
+    .nowPointer:hover circle {
+        stroke-opacity: 0.85;
+        fill-opacity: 0.9;
+    }
 </style>

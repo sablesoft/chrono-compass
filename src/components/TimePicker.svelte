@@ -225,8 +225,8 @@
 
     /* state colors */
     .state.LIVE {
-        color: color-mix(in oklab, #00ff9c, var(--fg) 30%);
-        background: color-mix(in oklab, var(--btn-bg), #00ff9c 18%);
+        color: color-mix(in oklab, var(--accent-live), var(--fg) 30%);
+        background: color-mix(in oklab, var(--btn-bg), var(--accent-live) 18%);
     }
     .state.FUTURE {
         color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%);
