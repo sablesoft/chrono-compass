@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [
     svelte(),
     VitePWA({
+      devOptions: { enabled: true },
       registerType: 'autoUpdate',
       includeAssets: [
         'favicon.ico',
