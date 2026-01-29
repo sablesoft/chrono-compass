@@ -6,6 +6,7 @@
     import type { Anchors } from '../lib/cycles/spokes';
     import type { Moment, RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
     import { momentsState, normalizeTsMinute } from '../lib/stores/moment';
+    import { getCycleOptions } from '../lib/cycles/meta';
 
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
@@ -18,6 +19,8 @@
 
     import { startLive, isLive } from '../lib/stores/time';
     import { get } from 'svelte/store';
+
+    const MAX_INSTANCES_PER_MOMENT = 128;
 
     export let kind: CycleKind = 'day';
     export let title = 'Day';
@@ -97,6 +100,7 @@
 
         for (const m of s.moments as Moment[]) {
             if (!visible.has(m.collectionId)) continue;
+            if (!momentAllowsCycle(m, kind)) continue;
             instances.push(...expandMomentToRange(m, anchors.start, anchors.end));
         }
 
@@ -123,6 +127,18 @@
             const b = spokeTimes[(i + 1) % SPOKES];
             return midpointInCycle(a, b, anchors.start, cycleMs);
         });
+    }
+
+    function defaultMomentCycles(): CycleKind[] {
+        const opts = getCycleOptions().filter(o => !o.disabled).map(o => o.kind);
+        if (opts.length <= 1) return opts;
+        return opts.slice(0, -1); // всё кроме “самого большого” (сейчас это plato)
+    }
+
+    function momentAllowsCycle(m: Moment, cycle: CycleKind): boolean {
+        const list = (m as any).cycles as CycleKind[] | undefined; // Moment у тебя уже расширен, но TS иногда отстаёт
+        const eff = (Array.isArray(list) && list.length) ? list : defaultMomentCycles();
+        return eff.includes(cycle);
     }
 
     function lastDayOfMonth(y: number, m0: number) {
@@ -216,7 +232,6 @@
         const baseTs = normalizeTsMinute(m.ts);
         const r = m.repeat;
 
-        // no repeat -> только базовый, если попал
         if (!isRepeatEnabled(r)) {
             if (baseTs >= start && baseTs < end) {
                 out.push({
@@ -245,18 +260,13 @@
         const occTs = (k: number) => {
             if (k === 0) return baseTs;
 
-            if (unit === 'month') {
-                return addMonthsWithOnDay(baseDate, k * every, onDay, keepDay).getTime();
-            }
-            if (unit === 'year') {
-                return addYearsWithOnDay(baseDate, k * every, onDay, keepMonth, keepDay).getTime();
-            }
+            if (unit === 'month') return addMonthsWithOnDay(baseDate, k * every, onDay, keepDay).getTime();
+            if (unit === 'year')  return addYearsWithOnDay(baseDate, k * every, onDay, keepMonth, keepDay).getTime();
 
-            // fixed units
             return addFixed(baseTs, unit, k * every);
         };
 
-        // найти первый k, такой что occTs(k) >= start (простым шаганием — окно у колеса конечное)
+        // 1) Найти первый k, который попадает в окно
         let k = 0;
         let guard = 0;
 
@@ -265,12 +275,18 @@
             if (!endAllows(endRule, k, t)) return out;
 
             if (t >= start) break;
+
             k++;
             guard++;
-            if (guard > 200000) return out;
+
+            // NEW: если чтобы дойти до start нужно слишком много шагов — не рисуем вообще
+            if (guard > MAX_INSTANCES_PER_MOMENT) {
+                console.warn(`[${kind}] skip markers: too many repeats before range`, { id: m.id, unit, every, guard });
+                return [];
+            }
         }
 
-        // собрать пока < end
+        // 2) Собрать occurrences в окне
         for (let idx = k; idx < 200000; idx++) {
             const t = normalizeTsMinute(occTs(idx));
             if (!endAllows(endRule, idx, t)) break;
@@ -286,6 +302,12 @@
                 collectionId: m.collectionId,
                 repeatIndex: idx
             });
+
+            // NEW: если в текущем колесе получилось слишком много — не рисуем вообще
+            if (out.length > MAX_INSTANCES_PER_MOMENT) {
+                console.warn(`[${kind}] skip markers: too many repeats in range`, { id: m.id, unit, every, count: out.length });
+                return [];
+            }
         }
 
         return out;
