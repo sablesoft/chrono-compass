@@ -27,7 +27,7 @@ type State = {
     visibleCollectionIds: string[];
 };
 
-const LS_KEY = 'chronocompass:moments:v1';
+const LS_KEY = 'chrono-com.moment.v1';
 
 function uid(prefix = 'id') {
     return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -49,7 +49,7 @@ function loadState(): State {
             id: uid('col'),
             name: 'My Moments',
             markerBg: 'rgba(231,231,234,0.18)',
-            orbit: 0.90,
+            orbit: 0.75,
         };
         return {
             collections: [defaultCol],
@@ -81,7 +81,7 @@ export function createCollection(name: string) {
         id: uid('col'),
         name: name.trim() || 'Untitled',
         markerBg: 'rgba(231,231,234,0.18)',
-        orbit: 0.90,
+        orbit: 0.75,
     };
     momentsState.update(s => ({
         ...s,

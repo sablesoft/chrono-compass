@@ -11,3 +11,15 @@ export type PreTurnCmd = {
     id: number;
     dir: 1 | -1;
 };
+
+export type WheelMarker = {
+    id: string;
+    ts: number;
+    angleDeg: number;
+    emoji: string;
+    bg: string;
+    title: string;
+    description: string;
+    orbit: number; // 0..1
+};
+

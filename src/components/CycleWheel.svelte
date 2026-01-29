@@ -4,6 +4,7 @@
     import Wheel from './Wheel.svelte';
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
+    import { momentsState } from '../lib/stores/moment';
 
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
@@ -11,7 +12,7 @@
     import { getPlatoAnchors, angleFromPlatoAnchors, shiftPlatoCycle } from '../lib/cycles/plato';
 
     import { formatDateTime, ms } from '../lib/format';
-    import type { CycleKind, SpinCmd, PreTurnCmd } from '../lib/cycles/types';
+    import type {CycleKind, SpinCmd, PreTurnCmd, WheelMarker} from '../lib/cycles/types';
     import { SPOKE_DESC } from '../lib/cycles/labels';
 
     import { startLive, isLive } from '../lib/stores/time';
@@ -74,6 +75,40 @@
     // --- house boundaries (midpoints between spokes) ---
     const SPOKES = 16;
 
+    let markers: WheelMarker[] = [];
+    $: {
+        const s = $momentsState;
+        const visible = new Set(s.visibleCollectionIds);
+        const colById = new Map(s.collections.map(c => [c.id, c]));
+
+        markers = s.moments
+            .filter(m => visible.has(m.collectionId))
+            .filter(m => m.ts >= anchors.start && m.ts < anchors.end)
+            .map(m => {
+                const col = colById.get(m.collectionId);
+                return {
+                    id: m.id,
+                    ts: m.ts,
+                    angleDeg: computeAngle(m.ts, anchors),
+                    emoji: m.emoji || '📍',
+                    bg: col?.markerBg ?? 'rgba(231,231,234,0.18)',
+                    orbit: col?.orbit ?? 0.90,
+                    title: m.title,
+                    description: m.description
+                };
+            });
+    }
+
+    $: {
+        const cycleMs = Math.max(1, anchors.end - anchors.start);
+
+        boundaryTimes = Array.from({ length: SPOKES }, (_, i) => {
+            const a = spokeTimes[i];
+            const b = spokeTimes[(i + 1) % SPOKES];
+            return midpointInCycle(a, b, anchors.start, cycleMs);
+        });
+    }
+
     function buildHouseBoundaries(spokes: number[]): number[] {
         const n = spokes.length;
         const out: number[] = [];
@@ -105,20 +140,16 @@
 
     let boundaryTimes: number[] = []; // length 16, boundary[i] between spoke i and i+1
 
-    $: {
-        const cycleMs = Math.max(1, anchors.end - anchors.start);
-
-        boundaryTimes = Array.from({ length: SPOKES }, (_, i) => {
-            const a = spokeTimes[i];
-            const b = spokeTimes[(i + 1) % SPOKES];
-            return midpointInCycle(a, b, anchors.start, cycleMs);
-        });
-    }
-
     function onSelectBoundary(i: number) {
         onUserActivity();
         cancelLocalAnimationsAndUi();
         emitSelectTs(boundaryTimes[i]);
+    }
+
+    function onSelectMarker(i: number) {
+        onUserActivity();
+        cancelLocalAnimationsAndUi();
+        emitSelectTs(markers[i].ts);
     }
 
     function houseStartTs(i: number) {
@@ -429,9 +460,11 @@
                 spokeTimes={spokeTimes}
                 preTurnCmd={preTurnCmd}
                 timeDir={timeDir}
+                {markers}
                 houseBoundaries={houseBoundaries}
                 onSelectSpoke={onSelectSpoke}
                 onSelectNextE={onSelectNextE}
+                onSelectMarker={onSelectMarker}
                 showNowPointer={showNowPointer}
                 nowPointerAngleDeg={nowPointerAngleDeg}
                 onClickNow={() => startLive()}

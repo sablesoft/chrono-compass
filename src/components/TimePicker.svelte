@@ -2,7 +2,7 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { formatDateTime, ms } from '../lib/format';
-    import {selectedTs, isLive, setSelectedTs, toggleLive, onUserActivity} from '../lib/stores/time';
+    import {selectedTs, isLive, setSelectedTs, toggleLive} from '../lib/stores/time';
     import MomentControl from './MomentControl.svelte';
 
     type TimeState = 'LIVE' | 'FUTURE' | 'PAST';
@@ -133,7 +133,7 @@
             🗓️
         </button>
 
-        <MomentControl buttonClass="seg mc-seg" ts={$selectedTs} onUserActivity={onUserActivity} />
+        <MomentControl buttonClass="seg mc-seg" ts={$selectedTs}/>
 
         <button
                 class="seg nowBtn"
@@ -175,6 +175,8 @@
         background: transparent;
         outline: none;
         box-shadow: none;
+        padding: 5px;
+        min-width: 60px;
     }
 
     .face :global(button.seg:hover) {
@@ -194,7 +196,6 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        padding: 7px 5px;
         border: 0;
         background: transparent;
         color: inherit;

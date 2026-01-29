@@ -61,7 +61,6 @@ export function startLive() {
     }, msToNextMinute + 5);
 }
 
-// src/lib/stores/time.ts
 export function toggleLive() {
     isLive.update((v) => {
         const next = !v;

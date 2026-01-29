@@ -1,11 +1,13 @@
 <!-- src/components/Wheel.svelte -->
 <script lang="ts">
     import { onDestroy } from 'svelte';
-    import type { SpinCmd, PreTurnCmd } from '../lib/cycles/types';
+    import type { SpinCmd, PreTurnCmd, WheelMarker } from '../lib/cycles/types';
     import { formatDateTime } from '../lib/format';
     export let nowPointerAngleDeg: number | null = null;
     export let showNowPointer = false;
     export let onClickNow: () => void = () => {};
+    export let markers: WheelMarker[] = [];
+
     const labels = [
         'E','ENE','NE','NNE',
         'N','NNW','NW','WNW',
@@ -40,6 +42,7 @@
     export let onSelectNextE: () => void = () => {};
 
     export let onSelectBoundary: (index: number) => void = () => {};
+    export let onSelectMarker: (index: number) => void = () => {};
 
     export let spokeTimes: number[] = [];
 
@@ -63,6 +66,11 @@
     function handleBoundaryActivate(i: number) {
         clearSnapMode();
         onSelectBoundary(i);
+    }
+
+    function handleMarkerActivate(i: number) {
+        clearSnapMode();
+        onSelectMarker(i);
     }
 
     function isFiniteNumber(x: unknown): x is number {
@@ -306,6 +314,7 @@
 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
+
     <!-- clickable house-boundary ticks -->
     {#each Array(spokeCount) as _, i (i)}
         {@const a = boundaryAngleDeg(i)}
@@ -335,6 +344,7 @@
                     fill="transparent"/>
         </g>
     {/each}
+
     <!-- quadrant tint ring -->
     <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
         <!-- SE(-45) -> NE(-135) : RED -->
@@ -353,12 +363,12 @@
         {@const p2 = polarToXY(rOuter, a)}
         {@const pt = polarToXY(rLabel, a)}
 
-        <g      class="spoke"
-                role="button"
-                tabindex="0"
-                aria-label={`Spoke ${label}`}
-                on:click={() => handleSpokeActivate(i)}
-                on:keydown={(e) => {
+        <g class="spoke"
+           role="button"
+           tabindex="0"
+           aria-label={`Spoke ${label}`}
+           on:click={() => handleSpokeActivate(i)}
+           on:keydown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           handleSpokeActivate(i);
@@ -366,29 +376,24 @@
       }}
         >
             <title>{spokeTimes[i] ? formatDateTime(spokeTimes[i]) : ''}</title>
-            <line
-                    x1={p1.x} y1={p1.y}
+            <line x1={p1.x} y1={p1.y}
                     x2={p2.x} y2={p2.y}
                     stroke="currentColor"
                     stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
                     stroke-width={i % 4 === 0 ? 7 : 4}
-                    stroke-linecap="round"
-            />
+                    stroke-linecap="round"/>
 
             {#if showLabels}
                 {#if i === nearestSpokeIndex}
-                    <circle
-                            cx={pt.x}
+                    <circle cx={pt.x}
                             cy={pt.y}
                             r={VB * 0.054}
                             fill="transparent"
                             stroke="currentColor"
                             stroke-opacity="0.55"
-                            stroke-width="3"
-                    />
+                            stroke-width="3"/>
                 {/if}
-                <text
-                        class="spokeLabel"
+                <text class="spokeLabel"
                         x={pt.x} y={pt.y}
                         text-anchor="middle"
                         dominant-baseline="middle"
@@ -403,8 +408,7 @@
                     {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
 
                     <g class="eplus">
-                        <circle
-                                class="eplusHit"
+                        <circle class="eplusHit"
                                 cx={pt2.x}
                                 cy={pt2.y}
                                 r={VB * 0.04}
@@ -475,23 +479,39 @@
         </g>
     {/if}
 
+    <!-- Moment Markers -->
+    {#each markers as m, i (m.id)}
+        {@const a = m.angleDeg}
+        {@const rMark = rInner + (rOuter - rInner) * m.orbit}
+        {@const p = polarToXY(rMark, a)}
+        <g class="marker"
+           transform={`translate(${p.x} ${p.y})`}
+           on:click={() => handleMarkerActivate(i)}>
+            <title>{m.title}</title>
+            <circle r={VB * 0.02} fill={m.bg} stroke="currentColor" stroke-opacity="0.22" />
+            <text class="spokeLabel" text-anchor="middle"
+                  dominant-baseline="middle"
+                  font-size={VB * 0.02}
+                  fill="currentColor"
+                  fill-opacity="0.95">
+                {m.emoji}
+            </text>
+        </g>
+    {/each}
+
+    <!--Current Moment Pointer -->
     <g transform={`translate(${cx} ${cy})`}>
-        <g
-                class="pointer"
-                class:noTransition={noTransition}
-                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
-        >
-            <line
-                    x1="0" y1="0"
+        <g class="pointer"
+           class:noTransition={noTransition}
+           style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
+            <line x1="0" y1="0"
                     x2={rOuter} y2="0"
                     stroke="currentColor"
                     stroke-width="9"
-                    stroke-linecap="round"
-            />
+                    stroke-linecap="round"/>
             <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
         </g>
     </g>
-
     <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
 </svg>
 
@@ -564,5 +584,8 @@
     .tick:focus { outline: none; }
     .tick:focus-visible .tickLine{
         stroke-opacity: 0.9;
+    }
+    .marker {
+        cursor: pointer;
     }
 </style>
