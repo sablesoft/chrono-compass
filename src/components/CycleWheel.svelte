@@ -676,7 +676,7 @@
         line-height: 1.75;
         opacity: 0.82;
         display: grid;
-        gap: 6px;
+        gap: 2px;
     }
 
     /* ROW = 2 columns: left info + right buttons */
@@ -701,7 +701,7 @@
 
         background: transparent;
         border: 0;
-        padding: 6px 8px;
+        padding: 0;
         border-radius: 8px;
 
         text-align: left;

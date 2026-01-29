@@ -175,7 +175,7 @@
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 5px;
+        padding: 7px;
         min-width: 60px;
     }
 

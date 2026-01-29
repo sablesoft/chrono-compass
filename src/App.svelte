@@ -114,23 +114,23 @@
 
 <style>
   main {
-    padding: 24px;
+    padding: 16px;
     background: var(--bg);
     min-height: 100vh;
     color: var(--fg);
-    width: 100%;
+    width: 98%;
     overflow-x: visible;
     font-size: 18px;
   }
 
   .container {
-    width: clamp(1200px, calc(100vw - 48px), 2600px);
+    width: clamp(1200px, calc(100vw - 28px), 2600px);
     margin: 0 auto;
   }
 
   .grid {
     display: grid;
-    gap: 14px;
+    gap: 13px;
     grid-template-columns: 1fr;
     align-items: start;
   }
