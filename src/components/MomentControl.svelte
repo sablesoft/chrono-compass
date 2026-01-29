@@ -43,9 +43,33 @@
 
     $: mode = existing ? 'edit' : 'save';
 
+    const EMOJI_MAX_LEN = 5;
+
+    function toggleEmojiAccordion() {
+        emojiOpen = !emojiOpen;
+    }
+
     function pickEmoji(e: string) {
         emoji = e;
         emojiOpen = false;
+    }
+
+    function setEmojiFromInput(raw: string) {
+        const v = (raw ?? '').trim();
+
+        // валидируем просто длину (как ты просил). пустое — игнор
+        if (!v) return;
+
+        // <= 3 символов. (Да, эмодзи могут быть “длиннее” по codepoints,
+        // но ты просил простую проверку по длине строки.)
+        if (v.length > EMOJI_MAX_LEN) return;
+
+        emoji = v;
+    }
+
+    function onEmojiInput(e: Event) {
+        const el = e.currentTarget as HTMLInputElement;
+        setEmojiFromInput(el.value);
     }
 
     // закрывать по клику снаружи
@@ -170,46 +194,58 @@
                     </select>
                 </div>
 
-                <div class="row two">
-                    <div class="field emojiField" bind:this={emojiWrap}>
-                        <label>Emoji</label>
-                        <input
-                                bind:value={emoji}
-                                placeholder="📍"
-                                inputmode="text"
-                                autocomplete="off"
-                                spellcheck="false"
-                                on:focus={() => (emojiOpen = true)}
-                        />
+                <div class="row">
+                    <div class="rowLine">
+                        <!-- Group 1: Sign -->
+                        <div class="segGroup">
+                            <div class="segLabel">Sign</div>
+                            <button type="button" class="segBtn" on:click={toggleEmojiAccordion} aria-expanded={emojiOpen}>
+                                <span class="segEmoji">{emoji || '📍'}</span>
+                                <span class="segCaret">{emojiOpen ? '▴' : '▾'}</span>
+                            </button>
+                        </div>
 
-                        {#if emojiOpen}
-                            <div class="emojiPopover" role="dialog" aria-label="Emoji picker">
-                                <div class="emojiGrid">
-                                    {#each EMOJI_PRESET as e (e)}
-                                        <button
-                                                type="button"
-                                                class="emojiCell"
-                                                class:active={emoji === e}
-                                                on:click={() => pickEmoji(e)}
-                                                aria-label={`Emoji ${e}`}
-                                                title={e}
-                                        >
-                                            {e}
-                                        </button>
-                                    {/each}
-                                </div>
-
-                                <div class="emojiHint">
-                                    Можно кликнуть или вставить вручную
-                                </div>
+                        <!-- Group 2: When -->
+                        <div class="segGroup">
+                            <div class="segLabel">When</div>
+                            <div class="segValue" title={new Date(tsN).toLocaleString()}>
+                                {new Date(tsN).toLocaleString()}
                             </div>
-                        {/if}
+                        </div>
                     </div>
 
-                    <div>
-                        <label>When</label>
-                        <input value={new Date(tsN).toLocaleString()} disabled />
-                    </div>
+                    <!-- Accordion -->
+                    {#if emojiOpen}
+                        <div class="emojiAccordion" role="group" aria-label="Sign picker">
+                            <div class="emojiTop">
+                                <input
+                                        class="emojiInput"
+                                        value={emoji}
+                                        placeholder="Paste sign (≤3 chars)…"
+                                        inputmode="text"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        maxlength={EMOJI_MAX_LEN}
+                                        on:input={onEmojiInput}
+                                />
+                            </div>
+
+                            <div class="emojiGrid">
+                                {#each EMOJI_PRESET as e (e)}
+                                    <button
+                                            type="button"
+                                            class="emojiCell"
+                                            class:active={emoji === e}
+                                            on:click={() => pickEmoji(e)}
+                                            aria-label={`Sign ${e}`}
+                                            title={e}
+                                    >
+                                        {e}
+                                    </button>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
                 </div>
 
                 <div class="row">
@@ -248,21 +284,26 @@
     .mc-modal{
         position: fixed;
         left: 50%;
-        top: 12%;
+        top: 10%;
         transform: translateX(-50%);
-        width: min(620px, calc(100vw - 22px));
+
+        width: min(720px, calc(100vw - 32px)); /* чуть шире + больше safe padding */
+        max-width: calc(100vw - 32px);
+
         background: var(--panel);
         border: 1px solid var(--panel-border);
         border-radius: 18px;
         z-index: 1001;
         overflow: hidden;
         outline: none;
+        box-sizing: border-box;
     }
 
     .mc-head{
         display:flex;
         align-items:center;
         justify-content:space-between;
+        gap: 12px;
         padding: 14px 16px;
         border-bottom: 1px solid var(--panel-border);
     }
@@ -274,6 +315,10 @@
     .mc-x{
         width: 36px;
         height: 36px;
+        display: grid;
+        place-items: center;
+        line-height: 1;
+        padding: 0;
         border-radius: 10px;
         border: 1px solid var(--panel-border);
         background: transparent;
@@ -332,42 +377,133 @@
     @media (max-width: 520px){
         .row.two{ grid-template-columns: 1fr; }
     }
+    @media (max-width: 520px){
+        .emojiGrid{ grid-template-columns: repeat(6, 1fr); }
+    }
 
-    .field {
+    /* --- Row line with 2 grouped segments --- */
+    .rowLine{
         display: grid;
-        gap: 6px;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 12px;
+        align-items: stretch;
     }
-    .emojiField{
-        position: relative;
-        grid-template-columns: 1fr 42px;
-        align-items: flex-start;
-    }
-    .emojiPopover{
-        position: absolute;
-        top: calc(100% + 8px);
-        left: 0;
-        z-index: 2000;
-        width: min(360px, 80vw);
 
+    @media (max-width: 520px){
+        .rowLine{ grid-template-columns: 1fr; }
+    }
+
+    /* Reusable “segmented group” (label | value/button) */
+    .segGroup{
+        display: grid;
+        grid-template-columns: 92px 1fr;
         border: 1px solid var(--panel-border);
-        background: var(--panel);
-        border-radius: 12px;
-        box-shadow: 0 18px 50px rgba(0,0,0,.18);
-        padding: 10px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: color-mix(in oklab, var(--bg), transparent 10%);
     }
 
+    .segLabel{
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        font-size: 13px;
+        opacity: .75;
+        border-right: 1px solid var(--panel-border);
+        background: color-mix(in oklab, var(--panel), transparent 12%);
+        white-space: nowrap;
+    }
+
+    .segValue{
+        display: flex;
+        align-items: center;
+        padding: 10px 12px;
+        font-size: 14px;
+        opacity: .92;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .segBtn{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    .segBtn:hover{
+        background: color-mix(in oklab, var(--panel), var(--fg) 6%);
+    }
+
+    .segEmoji{
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .segCaret{
+        font-size: 12px;
+        opacity: .65;
+    }
+
+    /* --- Accordion (full width) --- */
+    .emojiAccordion{
+        margin-top: 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        background: var(--panel);
+        padding: 12px;
+    }
+
+    .emojiTop{
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .emojiInput{
+        background: color-mix(in oklab, var(--bg), transparent 10%);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        color: inherit;
+        font-size: 14px;
+    }
+
+    .emojiNote{
+        font-size: 12px;
+        opacity: .65;
+        white-space: nowrap;
+    }
+
+    /* Grid */
     .emojiGrid{
         display: grid;
-        grid-template-columns: repeat(8, 1fr);
+        grid-template-columns: repeat(10, minmax(0, 1fr)); /* важное отличие */
         gap: 6px;
+    }
+
+    @media (max-width: 520px){
+        .emojiGrid{ grid-template-columns: repeat(8, 1fr); }
     }
 
     .emojiCell{
-        height: 36px;
-        display: grid;
-        place-items: center;
-        font-size: 18px;
+        height: 40px;              /* можно 36, но 40 чуть “дышит” */
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
+        font-size: 18px;
+        line-height: 1;            /* ключ */
         border: 1px solid transparent;
         background: transparent;
         border-radius: 10px;
@@ -382,14 +518,7 @@
         border-color: color-mix(in oklab, var(--accent-live), var(--fg) 25%);
         background: color-mix(in oklab, var(--panel), var(--accent-live) 10%);
     }
-
-    .emojiHint{
-        margin-top: 8px;
-        font-size: 12px;
-        opacity: .7;
-    }
-
-    @media (max-width: 520px){
-        .emojiGrid{ grid-template-columns: repeat(6, 1fr); }
+    .mc-body, .row, .rowLine, .segGroup, .emojiAccordion, .mc-title{
+        min-width: 0;
     }
 </style>
