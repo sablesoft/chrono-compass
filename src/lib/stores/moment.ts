@@ -114,9 +114,12 @@ export function deleteCollection(id: string) {
     });
 }
 
-export function findMomentInCollectionByTs(collectionId: string, ts: number) {
+export function findMomentInCollectionByTsFromState(
+    s: { moments: any[] },
+    collectionId: string,
+    ts: number
+) {
     const tsN = normalizeTsMinute(ts);
-    const s = get(momentsState);
     return s.moments.find(m => m.collectionId === collectionId && m.ts === tsN) ?? null;
 }
 

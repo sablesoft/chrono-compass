@@ -5,7 +5,7 @@
         upsertMoment,
         deleteMoment,
         setCurrentCollection,
-        findMomentInCollectionByTs
+        findMomentInCollectionByTsFromState
     } from '../lib/stores/moment';
     import { onUserActivity } from "../lib/stores/time";
     import Portal from "svelte-portal";
@@ -39,7 +39,9 @@
     $: tsN = normalizeTsMinute(ts);
 
     $: currentColId = state.currentCollectionId ?? state.collections[0]?.id ?? null;
-    $: existing = currentColId ? findMomentInCollectionByTs(currentColId, ts) : null;
+    $: existing = currentColId
+        ? findMomentInCollectionByTsFromState(state, currentColId, tsN)
+        : null;
 
     $: mode = existing ? 'edit' : 'save';
 
@@ -127,16 +129,11 @@
             collectionId,
             title,
             description,
-            emoji: (emoji || '📍').slice(0, 4)
+            emoji: (emoji || '📍').slice(0, 5)
         };
         upsertMoment(moment);
         setCurrentCollection(collectionId);
-
         open = false;
-
-        setTimeout(function () {
-            existing = currentColId ? findMomentInCollectionByTs(currentColId, ts) : null;
-        }, 300);
     }
 
     function remove() {
@@ -149,10 +146,6 @@
 
         deleteMoment(editingId);
         editingId = null;
-
-        setTimeout(function () {
-            existing = currentColId ? findMomentInCollectionByTs(currentColId, ts) : null;
-        }, 300);
     }
 
     function onKeydown(e: KeyboardEvent) {
