@@ -1,4 +1,6 @@
 import { writable, derived, get } from 'svelte/store';
+import type {CycleKind} from "../cycles/types";
+import { getCycleOptions } from '../cycles/meta';
 
 export type Collection = {
     id: string;
@@ -13,6 +15,7 @@ export type Moment = {
     collectionId: string;
     title: string;
     description: string;
+    cycles: CycleKind[];
     emoji: string;
     repeat?: RepeatRule;     // <-- NEW: если есть, то это “периодический момент”
     updatedAt: number;
@@ -51,6 +54,24 @@ function uid(prefix = 'id') {
 
 export function normalizeTsMinute(ts: number) {
     return Math.floor(ts / 60_000) * 60_000;
+}
+
+function isCycleKind(x: unknown): x is CycleKind {
+    // быстро и без хардкода: проверяем по опциям
+    return getCycleOptions().some(o => o.kind === x);
+}
+
+function defaultMomentCycles(): CycleKind[] {
+    const opts = getCycleOptions().filter(o => !o.disabled).map(o => o.kind);
+    if (opts.length <= 1) return opts;
+    return opts.slice(0, -1); // всё кроме “самого большого”
+}
+
+function normalizeMomentCycles(input: unknown): CycleKind[] {
+    if (!Array.isArray(input)) return defaultMomentCycles();
+    const arr = input.filter(isCycleKind);
+    const uniq = Array.from(new Set(arr));
+    return uniq.length ? uniq : defaultMomentCycles();
 }
 
 function loadState(): State {
@@ -173,11 +194,12 @@ export function upsertMoment(input: {
     title: string;
     description: string;
     emoji: string;
+    cycles?: CycleKind[];
     repeat?: RepeatRule; // <-- NEW
 }) {
     const now = Date.now();
     const tsN = normalizeTsMinute(input.ts);
-
+    const cyclesN = normalizeMomentCycles(input.cycles);
     const repeat = sanitizeRepeat(input.repeat);
 
     momentsState.update(s => {
@@ -193,6 +215,7 @@ export function upsertMoment(input: {
                         title: input.title.trim(),
                         description: input.description.trim(),
                         emoji: input.emoji || '📍',
+                        cycles: cyclesN,
                         repeat,
                         updatedAt: now,
                     }
@@ -211,6 +234,7 @@ export function upsertMoment(input: {
                         title: input.title.trim(),
                         description: input.description.trim(),
                         emoji: input.emoji || '📍',
+                        cycles: cyclesN,
                         repeat,
                         updatedAt: now,
                     }
@@ -227,6 +251,7 @@ export function upsertMoment(input: {
             description: input.description.trim(),
             emoji: input.emoji || '📍',
             repeat,
+            cycles: cyclesN,
             createdAt: now,
             updatedAt: now,
         };

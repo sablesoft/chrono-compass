@@ -9,6 +9,9 @@
     } from '../lib/stores/moment';
     import type { RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
     import { onUserActivity } from "../lib/stores/time";
+    import DropdownButton from './DropdownButton.svelte';
+    import { getCycleOptions } from '../lib/cycles/meta';
+    import type { CycleKind } from '../lib/cycles/types';
     import Portal from "svelte-portal";
 
     export let buttonClass = '';
@@ -35,6 +38,8 @@
     let repeatEndMode: RepeatEnd['mode'] = 'never';
     let repeatUntilLocal = ''; // строка для datetime-local, если решишь его ставить (или date)
     let repeatCount = 1;
+
+    let momentCycles: CycleKind[] = [];
 
     // Минимальный набор “полезных” для моментов. Потом расширишь/категории добавишь.
     const EMOJI_PRESET = Array.from(new Set([
@@ -86,6 +91,21 @@
 
     $: mode = existing ? 'edit' : 'save';
 
+    $: cycleOptions = getCycleOptions(); // уже отсортированы по order
+    $: cycleItems = cycleOptions.map(o => ({
+        value: o.kind,
+        label: o.label,
+        title: o.title,
+        disabled: o.disabled
+    }));
+
+    // дефолт: все циклы, кроме самого большого (последнего в отсортированном списке)
+    $: defaultMomentCycles = (() => {
+        const enabled = cycleOptions.filter(o => !o.disabled).map(o => o.kind);
+        if (enabled.length <= 1) return enabled;         // на всякий
+        return enabled.slice(0, -1);                      // отрезаем "plato" (и любые будущие “самые большие”)
+    })();
+
     const EMOJI_MAX_LEN = 5;
 
     function toggleEmojiAccordion() {
@@ -108,6 +128,11 @@
         if (v.length > EMOJI_MAX_LEN) return;
 
         emoji = v;
+    }
+
+    function handleMomentCyclesChange(next: string[]) {
+        const arr = (next as CycleKind[]);
+        momentCycles = arr.length ? arr : defaultMomentCycles;
     }
 
     function onEmojiInput(e: Event) {
@@ -178,12 +203,14 @@
             collectionId = existing.collectionId;
             title = existing.title;
             description = existing.description ?? '';
+            momentCycles = (existing.cycles?.length ? existing.cycles : defaultMomentCycles);
             emoji = existing.emoji || '📍';
         } else {
             editingId = null;
             collectionId = currentColId ?? state.collections[0]?.id ?? '';
             title = '';
             description = '';
+            momentCycles = defaultMomentCycles;
             emoji = '📍';
         }
         if (existing?.repeat) {
@@ -226,6 +253,7 @@
             collectionId,
             title,
             description,
+            cycles: momentCycles,
             emoji: (emoji || '📍').slice(0, 5),
             repeat: buildRepeat(),
         };
@@ -283,6 +311,16 @@
                             <option value={c.id}>{c.name}</option>
                         {/each}
                     </select>
+                </div>
+
+                <div class="row">
+                    <DropdownButton
+                            label="Cycles:"
+                            items={cycleItems}
+                            value={momentCycles}
+                            onChange={handleMomentCyclesChange}
+                            buttonClass="seg cyclesBtn"
+                    />
                 </div>
 
                 <!-- Repeat Logic -->
