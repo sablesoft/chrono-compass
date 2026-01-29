@@ -13,8 +13,7 @@
   } from './lib/stores/time';
 
   import { cycles } from './lib/stores/cycle';
-  import type { CycleKind } from './lib/cycles/types';
-  import {CYCLE_META} from "./lib/cycles/meta";
+  import {CYCLE_META, getCycleTitle} from "./lib/cycles/meta";
 
   // local mirrors
   let selectedTs = Date.now();
@@ -59,13 +58,6 @@
   });
 
   const isDev = import.meta.env.DEV;
-
-  const TITLES: Record<CycleKind, string> = {
-    day: 'Day - Diurnal Cycle',
-    moon: 'Moon - Synodic Cycle',
-    year: 'Year - Solar Cycle',
-    plato: 'Plato - Precession Cycle',
-  };
 </script>
 
 <svelte:head>
@@ -79,7 +71,7 @@
     <section class="grid">
       {#each cyclesOrdered as kind (kind)}
         <CycleWheel
-                title={TITLES[kind]}
+                title={getCycleTitle(kind)}
                 {kind}
                 {lat}
                 {lon}
