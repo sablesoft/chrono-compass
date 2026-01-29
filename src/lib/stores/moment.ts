@@ -9,13 +9,29 @@ export type Collection = {
 
 export type Moment = {
     id: string;
-    ts: number;              // unix ms (нормализованный до минуты)
+    ts: number;
     collectionId: string;
     title: string;
     description: string;
-    emoji: string;           // пока просто emoji
+    emoji: string;
+    repeat?: RepeatRule;     // <-- NEW: если есть, то это “периодический момент”
     updatedAt: number;
     createdAt: number;
+};
+
+export type RepeatUnit = 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+export type OnDayMode = 'same' | 'clamp' | 'last';
+
+export type RepeatEnd =
+    | { mode: 'never' }
+    | { mode: 'until'; untilTs: number }       // inclusive/whatever — решим в генераторе
+    | { mode: 'count'; count: number };        // всего N повторов включая старт
+
+export type RepeatRule = {
+    every: number;           // 1..999
+    unit: RepeatUnit;
+    onDay: OnDayMode;        // используется в month/year, в остальных игнорится
+    end: RepeatEnd;
 };
 
 type State = {
@@ -40,17 +56,18 @@ export function normalizeTsMinute(ts: number) {
 function loadState(): State {
     try {
         const raw = localStorage.getItem(LS_KEY);
-        if (!raw) throw new Error('empty');
+        if (!raw) throw new Error('Empty state');
         const parsed = JSON.parse(raw) as State;
-        if (!parsed.collections?.length) throw new Error('bad');
+        if (!parsed.collections?.length) throw new Error('Empty collections list');
         return parsed;
     } catch {
         const defaultCol: Collection = {
             id: uid('col'),
             name: 'My Moments',
-            markerBg: 'rgba(231,231,234,0.18)',
+            markerBg: 'var(--accent-live)',
             orbit: 0.75,
         };
+
         return {
             collections: [defaultCol],
             moments: [],
@@ -68,7 +85,7 @@ export const momentsState = writable<State>(loadState());
 momentsState.subscribe(saveState);
 
 export const collections = derived(momentsState, s => s.collections);
-export const moment = derived(momentsState, s => s.moments);
+export const moments = derived(momentsState, s => s.moments);
 export const currentCollectionId = derived(momentsState, s => s.currentCollectionId);
 export const visibleCollectionIds = derived(momentsState, s => s.visibleCollectionIds);
 
@@ -80,7 +97,7 @@ export function createCollection(name: string) {
     const col: Collection = {
         id: uid('col'),
         name: name.trim() || 'Untitled',
-        markerBg: 'rgba(231,231,234,0.18)',
+        markerBg: 'var(--accent-live)',
         orbit: 0.75,
     };
     momentsState.update(s => ({
@@ -123,6 +140,32 @@ export function findMomentInCollectionByTsFromState(
     return s.moments.find(m => m.collectionId === collectionId && m.ts === tsN) ?? null;
 }
 
+function sanitizeRepeat(r?: RepeatRule): RepeatRule | undefined {
+    if (!r) return undefined;
+
+    const every = Math.max(1, Math.min(999, Math.floor(r.every || 1)));
+    const unit = r.unit;
+    const onDay: OnDayMode = r.onDay ?? 'clamp';
+
+    let end: RepeatEnd = r.end ?? { mode: 'never' };
+
+    if (end.mode === 'count') {
+        const count = Math.max(1, Math.min(9999, Math.floor((end as any).count || 1)));
+        end = { mode: 'count', count };
+    } else if (end.mode === 'until') {
+        const untilTsRaw = (end as any).untilTs;
+        if (typeof untilTsRaw !== 'number' || !Number.isFinite(untilTsRaw)) {
+            end = { mode: 'never' };
+        } else {
+            end = { mode: 'until', untilTs: normalizeTsMinute(untilTsRaw) };
+        }
+    } else {
+        end = { mode: 'never' };
+    }
+
+    return { every, unit, onDay, end };
+}
+
 export function upsertMoment(input: {
     id?: string;
     ts: number;
@@ -130,9 +173,12 @@ export function upsertMoment(input: {
     title: string;
     description: string;
     emoji: string;
+    repeat?: RepeatRule; // <-- NEW
 }) {
     const now = Date.now();
     const tsN = normalizeTsMinute(input.ts);
+
+    const repeat = sanitizeRepeat(input.repeat);
 
     momentsState.update(s => {
         const existing = input.id ? s.moments.find(m => m.id === input.id) : null;
@@ -147,6 +193,7 @@ export function upsertMoment(input: {
                         title: input.title.trim(),
                         description: input.description.trim(),
                         emoji: input.emoji || '📍',
+                        repeat,
                         updatedAt: now,
                     }
                     : m
@@ -164,6 +211,7 @@ export function upsertMoment(input: {
                         title: input.title.trim(),
                         description: input.description.trim(),
                         emoji: input.emoji || '📍',
+                        repeat,
                         updatedAt: now,
                     }
                     : m
@@ -178,6 +226,7 @@ export function upsertMoment(input: {
             title: input.title.trim(),
             description: input.description.trim(),
             emoji: input.emoji || '📍',
+            repeat,
             createdAt: now,
             updatedAt: now,
         };

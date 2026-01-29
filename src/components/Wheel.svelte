@@ -485,15 +485,31 @@
         {@const rMark = rInner + (rOuter - rInner) * m.orbit}
         {@const p = polarToXY(rMark, a)}
         <g class="marker"
-           transform={`translate(${p.x} ${p.y})`}
-           on:click={() => handleMarkerActivate(i)}>
+                transform={`translate(${p.x} ${p.y})`}
+                on:click={() => handleMarkerActivate(i)}>
             <title>{m.title}</title>
-            <circle r={VB * 0.02} fill={m.bg} stroke="currentColor" stroke-opacity="0.22" />
-            <text class="spokeLabel" text-anchor="middle"
+            <!-- hit area -->
+            <circle r={VB * 0.035} fill="transparent" />
+            <!-- main -->
+            <circle r={VB * 0.02}
+                    fill={m.bg}
+                    stroke="currentColor"
+                    stroke-opacity="0.45"
+                    stroke-width="3"
+            />
+            <!-- inner ring for contrast -->
+            <circle r={VB * 0.018}
+                    fill="none"
+                    stroke="var(--bg)"
+                    stroke-opacity="0.5"
+                    stroke-width="2"/>
+
+            <text text-anchor="middle"
                   dominant-baseline="middle"
                   font-size={VB * 0.02}
                   fill="currentColor"
-                  fill-opacity="0.95">
+                  fill-opacity="0.95"
+                  style="pointer-events:none">
                 {m.emoji}
             </text>
         </g>
@@ -585,7 +601,6 @@
     .tick:focus-visible .tickLine{
         stroke-opacity: 0.9;
     }
-    .marker {
-        cursor: pointer;
-    }
+    .marker { cursor: pointer; }
+    .marker:hover circle { stroke-opacity: 0.75; }
 </style>

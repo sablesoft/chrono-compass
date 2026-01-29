@@ -4,7 +4,8 @@
     import Wheel from './Wheel.svelte';
     import { buildSpokeTimes, nearestSpokeByTime, progressLinear } from '../lib/cycles/spokes';
     import type { Anchors } from '../lib/cycles/spokes';
-    import { momentsState } from '../lib/stores/moment';
+    import type { Moment, RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
+    import { momentsState, normalizeTsMinute } from '../lib/stores/moment';
 
     import { getDayAnchors, angleFromDayAnchors } from '../lib/cycles/day';
     import { getMoonAnchors, angleFromMoonAnchors } from '../lib/cycles/moon';
@@ -72,6 +73,17 @@
     let nowTimer: ReturnType<typeof setInterval> | null = null;
     let nowAlignTimer: ReturnType<typeof setTimeout> | null = null;
 
+    type MomentInstance = {
+        instanceId: string;   // уникальный id для key в {#each}
+        baseId: string;       // id базового Moment
+        ts: number;           // occurrence time (ms, normalized)
+        title: string;
+        description?: string;
+        emoji?: string;
+        collectionId: string;
+        repeatIndex: number;  // 0 = базовый, 1..N = повтор
+    };
+
     // --- house boundaries (midpoints between spokes) ---
     const SPOKES = 16;
 
@@ -81,22 +93,26 @@
         const visible = new Set(s.visibleCollectionIds);
         const colById = new Map(s.collections.map(c => [c.id, c]));
 
-        markers = s.moments
-            .filter(m => visible.has(m.collectionId))
-            .filter(m => m.ts >= anchors.start && m.ts < anchors.end)
-            .map(m => {
-                const col = colById.get(m.collectionId);
-                return {
-                    id: m.id,
-                    ts: m.ts,
-                    angleDeg: computeAngle(m.ts, anchors),
-                    emoji: m.emoji || '📍',
-                    bg: col?.markerBg ?? 'rgba(231,231,234,0.18)',
-                    orbit: col?.orbit ?? 0.90,
-                    title: m.title,
-                    description: m.description
-                };
-            });
+        const instances: MomentInstance[] = [];
+
+        for (const m of s.moments as Moment[]) {
+            if (!visible.has(m.collectionId)) continue;
+            instances.push(...expandMomentToRange(m, anchors.start, anchors.end));
+        }
+
+        markers = instances.map(mi => {
+            const col = colById.get(mi.collectionId);
+            return {
+                id: mi.instanceId, // уникальный ключ
+                ts: mi.ts,
+                angleDeg: computeAngle(mi.ts, anchors),
+                emoji: mi.emoji || '📍',
+                bg: col?.markerBg ?? 'var(--accent-live)',
+                orbit: col?.orbit ?? 0.90,
+                title: mi.title,
+                description: mi.description ?? ''
+            };
+        });
     }
 
     $: {
@@ -107,6 +123,204 @@
             const b = spokeTimes[(i + 1) % SPOKES];
             return midpointInCycle(a, b, anchors.start, cycleMs);
         });
+    }
+
+    function lastDayOfMonth(y: number, m0: number) {
+        return new Date(y, m0 + 1, 0).getDate();
+    }
+
+    function clampDay(y: number, m0: number, day: number) {
+        return Math.min(day, lastDayOfMonth(y, m0));
+    }
+
+    function addMonthsWithOnDay(base: Date, months: number, onDay: OnDayMode, keepDay: number) {
+        const t = new Date(base);
+        t.setSeconds(0, 0);
+
+        // чтобы избежать rollover, ставим 1 число, сдвигаем месяц, потом корректируем день
+        t.setDate(1);
+        t.setMonth(t.getMonth() + months);
+
+        const y = t.getFullYear();
+        const m0 = t.getMonth();
+
+        const day =
+            onDay === 'last'
+                ? lastDayOfMonth(y, m0)
+                : onDay === 'clamp'
+                    ? clampDay(y, m0, keepDay)
+                    : keepDay; // 'same' — оставляем как есть (Date сам сделает rollover)
+
+        t.setDate(day);
+        // время оставляем таким же как у base
+        t.setHours(base.getHours(), base.getMinutes(), 0, 0);
+        return t;
+    }
+
+    function addYearsWithOnDay(base: Date, years: number, onDay: OnDayMode, keepMonth: number, keepDay: number) {
+        const t = new Date(base);
+        t.setSeconds(0, 0);
+
+        // аналогично: ставим 1, выставляем год+месяц, потом день
+        t.setFullYear(base.getFullYear() + years, keepMonth, 1);
+
+        const y = t.getFullYear();
+        const m0 = t.getMonth();
+
+        const day =
+            onDay === 'last'
+                ? lastDayOfMonth(y, m0)
+                : onDay === 'clamp'
+                    ? clampDay(y, m0, keepDay)
+                    : keepDay;
+
+        t.setDate(day);
+        t.setHours(base.getHours(), base.getMinutes(), 0, 0);
+        return t;
+    }
+
+    function addFixed(baseTs: number, unit: RepeatUnit, step: number) {
+        switch (unit) {
+            case 'minute': return baseTs + step * 60_000;
+            case 'hour':   return baseTs + step * 3_600_000;
+            case 'day':    return baseTs + step * 86_400_000;
+            case 'week':   return baseTs + step * 7 * 86_400_000;
+            default:       return baseTs;
+        }
+    }
+
+    function normalizeRange(start: number, end: number) {
+        return { start: normalizeTsMinute(start), end: normalizeTsMinute(end) };
+    }
+
+    function isRepeatEnabled(r?: RepeatRule) {
+        return !!r && Number.isFinite(r.every) && r.every > 0;
+    }
+
+    function endAllows(end: RepeatEnd, k: number, occTs: number) {
+        // k = индекс повтора (0..)
+        if (!end || end.mode === 'never') return true;
+        if (end.mode === 'count') return k < Math.max(1, end.count);
+        if (end.mode === 'until') return occTs <= end.untilTs;
+        return true;
+    }
+
+    /**
+     * Разворачивает базовый moment в occurrences, которые попадают в [start..end)
+     * Без генерации всего будущего — только то, что нужно для текущего колеса.
+     */
+    function expandMomentToRange(m: Moment, start0: number, end0: number): MomentInstance[] {
+        const { start, end } = normalizeRange(start0, end0);
+        const out: MomentInstance[] = [];
+
+        const baseTs = normalizeTsMinute(m.ts);
+        const r = m.repeat;
+
+        // no repeat -> только базовый, если попал
+        if (!isRepeatEnabled(r)) {
+            if (baseTs >= start && baseTs < end) {
+                out.push({
+                    instanceId: m.id,
+                    baseId: m.id,
+                    ts: baseTs,
+                    title: m.title,
+                    description: m.description,
+                    emoji: m.emoji,
+                    collectionId: m.collectionId,
+                    repeatIndex: 0
+                });
+            }
+            return out;
+        }
+
+        const every = Math.max(1, Math.min(999, r!.every));
+        const unit = r!.unit;
+        const onDay = r!.onDay ?? 'same';
+        const endRule = r!.end ?? { mode: 'never' as const };
+
+        const baseDate = new Date(baseTs);
+        const keepDay = baseDate.getDate();
+        const keepMonth = baseDate.getMonth();
+
+        const occTs = (k: number) => {
+            if (k === 0) return baseTs;
+
+            if (unit === 'month') {
+                return addMonthsWithOnDay(baseDate, k * every, onDay, keepDay).getTime();
+            }
+            if (unit === 'year') {
+                return addYearsWithOnDay(baseDate, k * every, onDay, keepMonth, keepDay).getTime();
+            }
+
+            // fixed units
+            return addFixed(baseTs, unit, k * every);
+        };
+
+        // найти первый k, такой что occTs(k) >= start (простым шаганием — окно у колеса конечное)
+        let k = 0;
+        let guard = 0;
+
+        while (true) {
+            const t = normalizeTsMinute(occTs(k));
+            if (!endAllows(endRule, k, t)) return out;
+
+            if (t >= start) break;
+            k++;
+            guard++;
+            if (guard > 200000) return out;
+        }
+
+        // собрать пока < end
+        for (let idx = k; idx < 200000; idx++) {
+            const t = normalizeTsMinute(occTs(idx));
+            if (!endAllows(endRule, idx, t)) break;
+            if (t >= end) break;
+
+            out.push({
+                instanceId: `${m.id}:${t}`,
+                baseId: m.id,
+                ts: t,
+                title: idx === 0 ? m.title : `${m.title} ${repeatSuffix(m, idx)}`,
+                description: m.description,
+                emoji: m.emoji,
+                collectionId: m.collectionId,
+                repeatIndex: idx
+            });
+        }
+
+        return out;
+    }
+
+    function unitLabel(u: RepeatUnit) {
+        // можно короче, но так читаемо
+        switch (u) {
+            case 'year': return 'year';
+            case 'month': return 'month';
+            case 'week': return 'week';
+            case 'day': return 'day';
+            case 'hour': return 'hour';
+            case 'minute': return 'minute';
+        }
+    }
+
+    function pluralize(base: string, n: number) {
+        return n === 1 ? base : `${base}s`;
+    }
+
+    function repeatSuffix(m: Moment, idx: number) {
+        const r = m.repeat;
+        if (!r) return `(${idx})`;
+
+        const every = Math.max(1, r.every ?? 1);
+        const base = unitLabel(r.unit);
+        const unit = pluralize(base, every);
+
+        // idx у тебя, судя по коду, начинается с 0:
+        // 0 => оригинал без суффикса, 1 => "через 1 период", ...
+        // В суффиксе хочется видеть "1 year", "2 years", ...
+        const n = idx * every;
+
+        return `(${n} ${unit})`;
     }
 
     function buildHouseBoundaries(spokes: number[]): number[] {

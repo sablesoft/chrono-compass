@@ -7,6 +7,7 @@
         setCurrentCollection,
         findMomentInCollectionByTsFromState
     } from '../lib/stores/moment';
+    import type { RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
     import { onUserActivity } from "../lib/stores/time";
     import Portal from "svelte-portal";
 
@@ -25,6 +26,15 @@
     let collectionId = '';
     let title = '';
     let description = '';
+
+    let repeatOn = false;
+    let repeatEvery = 1;
+    let repeatUnit: RepeatUnit = 'year';
+    let repeatOnDay: OnDayMode = 'clamp';
+
+    let repeatEndMode: RepeatEnd['mode'] = 'never';
+    let repeatUntilLocal = ''; // строка для datetime-local, если решишь его ставить (или date)
+    let repeatCount = 1;
 
     // Минимальный набор “полезных” для моментов. Потом расширишь/категории добавишь.
     const EMOJI_PRESET = Array.from(new Set([
@@ -128,6 +138,40 @@
         }
     }
 
+    function toLocalInputValue(ts: number) {
+        const d = new Date(ts);
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        const mm = pad(d.getMonth() + 1);
+        const dd = pad(d.getDate());
+        const hh = pad(d.getHours());
+        const mi = pad(d.getMinutes());
+        return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+    }
+
+    function fromLocalInputValue(v: string) {
+        if (!v) return NaN;
+        const d = new Date(v);
+        const t = d.getTime();
+        return normalizeTsMinute(t);
+    }
+
+    function buildRepeat(): RepeatRule | undefined {
+        if (!repeatOn) return undefined;
+
+        const every = Math.max(1, Math.min(999, Math.floor(repeatEvery || 1)));
+
+        let end: RepeatEnd = { mode: 'never' };
+        if (repeatEndMode === 'count') {
+            end = { mode: 'count', count: Math.max(1, Math.min(9999, Math.floor(repeatCount || 1))) };
+        } else if (repeatEndMode === 'until') {
+            const untilTs = fromLocalInputValue(repeatUntilLocal); // helper (см ниже)
+            if (Number.isFinite(untilTs)) end = { mode: 'until', untilTs };
+        }
+
+        return { every, unit: repeatUnit, onDay: repeatOnDay, end };
+    }
+
     function openDialog() {
         if (existing) {
             editingId = existing.id;
@@ -141,6 +185,28 @@
             title = '';
             description = '';
             emoji = '📍';
+        }
+        if (existing?.repeat) {
+            repeatOn = true;
+            repeatEvery = existing.repeat.every ?? 1;
+            repeatUnit = existing.repeat.unit ?? 'year';
+            repeatOnDay = existing.repeat.onDay ?? 'clamp';
+            const end = existing.repeat.end ?? { mode: 'never' };
+            repeatEndMode = end.mode;
+
+            if (end.mode === 'until') {
+                repeatUntilLocal = toLocalInputValue(end.untilTs); // у тебя уже есть helper? если нет — можно сделать быстро
+            } else if (end.mode === 'count') {
+                repeatCount = end.count ?? 1;
+            }
+        } else {
+            repeatOn = false;
+            repeatEvery = 1;
+            repeatUnit = 'year';
+            repeatOnDay = 'clamp';
+            repeatEndMode = 'never';
+            repeatUntilLocal = '';
+            repeatCount = 1;
         }
         open = true;
     }
@@ -160,7 +226,8 @@
             collectionId,
             title,
             description,
-            emoji: (emoji || '📍').slice(0, 5)
+            emoji: (emoji || '📍').slice(0, 5),
+            repeat: buildRepeat(),
         };
         upsertMoment(moment);
         setCurrentCollection(collectionId);
@@ -218,6 +285,80 @@
                     </select>
                 </div>
 
+                <!-- Repeat Logic -->
+                <div class="row">
+                    <div class="rowLine">
+                        <div class="segGroup">
+                            <div class="segLabel">Repeat</div>
+                            <button type="button" class="segBtn" on:click={() => (repeatOn = !repeatOn)} aria-pressed={repeatOn}>
+                                <span>{repeatOn ? 'On' : 'Off'}</span>
+                                <span class="segCaret">{repeatOn ? '▴' : '▾'}</span>
+                            </button>
+                        </div>
+
+                        <div class="segGroup">
+                            <div class="segLabel">When</div>
+                            <div class="segValue" title={new Date(tsN).toLocaleString()}>
+                                {new Date(tsN).toLocaleString()}
+                            </div>
+                        </div>
+                    </div>
+
+                    {#if repeatOn}
+                        <div class="repeatAccordion" role="group" aria-label="Repeat options">
+                            <div class="repeatRow">
+                                <label class="mini">Every</label>
+                                <div class="repeatEvery">
+                                    <input class="num" type="number" min="1" max="999" bind:value={repeatEvery} />
+                                    <select bind:value={repeatUnit}>
+                                        <option value="year">year</option>
+                                        <option value="month">month</option>
+                                        <option value="week">week</option>
+                                        <option value="day">day</option>
+                                        <option value="hour">hour</option>
+                                        <option value="minute">minute</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {#if repeatUnit === 'month' || repeatUnit === 'year'}
+                                <div class="repeatRow">
+                                    <label class="mini">On day</label>
+                                    <select bind:value={repeatOnDay}>
+                                        <option value="clamp">clamp to last day</option>
+                                        <option value="same">same day, otherwise skip</option>
+                                        {#if repeatUnit === 'month'}
+                                            <option value="last">always last day of month</option>
+                                        {/if}
+                                    </select>
+                                </div>
+                            {/if}
+
+                            <div class="repeatRow">
+                                <label class="mini">End</label>
+                                <div class="repeatEnd">
+                                    <select bind:value={repeatEndMode}>
+                                        <option value="never">never</option>
+                                        <option value="until">until date</option>
+                                        <option value="count">after N times</option>
+                                    </select>
+
+                                    {#if repeatEndMode === 'until'}
+                                        <input type="datetime-local" bind:value={repeatUntilLocal} />
+                                    {:else if repeatEndMode === 'count'}
+                                        <input class="num" type="number" min="1" max="9999" bind:value={repeatCount} />
+                                    {/if}
+                                </div>
+                            </div>
+
+                            <div class="repeatHint">
+                                Start is the saved moment date. For month/year, “On day” defines what happens when that day doesn’t exist.
+                            </div>
+                        </div>
+                    {/if}
+                </div>
+
+                <!-- Sign  -->
                 <div class="row">
                     <div class="rowLine">
                         <!-- Group 1: Sign -->
@@ -227,14 +368,6 @@
                                 <span class="segEmoji">{emoji || '📍'}</span>
                                 <span class="segCaret">{emojiOpen ? '▴' : '▾'}</span>
                             </button>
-                        </div>
-
-                        <!-- Group 2: When -->
-                        <div class="segGroup">
-                            <div class="segLabel">When</div>
-                            <div class="segValue" title={new Date(tsN).toLocaleString()}>
-                                {new Date(tsN).toLocaleString()}
-                            </div>
                         </div>
                     </div>
 
@@ -554,5 +687,48 @@
     }
     .mc-body, .row, .rowLine, .segGroup, .emojiAccordion, .mc-title{
         min-width: 0;
+    }
+
+    .repeatAccordion{
+        margin-top: 10px;
+        border: 1px solid var(--panel-border);
+        border-radius: 14px;
+        background: var(--panel);
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+    }
+
+    .repeatRow{
+        display: grid;
+        grid-template-columns: 92px 1fr;
+        gap: 10px;
+        align-items: center;
+    }
+
+    label.mini{
+        font-size: 13px;
+        opacity: .75;
+        padding-left: 2px;
+    }
+
+    .repeatEvery, .repeatEnd{
+        display: grid;
+        grid-template-columns: 90px 1fr;
+        gap: 10px;
+    }
+
+    .repeatEnd{
+        grid-template-columns: 160px 1fr;
+    }
+
+    input.num{
+        text-align: center;
+    }
+
+    .repeatHint{
+        font-size: 12px;
+        opacity: .65;
+        line-height: 1.35;
     }
 </style>

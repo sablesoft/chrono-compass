@@ -1,8 +1,24 @@
 <script lang="ts">
+    import logo from '../../public/logo-transparent-512.svg?raw';
+
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
-    import logo from '../../public/logo-transparent-512.svg?raw';
+    import DropdownButton from './DropdownButton.svelte';
+    import { cycles, setCycles } from '../lib/stores/cycle';
+    import {getCycleOptions} from "../lib/cycles/meta";
+    import type {CycleKind} from "../lib/cycles/types";
+
+    $: cycleItems = getCycleOptions().map(o => ({
+        value: o.kind,
+        label: o.label,
+        title: o.title,
+        disabled: o.disabled
+    }));
+
+    function handleCyclesChange(next: string[]) {
+        setCycles(next as CycleKind[]);
+    }
 </script>
 
 <header class="bar">
@@ -14,6 +30,17 @@
     <div class="slot loc">
         <LocationPicker />
     </div>
+
+    <div class="slot cycles">
+        <DropdownButton
+                label="Cycles:"
+                items={cycleItems}
+                value={$cycles}
+                onChange={handleCyclesChange}
+                buttonClass="seg cyclesBtn"
+        />
+    </div>
+
     <div class="actions">
         <ThemeSwitcher />
     </div>
@@ -68,6 +95,8 @@
         font-weight: 850;
         opacity: .95;
     }
+    .slot.cycles { display:flex; align-items:center; }
+    .slot.cycles { display:flex; align-items:stretch; }
 
     .actions{ margin-left:auto; display:flex; gap:10px; align-items:center; }
 </style>

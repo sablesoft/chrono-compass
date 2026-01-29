@@ -12,23 +12,30 @@
     startLive,
   } from './lib/stores/time';
 
-  // local mirrors for convenience (avoid $store in markup if you want)
+  import { cycles } from './lib/stores/cycle';
+  import type { CycleKind } from './lib/cycles/types';
+  import {CYCLE_META} from "./lib/cycles/meta";
+
+  // local mirrors
   let selectedTs = Date.now();
   let lat = -23.22;
   let lon = -44.72;
 
-  // signal wheels to reset local UI (when location changes / when we jump to now)
   let resetUiId = 0;
 
   let unsubLoc: (() => void) | null = null;
   let unsubTime: (() => void) | null = null;
 
+  $: cyclesOrdered = ($cycles ?? [])
+          .slice()
+          .sort((a, b) => CYCLE_META[a].order - CYCLE_META[b].order);
+
   function handleUserActivity() {
-    onUserActivity(); // stops LIVE inside the time store
+    onUserActivity();
   }
 
   function handleSelectTs(ts: number) {
-    setSelectedTs(ts); // user-set => stops LIVE inside the time store
+    setSelectedTs(ts);
   }
 
   onMount(() => {
@@ -43,7 +50,6 @@
       selectedTs = v;
     });
 
-    // default — LIVE
     startLive();
   });
 
@@ -53,6 +59,13 @@
   });
 
   const isDev = import.meta.env.DEV;
+
+  const TITLES: Record<CycleKind, string> = {
+    day: 'Day - Diurnal Cycle',
+    moon: 'Moon - Synodic Cycle',
+    year: 'Year - Solar Cycle',
+    plato: 'Plato - Precession Cycle',
+  };
 </script>
 
 <svelte:head>
@@ -64,51 +77,19 @@
     <Header />
 
     <section class="grid">
-      <CycleWheel
-              title="Day - Diurnal Cycle"
-              kind="day"
-              {lat}
-              {lon}
-              {selectedTs}
-              {resetUiId}
-              onUserActivity={handleUserActivity}
-              onSelectTs={handleSelectTs}
-      />
-
-      <CycleWheel
-              title="Moon - Synodic Cycle"
-              kind="moon"
-              {lat}
-              {lon}
-              {selectedTs}
-              {resetUiId}
-              onUserActivity={handleUserActivity}
-              onSelectTs={handleSelectTs}
-      />
-
-      <CycleWheel
-              title="Year - Solar Cycle"
-              kind="year"
-              {lat}
-              {lon}
-              {selectedTs}
-              {resetUiId}
-              onUserActivity={handleUserActivity}
-              onSelectTs={handleSelectTs}
-      />
-
-      <CycleWheel
-              title="Plato - Precession Cycle"
-              kind="plato"
-              {lat}
-              {lon}
-              {selectedTs}
-              {resetUiId}
-              onUserActivity={handleUserActivity}
-              onSelectTs={handleSelectTs}
-      />
+      {#each cyclesOrdered as kind (kind)}
+        <CycleWheel
+                title={TITLES[kind]}
+                {kind}
+                {lat}
+                {lon}
+                {selectedTs}
+                {resetUiId}
+                onUserActivity={handleUserActivity}
+                onSelectTs={handleSelectTs}
+        />
+      {/each}
     </section>
-
   </div>
 </main>
 

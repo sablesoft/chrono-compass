@@ -4,3 +4,10 @@ export type CurrentLocation = {
     lon: number;
     label: string;
 };
+
+export type DropdownItem = {
+    value: string;          // универсально: и CycleKind, и что угодно строкой
+    label: string;
+    title?: string;
+    disabled?: boolean;
+};
