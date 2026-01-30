@@ -6,8 +6,6 @@
   import { currentLocation, initLocation } from './lib/stores/location';
   import {
     selectedTs as selectedTsStore,
-    setSelectedTs,
-    onUserActivity,
     startLive,
   } from './lib/stores/time';
 
@@ -16,7 +14,6 @@
   import Wheel from "./components/Wheel.svelte";
 
   // local mirrors
-  let selectedTs = Date.now();
   let lat = -23.22;
   let lon = -44.72;
 
@@ -29,24 +26,12 @@
           .slice()
           .sort((a, b) => CYCLE_META[a].order - CYCLE_META[b].order);
 
-  function handleUserActivity() {
-    onUserActivity();
-  }
-
-  function handleSelectTs(ts: number) {
-    setSelectedTs(ts);
-  }
-
   onMount(() => {
     initLocation();
     unsubLoc = currentLocation.subscribe((v) => {
       lat = v.lat;
       lon = v.lon;
       resetUiId += 1;
-    });
-
-    unsubTime = selectedTsStore.subscribe((v) => {
-      selectedTs = v;
     });
 
     startLive();

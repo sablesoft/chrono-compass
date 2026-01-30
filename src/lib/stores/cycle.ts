@@ -1,6 +1,6 @@
 // src/lib/stores/cycle.ts
 import { writable, derived, get } from 'svelte/store';
-import type { CycleKind } from '../cycles/types';
+import {CYCLE_KINDS, type CycleKind} from '../cycles/types';
 
 export type CyclesState = {
     cycles: CycleKind[];
@@ -15,8 +15,8 @@ function uniq<T>(arr: T[]) {
     return Array.from(new Set(arr));
 }
 
-function isCycleKind(x: unknown): x is CycleKind {
-    return x === 'day' || x === 'moon' || x === 'year' || x === 'plato';
+export function isCycleKind(x: unknown): x is CycleKind {
+    return typeof x === 'string' && CYCLE_KINDS.includes(x as CycleKind);
 }
 
 function normalizeCycles(input: unknown): CycleKind[] {

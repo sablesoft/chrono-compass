@@ -1,4 +1,6 @@
-export type CycleKind = 'day' | 'moon' | 'year' | 'plato';
+export const CYCLE_KINDS = ['day', 'moon', 'year', 'plato'] as const;
+
+export type CycleKind = typeof CYCLE_KINDS[number];
 
 export type SpinCmd = {
     id: number;

@@ -30,7 +30,7 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
         E:   'Sunrise',
 
         ENE: 'Late Morning',
-        NE:  'Noon Begin',
+        NE:  'Day Begin',
         NNE: 'Early Day',
 
         N: 'Midday',
