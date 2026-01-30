@@ -1,7 +1,6 @@
 <!-- src/App.svelte -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import CycleWheel from './components/CycleWheel.svelte';
   import Header from './components/Header.svelte';
 
   import { currentLocation, initLocation } from './lib/stores/location';
@@ -13,7 +12,8 @@
   } from './lib/stores/time';
 
   import { cycles } from './lib/stores/cycle';
-  import {CYCLE_META, getCycleTitle} from "./lib/cycles/meta";
+  import {CYCLE_META} from "./lib/cycles/meta";
+  import Wheel from "./components/Wheel.svelte";
 
   // local mirrors
   let selectedTs = Date.now();
@@ -70,16 +70,10 @@
 
     <section class="grid">
       {#each cyclesOrdered as kind (kind)}
-        <CycleWheel
-                title={getCycleTitle(kind)}
-                {kind}
-                {lat}
-                {lon}
-                {selectedTs}
-                {resetUiId}
-                onUserActivity={handleUserActivity}
-                onSelectTs={handleSelectTs}
-        />
+        <Wheel kind="{kind}"
+                lat={lat}
+                lon={lon}
+                selectedTs={$selectedTsStore}/>
       {/each}
     </section>
   </div>
