@@ -15,15 +15,16 @@
         buildMarkerItemsForWheel,
         clusterMarkerItems,
         computeAnchors,
-        computeAngle,
+        computeAngle, createMomentClickHandler,
         type MarkerCluster,
         SHIFT_EPS_MS,
         SPOKES
     } from '../lib/cycles/wheel';
 
-    import {SPOKE_DESC} from '../lib/cycles/labels';
     import Tooltip from './Tooltip.svelte';
-    import {CYCLE_META} from "../lib/cycles/meta";
+    import {CYCLE_META, SPOKE_DESC} from "../lib/cycles/meta";
+    import type { MomentTip } from '../lib/cycles/wheel';
+    import { buildSpokeTip, buildBoundaryTip } from '../lib/cycles/wheel';
 
     export let kind: CycleKind = 'day';
 
@@ -32,6 +33,12 @@
 
     export let selectedTs: number;
     export let onUserActivity: () => void = () => {};
+
+    const spokeClick = createMomentClickHandler({
+        onSingle: (e) =>
+            openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])),
+        onDouble: () => handleSpokeActivate(i),
+    });
 
     /* =======================
        Responsive (inside Wheel)
@@ -47,25 +54,13 @@
         isCoarsePointer = !!mqCoarse?.matches;
     }
 
-    function openTipAt(x: number, y: number, c: MarkerCluster) {
-        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
-        tipOpen = true;
-        tipCluster = c;
-        tipX = x;
-        tipY = y;
-    }
-
-    function openTipFromEvent(e: MouseEvent, c: MarkerCluster) {
-        openTipAt(e.clientX, e.clientY, c);
-    }
-
     function handleMarkerClick(e: MouseEvent, c: MarkerCluster) {
         if (isCoarsePointer) {
             // toggle same cluster
             if (tipOpen && tipCluster?.id === c.id) {
                 closeTipNow();
             } else {
-                openTipFromEvent(e, c);
+                openClusterTip(e, c);
             }
             return;
         }
@@ -443,16 +438,29 @@
     let tipOpen = false;
     let tipX = 0;
     let tipY = 0;
+    let tipMoment: MomentTip | null = null;
     let tipCluster: MarkerCluster | null = null;
 
     let tipHideTimer: ReturnType<typeof setTimeout> | null = null;
 
-    function openTip(e: MouseEvent, c: MarkerCluster) {
+    function openMomentTip(e: MouseEvent, tip: MomentTip) {
+        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
+        tipOpen = true;
+        tipMoment = tip;
+        tipCluster = null;
+        tipX = e.clientX;
+        tipY = e.clientY;
+        // console.log('openMomentTip', {tipOpen, tipMoment, tipCluster, tipX, tipY});
+    }
+
+    function openClusterTip(e: MouseEvent, c: MarkerCluster) {
         if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
         tipOpen = true;
         tipCluster = c;
+        tipMoment = null;
         tipX = e.clientX;
         tipY = e.clientY;
+        // console.log('openClusterTip', {tipOpen, tipMoment, tipCluster, tipX, tipY});
     }
 
     function moveTip(e: MouseEvent) {
@@ -748,18 +756,25 @@
                     {@const pA = polarToXY(rOuter * 0.93, a)}
                     {@const pB = polarToXY(rOuter * 1.02, a)}
                     {@const pHit = polarToXY(rOuter * 1.02, a)}
+                    {@const boundaryClick = createMomentClickHandler({
+                        onSingle: (e) =>
+                            openMomentTip(e, buildBoundaryTip(labels[i], labels[(i+1)%spokeCount], boundaryTimes[i])),
+                        onDouble: () => jumpTo(boundaryTimes[i]),
+                    })}
                     <g class="tick"
                        role="button"
                        tabindex="0"
                        aria-label={`House boundary ${i + 1}`}
-                       on:click={() => handleBoundaryActivate(i)}
+                       on:click={boundaryClick.onClick}
+                       on:dblclick={boundaryClick.onDblClick}
+                       on:mouseenter={(e) => { /* desktop hover */ openMomentTip(e, buildBoundaryTip(labels[i], labels[(i+1)%spokeCount], boundaryTimes[i]))}}
+                       on:mouseleave={scheduleCloseTip}
                        on:keydown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             handleBoundaryActivate(i);
                           }
                        }}>
-                        <title>{houseBoundaries[i] ? formatDateTime(houseBoundaries[i]) : ''}</title>
                         <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine"/>
                         <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent"/>
                     </g>
@@ -778,19 +793,26 @@
                     {@const p1 = polarToXY(rInner, a)}
                     {@const p2 = polarToXY(rOuter, a)}
                     {@const pt = polarToXY(rLabel, a)}
+                    {@const spokeClick = createMomentClickHandler({
+                        onSingle: (e) =>
+                            openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])),
+                        onDouble: () => handleSpokeActivate(i),
+                    })}
 
                     <g class="spoke"
                        role="button"
                        tabindex="0"
                        aria-label={`Spoke ${label}`}
-                       on:click={() => handleSpokeActivate(i)}
+                       on:click={spokeClick.onClick}
+                       on:dblclick={spokeClick.onDblClick}
+                       on:mouseenter={(e) => { /* desktop hover */ openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])) }}
+                       on:mouseleave={scheduleCloseTip}
                        on:keydown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
                             handleSpokeActivate(i);
                           }
                        }}>
-                        <title>{spokeTimes[i] ? formatDateTime(spokeTimes[i]) : ''}</title>
                         <line x1={p1.x} y1={p1.y}
                               x2={p2.x} y2={p2.y}
                               stroke="currentColor"
@@ -888,15 +910,9 @@
                        data-marker="1"
                        transform={`translate(${p.x} ${p.y})`}
                        on:click={(e) => handleMarkerClick(e, c)}
-                       on:mouseenter={(e) => { if (!isCoarsePointer) openTipFromEvent(e, c); }}
+                       on:mouseenter={(e) => { if (!isCoarsePointer) openClusterTip(e, c); }}
                        on:mousemove={(e) => { if (!isCoarsePointer) moveTip(e); }}
                        on:mouseleave={() => { if (!isCoarsePointer) scheduleCloseTip(); }}>
-                        {#if c.count === 1}
-                            <title>{c.items[0]?.title ?? ''}</title>
-                        {:else}
-                            <title>{`${c.count} moments`}</title>
-                        {/if}
-
                         <circle r={VB * 0.035} fill="transparent" />
 
                         <circle r={VB * 0.02}
@@ -936,14 +952,15 @@
             </svg>
 
             <!-- Tooltip -->
-            {#if tipOpen && tipCluster}
+            {#if tipOpen && (tipCluster || tipMoment)}
                 <Tooltip x={tipX}
-                         y={tipY}
-                         cluster={tipCluster}
-                         onPickTs={handleMarkerPick}
-                         onMouseEnter={keepTipOpen}
-                         onMouseLeave={scheduleCloseTip}
-                         onClose={closeTipNow}/>
+                        y={tipY}
+                        cluster={tipCluster}
+                        moment={tipMoment}
+                        onPickTs={handleMarkerPick}
+                        onMouseEnter={keepTipOpen}
+                        onMouseLeave={scheduleCloseTip}
+                        onClose={closeTipNow}/>
             {/if}
         </section>
     </div>

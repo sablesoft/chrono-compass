@@ -3,13 +3,27 @@ import type { Anchors } from './spokes';
 import type { CycleKind } from './types';
 import type { Moment, RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../stores/moment';
 import { normalizeTsMinute } from '../stores/moment';
-import { ms } from '../format';
-import { getCycleOptions } from './meta';
+import { getCycleOptions, SPOKE_DESC } from './meta';
 
 import { getDayAnchors, angleFromDayAnchors } from './day';
 import { getMoonAnchors, angleFromMoonAnchors } from './moon';
 import { getYearAnchors, angleFromYearAnchors } from './year';
 import { getPlatoAnchors, angleFromPlatoAnchors } from './plato';
+
+export type MomentTip = {
+    label: string;
+    ts: number;
+    desc?: string;
+};
+
+export type AnchorKey = 'E' | 'N' | 'W' | 'S' | 'E_next';
+
+type CardinalSpoke = 'E' | 'N' | 'W' | 'S';
+
+function isCardinalSpoke(x: string): x is CardinalSpoke {
+    return x === 'E' || x === 'N' || x === 'W' || x === 'S';
+}
+
 
 export const SPOKES = 16;
 export const SHIFT_EPS_MS = 1;
@@ -76,6 +90,78 @@ export function computeAngle(kind: CycleKind, ts: number, a: Anchors): number {
     if (kind === 'year') return angleFromYearAnchors(ts, a);
     if (kind === 'plato') return angleFromPlatoAnchors(ts, a);
     return angleFromDayAnchors(ts, a);
+}
+export type MomentClickHandlers = {
+    onSingle: (e: MouseEvent) => void;
+    onDouble: (e: MouseEvent) => void;
+    delay?: number;
+};
+
+export function createMomentClickHandler({
+  onSingle,
+  onDouble,
+  delay = 220,
+}: MomentClickHandlers) {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    function clear() {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    }
+    function onClick(e: MouseEvent) {
+        if (timer) return;
+
+        timer = setTimeout(() => {
+            onSingle(e);
+            timer = null;
+        }, delay);
+    }
+    function onDblClick(e: MouseEvent) {
+        e.preventDefault();
+        clear();
+        onDouble(e);
+    }
+    function cancel() {
+        clear();
+    }
+
+    return {
+        onClick,
+        onDblClick,
+        cancel,
+    };
+}
+
+// Для 16 спиц: E, ENE, ..., ESE
+export function buildSpokeTip(
+    kind: CycleKind,
+    spokeLabel: string,
+    ts: number
+): MomentTip {
+    let result;
+    if (isCardinalSpoke(spokeLabel)) {
+        const desc = SPOKE_DESC[kind][spokeLabel];
+        result = {
+            label: `${spokeLabel} — ${desc}`,
+            ts,
+            desc: undefined
+        };
+    } else {
+        result = {
+            label: spokeLabel,
+            ts,
+            desc: undefined
+        };
+    }
+
+    return result;
+}
+
+// Граница: "E-ENE Boundary"
+export function buildBoundaryTip(a: string, b: string, ts: number): MomentTip {
+    let result = { label: `${a}-${b} Boundary`, ts, desc: undefined };
+    return result;
 }
 
 export function buildHouseBoundaries(spokes: number[]): number[] {
