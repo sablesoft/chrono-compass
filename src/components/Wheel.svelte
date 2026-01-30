@@ -1231,8 +1231,8 @@
         width: 100%;
         display: grid;
         place-items: center;
-        margin-top: 2px;
-        font-size: 16px;
+        margin-top: 10px;
+        font-size: 18px;
         font-weight: 800;
         opacity: 0.92;
         text-align: center;
