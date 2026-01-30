@@ -22,13 +22,118 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
     plato: { label: 'Plato',description: 'Precession Cycle', order: 40 },
 };
 
-type SpokeKey = 'E' | 'N' | 'W' | 'S' | 'E_next';
+type SpokeKey = 'E' | 'ENE' | 'NE' | 'NNE' | 'N' | 'NNW' | 'NW' | 'WNW' |
+                'W' | 'WSW' | 'SW' | 'SSW' | 'S' | 'SSE' | 'SE' | 'ESE' | 'E_next';
 
 export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
-    day:  { E: 'Sunrise', N: 'Midday', W: 'Sunset',  S: 'Midnight',   'E_next': 'Next Sunrise' },
-    moon: { E: 'First Quarter', N: 'Full Moon', W: 'Last Quarter', S: 'New Moon', 'E_next': 'Next First Quarter' },
-    year: { E: 'March Equinox', N: 'June Solstice', W: 'September Equinox', S: 'December Solstice', 'E_next': 'Next March Equinox' },
-    plato:{ E: '(???)', N: '(???)', W: '(???)', S: 'Galactic Center', 'E_next': 'Next E' },
+    day: {
+        E:   'Sunrise',
+
+        ENE: 'Late Morning',
+        NE:  'Noon Begin',
+        NNE: 'Early Day',
+
+        N: 'Midday',
+
+        NNW: 'Late Day',
+        NW:  'Evening Begin',
+        WNW: 'Early Evening',
+
+        W: 'Sunset',
+
+        WSW: 'Late Evening',
+        SW:  'Night Begin',
+        SSW: 'Early Night',
+
+        S: 'Midnight',
+
+        SSE: 'Late Night',
+        SE:  'Morning Begin',
+        ESE: 'Early Morning',
+
+        E_next: 'Next Sunrise'
+    },
+    moon: {
+        E:  'First Quarter',
+
+        ENE: 'Late Waxing',
+        NE:  'Waxing Gibbous Begin',
+        NNE: 'Early Waxing Gibbous',
+
+        N:  'Full Moon',
+
+        NNW: 'Late Waning Gibbous',
+        NW:  'Waning Begin',
+        WNW: 'Early Waning',
+
+        W:  'Last Quarter',
+
+        WSW: 'Late Waning',
+        SW:  'New Moon Begin',
+        SSW: 'Early New Moon',
+
+        S:  'New Moon',
+
+        SSE: 'Late New Moon',
+        SE:  'Waxing Begin',
+        ESE: 'Early Waxing',
+
+        E_next: 'Next First Quarter'
+    },
+    year: {
+        E: 'March Equinox',
+
+        ENE: '',
+        NE: '',
+        NNE: '',
+
+        N: 'June Solstice',
+
+        NNW: '',
+        NW: '',
+        WNW: '',
+
+        W: 'September Equinox',
+
+        WSW: '',
+        SW: '',
+        SSW: '',
+
+        S: 'December Solstice',
+
+        SSE: '',
+        SE: '',
+        ESE: '',
+
+        'E_next': 'Next March Equinox'
+    },
+    plato:{
+        E: '',
+
+        ENE: '',
+        NE: '',
+        NNE: '',
+
+        N: '',
+
+        NNW: '',
+        NW: '',
+        WNW: '',
+
+        W: '',
+
+        WSW: '',
+        SW: '',
+        SSW: '',
+
+        S: 'Galactic Center',
+
+        SSE: '',
+        SE: '',
+        ESE: '',
+
+        'E_next': 'Next E'
+    },
 };
 
 export function getCycleLabel(kind: CycleKind, _locale?: string) {

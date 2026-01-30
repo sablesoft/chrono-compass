@@ -34,12 +34,6 @@
     export let selectedTs: number;
     export let onUserActivity: () => void = () => {};
 
-    const spokeClick = createMomentClickHandler({
-        onSingle: (e) =>
-            openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])),
-        onDouble: () => handleSpokeActivate(i),
-    });
-
     /* =======================
        Responsive (inside Wheel)
        ======================= */

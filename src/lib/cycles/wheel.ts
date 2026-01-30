@@ -16,15 +16,6 @@ export type MomentTip = {
     desc?: string;
 };
 
-export type AnchorKey = 'E' | 'N' | 'W' | 'S' | 'E_next';
-
-type CardinalSpoke = 'E' | 'N' | 'W' | 'S';
-
-function isCardinalSpoke(x: string): x is CardinalSpoke {
-    return x === 'E' || x === 'N' || x === 'W' || x === 'S';
-}
-
-
 export const SPOKES = 16;
 export const SHIFT_EPS_MS = 1;
 
@@ -122,14 +113,10 @@ export function createMomentClickHandler({
         clear();
         onDouble(e);
     }
-    function cancel() {
-        clear();
-    }
 
     return {
         onClick,
         onDblClick,
-        cancel,
     };
 }
 
@@ -140,8 +127,8 @@ export function buildSpokeTip(
     ts: number
 ): MomentTip {
     let result;
-    if (isCardinalSpoke(spokeLabel)) {
-        const desc = SPOKE_DESC[kind][spokeLabel];
+    const desc = SPOKE_DESC[kind][spokeLabel as keyof typeof SPOKE_DESC[typeof kind]];
+    if (desc) {
         result = {
             label: `${spokeLabel} — ${desc}`,
             ts,
