@@ -101,18 +101,17 @@
     }
 </script>
 
-<div
-        class="tip"
-        bind:this={el}
-        style={`left:${left}px; top:${top}px;`}
-        role="dialog"
-        aria-label="Moment details"
-        on:mouseenter={onMouseEnter}
-        on:mouseleave={onMouseLeave}
-        on:wheel|stopPropagation
-        on:click|stopPropagation
-        on:mousedown|stopPropagation
->
+<div class="tip"
+     data-tooltip-root
+     bind:this={el}
+     style={`left:${left}px; top:${top}px;`}
+     role="dialog"
+     aria-label="Moment details"
+     on:mouseenter={onMouseEnter}
+     on:mouseleave={onMouseLeave}
+     on:wheel|stopPropagation
+     on:click|stopPropagation
+     on:mousedown|stopPropagation>
     <header class="head">
         <div class="title">
             {#if cluster.count === 1}

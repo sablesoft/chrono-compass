@@ -40,6 +40,51 @@
     let ro: ResizeObserver | null = null;
     let size = 360;
 
+    let isCoarsePointer = false;
+    let mqCoarse: MediaQueryList | null = null;
+
+    function updatePointerMode() {
+        isCoarsePointer = !!mqCoarse?.matches;
+    }
+
+    function openTipAt(x: number, y: number, c: MarkerCluster) {
+        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
+        tipOpen = true;
+        tipCluster = c;
+        tipX = x;
+        tipY = y;
+    }
+
+    function openTipFromEvent(e: MouseEvent, c: MarkerCluster) {
+        openTipAt(e.clientX, e.clientY, c);
+    }
+
+    function handleMarkerClick(e: MouseEvent, c: MarkerCluster) {
+        if (isCoarsePointer) {
+            // toggle same cluster
+            if (tipOpen && tipCluster?.id === c.id) {
+                closeTipNow();
+            } else {
+                openTipFromEvent(e, c);
+            }
+            return;
+        }
+
+        // desktop: click selects
+        handleMarkerActivate(c);
+    }
+
+    function handleGlobalPointerDown(e: PointerEvent | MouseEvent) {
+        if (!tipOpen) return;
+        const el = e.target as Element | null;
+        if (!el) return;
+
+        // если тап по тултипу или по маркеру — не закрываем
+        if (el.closest('[data-tooltip-root]') || el.closest('[data-marker]')) return;
+
+        closeTipNow();
+    }
+
     function recomputeWheelSize() {
         if (!wrapEl) return;
 
@@ -632,19 +677,33 @@
        ======================= */
     onMount(() => {
         startNowTicker();
-
         queueMicrotask(recomputeWheelSize);
-
+        window.addEventListener('pointerdown', handleGlobalPointerDown, { capture: true });
         if (wrapEl && 'ResizeObserver' in window) {
             ro = new ResizeObserver(recomputeWheelSize);
             ro.observe(wrapEl);
+        }
+        if (typeof window !== 'undefined' && 'matchMedia' in window) {
+            mqCoarse = window.matchMedia('(pointer: coarse)');
+            updatePointerMode();
+
+            const onChange = () => updatePointerMode();
+            // Safari старый: addListener/removeListener
+            if ('addEventListener' in mqCoarse) mqCoarse.addEventListener('change', onChange);
+            else (mqCoarse as any).addListener(onChange);
+
+            return () => {
+                if (!mqCoarse) return;
+                if ('removeEventListener' in mqCoarse) mqCoarse.removeEventListener('change', onChange);
+                else (mqCoarse as any).removeListener(onChange);
+            };
         }
     });
 
     onDestroy(() => {
         clearTimers();
         clearNowTimers();
-
+        window.removeEventListener('pointerdown', handleGlobalPointerDown, { capture: true } as any);
         if (ro && wrapEl) ro.unobserve(wrapEl);
         ro?.disconnect();
 
@@ -657,7 +716,7 @@
 <section class="panel">
     <header class="top">
         <div class="left">
-            <div class="title">{CYCLE_META[kind].label}</div>
+            <div class="title">{CYCLE_META[kind].label} - {CYCLE_META[kind].description}</div>
         </div>
 
         <div class="right">
@@ -826,11 +885,12 @@
                     {@const rMark = orbitToRadiusVB(c.orbit)}
                     {@const p = polarToXY(rMark, a)}
                     <g class="marker"
+                       data-marker="1"
                        transform={`translate(${p.x} ${p.y})`}
-                       on:click={() => handleMarkerActivate(c)}
-                       on:mouseenter={(e) => openTip(e, c)}
-                       on:mousemove={moveTip}
-                       on:mouseleave={scheduleCloseTip}>
+                       on:click={(e) => handleMarkerClick(e, c)}
+                       on:mouseenter={(e) => { if (!isCoarsePointer) openTipFromEvent(e, c); }}
+                       on:mousemove={(e) => { if (!isCoarsePointer) moveTip(e); }}
+                       on:mouseleave={() => { if (!isCoarsePointer) scheduleCloseTip(); }}>
                         {#if c.count === 1}
                             <title>{c.items[0]?.title ?? ''}</title>
                         {:else}
@@ -934,7 +994,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 12px;
     }
 
     .title {
