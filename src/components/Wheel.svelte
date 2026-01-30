@@ -44,6 +44,19 @@
     let isCoarsePointer = false;
     let mqCoarse: MediaQueryList | null = null;
 
+    let currentSpokeTip: MomentTip | null = null;
+
+    $: {
+        if (!spokeTimes?.length) {
+            currentSpokeTip = null;
+        } else {
+            const i = nearestSpokeByTime(selectedTs, spokeTimes);
+            const label = labels[i];
+            const ts0 = spokeTimes[i];
+            currentSpokeTip = ts0 ? buildSpokeTip(kind, label, ts0) : null;
+        }
+    }
+
     function updatePointerMode() {
         isCoarsePointer = !!mqCoarse?.matches;
     }
@@ -945,6 +958,12 @@
                 <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
             </svg>
 
+            {#if currentSpokeTip}
+                <div class="currentSpoke">
+                    <strong>{currentSpokeTip.label}</strong>
+                </div>
+            {/if}
+
             <!-- Tooltip -->
             {#if tipOpen && (tipCluster || tipMoment)}
                 <Tooltip x={tipX}
@@ -1207,4 +1226,16 @@
         outline-offset: 2px;
     }
     .hb:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    .currentSpoke{
+        width: 100%;
+        display: grid;
+        place-items: center;
+        margin-top: 2px;
+        font-size: 16px;
+        font-weight: 800;
+        opacity: 0.92;
+        text-align: center;
+        user-select: none;
+    }
 </style>
