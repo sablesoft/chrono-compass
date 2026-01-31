@@ -50,11 +50,11 @@
 {#if needRefresh}
     <div class="sw-toast">
         <div class="sw-toast__text">
-            Доступна новая версия Chrono Compass.
+            A new version is available.
         </div>
         <div class="sw-toast__actions">
-            <button on:click={refresh}>Обновить</button>
-            <button on:click={close}>Позже</button>
+            <button on:click={refresh}>Refresh</button>
+            <button on:click={close}>Later</button>
         </div>
     </div>
 {/if}
@@ -62,7 +62,7 @@
 {#if offlineReady}
     <div class="sw-toast">
         <div class="sw-toast__text">
-            Приложение готово к оффлайн-работе.
+            The application is ready for offline use.
         </div>
         <div class="sw-toast__actions">
             <button on:click={close}>Ок</button>
