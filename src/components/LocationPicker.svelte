@@ -250,10 +250,11 @@
 
     /* fixed widths like TimePicker segments */
     .label{
-        width: 180px;
-        justify-content: center;
+        width: 260px;
+        justify-content: left;
         overflow: hidden;
         text-overflow: ellipsis;
+        font-size: 18px;
         font-weight: 850;
     }
 
@@ -279,7 +280,6 @@
     }
 
     .row{ display:grid; gap: 10px; margin-bottom: 12px; }
-    label{ font-size: 18px; font-weight: 700; }
 
     input, select{
         font-size: 16px;
