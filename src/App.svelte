@@ -12,6 +12,7 @@
   import { cycles } from './lib/stores/cycle';
   import {CYCLE_META} from "./lib/cycles/meta";
   import Wheel from "./components/Wheel.svelte";
+  import SwUpdateToast from "./components/SwUpdateToast.svelte";
 
   // local mirrors
   let lat = -23.22;
@@ -48,6 +49,8 @@
 <svelte:head>
   <title>ChronoCompass{isDev ? ' — DEV' : ''}</title>
 </svelte:head>
+
+<SwUpdateToast />
 
 <main>
   <div class="container">
