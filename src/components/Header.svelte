@@ -8,6 +8,7 @@
     import { cycles, setCycles } from '../lib/stores/cycle';
     import {getCycleOptions} from "../lib/cycles/meta";
     import type {CycleKind} from "../lib/cycles/types";
+    import CollectionControl from "./CollectionControl.svelte";
 
     $: cycleItems = getCycleOptions().map(o => ({
         value: o.kind,
@@ -30,7 +31,9 @@
     <div class="slot loc">
         <LocationPicker />
     </div>
-
+    <div class="slot">
+        <CollectionControl />
+    </div>
     <div class="slot cycles">
         <DropdownButton
                 label="Cycles:"
@@ -40,7 +43,6 @@
                 buttonClass="seg cyclesBtn"
         />
     </div>
-
     <div class="actions">
         <ThemeSwitcher />
     </div>

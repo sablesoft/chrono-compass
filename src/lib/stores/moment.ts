@@ -7,6 +7,7 @@ export type Collection = {
     name: string;
     markerBg: string;        // цвет фона “значка”
     orbit: number;           // 0..1 (доля между inner..outer радиусом)
+    enabled: boolean;
 };
 
 export type Moment = {
@@ -87,6 +88,7 @@ function loadState(): State {
             name: 'My Moments',
             markerBg: 'var(--accent-live)',
             orbit: 0.75,
+            enabled: true
         };
 
         return {
@@ -120,6 +122,7 @@ export function createCollection(name: string) {
         name: name.trim() || 'Untitled',
         markerBg: 'var(--accent-live)',
         orbit: 0.75,
+        enabled: true
     };
     momentsState.update(s => ({
         ...s,
