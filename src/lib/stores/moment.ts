@@ -49,6 +49,8 @@ type State = {
 
 const LS_KEY = 'chrono-com.moment.v1';
 
+export const DEFAULT_COLLECTION = 'Moments';
+
 function uid(prefix = 'id') {
     return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
 }
@@ -85,7 +87,7 @@ function loadState(): State {
     } catch {
         const defaultCol: Collection = {
             id: uid('col'),
-            name: 'My Moments',
+            name: DEFAULT_COLLECTION,
             emoji: '📍',
             markerBg: 'var(--accent-live)',
             orbit: 0.75,
@@ -149,7 +151,7 @@ export function deleteCollection(id: string) {
         if (!collections2.length) {
             const defaultCol: Collection = {
                 id: uid('col'),
-                name: 'My Moments',
+                name: DEFAULT_COLLECTION,
                 markerBg: 'var(--accent-live)',
                 orbit: 0.75,
                 emoji: '📍',

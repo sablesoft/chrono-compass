@@ -13,7 +13,7 @@
         createCollection,
         updateCollection,
         deleteCollection,
-        setCurrentCollection,
+        setCurrentCollection, DEFAULT_COLLECTION,
     } from '../lib/stores/moment';
 
     export let buttonClass = '';
@@ -33,7 +33,7 @@
     })();
 
     $: currentCol = cols.find(c => c.id === currentId) ?? cols[0];
-    $: currentName = currentCol?.name ?? 'My Moments';
+    $: currentName = currentCol?.name ?? DEFAULT_COLLECTION;
     $: currentCount = currentCol ? (counts.get(currentCol.id) ?? 0) : 0;
     $: currentBadge = currentCol?.markerBg ?? 'var(--accent-live)';
 
@@ -195,7 +195,7 @@
         // If last collection was deleted, recreate default (and user gets a sane state).
         queueMicrotask(() => {
             const after = get(collections);
-            if (!after.length) createCollection('My Moments');
+            if (!after.length) createCollection(DEFAULT_COLLECTION);
         });
 
         if (editingId === c.id) cancelEdit();
@@ -435,7 +435,7 @@
         padding: 10px 12px;
         border-radius: 14px;
         border: 1px solid var(--panel-border);
-        background: color-mix(in oklab, var(--panel), transparent 12%);
+        background: var(--btn-bg);
         color: inherit;
         cursor: pointer;
         user-select: none;
