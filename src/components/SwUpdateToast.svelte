@@ -14,14 +14,32 @@
             },
             onOfflineReady() {
                 offlineReady = true
-                setTimeout(() => (offlineReady = false), 3000)
+                setTimeout(() => (offlineReady = false), 2500)
             }
         })
     })
 
     async function refresh() {
-        if (!updateSW) return
-        await updateSW(true)
+        // спрятать тост сразу, чтобы не бесил
+        needRefresh = false
+
+        // если по какой-то причине updateSW ещё не готов — просто перезагрузи страницу
+        if (!updateSW) {
+            location.reload()
+            return
+        }
+
+        try {
+            // попросить новый SW активироваться и (в идеале) перезагрузить страницу
+            await updateSW(true)
+
+            // страховка: если по каким-то причинам reload не случился — сделаем сами
+            // (бывает, когда браузер удерживает старый контроллер)
+            setTimeout(() => location.reload(), 300)
+        } catch (e) {
+            // если обновление не удалось — просто перезагрузим
+            location.reload()
+        }
     }
 
     function close() {
@@ -29,7 +47,6 @@
         offlineReady = false
     }
 </script>
-
 {#if needRefresh}
     <div class="sw-toast">
         <div class="sw-toast__text">
