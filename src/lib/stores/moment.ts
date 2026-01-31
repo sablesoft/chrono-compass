@@ -6,6 +6,7 @@ export type Collection = {
     id: string;
     name: string;
     markerBg: string;        // цвет фона “значка”
+    emoji: string;
     orbit: number;           // 0..1 (доля между inner..outer радиусом)
     enabled: boolean;
 };
@@ -86,6 +87,7 @@ function loadState(): State {
         const defaultCol: Collection = {
             id: uid('col'),
             name: 'My Moments',
+            emoji: '📍',
             markerBg: 'var(--accent-live)',
             orbit: 0.75,
             enabled: true
@@ -120,6 +122,7 @@ export function createCollection(name: string) {
     const col: Collection = {
         id: uid('col'),
         name: name.trim() || 'Untitled',
+        emoji: '📍',
         markerBg: 'var(--accent-live)',
         orbit: 0.75,
         enabled: true
