@@ -8,6 +8,8 @@
         collections,
         moments,
         currentCollectionId,
+        visibleCollectionIds,
+        toggleVisible,
         createCollection,
         updateCollection,
         deleteCollection,
@@ -68,6 +70,10 @@
         };
         drafts.set(id, d);
         return d;
+    }
+
+    function isVisible(id: string) {
+        return $visibleCollectionIds.includes(id);
     }
 
     function syncDraftFromStore() {
@@ -147,13 +153,6 @@
 
     function pick(id: string) {
         setCurrentCollection(id);
-    }
-
-    function toggleEnabled(c: any) {
-        const d = ensureDraft(c.id, c);
-        d.enabled = !d.enabled;
-        drafts.set(c.id, d);
-        updateCollection(c.id, { enabled: d.enabled } as any);
     }
 
     function setMarkerBg(c: any, v: string) {
@@ -279,6 +278,7 @@
             <div class="mc-body">
                 <div class="list">
                     {#each cols as c (c.id)}
+                        {@const vis = isVisible(c.id)}
                         {@const d = ensureDraft(c.id, c)}
                         <div class="rowCard">
                             <!-- Collection Name and Control -->
@@ -316,11 +316,11 @@
 
                                 <div class="rowActions">
                                     <button class="icon"
-                                            class:active={d.enabled}
-                                            on:click|stopPropagation={() => toggleEnabled(c)}
-                                            aria-label={d.enabled ? 'Hide moments' : 'Show moments'}
-                                            title={d.enabled ? 'Visible' : 'Hidden'}>
-                                        {d.enabled ? '👁' : '🚫'}
+                                            class:active={vis}
+                                            on:click|stopPropagation={() => toggleVisible(c.id)}
+                                            aria-label={vis ? 'Hide moments' : 'Show moments'}
+                                            title={vis ? 'Visible' : 'Hidden'}>
+                                        {vis ? '👁' : '🚫'}
                                     </button>
 
                                     {#if editingId !== c.id}
@@ -801,4 +801,3 @@
         gap: 10px;
     }
 </style>
-

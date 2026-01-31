@@ -8,7 +8,6 @@ export type Collection = {
     markerBg: string;        // цвет фона “значка”
     emoji: string;
     orbit: number;           // 0..1 (доля между inner..outer радиусом)
-    enabled: boolean;
 };
 
 export type Moment = {
@@ -90,7 +89,6 @@ function loadState(): State {
             emoji: '📍',
             markerBg: 'var(--accent-live)',
             orbit: 0.75,
-            enabled: true
         };
 
         return {
@@ -125,7 +123,6 @@ export function createCollection(name: string) {
         emoji: '📍',
         markerBg: 'var(--accent-live)',
         orbit: 0.75,
-        enabled: true
     };
     momentsState.update(s => ({
         ...s,
@@ -136,7 +133,7 @@ export function createCollection(name: string) {
     return col.id;
 }
 
-export function updateCollection(id: string, patch: Partial<Pick<Collection, 'name'|'markerBg'|'orbit'>>) {
+export function updateCollection(id: string, patch: Partial<Pick<Collection, 'name'|'markerBg'|'orbit'|'emoji'>>) {
     momentsState.update(s => ({
         ...s,
         collections: s.collections.map(c => (c.id === id ? { ...c, ...patch } : c)),
@@ -145,16 +142,47 @@ export function updateCollection(id: string, patch: Partial<Pick<Collection, 'na
 
 export function deleteCollection(id: string) {
     momentsState.update(s => {
-        const collections2 = s.collections.filter(c => c.id !== id);
+        let collections2 = s.collections.filter(c => c.id !== id);
         const moments2 = s.moments.filter(m => m.collectionId !== id);
 
-        const fallback = collections2[0]?.id ?? null;
+        // если удалили последнюю — создаём дефолтную
+        if (!collections2.length) {
+            const defaultCol: Collection = {
+                id: uid('col'),
+                name: 'My Moments',
+                markerBg: 'var(--accent-live)',
+                orbit: 0.75,
+                emoji: '📍',
+            };
+            collections2 = [defaultCol];
+
+            return {
+                ...s,
+                collections: collections2,
+                moments: [],
+                currentCollectionId: defaultCol.id,
+                visibleCollectionIds: [defaultCol.id],
+            };
+        }
+
+        const fallback = collections2[0].id;
         const currentCollectionId =
             s.currentCollectionId === id ? fallback : s.currentCollectionId;
 
         const visibleCollectionIds = s.visibleCollectionIds.filter(x => x !== id);
 
         return { ...s, collections: collections2, moments: moments2, currentCollectionId, visibleCollectionIds };
+    });
+}
+
+export function toggleVisible(id: string) {
+    momentsState.update(s => {
+        const has = s.visibleCollectionIds.includes(id);
+        const next = has
+            ? s.visibleCollectionIds.filter(x => x !== id)
+            : [id, ...s.visibleCollectionIds];
+
+        return { ...s, visibleCollectionIds: next };
     });
 }
 
