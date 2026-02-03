@@ -16,7 +16,7 @@
         clusterMarkerItems,
         computeAnchors,
         computeAngle, createMomentClickHandler,
-        type MarkerCluster, nudgeInsideCycle,
+        type MarkerCluster, nudgeInsideCycle, sameCycle,
         SHIFT_EPS_MS,
         SPOKES
     } from '../lib/cycles/wheel';
@@ -282,7 +282,6 @@
         setSelectedTs(t);
     }
 
-    // shiftCycle now lives here
     function shiftCycle(dir: -1 | 1) {
         onUserActivity();
         if (isCycling) return;
@@ -294,20 +293,49 @@
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        let shiftedBase = dir > 0
-            ? anchors.E_next + SHIFT_EPS_MS
-            : anchors.E - SHIFT_EPS_MS;
+        const cycleMs0 = Math.max(1, anchors.E_next - anchors.E);
 
-        let a2 = computeAnchors(kind, shiftedBase, lat, lon);
-        if (!(shiftedBase >= a2.E && shiftedBase < a2.E_next)) {
-            shiftedBase = dir > 0 ? a2.E + SHIFT_EPS_MS : a2.E_next - SHIFT_EPS_MS;
-            a2 = computeAnchors(kind, shiftedBase, lat, lon);
+        // маленький шаг “за границу”, чтобы уйти от E/E_next
+        const edgeStep = Math.max(SHIFT_EPS_MS, Math.floor(cycleMs0 * 0.01)); // 1% цикла или EPS
+        // большой шаг “продавливания”, чтобы гарантированно сменить цикл
+        const pushStep = Math.max(10 * SHIFT_EPS_MS, Math.floor(cycleMs0 * 0.60)); // 60% цикла или >=10*EPS
+
+        // стартовый probe: чуть за нужную границу
+        let probe = dir > 0
+            ? anchors.E_next + edgeStep
+            : anchors.E - edgeStep;
+
+        let a2 = computeAnchors(kind, probe, lat, lon);
+
+        // 1) если computeAnchors упорно возвращает тот же цикл — продавим probe дальше
+        for (let attempt = 0; attempt < 8 && sameCycle(a2, anchors); attempt++) {
+            probe = ms(probe + dir * pushStep);
+            a2 = computeAnchors(kind, probe, lat, lon);
+        }
+
+        // 2) если по какой-то причине probe не попал внутрь своего же a2 — доводим его в нужную сторону
+        for (let attempt = 0; attempt < 8; attempt++) {
+            if (probe >= a2.E && probe < a2.E_next) break;
+
+            probe = dir > 0
+                ? a2.E_next + edgeStep
+                : a2.E - edgeStep;
+
+            a2 = computeAnchors(kind, probe, lat, lon);
         }
 
         const t2 = buildSpokeTimes(a2);
 
         let targetTs = ms(t2[i]);
         targetTs = nudgeInsideCycle(targetTs, a2, dir);
+
+        // если вдруг всё равно получилось “не сдвинулось”, добьём одним pushStep
+        if (Math.abs(targetTs - selectedTs) < 1_000) {
+            probe = ms(probe + dir * pushStep);
+            a2 = computeAnchors(kind, probe, lat, lon);
+            const t3 = buildSpokeTimes(a2);
+            targetTs = nudgeInsideCycle(ms(t3[i]), a2, dir);
+        }
 
         const targetAngleDeg = computeAngle(kind, targetTs, a2);
 

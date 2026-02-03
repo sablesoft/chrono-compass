@@ -78,6 +78,13 @@ function clamp(x: number, a: number, b: number) {
     return Math.max(a, Math.min(b, x));
 }
 
+
+export function sameCycle(a: Anchors, b: Anchors) {
+    // сравнение с допуском, чтобы не плясало из-за миллисекунд
+    const eps = 2_000; // 2s
+    return Math.abs(a.E - b.E) <= eps && Math.abs(a.E_next - b.E_next) <= eps;
+}
+
 export function nudgeInsideCycle(ts: number, a: Anchors, dir: -1 | 1) {
     // цикл у тебя по смыслу [E, E_next)
     const lo = a.E + SHIFT_EPS_MS;
