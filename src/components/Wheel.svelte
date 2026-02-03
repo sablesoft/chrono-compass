@@ -16,7 +16,7 @@
         clusterMarkerItems,
         computeAnchors,
         computeAngle, createMomentClickHandler,
-        type MarkerCluster,
+        type MarkerCluster, nudgeInsideCycle,
         SHIFT_EPS_MS,
         SPOKES
     } from '../lib/cycles/wheel';
@@ -294,23 +294,22 @@
         activeSpokeIndex = i;
         selectedSpokeIndex = i;
 
-        // step inside target cycle (avoid boundary no-op)
-        const shiftedBase = dir > 0
+        let shiftedBase = dir > 0
             ? anchors.E_next + SHIFT_EPS_MS
             : anchors.E - SHIFT_EPS_MS;
 
-        // anchors for shiftedBase
-        const a2 = computeAnchors(kind, shiftedBase, lat, lon);
+        let a2 = computeAnchors(kind, shiftedBase, lat, lon);
+        if (!(shiftedBase >= a2.E && shiftedBase < a2.E_next)) {
+            shiftedBase = dir > 0 ? a2.E + SHIFT_EPS_MS : a2.E_next - SHIFT_EPS_MS;
+            a2 = computeAnchors(kind, shiftedBase, lat, lon);
+        }
+
         const t2 = buildSpokeTimes(a2);
 
-        const targetTs = ms(t2[i]);
-        const targetAngleDeg = computeAngle(kind, targetTs, a2);
+        let targetTs = ms(t2[i]);
+        targetTs = nudgeInsideCycle(targetTs, a2, dir);
 
-        if (ms(targetTs) === ms(selectedTs)) {
-            console.warn(`[${CYCLE_META[kind].label}/${kind}] shiftCycle no-op (same targetTs)`, { targetTs, selectedTs, shiftedBase });
-            isCycling = false;
-            return;
-        }
+        const targetAngleDeg = computeAngle(kind, targetTs, a2);
 
         spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
         emitSelectTs(targetTs);
@@ -403,6 +402,14 @@
         { key: 'S',  anchor: 'S',      houseIndex: 12, showHouse: true },
         { key: 'E+', anchor: 'E_next', houseIndex: 0,  showHouse: false }
     ] as const;
+
+    type InfoItem = typeof infoRows[number] & { ts: number; desc: string };
+    let infoItems: InfoItem[] = [];
+    $: infoItems = infoRows.map(r => ({
+        ...r,
+        ts: anchors[r.anchor],
+        desc: SPOKE_DESC[kind][r.anchor],
+    }));
 
     type AnchorKey = typeof infoRows[number]['anchor'];
 
@@ -980,15 +987,14 @@
 
     <!-- Wheel Info -->
     <div class="info">
-        {#each infoRows as row (row.key)}
-            {@const ts0 = anchorTs(row.anchor)}
+        {#each infoItems as row (row.key)}
             <div class="infoRow">
                 <button class="jump"
                         type="button"
                         title={`Go to ${row.key}`}
-                        on:click={() => jumpTo(ts0)}>
+                        on:click={() => jumpTo(row.ts)}>
                     <strong class="k">{row.key}:</strong>
-                    <span class="dt">{formatDateTime(ts0)}</span>
+                    <span class="dt">{formatDateTime(row.ts)}</span>
                     <span class={row.key === 'S' ? 'sep' : ''}>—</span>
                     <span class="desc">{spokeDesc(row.anchor)}</span>
                 </button>

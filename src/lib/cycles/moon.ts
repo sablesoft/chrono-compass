@@ -3,6 +3,7 @@ import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
 import {ms} from "../format";
+import {isFiniteNumber, safeDateFromTs, utcYearFromTs} from './wheel';
 
 const DAY_MS = 86400_000;
 const SYNODIC_MONTH_DAYS = 29.530588853;
@@ -15,23 +16,6 @@ const APPROX_EPOCH_NEW_MOON_MS = Date.UTC(2000, 0, 6, 18, 14, 0, 0);
 // “точный” диапазон для astronomy-engine (можешь сузить/расширить)
 const EXACT_MIN_YEAR = 1600;
 const EXACT_MAX_YEAR = 2400;
-
-function isFiniteNumber(x: number) {
-    return Number.isFinite(x) && !Number.isNaN(x);
-}
-
-function safeDateFromTs(ts: number): Date | null {
-    if (!isFiniteNumber(ts)) return null;
-    const d = new Date(ts);
-    return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function utcYearFromTs(ts: number): number | null {
-    const d = safeDateFromTs(ts);
-    if (!d) return null;
-    const y = d.getUTCFullYear();
-    return Number.isNaN(y) ? null : y;
-}
 
 function approxMoonAnchors(ts: number): Anchors {
     // цикл: FirstQuarter -> next FirstQuarter
@@ -77,21 +61,6 @@ function searchFirstQuarterAtOrBefore(ts: number) {
     return null;
 }
 
-// function searchFirstQuarterAfter(ts: number) {
-//     const d = safeDateFromTs(ts);
-//     if (!d) return null;
-//
-//     for (const w of [40, 80, 160, 320]) {
-//         try {
-//             const t = Astronomy.SearchMoonPhase(90, d, +w);
-//             if (t && t.date.getTime() > ts) return t;
-//         } catch {
-//             return null;
-//         }
-//     }
-//     return null;
-// }
-
 export function getMoonAnchors(ts: number): Anchors {
     if (!isFiniteNumber(ts)) return approxMoonAnchors(Date.now());
     ts = ms(ts);
@@ -124,23 +93,3 @@ export function getMoonAnchors(ts: number): Anchors {
 }
 
 export const angleFromMoonAnchors = angleFromAnchors;
-
-// export function shiftMoonCycle(cycleStartTs: number, dir: -1 | 1) {
-//     if (!isFiniteNumber(cycleStartTs)) return Date.now();
-//
-//     // вне "точного" диапазона — просто аппроксимация
-//     if (!inExactRange(cycleStartTs)) {
-//         return ms(cycleStartTs + dir * SYNODIC_MONTH_MS);
-//     }
-//
-//     // ВАЖНО: избегаем ровно "на событии", сдвигаемся на 1ms
-//     if (dir > 0) {
-//         // следующий старт цикла = E_next текущего цикла
-//         const a = getMoonAnchors(ms(cycleStartTs) + 1);
-//         return ms(a.E_next);
-//     } else {
-//         // предыдущий старт цикла = E предыдущего цикла
-//         const aPrev = getMoonAnchors(ms(cycleStartTs) - 1);
-//         return ms(aPrev.E);
-//     }
-// }

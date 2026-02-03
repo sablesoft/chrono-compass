@@ -8,7 +8,9 @@ import { getCycleOptions, SPOKE_DESC } from './meta';
 import { getDayAnchors, angleFromDayAnchors } from './day';
 import { getMoonAnchors, angleFromMoonAnchors } from './moon';
 import { getYearAnchors, angleFromYearAnchors } from './year';
+import { getSolarAnomalisticAnchors, angleFromSolarAnomalisticAnchors } from './solarAnomalistic';
 import { getPlatoAnchors, angleFromPlatoAnchors } from './plato';
+import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "./lunarAnomalistic";
 
 export type MomentTip = {
     label: string;
@@ -17,7 +19,7 @@ export type MomentTip = {
 };
 
 export const SPOKES = 16;
-export const SHIFT_EPS_MS = 1;
+export const SHIFT_EPS_MS = 60_000;
 
 // Сколько occurrences максимум разворачиваем на 1 базовый moment в пределах текущего колеса.
 // Если перебор — просто не рисуем этот moment на колесе (лучше чем убить UI).
@@ -69,16 +71,43 @@ export type MarkerCluster = {
     items: MarkerItem[];
 };
 
+
+const NUDGE_MS = 5 * 60_000; // 5 минут (можно 1 мин, но 5 устойчивее)
+
+function clamp(x: number, a: number, b: number) {
+    return Math.max(a, Math.min(b, x));
+}
+
+export function nudgeInsideCycle(ts: number, a: Anchors, dir: -1 | 1) {
+    // цикл у тебя по смыслу [E, E_next)
+    const lo = a.E + SHIFT_EPS_MS;
+    const hi = a.E_next - SHIFT_EPS_MS;
+
+    // если попали ровно в “опасные” точки — уводим внутрь
+    if (ts === a.E)      ts = a.E + NUDGE_MS;
+    if (ts === a.E_next) ts = a.E_next - NUDGE_MS;
+
+    if (ts === a.N) ts = a.N + (dir > 0 ? NUDGE_MS : -NUDGE_MS);
+    if (ts === a.W) ts = a.W + (dir > 0 ? NUDGE_MS : -NUDGE_MS);
+    if (ts === a.S) ts = a.S + (dir > 0 ? NUDGE_MS : -NUDGE_MS);
+
+    return clamp(ts, lo, hi);
+}
+
 export function computeAnchors(kind: CycleKind, ts: number, lat: number, lon: number): Anchors {
     if (kind === 'moon') return getMoonAnchors(ts);
+    if (kind === 'lunarAnomalistic') return getLunarAnomalisticAnchors(ts);
     if (kind === 'year') return getYearAnchors(ts, lat, lon);
+    if (kind === 'solarAnomalistic') return getSolarAnomalisticAnchors(ts);
     if (kind === 'plato') return getPlatoAnchors(ts);
     return getDayAnchors(ts, lat, lon);
 }
 
 export function computeAngle(kind: CycleKind, ts: number, a: Anchors): number {
     if (kind === 'moon') return angleFromMoonAnchors(ts, a);
+    if (kind === 'lunarAnomalistic') return angleFromLunarAnomalisticAnchors(ts, a);
     if (kind === 'year') return angleFromYearAnchors(ts, a);
+    if (kind === 'solarAnomalistic') return angleFromSolarAnomalisticAnchors(ts, a);
     if (kind === 'plato') return angleFromPlatoAnchors(ts, a);
     return angleFromDayAnchors(ts, a);
 }
@@ -570,4 +599,21 @@ function toSignedAngle(a360: number) {
     let x = ((a360 + 180) % 360) - 180;
     if (x <= -180) x += 360;
     return x;
+}
+
+export function isFiniteNumber(x: number) {
+    return Number.isFinite(x) && !Number.isNaN(x);
+}
+
+export function safeDateFromTs(ts: number): Date | null {
+    if (!isFiniteNumber(ts)) return null;
+    const d = new Date(ts);
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function utcYearFromTs(ts: number): number | null {
+    const d = safeDateFromTs(ts);
+    if (!d) return null;
+    const y = d.getUTCFullYear();
+    return Number.isNaN(y) ? null : y;
 }

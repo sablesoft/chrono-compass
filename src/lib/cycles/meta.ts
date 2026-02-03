@@ -18,7 +18,17 @@ export type CycleOption = {
 export const CYCLE_META: Record<CycleKind, CycleMeta> = {
     day:   { label: 'Day',  description: 'Diurnal Cycle',  order: 10 },
     moon:  { label: 'Moon', description: 'Synodic Cycle', order: 20 },
+    lunarAnomalistic: {
+        label: 'Lunar Anomalistic',
+        description: 'Distance',
+        order: 25
+    },
     year:  { label: 'Year', description: 'Solar Cycle', order: 30 },
+    solarAnomalistic: {
+        label: 'Solar Anomalistic',
+        description: 'Distance',
+        order: 30
+    },
     plato: { label: 'Plato',description: 'Precession Cycle', order: 40 },
 };
 
@@ -80,6 +90,33 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
 
         E_next: 'Next First Quarter'
     },
+    lunarAnomalistic: {
+        E:   'Approaching Apogee',
+
+        ENE: 'Distance Increasing',
+        NE:  'Farther (toward Apogee)',
+        NNE: 'Near Apogee',
+
+        N:   'Apogee',
+
+        NNW: 'Leaving Apogee',
+        NW:  'Distance Decreasing',
+        WNW: 'Closer (toward Perigee)',
+
+        W:   'Approaching Perigee',
+
+        WSW: 'Distance Decreasing',
+        SW:  'Closer (toward Perigee)',
+        SSW: 'Near Perigee',
+
+        S:   'Perigee',
+
+        SSE: 'Leaving Perigee',
+        SE:  'Distance Increasing',
+        ESE: 'Farther (toward Apogee)',
+
+        E_next: 'Next Cycle Start'
+    },
     year: {
         E: 'March Equinox',
 
@@ -107,7 +144,34 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
 
         'E_next': 'Next March Equinox'
     },
-    plato:{
+    solarAnomalistic: {
+        E: 'Per → Aph',
+
+        ENE: '',
+        NE: '',
+        NNE: '',
+
+        N: 'Aphelion',
+
+        NNW: '',
+        NW: '',
+        WNW: '',
+
+        W: 'Aph → Per',
+
+        WSW: '',
+        SW: '',
+        SSW: '',
+
+        S: 'Perihelion',
+
+        SSE: '',
+        SE: '',
+        ESE: '',
+
+        E_next: 'Next Midpoint (Per → Aph)'
+    },
+    plato: {
         E: '',
 
         ENE: '',

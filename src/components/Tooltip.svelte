@@ -35,7 +35,7 @@
     }
 
     function updatePosition() {
-        console.log('Tooltip.updatePosition');
+        // console.log('Tooltip.updatePosition');
         const vw = window.innerWidth || 1000;
         const vh = window.innerHeight || 800;
 
