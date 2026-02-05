@@ -11,6 +11,7 @@ import { getYearAnchors, angleFromYearAnchors } from './year';
 import { getSolarAnomalisticAnchors, angleFromSolarAnomalisticAnchors } from './solarAnomalistic';
 import { getPlatoAnchors, angleFromPlatoAnchors } from './plato';
 import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "./lunarAnomalistic";
+import { getDraconicAnchors, angleFromDraconicAnchors} from "./draconic";
 
 export type MomentTip = {
     label: string;
@@ -104,6 +105,7 @@ export function nudgeInsideCycle(ts: number, a: Anchors, dir: -1 | 1) {
 export function computeAnchors(kind: CycleKind, ts: number, lat: number, lon: number): Anchors {
     if (kind === 'moon') return getMoonAnchors(ts);
     if (kind === 'lunarAnomalistic') return getLunarAnomalisticAnchors(ts);
+    if (kind === 'draconic') return getDraconicAnchors(ts);
     if (kind === 'year') return getYearAnchors(ts, lat, lon);
     if (kind === 'solarAnomalistic') return getSolarAnomalisticAnchors(ts);
     if (kind === 'plato') return getPlatoAnchors(ts);
@@ -113,6 +115,7 @@ export function computeAnchors(kind: CycleKind, ts: number, lat: number, lon: nu
 export function computeAngle(kind: CycleKind, ts: number, a: Anchors): number {
     if (kind === 'moon') return angleFromMoonAnchors(ts, a);
     if (kind === 'lunarAnomalistic') return angleFromLunarAnomalisticAnchors(ts, a);
+    if (kind === 'draconic') return angleFromDraconicAnchors(ts, a);
     if (kind === 'year') return angleFromYearAnchors(ts, a);
     if (kind === 'solarAnomalistic') return angleFromSolarAnomalisticAnchors(ts, a);
     if (kind === 'plato') return angleFromPlatoAnchors(ts, a);

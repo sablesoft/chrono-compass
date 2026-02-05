@@ -23,11 +23,16 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
         description: 'Distance',
         order: 25
     },
+    draconic: {
+        label: 'Draconic Month',
+        description: 'Eclipses',
+        order: 30
+    },
     year:  { label: 'Year', description: 'Solar Cycle', order: 30 },
     solarAnomalistic: {
         label: 'Solar Anomalistic',
         description: 'Distance',
-        order: 30
+        order: 35
     },
     plato: { label: 'Plato',description: 'Precession Cycle', order: 40 },
 };
@@ -116,6 +121,33 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
         ESE: 'Farther (toward Apogee)',
 
         E_next: 'Next Cycle Start'
+    },
+    draconic: {
+        E:  'Caput Draconis',          // Голова Дракона (Восходящий узел)
+
+        ENE: 'Ascent',
+        NE:  'Ascending',
+        NNE: 'Rising',
+
+        N:  'Summit',    // условно: высота пути
+
+        NNW: 'Turning',
+        NW:  'Descending',
+        WNW: 'Approach to the Tail',
+
+        W:  'Cauda Draconis',          // Хвост Дракона (Нисходящий узел)
+
+        WSW: 'Retreat',
+        SW:  'Below',
+        SSW: 'Depth',
+
+        S:  'Nadir',     // условно: нижняя точка пути
+
+        SSE: 'Returning',
+        SE:  'Re-emerging',
+        ESE: 'Approach to the Head',
+
+        E_next: 'Caput Draconis (Next)'
     },
     year: {
         E: 'March Equinox',
