@@ -1,4 +1,4 @@
-# ChronoCompass — Project Context
+# ChronoCompass — Project Concept
 
 ## Overview
 
@@ -10,9 +10,120 @@ The application is designed as a **thinking and analysis tool**, combining:
 - educational clarity,
 - and optional symbolic, metaphysical, and philosophical interpretation.
 
-At its core, the project aims to establish a **simple, logical, precise, and accessible standard** for representing diverse temporal cycles.
+At its core, the project aims to establish a **simple, logical, precise, and accessible standard** for representing diverse temporal cycles. ChronoCompass does this by mapping fundamentally different cycles  onto a **single, shared compass-based model** — using directions, houses, and rotational geometry as a common language for time.
 
-ChronoCompass does this by mapping fundamentally different cycles  onto a **single, shared compass-based model** — using directions, houses, and rotational geometry as a common language for time.
+---
+
+## Unified Compass Model
+
+A central goal of ChronoCompass is to define a **unified visual and conceptual standard**
+for working with time cycles.
+
+Instead of inventing a separate representation for each phenomenon,
+the application maps fundamentally different cycles onto a **single compass-based model**,
+using directions, houses, and rotational geometry as a common language for time.
+
+### Directional Anchoring
+
+Each cycle has a small number of **focal astronomical or physical points**
+(equinoxes, solstices, apsides, nodes, culminations, etc.).
+
+In ChronoCompass, these focal points are **deliberately and consistently bound**
+to specific compass directions.
+
+This binding is not arbitrary:
+- it is based on physical meaning,
+- temporal symmetry or asymmetry,
+- and the functional role of the event within the cycle.
+
+As a result:
+- the same compass directions acquire **stable semantic tendencies** across different cycles,
+- and similar directional positions tend to correspond to analogous states of a cycle,
+  even when the underlying physics is different.
+
+### Emergent Patterns
+
+Across many cycles, certain **recurring patterns** can be observed.
+
+These are not imposed rules, but **structural regularities** that emerge
+from the way focal points are anchored.
+
+#### South (S)
+
+- The South direction often corresponds to **maximal gravitational influence**
+  or moments when a force is strongest but **not directly observable**.
+- Examples include:
+  - perigee / perihelion,
+  - moments of strongest tidal or orbital influence.
+
+In this sense, South frequently represents:
+- *hidden intensity*,
+- *invisible pull*,
+- or *maximum influence without maximum visibility*.
+
+#### North (N)
+
+- When illumination or visibility is relevant (e.g. solar or diurnal cycles), North is frequently associated with **maximum light and exposure**.
+- Also North often corresponds to a state of **reduced gravitational load** or weakened binding forces within a cycle.
+
+North thus tends to represent:
+- *manifestation*,
+- *clarity*,
+- *peak observability*
+- *freedom, openness, and dynamism*
+ 
+North acts as a **counterbalance to the South**:
+- if South marks compression and hidden intensity,
+- North marks release, expansion, clarity and sustained motion.
+
+It defines the upper limit of freedom within the cycle, preventing the system from collapsing into the maximum concentration expressed at the South, enabling circulation, movement, and connection.
+
+#### East (E) and West (W)
+
+- East and West are most often associated with **transitions and balance points**.
+- They frequently correspond to:
+  - equinoxes,
+  - midpoints between opposing extremes,
+  - moments of change in dominance between two regimes.
+
+These directions tend to represent:
+- *emergence* and *initiation* (East),
+- *completion*, *release*, or *handover* (West),
+  without being absolute maxima or minima themselves.
+
+Within ChronoCompass, **East is the canonical entry and exit point of every cycle**, defining its temporal origin and closure.
+
+### Consistency Across Cycles
+
+By carefully aligning focal points with directions:
+
+- East, North, West, and South are not merely geometric markers,
+- but **structural anchors** that carry comparable interpretative weight
+  across all wheels.
+
+Some cycles define all main directions astronomically;
+others define only a subset, with remaining directions derived mathematically.
+In all cases, the assignment is explicit and internally consistent.
+
+This allows:
+- different cycles to remain physically independent,
+- while still forming a **coherent directional system** when viewed together.
+
+### Meaning Through Structure
+
+Because the same compass model is reused everywhere:
+
+- relationships between cycles become immediately visible,
+- resonance and drift can be reasoned about spatially,
+- and long-term patterns emerge without additional explanation.
+
+Meaning is not imposed through metaphor,
+but **emerges from structure, repetition, and alignment**.
+
+The compass in ChronoCompass is therefore not symbolic decoration,
+but a **carefully constructed coordinate system**
+that enables a shared logic of time across scientific,
+educational, and interpretative domains.
 
 ---
 
@@ -134,7 +245,7 @@ ChronoCompass allows working not only with “now”, but with **time as data** 
     - assigned to a specific orbital radius on a wheel,
     - visually compared with other collections.
 
-Collections are a core analytical feature, not just a UI convenience.
+Collections are an **analytical tool**, not just an interface convenience.
 
 ---
 
@@ -183,9 +294,9 @@ It provides structure, accuracy, and clarity — meaning is left to the user.
 
 ## Design Philosophy
 
-- Accuracy over convenience.
-- Independence of cycles over artificial harmony.
+- Accuracy above all else.
 - Visual intuition over raw tables.
 - Explicit structure over hidden assumptions.
+- Independence of cycles over artificial harmony.
 
 ChronoCompass treats time not as a line, but as a **system of interacting cycles**.
