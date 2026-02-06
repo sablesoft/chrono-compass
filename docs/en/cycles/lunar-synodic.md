@@ -35,12 +35,12 @@ In ChronoCompass, however, **East (E)** is always treated as the formal start an
 The lunar synodic wheel uses the following primary anchors:
 
 | Direction | Astronomical Meaning |
-|---------|---------------------|
-| **E** | First Quarter |
-| **N** | Full Moon |
-| **W** | Last Quarter |
-| **S** | New Moon |
-| **E_next** | Next First Quarter |
+|-----------|----------------------|
+| **E**     | First Quarter        |
+| **N**     | Full Moon            |
+| **W**     | Last Quarter         |
+| **S**     | New Moon             |
+| **E+**    | Next First Quarter   |
 
 Intermediate directions represent waxing and waning sub-phases.
 
