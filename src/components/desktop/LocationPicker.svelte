@@ -9,7 +9,7 @@
         saveCurrentLocation,
         deleteSavedLocation,
         trySetGeolocationAsCurrentOnce,
-    } from '../lib/stores/location';
+    } from '../../lib/stores/location';
 
     let open = false;
 

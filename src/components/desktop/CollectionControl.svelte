@@ -14,7 +14,7 @@
         updateCollection,
         deleteCollection,
         setCurrentCollection, DEFAULT_COLLECTION,
-    } from '../lib/stores/moment';
+    } from '../../lib/stores/moment';
 
     export let buttonClass = '';
 

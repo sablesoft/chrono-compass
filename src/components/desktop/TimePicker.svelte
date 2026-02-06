@@ -1,8 +1,8 @@
 <!-- src/components/TimePicker.svelte -->
 <script lang="ts">
     import { onDestroy } from 'svelte';
-    import { formatDateTime, ms } from '../lib/format';
-    import {selectedTs, isLive, setSelectedTs, toggleLive} from '../lib/stores/time';
+    import { formatDateTime, ms } from '../../lib/format';
+    import {selectedTs, isLive, setSelectedTs, toggleLive} from '../../lib/stores/time';
     import MomentControl from './MomentControl.svelte';
 
     type TimeState = 'LIVE' | 'FUTURE' | 'PAST';

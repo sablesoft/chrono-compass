@@ -1,4 +1,3 @@
-// src/lib/debug.ts
 type DebugApi = {
     enabled: boolean;
     group<T>(title: string, fn: () => T): T;
@@ -8,38 +7,60 @@ type DebugApi = {
 
 function camelToSnakeUpper(s: string): string {
     return s
-        .replace(/([a-z0-9])([A-Z])/g, '$1_$2') // aB -> a_B
-        .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2') // ABc -> A_Bc
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/([A-Z])([A-Z][a-z])/g, '$1_$2')
         .toUpperCase();
 }
 
-function envFlag(name: string): boolean {
-    // Vite отдаёт строки. Разрешим "true"/"1"/"yes"/"on".
-    const v = (import.meta as any)?.env?.[name];
+function truthy(v: any): boolean {
     if (v == null) return false;
     const s = String(v).trim().toLowerCase();
     return s === 'true' || s === '1' || s === 'yes' || s === 'on';
 }
 
 /**
- * Общая схема:
- * - VITE_DEBUG=true включает вообще всё
- * - VITE_DEBUG_<CHANNEL_SNAKE_CASE>=true включает конкретный канал
- * - если хочешь "только в dev": добавь import.meta.env.DEV снаружи или здесь (см. ниже)
+ * ⚠️ Vite-специфика:
+ * import.meta.env.VITE_FOO — работает
+ * import.meta.env[name]    — НЕ работает
+ *
+ * Поэтому все каналы объявляем явно.
  */
-function isEnabled(channel: string): boolean {
-    const key = camelToSnakeUpper(channel);
+const KNOWN_CHANNELS: Record<string, () => any> = {
+    // app / layout
+    APP: () => import.meta.env.VITE_DEBUG_APP,
 
-    const all = envFlag('VITE_DEBUG');
-    const per = envFlag(`VITE_DEBUG_${key}`);
+    // wheel / ui
+    WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
+    DAY: () => import.meta.env.VITE_DEBUG_DAY,
+
+    // lunar
+    LUNAR_SYNODIC: () => import.meta.env.VITE_DEBUG_LUNAR_SYNODIC,
+    LUNAR_DRACONIC: () => import.meta.env.VITE_DEBUG_LUNAR_DRACONIC,
+    LUNAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_LUNAR_ANOMALISTIC,
+
+    // solar
+    SOLAR_TROPICAL: () => import.meta.env.VITE_DEBUG_SOLAR_TROPICAL,
+    SOLAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_SOLAR_ANOMALISTIC,
+
+    // long cycles
+    PLATO: () => import.meta.env.VITE_DEBUG_PLATO,
+};
+
+function isEnabled(channel: string): boolean {
+    // глобальный флаг
+    const all = truthy(import.meta.env.VITE_DEBUG);
+
+    // канальный флаг
+    const key = camelToSnakeUpper(channel);
+    const getter = KNOWN_CHANNELS[key];
+    const per = getter ? truthy(getter()) : false;
 
     return all || per;
 }
 
 export function debug(channel: string, icon = '🐞'): DebugApi {
-    // ВАЖНО: вычисляется один раз при загрузке модуля (после перезапуска dev сервера).
+    // вычисляется один раз при загрузке модуля
     const enabled = isEnabled(channel);
-
     const prefix = `[${channel}]`;
 
     function group<T>(title: string, fn: () => T): T {
@@ -52,8 +73,13 @@ export function debug(channel: string, icon = '🐞'): DebugApi {
         }
     }
 
-    const log = (...args: any[]) => { if (enabled) console.log(prefix, ...args); };
-    const warn = (...args: any[]) => { if (enabled) console.warn(prefix, ...args); };
+    const log = (...args: any[]) => {
+        if (enabled) console.log(prefix, ...args);
+    };
+
+    const warn = (...args: any[]) => {
+        if (enabled) console.warn(prefix, ...args);
+    };
 
     return { enabled, group, log, warn };
 }

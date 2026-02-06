@@ -1,13 +1,13 @@
 <script lang="ts">
-    import logo from '../assets/logo-transparent-512.svg?raw';
+    import logo from '../../assets/logo-transparent-512.svg?raw';
 
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
-    import ThemeSwitcher from './ThemeSwitcher.svelte';
-    import DropdownButton from './DropdownButton.svelte';
-    import { cycles, setCycles } from '../lib/stores/cycle';
-    import {getCycleOptions} from "../lib/cycles/meta";
-    import type {CycleKind} from "../lib/cycles/types";
+    import ThemeSwitcher from '../ThemeSwitcher.svelte';
+    import DropdownButton from '../DropdownButton.svelte';
+    import { cycles, setCycles } from '../../lib/stores/cycle';
+    import {getCycleOptions} from "../../lib/cycles/meta";
+    import type {CycleKind} from "../../lib/cycles/types";
     import CollectionControl from "./CollectionControl.svelte";
 
     $: cycleItems = getCycleOptions().map(o => ({
