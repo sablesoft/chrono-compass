@@ -1,5 +1,5 @@
 <script lang="ts">
-    import logo from '../../public/logo-transparent-512.svg?raw';
+    import logo from '../assets/logo-transparent-512.svg?raw';
 
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';

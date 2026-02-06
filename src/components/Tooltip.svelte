@@ -35,7 +35,7 @@
     }
 
     function updatePosition() {
-        // console.log('Tooltip.updatePosition');
+        // DEBUG_SOLAR_ANOMALISTIClog('Tooltip.updatePosition');
         const vw = window.innerWidth || 1000;
         const vh = window.innerHeight || 800;
 

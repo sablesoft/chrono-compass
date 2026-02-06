@@ -16,25 +16,41 @@ export type CycleOption = {
 };
 
 export const CYCLE_META: Record<CycleKind, CycleMeta> = {
-    day:   { label: 'Day',  description: 'Diurnal Cycle',  order: 10 },
-    moon:  { label: 'Moon', description: 'Synodic Cycle', order: 20 },
-    lunarAnomalistic: {
-        label: 'Lunar Anomalistic',
-        description: 'Distance',
+    day:   {
+        label: 'Diurnal',
+        description: 'Earth Day',
+        order: 10
+    },
+    lunarSynodic:  {
+        label: 'Synodic',
+        description: 'Moon Phases',
+        order: 20
+    },
+    lunarDraconic: {
+        label: ' Draconic',
+        description: 'Eclipses Nodes',
         order: 25
     },
-    draconic: {
-        label: 'Draconic Month',
-        description: 'Eclipses',
+    lunarAnomalistic: {
+        label: 'Lunar Anomalistic',
+        description: 'Moon Distance',
         order: 30
     },
-    year:  { label: 'Year', description: 'Solar Cycle', order: 30 },
+    solarTropical:  {
+        label: 'Tropical',
+        description: 'Seasons Cycle',
+        order: 40
+    },
     solarAnomalistic: {
         label: 'Solar Anomalistic',
-        description: 'Distance',
-        order: 35
+        description: 'Earth-Sun Distance',
+        order: 45
     },
-    plato: { label: 'Plato',description: 'Precession Cycle', order: 40 },
+    plato: {
+        label: 'Plato',
+        description: 'Precession Cycle',
+        order: 50
+    },
 };
 
 type SpokeKey = 'E' | 'ENE' | 'NE' | 'NNE' | 'N' | 'NNW' | 'NW' | 'WNW' |
@@ -68,7 +84,7 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
 
         E_next: 'Next Sunrise'
     },
-    moon: {
+    lunarSynodic: {
         E:  'First Quarter',
 
         ENE: 'Late Waxing',
@@ -94,6 +110,33 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
         ESE: 'Early Waxing',
 
         E_next: 'Next First Quarter'
+    },
+    lunarDraconic: {
+        E:  'Caput Draconis',          // Голова Дракона (Восходящий узел)
+
+        ENE: 'Ascent',
+        NE:  'Ascending',
+        NNE: 'Rising',
+
+        N:  'Summit',    // условно: высота пути
+
+        NNW: 'Turning',
+        NW:  'Descending',
+        WNW: 'Approach to the Tail',
+
+        W:  'Cauda Draconis',          // Хвост Дракона (Нисходящий узел)
+
+        WSW: 'Retreat',
+        SW:  'Below',
+        SSW: 'Depth',
+
+        S:  'Nadir',     // условно: нижняя точка пути
+
+        SSE: 'Returning',
+        SE:  'Re-emerging',
+        ESE: 'Approach to the Head',
+
+        E_next: 'Caput Draconis (Next)'
     },
     lunarAnomalistic: {
         E:   'Approaching Apogee',
@@ -122,34 +165,7 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
 
         E_next: 'Next Cycle Start'
     },
-    draconic: {
-        E:  'Caput Draconis',          // Голова Дракона (Восходящий узел)
-
-        ENE: 'Ascent',
-        NE:  'Ascending',
-        NNE: 'Rising',
-
-        N:  'Summit',    // условно: высота пути
-
-        NNW: 'Turning',
-        NW:  'Descending',
-        WNW: 'Approach to the Tail',
-
-        W:  'Cauda Draconis',          // Хвост Дракона (Нисходящий узел)
-
-        WSW: 'Retreat',
-        SW:  'Below',
-        SSW: 'Depth',
-
-        S:  'Nadir',     // условно: нижняя точка пути
-
-        SSE: 'Returning',
-        SE:  'Re-emerging',
-        ESE: 'Approach to the Head',
-
-        E_next: 'Caput Draconis (Next)'
-    },
-    year: {
+    solarTropical: {
         E: 'March Equinox',
 
         ENE: '',

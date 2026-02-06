@@ -2,6 +2,10 @@
 import type { Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
+import { debug } from '../debug';
+
+const dbg = debug('plato', '🧭');
+const { group, log, warn } = dbg;
 
 // -------------------------
 // helpers (vectors)
@@ -23,9 +27,12 @@ function normalize(a: V3): V3 {
     const n = norm(a);
     return n > 0 ? scale(a, 1 / n) : { x: 0, y: 0, z: 0 };
 }
-function normalizeSafe(a: V3, fallback: V3): V3 {
+
+function normalizeSafeDbg(a: V3, fallback: V3, label: string): V3 {
     const n = norm(a);
-    return n > 1e-12 ? scale(a, 1 / n) : fallback;
+    if (n > 1e-12) return scale(a, 1 / n);
+    warn(`${label}: near-zero vector → fallback`, { a, fallback });
+    return fallback;
 }
 
 function rotateAroundAxis(v: V3, kUnit: V3, rad: number): V3 {
@@ -107,7 +114,7 @@ function stablePerpTo(n: V3): V3 {
         ax <= ay && ax <= az ? { x: 1, y: 0, z: 0 } :
             ay <= ax && ay <= az ? { x: 0, y: 1, z: 0 } :
                 { x: 0, y: 0, z: 1 };
-    return normalizeSafe(cross(n, tmp), { x: 1, y: 0, z: 0 });
+    return normalizeSafeDbg(cross(n, tmp), { x: 1, y: 0, z: 0 }, 'cross');
 }
 
 function earthAxisAt(ts: number): V3 {
@@ -123,15 +130,29 @@ function earthAxisAt(ts: number): V3 {
 // Phase
 // -------------------------
 export function getPlatoPhaseRad(ts: number) {
-    const P = earthAxisAt(ts);
+    ts = ms(ts);
 
-    const Pproj = projectToPlane(P, ECL_POLE);
-    const Gproj = projectToPlane(G, ECL_POLE);
+    return group(`phase ts=${new Date(ts).toISOString()}`, () => {
+        const P = earthAxisAt(ts);
 
-    const Pp = normalizeSafe(Pproj, { x: 1, y: 0, z: 0 });
-    const Gp = normalizeSafe(Gproj, { x: 0, y: 1, z: 0 });
+        const Pproj = projectToPlane(P, ECL_POLE);
+        const Gproj = projectToPlane(G, ECL_POLE);
 
-    return orientedAngle(Gp, Pp, ECL_POLE);
+        // здесь чаще всего и "умирает" геометрия (если вектор почти параллелен ECL_POLE)
+        const Pp = normalizeSafeDbg(Pproj, { x: 1, y: 0, z: 0 }, 'Pproj');
+        const Gp = normalizeSafeDbg(Gproj, { x: 0, y: 1, z: 0 }, 'Gproj');
+
+        const ang = orientedAngle(Gp, Pp, ECL_POLE);
+
+        // опционально: логируй только если хочешь видеть, что вообще считается
+        log('phase', {
+            ts: new Date(ts).toISOString(),
+            angRad: ang,
+            angDeg: ang * 180 / Math.PI,
+        });
+
+        return ang;
+    });
 }
 
 // -------------------------
@@ -140,34 +161,68 @@ export function getPlatoPhaseRad(ts: number) {
 
 // Compute E0: the start of the E-cycle that contains J2000 (or immediately before it)
 const phi0 = getPlatoPhaseRad(J2000_MS);
+if (!Number.isFinite(phi0)) {
+    warn('phi0 is not finite at J2000', { phi0 });
+}
 // u0 = fraction of cycle elapsed since E at J2000, where φ=0 is SOUTH => shift by 0.75
 const u0 = normalize01(phi0 / (2 * Math.PI) + SOUTH_SHIFT);
 // nearest previous E relative to J2000:
 const E0 = ms(J2000_MS - u0 * PERIOD_MS);
+if (!Number.isFinite(E0)) {
+    warn('E0 is not finite', { E0, phi0, u0 });
+}
 
 export function getPlatoAnchors(ts: number): Anchors {
     ts = ms(ts);
 
-    // EPS makes exact boundary ts===E behave as inside the NEW cycle (inclusive start).
-    const EPS_MS = 1;
-    const k = Math.floor((ts - E0 + EPS_MS) / PERIOD_MS);
+    return group(`anchors ts=${new Date(ts).toISOString()}`, () => {
+        const EPS_MS = 1;
 
-    const start = ms(E0 + k * PERIOD_MS);
-    const end = ms(start + PERIOD_MS);
+        const raw = (ts - E0 + EPS_MS) / PERIOD_MS;
+        const k = Math.floor(raw);
 
-    return {
-        start,
-        end,
-        E: start,
-        N: ms(start + PERIOD_MS * 0.25),
-        W: ms(start + PERIOD_MS * 0.50),
-        S: ms(start + PERIOD_MS * 0.75),
-        E_next: end,
-    };
+        const start = ms(E0 + k * PERIOD_MS);
+        const end = ms(start + PERIOD_MS);
+
+        if (!(start <= ts && ts < end)) {
+            warn('anchors: ts not inside [start,end)', {
+                ts: new Date(ts).toISOString(),
+                start: new Date(start).toISOString(),
+                end: new Date(end).toISOString(),
+                raw,
+                k,
+            });
+        } else {
+            log('anchors hit', {
+                k,
+                start: new Date(start).toISOString(),
+                end: new Date(end).toISOString(),
+            });
+        }
+
+        return {
+            start,
+            end,
+            E: start,
+            N: ms(start + PERIOD_MS * 0.25),
+            W: ms(start + PERIOD_MS * 0.50),
+            S: ms(start + PERIOD_MS * 0.75),
+            E_next: end,
+        };
+    }) as Anchors;
 }
 
 export const angleFromPlatoAnchors = angleFromAnchors;
 
 export function shiftPlatoCycle(cycleStartTs: number, dir: -1 | 1) {
-    return ms(cycleStartTs + dir * PERIOD_MS);
+    const from = ms(cycleStartTs);
+    const to = ms(from + dir * PERIOD_MS);
+
+    log('shiftCycle', {
+        dir,
+        from: new Date(from).toISOString(),
+        to: new Date(to).toISOString(),
+    });
+
+    return to;
 }

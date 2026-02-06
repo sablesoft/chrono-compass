@@ -4,6 +4,9 @@ import type { Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
 import { isFiniteNumber, safeDateFromTs, utcYearFromTs } from './wheel';
+import {debug} from "../debug";
+const dbg = debug('solarAnomalistic', '☀️');
+const { group, log, warn } = dbg;
 
 const DAY_MS = 86400_000;
 
@@ -13,8 +16,6 @@ const ANOMALISTIC_YEAR_MS = ANOMALISTIC_YEAR_DAYS * DAY_MS;
 
 const EXACT_MIN_YEAR = 1600;
 const EXACT_MAX_YEAR = 2400;
-
-const DEBUG_EANOM = true;
 
 // year scale probing
 const BACKSTEP_DAYS = 60;
@@ -28,23 +29,6 @@ const STRICT_GUARD_MS = 1500;
 
 function fmt(ts: number) {
     return Number.isFinite(ts) ? new Date(ts).toISOString() : String(ts);
-}
-
-function group<T>(title: string, fn: () => T): T {
-    if (!DEBUG_EANOM) return fn();
-    console.groupCollapsed(`☀️ solar-anomalistic | ${title}`);
-    try {
-        return fn();
-    } finally {
-        console.groupEnd();
-    }
-}
-
-function log(...args: any[]) {
-    if (DEBUG_EANOM) console.log('[solar-anomalistic]', ...args);
-}
-function warn(...args: any[]) {
-    if (DEBUG_EANOM) console.warn('[solar-anomalistic]', ...args);
 }
 
 type ApsisKind = 'Perihelion' | 'Aphelion';
@@ -225,18 +209,43 @@ export function getSolarAnomalisticAnchors(ts: number): Anchors {
     const M = ms(ts);
 
     return group(`M=${fmt(M)}`, () => {
-        if (!inExactRange(M)) return approxAnchors(M);
+        if (!inExactRange(M)) {
+            warn('out of exact range → approx', fmt(M));
+            return approxAnchors(M);
+        }
 
         let A = searchPrevApsisOfKind(M + STRICT_GUARD_MS, 'Aphelion');
-        if (!A) return approxAnchors(M);
+        if (!A) {
+            warn('Aphelion not found → approx', fmt(M));
+            return approxAnchors(M);
+        }
 
         for (let i = 0; i < MAX_CYCLE_ADVANCE; i++) {
             const c = buildCycleFromAphelion(A);
-            if (!c) return approxAnchors(M);
-            if (insideCycle(M, c)) return c;
-            A = M < c.start
-                ? prevAphelionBefore(A)!
-                : nextApsisOfKind(A, 'Aphelion')!;
+            if (!c) {
+                warn('cycle build failed → approx', {
+                    A: fmt(tsOf(A)),
+                    M: fmt(M),
+                });
+                return approxAnchors(M);
+            }
+            if (insideCycle(M, c)) {
+                log('cycle hit', {
+                    M: fmt(M),
+                    start: fmt(c.start),
+                    end: fmt(c.end),
+                    N: fmt(c.N),
+                    S: fmt(c.S),
+                });
+                return c;
+            }
+            if (M < c.start) {
+                log('rewind to previous cycle');
+                A = prevAphelionBefore(A)!;
+            } else {
+                log('advance to next cycle');
+                A = nextApsisOfKind(A, 'Aphelion')!;
+            }
         }
         return approxAnchors(M);
     }) as Anchors;

@@ -9,7 +9,7 @@ export type CyclesState = {
 const LS_KEY = 'chrono-com.cycle.v1';
 
 // дефолт: показываем всё, кроме больших циклов (> года)
-export const DEFAULT_CYCLES: CycleKind[] = ['day', 'moon', 'year'];
+export const DEFAULT_CYCLES: CycleKind[] = ['day', 'lunarSynodic', 'solarTropical'];
 
 function uniq<T>(arr: T[]) {
     return Array.from(new Set(arr));

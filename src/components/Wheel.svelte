@@ -492,7 +492,6 @@
         tipCluster = null;
         tipX = e.clientX;
         tipY = e.clientY;
-        // console.log('openMomentTip', {tipOpen, tipMoment, tipCluster, tipX, tipY});
     }
 
     function openClusterTip(e: MouseEvent, c: MarkerCluster) {
@@ -502,7 +501,6 @@
         tipMoment = null;
         tipX = e.clientX;
         tipY = e.clientY;
-        // console.log('openClusterTip', {tipOpen, tipMoment, tipCluster, tipX, tipY});
     }
 
     function moveTip(e: MouseEvent) {

@@ -6,12 +6,16 @@ import { normalizeTsMinute } from '../stores/moment';
 import { getCycleOptions, SPOKE_DESC } from './meta';
 
 import { getDayAnchors, angleFromDayAnchors } from './day';
-import { getMoonAnchors, angleFromMoonAnchors } from './moon';
-import { getYearAnchors, angleFromYearAnchors } from './year';
+import { getSynodicAnchors, angleFromSynodicAnchors } from './lunarSynodic';
+import { getDraconicAnchors, angleFromDraconicAnchors} from "./lunarDraconic";
+import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "./lunarAnomalistic";
+import { getTropicalAnchors, angleFromTropicalAnchors } from './solarTropical';
 import { getSolarAnomalisticAnchors, angleFromSolarAnomalisticAnchors } from './solarAnomalistic';
 import { getPlatoAnchors, angleFromPlatoAnchors } from './plato';
-import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "./lunarAnomalistic";
-import { getDraconicAnchors, angleFromDraconicAnchors} from "./draconic";
+import { debug } from '../debug';
+
+const dbg = debug('wheel', '☸️️');
+const { warn } = dbg;
 
 export type MomentTip = {
     label: string;
@@ -103,20 +107,20 @@ export function nudgeInsideCycle(ts: number, a: Anchors, dir: -1 | 1) {
 }
 
 export function computeAnchors(kind: CycleKind, ts: number, lat: number, lon: number): Anchors {
-    if (kind === 'moon') return getMoonAnchors(ts);
+    if (kind === 'lunarSynodic') return getSynodicAnchors(ts);
     if (kind === 'lunarAnomalistic') return getLunarAnomalisticAnchors(ts);
-    if (kind === 'draconic') return getDraconicAnchors(ts);
-    if (kind === 'year') return getYearAnchors(ts, lat, lon);
+    if (kind === 'lunarDraconic') return getDraconicAnchors(ts);
+    if (kind === 'solarTropical') return getTropicalAnchors(ts, lat, lon);
     if (kind === 'solarAnomalistic') return getSolarAnomalisticAnchors(ts);
     if (kind === 'plato') return getPlatoAnchors(ts);
     return getDayAnchors(ts, lat, lon);
 }
 
 export function computeAngle(kind: CycleKind, ts: number, a: Anchors): number {
-    if (kind === 'moon') return angleFromMoonAnchors(ts, a);
+    if (kind === 'lunarSynodic') return angleFromSynodicAnchors(ts, a);
     if (kind === 'lunarAnomalistic') return angleFromLunarAnomalisticAnchors(ts, a);
-    if (kind === 'draconic') return angleFromDraconicAnchors(ts, a);
-    if (kind === 'year') return angleFromYearAnchors(ts, a);
+    if (kind === 'lunarDraconic') return angleFromDraconicAnchors(ts, a);
+    if (kind === 'solarTropical') return angleFromTropicalAnchors(ts, a);
     if (kind === 'solarAnomalistic') return angleFromSolarAnomalisticAnchors(ts, a);
     if (kind === 'plato') return angleFromPlatoAnchors(ts, a);
     return angleFromDayAnchors(ts, a);
@@ -381,7 +385,7 @@ export function expandMomentToRange(
         guard++;
 
         if (guard > maxPerMoment) {
-            console.warn(`skip markers: too many repeats before range`, { id: m.id, unit, every, guard });
+            warn(`skip markers: too many repeats before range`, { id: m.id, unit, every, guard });
             return [];
         }
     }
@@ -404,7 +408,7 @@ export function expandMomentToRange(
         });
 
         if (out.length > maxPerMoment) {
-            console.warn(`skip markers: too many repeats in range`, { id: m.id, unit, every, count: out.length });
+            warn(`skip markers: too many repeats in range`, { id: m.id, unit, every, count: out.length });
             return [];
         }
     }
@@ -460,7 +464,7 @@ export function buildMarkerItemsForWheel(input: WheelMarkersInput): MarkerItem[]
             });
 
             if (items.length > MAX_MARKER_ITEMS_PER_WHEEL) {
-                console.warn(`too many marker items in wheel, cutting off`, { kind, count: items.length });
+                warn(`too many marker items in wheel, cutting off`, { kind, count: items.length });
                 return items;
             }
         }

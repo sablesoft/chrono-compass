@@ -4,6 +4,10 @@ import type { Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
 import { isFiniteNumber, safeDateFromTs, utcYearFromTs } from './wheel';
+import { debug } from '../debug';
+
+const dbg = debug('lunarAnomalistic', '🌙️');
+const { group, log, warn } = dbg;
 
 const DAY_MS = 86400_000;
 
@@ -13,8 +17,6 @@ const ANOMALISTIC_MONTH_MS = ANOMALISTIC_MONTH_DAYS * DAY_MS;
 
 const EXACT_MIN_YEAR = 1600;
 const EXACT_MAX_YEAR = 2400;
-
-const DEBUG_ANOM = true;
 
 // how far we jump backwards when trying to locate a previous apsis (initial probe)
 const BACKSTEP_DAYS = 15;
@@ -34,23 +36,6 @@ const STRICT_GUARD_MS = 1500;
 function fmt(ts: number) {
     if (!Number.isFinite(ts)) return String(ts);
     return new Date(ts).toISOString();
-}
-
-function group<T>(title: string, fn: () => T): T {
-    if (!DEBUG_ANOM) return fn();
-    console.groupCollapsed(`🌓 anomalistic | ${title}`);
-    try {
-        return fn();
-    } finally {
-        console.groupEnd();
-    }
-}
-
-function log(...args: any[]) {
-    if (DEBUG_ANOM) console.log('[lunarAnomalistic]', ...args);
-}
-function warn(...args: any[]) {
-    if (DEBUG_ANOM) console.warn('[lunarAnomalistic]', ...args);
 }
 
 type ApsisKind = 'Perigee' | 'Apogee';
