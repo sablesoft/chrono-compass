@@ -1,5 +1,6 @@
 // src/lib/cycles/meta.ts
 import type { CycleKind } from './types';
+import type {SpokeKey} from "./spokes";
 
 export type CycleMeta = {
     label: string;
@@ -52,9 +53,6 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
         order: 50
     },
 };
-
-type SpokeKey = 'E' | 'ENE' | 'NE' | 'NNE' | 'N' | 'NNW' | 'NW' | 'WNW' |
-                'W' | 'WSW' | 'SW' | 'SSW' | 'S' | 'SSE' | 'SE' | 'ESE' | 'E_next';
 
 export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
     day: {

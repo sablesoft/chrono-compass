@@ -1,47 +1,76 @@
 // src/lib/cycles/lunarAnomalistic.ts
+//
+// Lunar Anomalistic wheel — distance-linear spokes (Earth–Moon distance).
+//
+// New behavior (mirrors solarAnomalistic):
+// - N/S are astronomical apsides (Apogee / Perigee) from astronomy-engine.
+// - All other spokes are NOT midpoints-in-time.
+//   We assign a target distance (km) per spoke and solve for timestamps where Earth–Moon distance hits that target.
+// - We return Anchors with optional `spokes` (Partial<Record<SpokeKey, number>>) so buildSpokeTimes() can use them.
+//
+// Notes:
+// - Uses astronomy-engine SearchLunarApsis / NextLunarApsis for apsides.
+// - Uses GeoVector(Moon) length (AU) * AU_KM for distance sampling.
+// - Keeps approx fallback for out-of-range and failure cases.
+// - Includes verbose debug logs for bracket + solver diagnostics (similar to solarAnomalistic).
+//
+// IMPORTANT FIX:
+// - Adds anti-bounce protection in cycle-hunt (prevents rewind/advance ping-pong between two apogees).
+// - Adds small boundary guard so near-boundary jitter doesn’t trigger oscillation.
+
 import * as Astronomy from 'astronomy-engine';
-import type { Anchors } from './spokes';
+import { type Anchors } from './spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
-import { isFiniteNumber, safeDateFromTs, utcYearFromTs } from './wheel';
+import { isFiniteNumber } from './wheel';
 import { debug } from '../debug';
+
+import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './apsisCore';
+import { buildDistanceLinearWheel } from './distanceLinearCore';
 
 const dbg = debug('lunarAnomalistic', '🌙️');
 const { group, log, warn } = dbg;
 
 const DAY_MS = 86400_000;
 
-// Anomalistic month ≈ 27.55454988 days (perigee -> perigee)
+// Anomalistic month ≈ 27.55454988 days (perigee → perigee)
 const ANOMALISTIC_MONTH_DAYS = 27.55454988;
 const ANOMALISTIC_MONTH_MS = ANOMALISTIC_MONTH_DAYS * DAY_MS;
 
 const EXACT_MIN_YEAR = 1600;
 const EXACT_MAX_YEAR = 2400;
 
-// how far we jump backwards when trying to locate a previous apsis (initial probe)
+// Initial probing step (days) to get a "somewhat nearby" apsis into the past.
 const BACKSTEP_DAYS = 15;
 const MAX_BACKSTEPS = 28;
 
-// for walking apse chain
+// For walking apsis chain and cycle hunting
 const MAX_PREV_STEPS = 64;
 const MAX_NEXT_STEPS = 64;
+const MAX_CYCLE_ADVANCE = 12;
 
-// how many cycles we can advance when searching a cycle containing M
-const MAX_CYCLE_ADVANCE = 10;
-
-// Safety guard for "strictly earlier" comparisons.
-// astronomy-engine results can differ by milliseconds between calls.
+// Guard against millisecond jitter / boundary equality
 const STRICT_GUARD_MS = 1500;
 
+// Cycle boundary guard to avoid edge oscillations (keep modest; doesn’t hide real errors)
+const CYCLE_EDGE_GUARD_MS = 2_000;
+
+// Root-solving
+const SOLVE_MAX_ITERS = 70;
+const SOLVE_EPS_MS = 500; // sub-second is enough for “minute-level” outputs
+const MONO_EPS_KM = 1e-6; // tiny slack for bracketing (km)
+
+// Astronomy constants
+const AU_KM = 149_597_870.7;
+
 function fmt(ts: number) {
-    if (!Number.isFinite(ts)) return String(ts);
-    return new Date(ts).toISOString();
+    return Number.isFinite(ts) ? new Date(ts).toISOString() : String(ts);
 }
 
 type ApsisKind = 'Perigee' | 'Apogee';
 
 type Apsis = {
-    kind: any; // astronomy-engine may return enum 0/1
+    kind: any; // enum 0/1 or string
     time: { date: Date };
     dist_km?: number;
 };
@@ -49,7 +78,6 @@ type Apsis = {
 function normalizeKind(k: any): ApsisKind | null {
     if (k === 0) return 'Perigee';
     if (k === 1) return 'Apogee';
-
     if (k === 'Perigee' || k === 'Apogee') return k;
 
     if (typeof k === 'string') {
@@ -64,31 +92,224 @@ function kindOf(a: any): ApsisKind | null {
     return normalizeKind(a?.kind);
 }
 
-function tsOf(a: Apsis) {
-    return ms(a.time.date.getTime());
+// ---------------------------------------------
+// Distance helpers (Earth–Moon distance in km)
+// ---------------------------------------------
+
+function earthMoonDistanceKm(ts: number): number {
+    const A: any = Astronomy as any;
+    const d = new Date(ts);
+    const t = toAstroTime(A, d);
+
+    // Best: geocentric vector (Moon position from Earth) length in AU -> km
+    try {
+        if (typeof A.GeoVector === 'function') {
+            // Some builds accept (body, time, aberration)
+            const v = A.GeoVector(Astronomy.Body.Moon, t, false);
+            if (v && typeof v.Length === 'function') {
+                const rAu = v.Length();
+                if (typeof rAu === 'number' && Number.isFinite(rAu)) return rAu * AU_KM;
+            }
+            if (v && typeof v.length === 'number' && Number.isFinite(v.length)) return v.length * AU_KM;
+            if (v && typeof v.x === 'number') {
+                const rAu = Math.hypot(v.x, v.y, v.z);
+                if (Number.isFinite(rAu)) return rAu * AU_KM;
+            }
+        }
+    } catch {}
+
+    // Alternate: some builds may expose MoonDistance
+    try {
+        if (typeof A.MoonDistance === 'function') {
+            const rKm = A.MoonDistance(t);
+            if (typeof rKm === 'number' && Number.isFinite(rKm)) return rKm;
+        }
+    } catch {}
+
+    return NaN;
 }
 
-function inExactRange(ts: number) {
-    const y = utcYearFromTs(ts);
-    if (y === null) return false;
-    return y >= EXACT_MIN_YEAR && y <= EXACT_MAX_YEAR;
+function distDump(label: string, ts: number) {
+    return { label, ts: fmt(ts), r_km: earthMoonDistanceKm(ts) };
 }
 
-function midpoint(a: number, b: number) {
-    return ms((a + b) / 2);
+function distOrComputeKm(a: Apsis): number {
+    const d = a?.dist_km;
+    if (typeof d === 'number' && Number.isFinite(d)) return d;
+    return earthMoonDistanceKm(tsOf(a as any));
 }
 
-function insideCycle(M: number, a: Anchors) {
-    // half-open interval prevents boundary glitches when M == end
-    return M >= a.start && M < a.end;
+// ---------------------------------------------
+// Apsis search (astronomy-engine) + walker
+// ---------------------------------------------
+
+function safeSearch(probe: Date): Apsis | null {
+    try {
+        const a = (Astronomy as any).SearchLunarApsis(probe) as Apsis;
+        const t = a?.time?.date?.getTime?.();
+        return typeof t === 'number' && Number.isFinite(t) ? a : null;
+    } catch {
+        return null;
+    }
 }
 
-// ---------- Approx fallback ----------
+function safeNext(cur: Apsis): Apsis | null {
+    try {
+        const a = (Astronomy as any).NextLunarApsis(cur as any) as Apsis;
+        const t = a?.time?.date?.getTime?.();
+        return typeof t === 'number' && Number.isFinite(t) ? a : null;
+    } catch {
+        return null;
+    }
+}
+
+const walker = makeApsisWalker<Apsis, ApsisKind>({
+    kindOf,
+    safeSearch,
+    safeNext,
+    BACKSTEP_DAYS,
+    MAX_BACKSTEPS,
+    MAX_PREV_STEPS,
+    MAX_NEXT_STEPS,
+    STRICT_GUARD_MS,
+    dbg: { log, warn },
+});
+
+function prevApogeeBefore(a: Apsis) {
+    return walker.searchPrevApsisOfKind(tsOf(a as any) - STRICT_GUARD_MS, 'Apogee');
+}
+
+// ---------------------------------------------
+// Distance-linear spokes builder (around Apogee A0)
+// ---------------------------------------------
+
+function buildDistanceLinearSpokesFromApogee(A0: Apsis): Anchors | null {
+    const tA0 = tsOf(A0 as any);
+
+    return group(`buildCycle A0=${fmt(tA0)}`, () => {
+        // We need:
+        // - P_before (previous Perigee)
+        // - P_after  (Perigee after this Apogee)
+        // - A_after  (next Apogee)
+        const P_before = walker.searchPrevApsisOfKind(tA0 - STRICT_GUARD_MS, 'Perigee');
+
+        const approxHalf = ANOMALISTIC_MONTH_MS / 2;
+        const approxFull = ANOMALISTIC_MONTH_MS;
+
+        const P_after = walker.searchApsisNear(tA0 + approxHalf, 'Perigee', ANOMALISTIC_MONTH_MS);
+        if (!P_after || kindOf(P_after) !== 'Perigee') {
+            warn('P_after not found via approx search', fmt(tA0 + approxHalf));
+            return null;
+        }
+
+        const A_after = walker.searchApsisNear(tA0 + approxFull, 'Apogee', ANOMALISTIC_MONTH_MS);
+        if (!A_after || kindOf(A_after) !== 'Apogee') {
+            warn('A_after not found via approx search', fmt(tA0 + approxFull));
+            return null;
+        }
+
+        if (!P_before) {
+            warn('missing P_before', { A0: fmt(tA0) });
+            return null;
+        }
+
+        const tPb = tsOf(P_before as any);
+        const tPa = tsOf(P_after as any);
+        const tAa = tsOf(A_after as any);
+
+        // Distances: max at apogee, min at perigee
+        const rMax = distOrComputeKm(A0);      // Apogee
+        const rMin = distOrComputeKm(P_after); // Perigee after A0 (this is S)
+
+        log('apsis + distances', {
+            tPb: fmt(tPb),
+            tA0: fmt(tA0),
+            tPa: fmt(tPa),
+            tAa: fmt(tAa),
+            rPb_km: earthMoonDistanceKm(tPb),
+            rA0_km: earthMoonDistanceKm(tA0),
+            rPa_km: earthMoonDistanceKm(tPa),
+            rAa_km: earthMoonDistanceKm(tAa),
+            rMin_km: rMin,
+            rMid_km: (rMin + rMax) / 2,
+            rMax_km: rMax,
+        });
+
+        log('bracket endpoints', {
+            Pb: distDump('Pb', tPb),
+            A0: distDump('A0', tA0),
+            Pa: distDump('Pa', tPa),
+            Aa: distDump('Aa', tAa),
+        });
+
+        const anchors = buildDistanceLinearWheel(
+            {
+                distanceAt: earthMoonDistanceKm,
+                SOLVE_MAX_ITERS,
+                SOLVE_EPS_MS,
+                MONO_EPS: MONO_EPS_KM,
+                fmtTs: fmt,
+                dbg: { log, warn },
+            },
+            {
+                // E solve segment: P_before -> A0 (increasing)
+                tE_guess_lo: tPb,
+                tE_guess_hi: tA0,
+
+                // N is the apogee itself
+                tN: tA0,
+
+                // W solve segment end: A0 -> P_after (decreasing)
+                tW_guess_hi: tPa,
+
+                // S is perigee after A0
+                tS: tPa,
+
+                // E_next solve segment end: P_after -> A_after (increasing)
+                tE_next_guess_hi: tAa,
+
+                rMax,
+                rMin,
+                dbgLabel: 'lunarAnomalistic',
+            },
+        );
+
+        if (!anchors) return null;
+
+        const spanDays = (anchors.E_next - anchors.E) / DAY_MS;
+        if (!(spanDays > 10 && spanDays < 60)) {
+            warn('distance-linear: suspicious span', spanDays.toFixed(3), 'days', {
+                E: fmt(anchors.E),
+                E_next: fmt(anchors.E_next),
+            });
+            return null;
+        }
+
+        log('lunarAnomalistic distance-linear cycle', {
+            E: fmt(anchors.E),
+            N: fmt(anchors.N),
+            W: fmt(anchors.W),
+            S: fmt(anchors.S),
+            E_next: fmt(anchors.E_next),
+            rMin_km: rMin,
+            rMid_km: (rMin + rMax) / 2,
+            rMax_km: rMax,
+        });
+
+        return anchors;
+    });
+}
+
+// ---------------------------------------------
+// Approx fallback (simple, stable)
+// ---------------------------------------------
+
+// Reference apogee ~ Jan 1, 2000
 const APPROX_EPOCH_APOGEE_MS = Date.UTC(2000, 0, 1, 0, 0, 0, 0);
 
 function approxAnchors(ts: number): Anchors {
+    // Time-based approximation only (kept for fallback).
     const period = ANOMALISTIC_MONTH_MS;
-    const half = period / 2;
     const quarter = period / 4;
 
     const k = Math.floor((ts - APPROX_EPOCH_APOGEE_MS) / period);
@@ -97,344 +318,179 @@ function approxAnchors(ts: number): Anchors {
     while (N + period <= ts) N += period;
     N = ms(N);
 
-    const P_before = ms(N - half);
-    const S = ms(N + half);
     const E = ms(N - quarter);
     const W = ms(N + quarter);
+    const S = ms(N + period / 2);
     const E_next = ms(N + 3 * quarter);
 
     return { start: E, end: E_next, E, N, W, S, E_next };
 }
 
-// ---------- Exact via astronomy-engine ----------
-
-function safeApsisFromSearch(probe: Date, label: string): Apsis | null {
-    const a = Astronomy.SearchLunarApsis(probe) as any as Apsis;
-    const t = a?.time?.date?.getTime?.();
-    if (!(typeof t === 'number' && Number.isFinite(t))) {
-        warn(`${label}: bad SearchLunarApsis result`, { probe: probe.toISOString(), a });
-        return null;
-    }
-    return a;
-}
-
-function safeNextApsis(cur: Apsis): Apsis | null {
-    try {
-        const nxt = Astronomy.NextLunarApsis(cur as any) as any as Apsis;
-        const t = nxt?.time?.date?.getTime?.();
-        if (!(typeof t === 'number' && Number.isFinite(t))) return null;
-        return nxt;
-    } catch {
-        return null;
-    }
-}
-
-// Find ANY apsis with time <= ts by backing the probe up until Search returns one in the past.
-function findAnyApsisAtOrBefore(ts: number): Apsis | null {
-    const d0 = safeDateFromTs(ts);
-    if (!d0) return null;
-
-    let probe = new Date(d0.getTime());
-
-    for (let i = 0; i < MAX_BACKSTEPS; i++) {
-        const a = safeApsisFromSearch(probe, 'findAnyApsisAtOrBefore');
-        if (!a) {
-            probe = new Date(probe.getTime() - BACKSTEP_DAYS * DAY_MS);
-            continue;
-        }
-
-        const found = tsOf(a);
-        log('findAnyApsis',
-            'probe=', probe.toISOString(),
-            'foundKind=', a?.kind, '→', kindOf(a),
-            'found=', fmt(found),
-            'ts=', fmt(ts)
-        );
-
-        if (found <= ts) return a;
-
-        // got a future apsis -> move probe back
-        probe = new Date(probe.getTime() - BACKSTEP_DAYS * DAY_MS);
-    }
-
-    warn('findAnyApsisAtOrBefore MISS', 'ts=', fmt(ts));
-    return null;
-}
-
-/**
- * Robust "previous apsis" step:
- * We want the immediate previous apsis strictly earlier than cur (no skipping Perigee/Apogee).
- *
- * Strategy:
- * 1) Find some base apsis <= (curTs - guard) using findAnyApsisAtOrBefore.
- * 2) Walk forward with NextLunarApsis until the next would cross curTs.
- *    Return the last one that is still strictly < curTs.
- *
- * This avoids the bug where SearchLunarApsis(probe) keeps returning Apogees and
- * you "miss" the Perigees, eventually jumping months back.
- */
-function prevImmediateApsis(cur: Apsis): Apsis | null {
-    const tCur = tsOf(cur);
-    const target = ms(tCur - STRICT_GUARD_MS);
-
-    const base = findAnyApsisAtOrBefore(target);
-    if (!base) {
-        warn('prevImmediateApsis MISS (no base)', { cur: fmt(tCur) });
-        return null;
-    }
-
-    let last: Apsis = base;
-    let tLast = tsOf(last);
-
-    // If base is not actually before cur (can happen on boundaries), step further back once.
-    if (!(tLast < target)) {
-        const base2 = findAnyApsisAtOrBefore(ms(target - BACKSTEP_DAYS * DAY_MS));
-        if (!base2) return null;
-        last = base2;
-        tLast = tsOf(last);
-    }
-
-    for (let i = 0; i < MAX_NEXT_STEPS; i++) {
-        const nxt = safeNextApsis(last);
-        if (!nxt) break;
-
-        const tNext = tsOf(nxt);
-
-        // Safety: prevent non-increasing loops
-        if (!(tNext > tLast + 1)) {
-            warn('prevImmediateApsis: non-increasing Next', { last: fmt(tLast), next: fmt(tNext) });
-            break;
-        }
-
-        if (tNext >= target) {
-            // last is the immediate previous < target
-            log('prevImmediateApsis', 'cur=', fmt(tCur), 'prev=', fmt(tLast), 'prevKind=', last?.kind, '→', kindOf(last));
-            return last;
-        }
-
-        last = nxt;
-        tLast = tNext;
-    }
-
-    // If we never crossed target, last is still < target but might be far behind.
-    // Still return it — callers have additional sanity checks.
-    log('prevImmediateApsis (fallback)', 'cur=', fmt(tCur), 'prev=', fmt(tLast), 'prevKind=', last?.kind, '→', kindOf(last));
-    return last;
-}
-
-// Find previous apsis of given kind with time <= ts.
-function searchPrevApsisOfKind(ts: number, kind: ApsisKind): Apsis | null {
-    const base = findAnyApsisAtOrBefore(ts);
-    if (!base) {
-        warn('searchPrev MISS (no base)', kind, 'ts=', fmt(ts));
-        return null;
-    }
-
-    log('searchPrev start', 'want=', kind, 'ts=', fmt(ts), 'base=', fmt(tsOf(base)), 'baseKind=', base?.kind, '→', kindOf(base));
-
-    // Forward scan from base to get the best <= ts (cheap and accurate).
-    let best: Apsis | null = null;
-
-    let cur: Apsis = base;
-    for (let i = 0; i < MAX_NEXT_STEPS; i++) {
-        const tc = tsOf(cur);
-        const ck = kindOf(cur);
-        log('searchPrev fwd step', i, 'cur=', fmt(tc), 'curKind=', cur?.kind, '→', ck);
-
-        if (tc <= ts && ck === kind) best = cur;
-
-        const nxt = safeNextApsis(cur);
-        if (!nxt) break;
-
-        const tn = tsOf(nxt);
-        log('searchPrev fwd next', i, 'next=', fmt(tn), 'nextKind=', nxt?.kind, '→', kindOf(nxt));
-
-        if (tn > ts) break;
-        cur = nxt;
-    }
-
-    if (best) {
-        log('searchPrev HIT (fwd)', kind, fmt(tsOf(best)), '<=', fmt(ts));
-        return best;
-    }
-
-    // If forward scan didn't find it, walk backward by immediate previous apsis steps.
-    let back: Apsis | null = base;
-    for (let i = 0; i < MAX_PREV_STEPS; i++) {
-        if (!back) break;
-
-        const tb = tsOf(back);
-        const bk = kindOf(back);
-
-        log('searchPrev back step', i, 'cur=', fmt(tb), 'curKind=', back?.kind, '→', bk);
-
-        if (tb <= ts && bk === kind) {
-            log('searchPrev HIT (back)', kind, fmt(tb), '<=', fmt(ts));
-            return back;
-        }
-
-        const prev = prevImmediateApsis(back);
-        if (!prev) break;
-
-        const tp = tsOf(prev);
-        if (!(tp < tb - 1)) {
-            warn('searchPrev back FAIL: non-decreasing prev', { prev: fmt(tp), cur: fmt(tb) });
-            break;
-        }
-
-        back = prev;
-    }
-
-    warn('searchPrev MISS', kind, 'ts=', fmt(ts), 'base=', fmt(tsOf(base)));
-    return null;
-}
-
-function nextApsisOfKind(start: Apsis, kind: ApsisKind, maxSteps = 32): Apsis | null {
-    try {
-        let cur: Apsis = start;
-        log('nextApsis start', 'from=', fmt(tsOf(start)), 'fromKind=', start?.kind, '→', kindOf(start), 'want=', kind);
-
-        for (let i = 0; i < maxSteps; i++) {
-            const nxt = safeNextApsis(cur);
-            if (!nxt) {
-                warn('nextApsis MISS (no date)', kind, 'after=', fmt(tsOf(start)));
-                return null;
-            }
-
-            const nk = kindOf(nxt);
-            log('nextApsis step', i, 'got=', nxt?.kind, '→', nk, 't=', fmt(tsOf(nxt)));
-
-            if (nk === kind) return nxt;
-            cur = nxt;
-        }
-    } catch (e) {
-        warn('nextApsis ERROR', kind, e);
-    }
-
-    warn('nextApsis MISS', kind, 'after=', fmt(tsOf(start)));
-    return null;
-}
-
-function prevApogeeBefore(ap: Apsis): Apsis | null {
-    return searchPrevApsisOfKind(tsOf(ap) - STRICT_GUARD_MS, 'Apogee');
-}
-
-// Build cycle around apogee A0:
-// P_before (prev Perigee), P_after (next Perigee), A_after (next Apogee),
-// then E/W/E_next are midpoints between neighboring apsides.
-function buildCycleFromApogee(A0: Apsis): Anchors | null {
-    const tA0 = tsOf(A0);
-    log('buildCycleFromApogee', 'A0=', fmt(tA0), 'A0.kind=', A0.kind, '→', kindOf(A0));
-
-    const P_before = searchPrevApsisOfKind(tA0 - STRICT_GUARD_MS, 'Perigee');
-    if (!P_before) {
-        warn('buildCycle FAIL: no P_before', fmt(tA0));
-        return null;
-    }
-
-    const P_after = nextApsisOfKind(A0, 'Perigee');
-    if (!P_after) {
-        warn('buildCycle FAIL: no P_after', fmt(tA0));
-        return null;
-    }
-
-    const A_after = nextApsisOfKind(P_after, 'Apogee');
-    if (!A_after) {
-        warn('buildCycle FAIL: no A_after', fmt(tsOf(P_after)));
-        return null;
-    }
-
-    const tPb = tsOf(P_before);
-    const tPa = tsOf(P_after);
-    const tAa = tsOf(A_after);
-
-    const E = midpoint(tPb, tA0);
-    const N = tA0;
-    const W = midpoint(tA0, tPa);
-    const S = tPa;
-    const E_next = midpoint(tPa, tAa);
-
-    log('cycle points',
-        { E: fmt(E), N: fmt(N), W: fmt(W), S: fmt(S), E_next: fmt(E_next) },
-        { Pb: fmt(tPb), A0: fmt(tA0), Pa: fmt(tPa), Aa: fmt(tAa) }
-    );
-
-    if (!(E < N && N < W && W < S && S < E_next)) {
-        warn('buildCycle FAIL: non-monotonic', { E: fmt(E), N: fmt(N), W: fmt(W), S: fmt(S), E_next: fmt(E_next) });
-        return null;
-    }
-
-    const spanDays = (E_next - E) / DAY_MS;
-    if (!(spanDays > 10 && spanDays < 60)) {
-        warn('buildCycle FAIL: suspicious span', spanDays.toFixed(3), 'days', { start: fmt(E), end: fmt(E_next) });
-        return null;
-    }
-
-    return { start: E, end: E_next, E, N, W, S, E_next };
-}
+// ---------------------------------------------
+// Public API
+// ---------------------------------------------
 
 export function getLunarAnomalisticAnchors(ts: number): Anchors {
     if (!isFiniteNumber(ts)) return approxAnchors(Date.now());
     const M = ms(ts);
 
     return group(`M=${fmt(M)}`, () => {
-        log('inExactRange =', inExactRange(M));
-
-        if (!inExactRange(M)) {
-            log('→ approx (out of range)');
+        if (!inExactRange(M, EXACT_MIN_YEAR, EXACT_MAX_YEAR)) {
+            warn('out of exact range → approx', fmt(M));
             return approxAnchors(M);
         }
 
-        // previous apogee <= M (tiny +guard for boundary)
-        let A = searchPrevApsisOfKind(M + STRICT_GUARD_MS, 'Apogee');
+        // Find previous apogee <= M (tiny +guard for boundary)
+        let A = walker.searchPrevApsisOfKind(M + STRICT_GUARD_MS, 'Apogee');
         if (!A) {
-            warn('A0 not found → approx');
+            warn('Apogee not found → approx', fmt(M));
             return approxAnchors(M);
         }
 
-        log('A0', kindOf(A), fmt(tsOf(A)));
+        // Anti-bounce: if we ever revisit the same Apogee timestamp, we’re ping-ponging.
+        const seenApogeeTs = new Set<number>();
 
-        // Keep advancing/rewinding cycles until M is inside [E, E_next)
+// Replace the whole for(hop...) loop in getLunarAnomalisticAnchors with this:
+
+        const COVER_GUARD_MS = 5 * 60_000; // 5 minutes: absorbs tiny gaps without hiding real mistakes
+
+        // We’ll keep A as our “current apogee anchor” and hunt deterministically.
         for (let hop = 0; hop < MAX_CYCLE_ADVANCE; hop++) {
-            const c = buildCycleFromApogee(A);
+            const a0 = ms(tsOf(A as any));
+            const c = buildDistanceLinearSpokesFromApogee(A);
             if (!c) {
-                warn('cycle build failed → approx');
+                warn('cycle build failed → approx', { A: fmt(tsOf(A as any)), M: fmt(M) });
                 return approxAnchors(M);
             }
 
-            const inside = insideCycle(M, c);
-            log(`cycle hop=${hop}`, {
-                start: fmt(c.start),
-                end: fmt(c.end),
-                N: fmt(c.N),
-                S: fmt(c.S),
-                inside,
-                M: fmt(M),
-            });
-
-            if (inside) {
-                log('✔ using cycle', `hop=${hop}`);
+            // 1) Standard hit
+            if (insideCycle(M, c)) {
+                log('cycle hit', {
+                    hop,
+                    M: fmt(M),
+                    start: fmt(c.start),
+                    end: fmt(c.end),
+                    E: fmt(c.E),
+                    N: fmt(c.N),
+                    W: fmt(c.W),
+                    S: fmt(c.S),
+                });
                 return c;
             }
 
+            // 2) If we're just BEFORE this cycle start, check previous cycle coverage
             if (M < c.start) {
-                log('M < start → prev apogee');
-                const Aprev = prevApogeeBefore(A);
-                if (!Aprev) {
-                    warn('Aprev missing → approx');
-                    return approxAnchors(M);
+                const prevA = prevApogeeBefore(A);
+                if (!prevA) {
+                    // If we can't find prev, just clamp to current if very close
+                    if (M >= c.start - COVER_GUARD_MS) {
+                        warn('before start but within guard → clamp to current cycle', {
+                            hop,
+                            M: fmt(M),
+                            start: fmt(c.start),
+                            guardMs: COVER_GUARD_MS,
+                            A0: fmt(a0),
+                        });
+                        return c;
+                    }
+                    break;
                 }
-                A = Aprev;
+
+                const prevC = buildDistanceLinearSpokesFromApogee(prevA);
+                if (prevC) {
+                    // If M is inside prevC normally, use it
+                    if (insideCycle(M, prevC)) {
+                        log('cycle hit (prev)', {
+                            hop,
+                            M: fmt(M),
+                            start: fmt(prevC.start),
+                            end: fmt(prevC.end),
+                        });
+                        return prevC;
+                    }
+
+                    // If there's a tiny gap: prevC.end < M < c.start
+                    // and M is close to either edge, pick the nearer side deterministically.
+                    if (M > prevC.end && M < c.start) {
+                        const dPrev = M - prevC.end;
+                        const dNext = c.start - M;
+
+                        if (Math.min(dPrev, dNext) <= COVER_GUARD_MS) {
+                            const pick = dPrev <= dNext ? prevC : c;
+                            warn('gap between cycles → pick nearest', {
+                                hop,
+                                M: fmt(M),
+                                prevEnd: fmt(prevC.end),
+                                nextStart: fmt(c.start),
+                                dPrevMs: dPrev,
+                                dNextMs: dNext,
+                                pick: pick === prevC ? 'prev' : 'next',
+                            });
+                            return pick;
+                        }
+                    }
+                }
+
+                // Not close, continue hunting backward
+                log('rewind to previous cycle', { hop, M: fmt(M), start: fmt(c.start), A0: fmt(a0) });
+                A = prevA;
                 continue;
             }
 
-            log('M ≥ end → next apogee');
-            const Anext = nextApsisOfKind(A, 'Apogee');
-            if (!Anext) {
-                warn('Anext missing → approx');
-                return approxAnchors(M);
+            // 3) M >= c.end, check next cycle coverage symmetrically
+            {
+                const nextA = walker.nextApsisOfKind(A, 'Apogee');
+                if (!nextA) {
+                    if (M <= c.end + COVER_GUARD_MS) {
+                        warn('after end but within guard → clamp to current cycle', {
+                            hop,
+                            M: fmt(M),
+                            end: fmt(c.end),
+                            guardMs: COVER_GUARD_MS,
+                            A0: fmt(a0),
+                        });
+                        return c;
+                    }
+                    break;
+                }
+
+                const nextC = buildDistanceLinearSpokesFromApogee(nextA);
+                if (nextC) {
+                    if (insideCycle(M, nextC)) {
+                        log('cycle hit (next)', {
+                            hop,
+                            M: fmt(M),
+                            start: fmt(nextC.start),
+                            end: fmt(nextC.end),
+                        });
+                        return nextC;
+                    }
+
+                    // tiny gap: c.end < M < nextC.start
+                    if (M > c.end && M < nextC.start) {
+                        const dCur = M - c.end;
+                        const dNext = nextC.start - M;
+
+                        if (Math.min(dCur, dNext) <= COVER_GUARD_MS) {
+                            const pick = dCur <= dNext ? c : nextC;
+                            warn('gap between cycles → pick nearest', {
+                                hop,
+                                M: fmt(M),
+                                curEnd: fmt(c.end),
+                                nextStart: fmt(nextC.start),
+                                dCurMs: dCur,
+                                dNextMs: dNext,
+                                pick: pick === c ? 'cur' : 'next',
+                            });
+                            return pick;
+                        }
+                    }
+                }
+
+                log('advance to next cycle', { hop, M: fmt(M), end: fmt(c.end), A0: fmt(a0) });
+                A = nextA;
+                continue;
             }
-            A = Anext;
         }
 
         warn('MAX_CYCLE_ADVANCE reached → approx');
@@ -443,3 +499,12 @@ export function getLunarAnomalisticAnchors(ts: number): Anchors {
 }
 
 export const angleFromLunarAnomalisticAnchors = angleFromAnchors;
+
+/*
+  Debugging tips:
+  - If buildDistanceLinearWheel logs "target not bracketed", compare r(t_lo), r(t_hi) vs target.
+    That usually means the chosen segment isn’t monotonic (wrong adjacent apsides),
+    or the distance sampler differs from apsis dist_km in this astronomy-engine build.
+  - If P_after / A_after are missing, increase the “nudge window” inside walker.searchApsisNear()
+    (or pass a larger period hint than ANOMALISTIC_MONTH_MS if your build needs it).
+*/
