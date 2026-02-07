@@ -3,14 +3,14 @@
 ## 🌐 Translations
 
 - 🇬🇧 **English** — main documentation (this README)
-- 🇷🇺 **Русский** — [docs/ru/README.md](docs/ru/README.md)
+- 🇷🇺 **Русский** — [docs/ru/README.md](public/docs/ru/README.md)
 
 **ChronoCompass** is an experimental visual time instrument that treats time as a system of **interacting cycles**, rather than a single linear stream.
 
 Instead of asking *“what time is it?”*, ChronoCompass helps you explore **where you are inside multiple temporal cycles at once**.
 
 <p align="center">
-  <img src="docs/screens/screenshoot.png" alt="ChronoCompass — visual time compass" width="900">
+  <img src="public/docs/screens/screenshoot.png" alt="ChronoCompass — visual time compass" width="900">
 </p>
 
 Days, lunar phases, years, and long-term astronomical cycles are represented as **rotating wheels**, all aligned to a shared **compass-based model** (East / North / West / South).  
@@ -28,10 +28,10 @@ Different cycles remain physically independent, but are mapped onto a shared dir
 For a detailed conceptual overview, see:
 
 - **Concept & model:**  
-  → [`docs/en/CONCEPT.md`](docs/en/CONCEPT.md)
+  → [`docs/en/CONCEPT.md`](public/docs/en/CONCEPT.md)
 
 - **Key terms and definitions:**  
-  → [`docs/en/GLOSSARY.md`](docs/en/GLOSSARY.md)
+  → [`docs/en/GLOSSARY.md`](public/docs/en/GLOSSARY.md)
 
 ---
 
@@ -55,25 +55,25 @@ For a detailed conceptual overview, see:
 ChronoCompass currently supports multiple independent cycles, including:
 
 - **Diurnal Cycle** (Earth rotation)  
-  → [`docs/en/cycles/diurnal.md`](docs/en/cycles/diurnal.md)
+  → [`docs/en/cycles/diurnal.md`](public/docs/en/cycles/diurnal.md)
 
 - **Lunar Synodic Cycle** (Moon phases)  
-  → [`docs/en/cycles/lunar-synodic.md`](docs/en/cycles/lunar-synodic.md)
+  → [`docs/en/cycles/lunar-synodic.md`](public/docs/en/cycles/lunar-synodic.md)
 
 - **Lunar Anomalistic Cycle** (Moon distance)  
-  → [`docs/en/cycles/lunar-anomalistic.md`](docs/en/cycles/lunar-anomalistic.md)
+  → [`docs/en/cycles/lunar-anomalistic.md`](public/docs/en/cycles/lunar-anomalistic.md)
 
 - **Lunar Draconic Cycle** (orbital nodes, eclipses)  
-  → [`docs/en/cycles/lunar-draconic.md`](docs/en/cycles/lunar-draconic.md)
+  → [`docs/en/cycles/lunar-draconic.md`](public/docs/en/cycles/lunar-draconic.md)
 
 - **Solar Tropical Cycle** (seasons)  
-  → [`docs/en/cycles/solar-tropical.md`](docs/en/cycles/solar-tropical.md)
+  → [`docs/en/cycles/solar-tropical.md`](public/docs/en/cycles/solar-tropical.md)
 
 - **Solar Anomalistic Cycle** (Earth–Sun distance)  
-  → [`docs/en/cycles/solar-anomalistic.md`](docs/en/cycles/solar-anomalistic.md)
+  → [`docs/en/cycles/solar-anomalistic.md`](public/docs/en/cycles/solar-anomalistic.md)
 
 - **Platonic / Precessional Cycle** (axial precession)  
-  → [`docs/en/cycles/plato.md`](docs/en/cycles/plato.md)
+  → [`docs/en/cycles/plato.md`](public/docs/en/cycles/plato.md)
 
 Each cycle:
 - has its own anchors and physical meaning,
@@ -95,9 +95,9 @@ The semantic meaning of directions (e.g. visibility, gravity, transition, balanc
 emerges consistently across different cycles.
 
 For philosophical and interpretative background, see:
-- [`docs/en/philosophy/wheels.md`](docs/en/philosophy/wheels.md)
-- [`docs/en/philosophy/elements.md`](docs/en/philosophy/elements.md)
-- [`docs/en/philosophy/precession.md`](docs/en/philosophy/precession.md)
+- [`docs/en/philosophy/wheels.md`](public/docs/en/philosophy/wheels.md)
+- [`docs/en/philosophy/elements.md`](public/docs/en/philosophy/elements.md)
+- [`docs/en/philosophy/precession.md`](public/docs/en/philosophy/precession.md)
 
 ---
 
@@ -142,9 +142,9 @@ Network access is used only for:
 - Designed for desktop, tablet, and mobile layouts
 
 UI layout concepts are documented here:
-- [`docs/en/ui/desktop.md`](docs/en/ui/desktop.md)
-- [`docs/en/ui/tablet.md`](docs/en/ui/tablet.md)
-- [`docs/en/ui/mobile.md`](docs/en/ui/mobile.md)
+- [`docs/en/ui/desktop.md`](public/docs/en/ui/desktop.md)
+- [`docs/en/ui/tablet.md`](public/docs/en/ui/tablet.md)
+- [`docs/en/ui/mobile.md`](public/docs/en/ui/mobile.md)
 
 ---
 

@@ -26,6 +26,9 @@
     import type { MomentTip } from '../lib/cycles/wheel';
     import { buildSpokeTip, buildBoundaryTip } from '../lib/cycles/wheel';
 
+    import DocsModal from './DocsModal.svelte';
+    import { loadCycleDoc } from '../lib/docs';
+
     export let kind: CycleKind = 'diurnal';
 
     export let lat: number;
@@ -45,6 +48,35 @@
     let mqCoarse: MediaQueryList | null = null;
 
     let currentSpokeTip: MomentTip | null = null;
+
+    let docsOpen = false;
+    let docsLoading = false;
+    let docsMd = '';
+    let docsUrl = '';
+    let docsTitle = '';
+
+    async function openDocs() {
+        docsOpen = true;
+        docsLoading = true;
+        docsMd = '';
+        docsUrl = '';
+        docsTitle = `${CYCLE_META[kind].label} — Docs`;
+
+        try {
+            const { url, md, lang } = await loadCycleDoc(kind);
+            docsUrl = url;
+            docsMd = md;
+            docsTitle = `${CYCLE_META[kind].label} — Docs (${lang})`;
+        } catch (e) {
+            docsMd = `# Docs unavailable\n\n${String(e)}`;
+        } finally {
+            docsLoading = false;
+        }
+    }
+
+    function closeDocs() {
+        docsOpen = false;
+    }
 
     $: {
         if (!spokeTimes?.length) {
@@ -441,10 +473,6 @@
 
     type AnchorKey = typeof infoRows[number]['anchor'];
 
-    function anchorTs(k: AnchorKey) {
-        return anchors[k];
-    }
-
     function spokeDesc(k: AnchorKey) {
         return SPOKE_DESC[kind][k];
     }
@@ -779,6 +807,11 @@
                     title={`Next ${CYCLE_META[kind].label}`}
                     on:click={() => shiftCycle(1)}
                     disabled={isCycling}>→</button>
+
+            <button type="button"
+                    class="navBtn"
+                    title="Docs"
+                    on:click={openDocs}>i</button>
         </div>
     </header>
 
@@ -1041,6 +1074,14 @@
         {/each}
     </div>
 </section>
+
+<DocsModal
+        open={docsOpen}
+        title={docsTitle}
+        md={docsLoading ? '# Loading…' : docsMd}
+        url={docsUrl}
+        onClose={closeDocs}
+/>
 
 <style>
     .panel {
