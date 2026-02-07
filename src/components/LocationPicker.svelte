@@ -24,12 +24,12 @@
     function newLoc() {
         selectedId = '';
         // вариант A: начинать с текущей локации (удобнее)
-        // syncDraftFromCurrent();
+        syncDraftFromCurrent();
 
         // вариант B: прям пустая заготовка
-        labelDraft = '';
-        latDraft = '';
-        lonDraft = '';
+        // labelDraft = '';
+        // latDraft = '';
+        // lonDraft = '';
     }
 
     function roundCoord(v: number, dp = COORD_DP) {
