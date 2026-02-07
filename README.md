@@ -136,7 +136,7 @@ Network access is used only for:
 
 - **Svelte**
 - **TypeScript**
-- Minimal dependencies (no heavy date libraries)
+- **astronomy-engine** JS library (^2.1.19)
 - Astronomical calculations via deterministic algorithms
 - CSS variables for theming (light / dark)
 - Designed for desktop, tablet, and mobile layouts
