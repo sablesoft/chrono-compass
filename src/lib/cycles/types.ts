@@ -1,4 +1,4 @@
-export const CYCLE_KINDS = ['day', 'lunarSynodic', 'lunarAnomalistic', 'lunarDraconic', 'solarTropical', 'solarAnomalistic', 'plato'] as const;
+export const CYCLE_KINDS = ['diurnal', 'lunarSynodic', 'lunarAnomalistic', 'lunarDraconic', 'solarTropical', 'solarAnomalistic', 'plato'] as const;
 
 export type CycleKind = typeof CYCLE_KINDS[number];
 

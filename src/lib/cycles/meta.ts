@@ -17,7 +17,7 @@ export type CycleOption = {
 };
 
 export const CYCLE_META: Record<CycleKind, CycleMeta> = {
-    day:   {
+    diurnal:   {
         label: 'Diurnal',
         description: 'Earth Day',
         order: 10
@@ -55,7 +55,7 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
 };
 
 export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
-    day: {
+    diurnal: {
         E:   'Sunrise',
 
         ENE: 'Late Morning',

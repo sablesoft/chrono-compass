@@ -26,7 +26,7 @@
     import type { MomentTip } from '../lib/cycles/wheel';
     import { buildSpokeTip, buildBoundaryTip } from '../lib/cycles/wheel';
 
-    export let kind: CycleKind = 'day';
+    export let kind: CycleKind = 'diurnal';
 
     export let lat: number;
     export let lon: number;

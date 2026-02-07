@@ -19,8 +19,8 @@ import { ms } from '../format';
 import { isFiniteNumber } from './wheel';
 import { debug } from '../debug';
 
-import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './apsisCore';
-import { buildDistanceLinearWheel } from './distanceLinearCore';
+import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './coreApsis';
+import { buildDistanceLinearWheel } from './coreDistanceLinear';
 
 const dbg = debug('solarAnomalistic', '☀️');
 const { group, log, warn } = dbg;

@@ -32,7 +32,7 @@ const KNOWN_CHANNELS: Record<string, () => any> = {
 
     // wheel / ui
     WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
-    DAY: () => import.meta.env.VITE_DEBUG_DAY,
+    DIURNAL: () => import.meta.env.VITE_DEBUG_DIURNAL,
 
     // lunar
     LUNAR_SYNODIC: () => import.meta.env.VITE_DEBUG_LUNAR_SYNODIC,
