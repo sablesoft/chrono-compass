@@ -5,46 +5,62 @@
 The **diurnal cycle** represents the rotation of the Earth around its axis relative to the Sun.
 
 It is the most immediate and intuitive cycle in ChronoCompass, forming the foundation for:
-- local time,
+- local solar time,
 - day and night,
 - illumination,
 - daily biological and environmental rhythms.
 
-The diurnal wheel is **location-dependent** and changes with latitude and longitude.
+The diurnal wheel is **location-dependent** and varies with latitude, longitude, and season.
 
 ---
 
 ## Physical Definition
 
 The diurnal cycle is defined by:
-- one full rotation of the Earth (~24 hours),
-- measured relative to the Sun (solar day),
-- affected by Earth’s axial tilt and orbital motion.
+- one full rotation of the Earth relative to the Sun (solar day),
+- continuous apparent motion of the Sun across the local sky,
+- modulation by Earth’s axial tilt and orbital position.
 
-Unlike a purely mechanical 24-hour clock, the diurnal cycle:
-- varies in daylight duration across the year,
-- varies in structure depending on latitude.
-
-Astronomically, the diurnal cycle is continuous and has no natural absolute beginning.
-In ChronoCompass, East (E) — corresponding to sunrise — is consistently treated as the formal start and end of the diurnal cycle, preserving a unified directional structure across all wheels.
+Astronomically, the diurnal cycle has **no intrinsic absolute start**.
+In ChronoCompass, **East (E)** is consistently chosen as the formal start/end point to provide a stable directional and visual convention across all wheels.
 
 ---
 
-## Astronomical Anchors
+## Astronomical Basis
 
-The diurnal wheel is built from **solar position events**:
+ChronoCompass defines the diurnal cycle strictly through **astronomical geometry**, not clock conventions.
 
-### Main Anchors
-
-- **E — Sunrise**
-- **N — Local Solar Noon** (Sun at highest altitude)
-- **W — Sunset**
-- **S — Local Solar Midnight** (Sun at lowest altitude)
-
-These anchors are computed **astronomically**, based on:
+All anchors are derived from:
 - observer latitude and longitude,
-- current date,
-- solar ephemerides.
+- exact solar ephemerides,
+- apparent solar altitude (including refraction where applicable).
+
+The model treats the Sun’s motion as **continuous**, even when discrete events (sunrise/sunset) are absent.
+
+---
+
+## Core Anchors
+
+### Primary Anchors
+
+When solar horizon crossings exist, the diurnal cycle is anchored by:
+
+- **E — Sunrise**  
+  Moment when the Sun crosses the horizon upward.
+
+- **N — Local Solar Noon**  
+  Moment of maximum solar altitude.
+
+- **W — Sunset**  
+  Moment when the Sun crosses the horizon downward.
+
+- **S — Local Solar Midnight**  
+  Moment of minimum solar altitude.
+
+- **E+ — Next Sunrise**  
+  The next upward horizon crossing, closing the cycle.
+
+These anchors are **event-based**, not clock-based.
 
 ---
 
@@ -52,52 +68,72 @@ These anchors are computed **astronomically**, based on:
 
 ### Direction Mapping
 
-| Direction | Meaning        |
-|-----------|----------------|
-| E         | Sunrise        |
-| N         | Solar Noon     |
-| W         | Sunset         |
-| S         | Solar Midnight |
-| E+        | Next Sunrise   |
+| Direction | Meaning              |
+|-----------|----------------------|
+| E         | Sunrise              |
+| N         | Solar Noon           |
+| W         | Sunset               |
+| S         | Solar Midnight       |
+| E+        | Next Sunrise         |
 
-Intermediate directions are derived mathematically between these anchors.
-
----
-
-## Houses and Unequal Duration
-
-### Day vs Night Asymmetry
-
-The diurnal wheel is a clear example of **unequal house duration**.
-
-- The arc **E → N → W** represents **daytime**
-- The arc **W → S → E** represents **nighttime**
-
-In most locations and seasons:
-- daytime ≠ nighttime,
-- therefore houses on the day side and night side have different temporal lengths.
-
-This asymmetry:
-- reflects real solar motion,
-- is preserved intentionally in ChronoCompass,
-- avoids false geometric simplification.
+Intermediate directions are interpolated mathematically between anchors and therefore inherit unequal temporal spacing.
 
 ---
 
-## Latitude Dependence
+## Unequal Duration and Asymmetry
 
-The diurnal cycle strongly depends on latitude:
+### Day vs Night
 
-- Near the equator:
-    - day and night are nearly equal year-round.
-- At mid-latitudes:
-    - day/night ratio changes with seasons.
-- Near the polar circles:
-    - houses may collapse or expand dramatically.
-- Beyond the polar circles:
-    - sunrise or sunset may not occur at all.
+The diurnal wheel explicitly preserves **unequal house duration**.
 
-ChronoCompass handles these edge cases explicitly.
+- **E → N → W** represents the illuminated (day) arc.
+- **W → S → E** represents the dark (night) arc.
+
+In general:
+- day ≠ night,
+- seasonal and latitudinal asymmetry is the norm, not an exception.
+
+ChronoCompass preserves this asymmetry intentionally to reflect real solar motion rather than imposing artificial symmetry.
+
+---
+
+## Latitude Dependence and Polar Behavior
+
+The structure of the diurnal cycle depends strongly on latitude:
+
+- **Equatorial regions**
+  - Day and night are nearly equal year-round.
+- **Mid-latitudes**
+  - Day/night duration varies seasonally.
+- **Near the polar circles**
+  - Day or night segments may shrink to minutes.
+- **Beyond the polar circles**
+  - Sunrise and/or sunset may disappear entirely for extended periods.
+
+### Polar Day and Polar Night
+
+ChronoCompass distinguishes three physical regimes:
+
+1. **Normal regime**
+  - Sunrise and sunset both occur.
+  - All four anchors (E, N, W, S) are present.
+
+2. **Polar Day (Midnight Sun)**
+  - The Sun remains above the horizon.
+  - No sunrise or sunset occurs during this interval.
+  - The diurnal cycle spans from the **last real sunrise** before polar day to the **first real sunrise** after it.
+  - The “day” arc may last weeks or months.
+
+3. **Polar Night**
+  - The Sun remains below the horizon.
+  - No sunrise or sunset occurs.
+  - The diurnal cycle spans from the **last real sunrise** before polar night to the **first real sunrise** after it.
+  - The “night” arc dominates the wheel.
+
+In polar regimes:
+- the diurnal cycle may be extremely asymmetric,
+- cycles may span far longer or shorter than 24 hours,
+- this behavior is **intentional and physically correct**.
 
 ---
 
@@ -105,77 +141,77 @@ ChronoCompass handles these edge cases explicitly.
 
 ### North (N) — Solar Noon
 
-- Maximum solar altitude above the horizon.
-- Maximum illumination at the observer’s location.
+- Maximum solar altitude.
+- Maximum local illumination.
 
-From a gravitational perspective:
+From a gravitational geometry perspective:
+- The Sun is approximately above the observer.
+- The solar gravitational vector opposes Earth’s central gravity.
+- This slightly reduces effective gravitational load.
 
-- At solar noon, the Sun is approximately **above the observer**.
-- The Sun’s gravitational vector is therefore directed **upward**, opposite to the dominant gravitational vector of the Earth’s center.
-- As a result, the solar gravitational contribution slightly **reduces the effective gravitational load** experienced by the observer.
+Conceptually, North represents:
+- openness,
+- exposure,
+- expansion,
+- external influence.
 
-Although this effect is extremely small in absolute magnitude, it is conceptually important:
-- North often represents a point of **relative gravitational relief**,
-- increased dynamism,
-- and maximal exposure to external (solar) influence.
-
-This contributes to the interpretation of North as a phase of openness, expansion, and freedom within the cycle.
+---
 
 ### South (S) — Solar Midnight
 
 - Minimum solar altitude.
 - Maximum darkness.
-- The Sun is located on the opposite side of the Earth relative to the observer.
 
-From a gravitational perspective:
+From a gravitational geometry perspective:
+- The Sun lies roughly below the observer.
+- The solar gravitational vector aligns with Earth’s gravity.
+- This slightly increases effective gravitational load.
 
-- At solar midnight, the Sun lies roughly **below the observer**, near the nadir.
-- The Sun’s gravitational vector is therefore aligned **in the same direction** as the Earth’s central gravitational vector.
-- This causes a slight **increase in effective gravitational load** on the observer.
-
-Again, while the magnitude is tiny, the geometry is meaningful:
-- South corresponds to a point of **maximum hidden gravitational influence**,
+Conceptually, South represents:
 - compression,
-- and inward-directed forces.
-
-This makes South a natural representation of accumulation, convergence, and the “invisible” side of the cycle.
-
-### East (E) and West (W)
-
-- Transitional points between day and night.
-- Moments of balance and inversion between illumination states.
-- In ChronoCompass, East always serves as both the **beginning and completion** of the cycle.
+- inward direction,
+- hidden or latent influence.
 
 ---
 
-## Precision
+### East (E) and West (W)
 
-- Calculations are accurate to **minute-level precision**.
-- Boundary conditions (e.g. polar day/night) are explicitly detected.
-- No approximation is used when astronomical data is available.
+- Transitional thresholds between illumination states.
+- Points of inversion and balance.
+- East is always treated as both the **entry** and **completion** of the diurnal cycle, even when separated by long polar intervals.
+
+---
+
+## Precision and Robustness
+
+- Astronomical events are computed with **minute-level accuracy**.
+- Only true geometric horizon crossings are treated as sunrise/sunset.
+- Grazing contacts without sign change are ignored.
+- Polar regimes are handled explicitly rather than approximated.
+- No artificial 24-hour fallback is used unless explicitly required for UI stability.
 
 ---
 
 ## Practical Applications
 
-The diurnal wheel is useful for:
+The diurnal wheel supports:
 - understanding local solar time,
 - comparing illumination across locations,
-- aligning events with daylight or darkness,
-- educational demonstrations of Earth rotation,
-- anchoring other cycles visually and conceptually, 
-- determining the local visibility of certain astronomical phenomena.
+- visualizing extreme polar conditions,
+- education in Earth–Sun geometry,
+- anchoring other cycles conceptually,
+- interpreting daily rhythms in physical context.
 
 ---
 
 ## Role in the Unified Compass Model
 
 The diurnal cycle:
-- establishes the basic meaning of E/N/W/S directions,
-- demonstrates unequal house duration clearly,
-- grounds the compass model in direct physical experience.
+- establishes the fundamental meaning of E/N/W/S,
+- demonstrates unequal temporal structure clearly,
+- grounds the entire compass model in direct physical reality.
 
-Because of its immediacy and familiarity, it acts as the **baseline wheel** against which many other cycles can be intuitively compared.
+Because of its immediacy and universality, it serves as the **baseline reference cycle** against which all other wheels can be intuitively compared.
 
 ---
 
