@@ -13,10 +13,10 @@
 // - distanceLinearCore: generic distance-linear wheel builder (E/W/E_next + 16 spokes)
 
 import * as Astronomy from 'astronomy-engine';
-import { type Anchors } from './spokes';
+import { type Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
-import { isFiniteNumber } from './wheel';
+import { isFiniteNumber } from '../wheel/wheel';
 import { debug } from '../debug';
 
 import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './coreApsis';

@@ -1,6 +1,6 @@
 // src/lib/cycles/distanceLinearCore.ts
 import { ms } from '../format';
-import { type Anchors, type SpokeKey, SPOKES_ORDER } from './spokes';
+import { type Anchors, type SpokeKey, SPOKES_ORDER } from '../wheel/spokes';
 
 type Dbg = {
     log: (...args: any[]) => void;

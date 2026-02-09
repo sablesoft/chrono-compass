@@ -1,9 +1,9 @@
 // src/lib/cycles/lunarSynodic.ts
 import * as Astronomy from 'astronomy-engine';
-import type { Anchors } from './spokes';
+import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import {ms} from "../format";
-import {isFiniteNumber, safeDateFromTs, utcYearFromTs} from './wheel';
+import {isFiniteNumber, safeDateFromTs, utcYearFromTs} from '../wheel/wheel';
 
 import { debug } from '../debug';
 

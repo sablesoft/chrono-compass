@@ -1,6 +1,6 @@
 // src/lib/cycles/meta.ts
 import type { CycleKind } from './types';
-import type {SpokeKey} from "./spokes";
+import type {SpokeKey} from "../wheel/spokes";
 
 export type CycleMeta = {
     label: string;
@@ -38,12 +38,12 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
         order: 30
     },
     solarTropical:  {
-        label: 'Sun Season: Earth',
+        label: 'Solar Season: Earth',
         description: 'Tropical Year',
         order: 40
     },
     solarAnomalistic: {
-        label: 'Sun Bind: Earth',
+        label: 'Solar Bind: Earth',
         description: 'Earth Orbit',
         order: 45
     },

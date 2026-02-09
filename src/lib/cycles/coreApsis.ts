@@ -1,6 +1,6 @@
 // src/lib/cycles/apsisCore.ts
 import { ms } from '../format';
-import { safeDateFromTs, utcYearFromTs } from './wheel';
+import { safeDateFromTs, utcYearFromTs } from '../wheel/wheel';
 
 export const DAY_MS = 86400_000;
 

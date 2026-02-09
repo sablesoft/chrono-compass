@@ -1,17 +1,17 @@
 // src/lib/cycles/wheel.ts
 import type { Anchors } from './spokes';
-import type { CycleKind } from './types';
+import type { CycleKind } from '../cycles/types';
 import type { Moment, RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../stores/moment';
 import { normalizeTsMinute } from '../stores/moment';
-import { getCycleOptions, SPOKE_DESC } from './meta';
+import { getCycleOptions, SPOKE_DESC } from '../cycles/meta';
 
-import { getDayAnchors, angleFromDayAnchors } from './diurnal';
-import { getSynodicAnchors, angleFromSynodicAnchors } from './lunarSynodic';
-import { getDraconicAnchors, angleFromDraconicAnchors} from "./lunarDraconic";
-import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "./lunarAnomalistic";
-import { getTropicalAnchors, angleFromTropicalAnchors } from './solarTropical';
-import { getSolarAnomalisticAnchors, angleFromSolarAnomalisticAnchors } from './solarAnomalistic';
-import { getPlatoAnchors, angleFromPlatoAnchors } from './plato';
+import { getDayAnchors, angleFromDayAnchors } from '../cycles/diurnal';
+import { getSynodicAnchors, angleFromSynodicAnchors } from '../cycles/lunarSynodic';
+import { getDraconicAnchors, angleFromDraconicAnchors} from "../cycles/lunarDraconic";
+import { getLunarAnomalisticAnchors, angleFromLunarAnomalisticAnchors} from "../cycles/lunarAnomalistic";
+import { getTropicalAnchors, angleFromTropicalAnchors } from '../cycles/solarTropical';
+import { getSolarAnomalisticAnchors, angleFromSolarAnomalisticAnchors } from '../cycles/solarAnomalistic';
+import { getPlatoAnchors, angleFromPlatoAnchors } from '../cycles/plato';
 import { debug } from '../debug';
 
 const dbg = debug('wheel', '☸️️');
@@ -134,7 +134,7 @@ export type MomentClickHandlers = {
 export function createMomentClickHandler({
   onSingle,
   onDouble,
-  delay = 220,
+  delay = 600,
 }: MomentClickHandlers) {
     let timer: ReturnType<typeof setTimeout> | null = null;
     function clear() {

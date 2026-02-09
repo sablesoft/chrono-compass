@@ -19,10 +19,10 @@
 // - Adds small boundary guard so near-boundary jitter doesn’t trigger oscillation.
 
 import * as Astronomy from 'astronomy-engine';
-import { type Anchors } from './spokes';
+import { type Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
-import { isFiniteNumber } from './wheel';
+import { isFiniteNumber } from '../wheel/wheel';
 import { debug } from '../debug';
 
 import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './coreApsis';

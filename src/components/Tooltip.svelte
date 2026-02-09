@@ -1,7 +1,7 @@
 <!-- src/components/Tooltip.svelte -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import type { MarkerCluster, MomentTip } from '../lib/cycles/wheel';
+    import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
     import { formatDateTime } from '../lib/format';
 
     export let x = 0;

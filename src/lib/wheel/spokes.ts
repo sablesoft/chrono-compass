@@ -186,9 +186,3 @@ export function nearestSpokeByTime(ts: number, times: number[]) {
 export function clamp01(x: number) {
     return Math.max(0, Math.min(1, x));
 }
-
-export function progressLinear(ts: number, start: number, end: number) {
-    const dur = end - start;
-    if (dur <= 0) return 0;
-    return clamp01((ts - start) / dur);
-}

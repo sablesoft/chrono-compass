@@ -1,53 +1,110 @@
 <!-- src/components/Wheel.svelte -->
 <script lang="ts">
-    import {onDestroy, onMount} from 'svelte';
-    import {get} from 'svelte/store';
+    import { onDestroy, onMount } from 'svelte';
+    import { get } from 'svelte/store';
 
-    import type {CycleKind, PreTurnCmd, SpinCmd} from '../lib/cycles/types';
-    import {formatDateTime, ms} from '../lib/format';
+    import type { CycleKind } from '../lib/cycles/types';
+    import { formatDateTime, ms } from '../lib/format';
 
-    import {isLive, setSelectedTs, startLive} from '../lib/stores/time';
-    import {momentsState} from '../lib/stores/moment';
+    import { setSelectedTs } from '../lib/stores/time';
+    import { momentsState } from '../lib/stores/moment';
 
-    import {buildSpokeTimes, nearestSpokeByTime} from '../lib/cycles/spokes';
+    import { debug } from '../lib/debug';
+
+    import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
     import {
         buildHouseBoundaries,
         buildMarkerItemsForWheel,
         clusterMarkerItems,
         computeAnchors,
-        computeAngle, createMomentClickHandler,
-        type MarkerCluster, nudgeInsideCycle, sameCycle,
+        computeAngle,
+        createMomentClickHandler,
         SHIFT_EPS_MS,
-        SPOKES
-    } from '../lib/cycles/wheel';
+        SPOKES,
+        buildSpokeTip,
+        buildBoundaryTip
+    } from '../lib/wheel/wheel';
+
+    import { buildWheelModel } from '../lib/wheel/model';
+    import { cmdShiftCycle } from '../lib/wheel/commands';
+    import { PointerAnimator } from '../lib/wheel/pointerAnimator';
+    import { nearestSpokeByTime } from '../lib/wheel/spokes';
 
     import Tooltip from './Tooltip.svelte';
-    import {CYCLE_META, SPOKE_DESC} from "../lib/cycles/meta";
-    import type { MomentTip } from '../lib/cycles/wheel';
-    import { buildSpokeTip, buildBoundaryTip } from '../lib/cycles/wheel';
+    import { CYCLE_META, SPOKE_DESC } from '../lib/cycles/meta';
 
     import DocsModal from './DocsModal.svelte';
-    import { loadCycleDoc } from '../lib/docs';
+
+    // NEW: geometry + hooks
+    import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
+    import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
+    import { useNowPointer } from '../lib/wheel/ui/useNowPointer';
+    import { useWheelDocs } from '../lib/wheel/ui/useWheelDocs';
+    import { useTooltip } from '../lib/wheel/ui/useTooltip';
 
     export let kind: CycleKind = 'diurnal';
-
     export let lat: number;
     export let lon: number;
-
     export let selectedTs: number;
     export let onUserActivity: () => void = () => {};
 
+    function kindChannel(k: CycleKind) {
+        switch (k) {
+            case 'diurnal': return 'DIURNAL';
+            case 'lunarSynodic': return 'LUNAR_SYNODIC';
+            case 'lunarDraconic': return 'LUNAR_DRACONIC';
+            case 'lunarAnomalistic': return 'LUNAR_ANOMALISTIC';
+            case 'solarTropical': return 'SOLAR_TROPICAL';
+            case 'solarAnomalistic': return 'SOLAR_ANOMALISTIC';
+            case 'plato': return 'PLATO';
+            default: return 'WHEEL';
+        }
+    }
+
+    const dbgWheel = debug('WHEEL', '🧭');
+    $: dbgWheel.log('kind switch', { kind, channel: kindChannel(kind) });
+    let dbg: ReturnType<typeof debug>;
+    $: dbg = debug(kindChannel(kind), '🧭');
+
+    let wheelTag = '';
+    $: wheelTag = `${kind}@${lat?.toFixed?.(2) ?? lat},${lon?.toFixed?.(2) ?? lon}`;
+
     /* =======================
-       Responsive (inside Wheel)
+       GEOM
        ======================= */
-    let wrapEl: HTMLDivElement | null = null;
-    let ro: ResizeObserver | null = null;
+    const geom = createWheelGeom(16, 1000);
+    const labels = SPOKE_LABELS;
+    const spokeCount = geom.spokeCount;
+
+    const VB = geom.VB;
+    const cx = geom.cx;
+    const cy = geom.cy;
+    const rOuter = geom.rOuter;
+    const rInner = geom.rInner;
+    const rLabel = geom.rLabel;
+
+    const boundaryAngleDeg = geom.boundaryAngleDeg;
+    const spokeAngleDeg = geom.spokeAngleDeg;
+    const polarToXY = geom.polarToXY;
+    const ringSectorPath = geom.ringSectorPath;
+
+    /* =======================
+       Responsive
+       ======================= */
+    const responsive = useWheelResponsive();
     let size = 360;
+    $: size = responsive.size;
+
+    let wrapEl: HTMLDivElement | null = null;
+    $: responsive.bindWrap(wrapEl);
 
     let isCoarsePointer = false;
-    let mqCoarse: MediaQueryList | null = null;
+    $: isCoarsePointer = responsive.isCoarsePointer;
 
-    let currentSpokeTip: MomentTip | null = null;
+    /* =======================
+       Docs
+       ======================= */
+    const docs = useWheelDocs(() => kind, dbg as any, () => wheelTag);
 
     let docsOpen = false;
     let docsLoading = false;
@@ -55,197 +112,39 @@
     let docsUrl = '';
     let docsTitle = '';
 
-    async function openDocs() {
-        docsOpen = true;
-        docsLoading = true;
-        docsMd = '';
-        docsUrl = '';
-        docsTitle = `${CYCLE_META[kind].label} — Docs`;
+    $: docsOpen = docs.open;
+    $: docsLoading = docs.loading;
+    $: docsMd = docs.md;
+    $: docsUrl = docs.url;
+    $: docsTitle = docs.title;
 
-        try {
-            const { url, md, lang } = await loadCycleDoc(kind);
-            docsUrl = url;
-            docsMd = md;
-            docsTitle = `${CYCLE_META[kind].label} — Docs (${lang})`;
-        } catch (e) {
-            docsMd = `# Docs unavailable\n\n${String(e)}`;
-        } finally {
-            docsLoading = false;
-        }
-    }
-
-    function closeDocs() {
-        docsOpen = false;
-    }
-
-    $: {
-        if (!spokeTimes?.length) {
-            currentSpokeTip = null;
-        } else {
-            const i = nearestSpokeByTime(selectedTs, spokeTimes);
-            const label = labels[i];
-            const ts0 = spokeTimes[i];
-            currentSpokeTip = ts0 ? buildSpokeTip(kind, label, ts0) : null;
-        }
-    }
-
-    function updatePointerMode() {
-        isCoarsePointer = !!mqCoarse?.matches;
-    }
-
-    function handleMarkerClick(e: MouseEvent, c: MarkerCluster) {
-        if (isCoarsePointer) {
-            // toggle same cluster
-            if (tipOpen && tipCluster?.id === c.id) {
-                closeTipNow();
-            } else {
-                openClusterTip(e, c);
-            }
-            return;
-        }
-
-        // desktop: click selects
-        handleMarkerActivate(c);
-    }
-
-    function handleGlobalPointerDown(e: PointerEvent | MouseEvent) {
-        if (!tipOpen) return;
-        const el = e.target as Element | null;
-        if (!el) return;
-
-        // если тап по тултипу или по маркеру — не закрываем
-        if (el.closest('[data-tooltip-root]') || el.closest('[data-marker]')) return;
-
-        closeTipNow();
-    }
-
-    function recomputeWheelSize() {
-        if (!wrapEl) return;
-
-        // Размер считаем по внутренней области wrap
-        const style = getComputedStyle(wrapEl);
-        const pl = parseFloat(style.paddingLeft) || 0;
-        const pr = parseFloat(style.paddingRight) || 0;
-        const pt = parseFloat(style.paddingTop) || 0;
-        const pb = parseFloat(style.paddingBottom) || 0;
-
-        const innerW = Math.max(0, wrapEl.clientWidth - pl - pr);
-        const innerH = Math.max(0, wrapEl.clientHeight - pt - pb);
-        const available = Math.floor(Math.min(innerW, innerH));
-
-        // оставляем немного воздуха
-        const sizeByPad = Math.floor(available / 1.10);
-        size = Math.max(320, sizeByPad - 2);
-    }
+    function openDocs() { return docs.openDocs(); }
+    function closeDocs() { return docs.closeDocs(); }
 
     /* =======================
-       Wheel geometry
-       ======================= */
-    const labels = [
-        'E','ENE','NE','NNE',
-        'N','NNW','NW','WNW',
-        'W','WSW','SW','SSW',
-        'S','SSE','SE','ESE'
-    ] as const;
-
-    const spokeCount = 16;
-    const stepDeg = 360 / spokeCount;
-    const POINTER_ANIM_MS = 420;
-
-    const VB = 1000;
-    const cx = VB / 2;
-    const cy = VB / 2;
-
-    const rOuter = VB * 0.42;
-    const rInner = VB * 0.18;
-    const rLabel = VB * 0.47;
-
-    function boundaryAngleDeg(i: number) {
-        return -(i + 0.5) * stepDeg;
-    }
-
-    function spokeAngleDeg(i: number) {
-        return -stepDeg * i;
-    }
-
-    function polarToXY(r: number, deg: number) {
-        const rad = (deg * Math.PI) / 180;
-        return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-    }
-
-    function ringSectorPath(a0: number, a1: number) {
-        const o0 = polarToXY(rOuter, a0);
-        const o1 = polarToXY(rOuter, a1);
-        const i1 = polarToXY(rInner, a1);
-        const i0 = polarToXY(rInner, a0);
-
-        const largeArc = 0;
-        const sweepOuter = a1 >= a0 ? 1 : 0;
-        const sweepInner = sweepOuter ? 0 : 1;
-
-        return [
-            `M ${o0.x} ${o0.y}`,
-            `A ${rOuter} ${rOuter} 0 ${largeArc} ${sweepOuter} ${o1.x} ${o1.y}`,
-            `L ${i1.x} ${i1.y}`,
-            `A ${rInner} ${rInner} 0 ${largeArc} ${sweepInner} ${i0.x} ${i0.y}`,
-            'Z'
-        ].join(' ');
-    }
-
-    function isFiniteNumber(x: unknown): x is number {
-        return typeof x === 'number' && Number.isFinite(x);
-    }
-
-    function safeAngle(x: unknown, fallback: number) {
-        return isFiniteNumber(x) ? x : fallback;
-    }
-
-    function safeDir(x: unknown): -1 | 0 | 1 {
-        return x === 1 || x === -1 || x === 0 ? x : 0;
-    }
-
-    /* =======================
-       Derived model (anchors/spokes/boundaries/markers)
+       Derived model
        ======================= */
     let anchors = computeAnchors(kind, selectedTs, lat, lon);
     $: anchors = computeAnchors(kind, selectedTs, lat, lon);
 
-    let spokeTimes: number[] = [];
-    $: spokeTimes = buildSpokeTimes(anchors);
-
     let pointerAngleDeg = 0;
     $: pointerAngleDeg = computeAngle(kind, selectedTs, anchors);
 
-    // boundaryTimes: midpoints-in-cycle
+    let model = buildWheelModel({ anchors, selectedTs });
+    $: model = buildWheelModel({ anchors, selectedTs });
+
+    let spokeTimes: number[] = [];
+    $: spokeTimes = model.spokeTimes;
+
     let boundaryTimes: number[] = [];
-
-    function wrapIntoCycle(ts0: number, cycleStart: number, cycleMs: number) {
-        let x = ts0;
-        while (x < cycleStart) x += cycleMs;
-        while (x >= cycleStart + cycleMs) x -= cycleMs;
-        return ms(x);
-    }
-
-    function midpointInCycle(a: number, b: number, cycleStart: number, cycleMs: number) {
-        let b2 = b;
-        if (b2 < a) b2 += cycleMs;
-        const mid = a + (b2 - a) / 2;
-        return wrapIntoCycle(mid, cycleStart, cycleMs);
-    }
-
-    $: {
-        const cycleMs = Math.max(1, anchors.end - anchors.start);
-        boundaryTimes = Array.from({ length: SPOKES }, (_, i) => {
-            const a = spokeTimes[i];
-            const b = spokeTimes[(i + 1) % SPOKES];
-            return midpointInCycle(a, b, anchors.start, cycleMs);
-        });
-    }
+    $: boundaryTimes = model.boundaryTimes;
 
     let houseBoundaries: number[] = [];
     $: houseBoundaries = buildHouseBoundaries(spokeTimes);
 
-    // markers => clusters
+    /* =======================
+       Markers => clusters
+       ======================= */
     let markerClusters: MarkerCluster[] = [];
     const MIN_ARC_PX = 28;
 
@@ -271,47 +170,57 @@
     }
 
     /* =======================
-       Local UI state (from old CycleWheel)
+       Current spoke tip
+       ======================= */
+    let currentSpokeTip: MomentTip | null = null;
+    $: {
+        if (!spokeTimes?.length) {
+            currentSpokeTip = null;
+        } else {
+            const i = model.currentSpokeIndex;
+            const label = (i === 16) ? 'E_next' : labels[i];
+            const ts0 = spokeTimes[i];
+            currentSpokeTip = ts0 ? buildSpokeTip(kind, label as any, ts0) : null;
+        }
+    }
+
+    /* =======================
+       Local UI state + animator
        ======================= */
     let selectedSpokeIndex: number | null = null;
-    let activeSpokeIndex: number | null = null;
-
-    let spinCmd: SpinCmd | null = null;
-    let spinCmdId = 0;
-
-    let preTurnCmd: PreTurnCmd | null = null;
-    let preTurnCmdId = 0;
-
     let isCycling = false;
 
-    // self-change marker to avoid external-preTurn on our own setSelectedTs
-    let pendingSelfTs: number | null = null;
     let lastSeenTs = selectedTs;
-
-    // time direction (future => CCW, past => CW)
     let timeDir: -1 | 0 | 1 = 0;
+
+    const animator = new PointerAnimator();
+    let displayAngle = 0;
+    let noTransition = false;
 
     const ANIM_MS = 420;
 
-    let unlockTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function clearTimers() {
-        if (unlockTimer) { clearTimeout(unlockTimer); unlockTimer = null; }
-    }
-
-    function cancelLocalAnimationsAndUi() {
-        clearTimers();
-        isCycling = false;
-        spinCmd = null;
-        preTurnCmd = null;
-        selectedSpokeIndex = null;
-        activeSpokeIndex = null;
-    }
-
     function emitSelectTs(ts: number) {
-        const t = ms(ts);
-        pendingSelfTs = t;
-        setSelectedTs(t);
+        setSelectedTs(ms(ts));
+    }
+
+    function jumpTo(ts0: number, reason = 'jump') {
+        onUserActivity();
+        isCycling = false;
+        selectedSpokeIndex = null;
+
+        dbg.group(`${wheelTag} ${reason}`, () => {
+            dbg.log('jumpTo', {
+                selectedTs: new Date(selectedTs).toISOString(),
+                targetTs: new Date(ms(ts0)).toISOString(),
+                curSpoke: nearestSpokeByTime(selectedTs, spokeTimes),
+                targetSpoke: nearestSpokeByTime(ms(ts0), spokeTimes),
+                pointerAngleDeg,
+                animatorAngle: animator.get().angleDeg,
+                cycleKey: `${anchors.E}:${anchors.E_next}`
+            });
+        });
+
+        emitSelectTs(ts0);
     }
 
     function shiftCycle(dir: -1 | 1) {
@@ -319,138 +228,98 @@
         if (isCycling) return;
         isCycling = true;
 
-        preTurnCmd = null;
+        const carryIndex = model.currentSpokeIndex === 16 ? 0 : model.currentSpokeIndex;
 
-        const i = activeSpokeIndex ?? nearestSpokeByTime(selectedTs, spokeTimes);
-        activeSpokeIndex = i;
-        selectedSpokeIndex = i;
+        const nav = cmdShiftCycle(
+            dir,
+            kind,
+            selectedTs,
+            lat,
+            lon,
+            anchors,
+            spokeTimes,
+            carryIndex
+        );
 
-        const cycleMs0 = Math.max(1, anchors.E_next - anchors.E);
+        const aTarget = computeAnchors(kind, nav.targetTs, lat, lon);
+        const landAngle = computeAngle(kind, nav.targetTs, aTarget);
 
-        // маленький шаг “за границу”, чтобы уйти от E/E_next
-        const edgeStep = Math.max(SHIFT_EPS_MS, Math.floor(cycleMs0 * 0.01)); // 1% цикла или EPS
-        // большой шаг “продавливания”, чтобы гарантированно сменить цикл
-        const pushStep = Math.max(10 * SHIFT_EPS_MS, Math.floor(cycleMs0 * 0.60)); // 60% цикла или >=10*EPS
+        animator.play(
+            { kind: 'fullTurn', dir, landAngleDeg: landAngle },
+            ANIM_MS,
+            (cb) => requestAnimationFrame(cb),
+            () => { isCycling = false; }
+        );
 
-        // стартовый probe: чуть за нужную границу
-        let probe = dir > 0
-            ? anchors.E_next + edgeStep
-            : anchors.E - edgeStep;
-
-        let a2 = computeAnchors(kind, probe, lat, lon);
-
-        // 1) если computeAnchors упорно возвращает тот же цикл — продавим probe дальше
-        for (let attempt = 0; attempt < 8 && sameCycle(a2, anchors); attempt++) {
-            probe = ms(probe + dir * pushStep);
-            a2 = computeAnchors(kind, probe, lat, lon);
-        }
-
-        // 2) если по какой-то причине probe не попал внутрь своего же a2 — доводим его в нужную сторону
-        for (let attempt = 0; attempt < 8; attempt++) {
-            if (probe >= a2.E && probe < a2.E_next) break;
-
-            probe = dir > 0
-                ? a2.E_next + edgeStep
-                : a2.E - edgeStep;
-
-            a2 = computeAnchors(kind, probe, lat, lon);
-        }
-
-        const t2 = buildSpokeTimes(a2);
-
-        let targetTs = ms(t2[i]);
-        targetTs = nudgeInsideCycle(targetTs, a2, dir);
-
-        // если вдруг всё равно получилось “не сдвинулось”, добьём одним pushStep
-        if (Math.abs(targetTs - selectedTs) < 1_000) {
-            probe = ms(probe + dir * pushStep);
-            a2 = computeAnchors(kind, probe, lat, lon);
-            const t3 = buildSpokeTimes(a2);
-            targetTs = nudgeInsideCycle(ms(t3[i]), a2, dir);
-        }
-
-        const targetAngleDeg = computeAngle(kind, targetTs, a2);
-
-        spinCmd = { id: ++spinCmdId, dir, targetAngleDeg };
-        emitSelectTs(targetTs);
-
-        clearTimers();
-        unlockTimer = setTimeout(() => {
-            isCycling = false;
-            unlockTimer = null;
-        }, ANIM_MS + 30);
+        emitSelectTs(nav.targetTs);
     }
 
-    // detect selectedTs changes, compute timeDir, inject preTurn only for external big jumps
-    $: {
-        if (selectedTs === lastSeenTs) {
-            timeDir = 0;
-        } else {
-            const oldTs = lastSeenTs;
-            const delta = selectedTs - oldTs;
-            const absDelta = Math.abs(delta);
+    function handleNextE() {
+        onUserActivity();
+        if (isCycling) return;
 
-            timeDir = delta > 0 ? 1 : -1;
+        const curIdx = nearestSpokeByTime(selectedTs, spokeTimes);
 
-            const isSelf = (pendingSelfTs === selectedTs);
-            pendingSelfTs = null;
-            lastSeenTs = selectedTs;
+        if (curIdx === 0) {
+            shiftCycle(1);
+            return;
+        }
 
-            if (!isCycling && !isSelf) {
-                // кто-то извне дернул selectedTs -> приводим UI/команды в порядок
-                cancelLocalAnimationsAndUi();
+        isCycling = true;
 
-                const aNow = computeAnchors(kind, selectedTs, lat, lon);
-                const cycleMs = Math.max(1, aNow.end - aNow.start);
+        const endTs = anchors.E_next;
+        const probe = endTs + SHIFT_EPS_MS;
+        const a2 = computeAnchors(kind, probe, lat, lon);
+        const nextE = ms(a2.E);
 
-                preTurnCmd = absDelta > cycleMs
-                    ? { id: ++preTurnCmdId, dir: timeDir > 0 ? 1 : -1 }
-                    : null;
+        animator.play(
+            {
+                kind: 'fullTurn',
+                dir: 1,
+                landAngleDeg: 0,
+                onDoneResetTo: 0
+            },
+            ANIM_MS,
+            (cb) => requestAnimationFrame(cb),
+            () => {
+                emitSelectTs(nextE);
+                isCycling = false;
             }
-        }
+        );
     }
+
+    $: {
+        const delta = selectedTs - lastSeenTs;
+        timeDir = delta === 0 ? 0 : (delta > 0 ? 1 : -1);
+        lastSeenTs = selectedTs;
+
+        const cycleKey = `${anchors.E}:${anchors.E_next}`;
+        animator.applyInput({
+            baseAngleDeg: pointerAngleDeg,
+            timeDir,
+            cycleKey
+        });
+
+        const after = animator.get();
+        displayAngle = after.angleDeg;
+        noTransition = after.noTransition;
+    }
+
+    let nearestSpokeIndex = 0;
+    $: nearestSpokeIndex = model.currentSpokeIndex;
 
     /* =======================
-       NOW pointer (no store; local minute ticker)
+       NOW pointer
        ======================= */
-    let nowTs = ms(Date.now());
-    let nowTimer: ReturnType<typeof setInterval> | null = null;
-    let nowAlignTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function clearNowTimers() {
-        if (nowAlignTimer) { clearTimeout(nowAlignTimer); nowAlignTimer = null; }
-        if (nowTimer) { clearInterval(nowTimer); nowTimer = null; }
-    }
-
-    function startNowTicker() {
-        clearNowTimers();
-        nowTs = ms(Date.now());
-
-        const now = Date.now();
-        const msToNextMinute = 60_000 - (now % 60_000);
-
-        nowAlignTimer = setTimeout(() => {
-            nowTs = ms(Date.now());
-            nowTimer = setInterval(() => {
-                nowTs = ms(Date.now());
-            }, 60_000);
-        }, msToNextMinute + 5);
-    }
+    const now = useNowPointer(() => kind, () => anchors);
 
     let showNowPointer = false;
     let nowPointerAngleDeg: number | null = null;
+    let nowDisplayAngle = 0;
 
-    $: {
-        const live = get(isLive);
-        if (live) {
-            showNowPointer = false;
-            nowPointerAngleDeg = null;
-        } else {
-            const inside = nowTs >= anchors.start && nowTs <= anchors.end;
-            showNowPointer = inside;
-            nowPointerAngleDeg = inside ? computeAngle(kind, nowTs, anchors) : null;
-        }
-    }
+    $: showNowPointer = now.show;
+    $: nowPointerAngleDeg = now.angleDeg;
+    $: nowDisplayAngle = now.displayAngle;
 
     /* =======================
        Info block helpers
@@ -472,19 +341,16 @@
     }));
 
     type AnchorKey = typeof infoRows[number]['anchor'];
-
     function spokeDesc(k: AnchorKey) {
         return SPOKE_DESC[kind][k];
     }
 
     function houseStartTs(i: number) {
         if (i === 0) {
-            // start of E house is midpoint between prev-cycle ESE and current E
             const prevBase = anchors.E - SHIFT_EPS_MS;
             const aPrev = computeAnchors(kind, prevBase, lat, lon);
-            const spokesPrev = buildSpokeTimes(aPrev);
-
-            const prevESE = spokesPrev[15];
+            const prevModel = buildWheelModel({ anchors: aPrev, selectedTs: prevBase });
+            const prevESE = prevModel.spokeTimes[15];
             const curE = spokeTimes[0];
             return ms((prevESE + curE) / 2);
         }
@@ -495,299 +361,47 @@
         return boundaryTimes[i];
     }
 
-    function jumpTo(ts0: number) {
-        onUserActivity();
-        // важно: сбрасываем циклинг/команды, чтобы не залипнуть в “режиме перелистывания”
-        cancelLocalAnimationsAndUi();
-        emitSelectTs(ts0);
-    }
-
     /* =======================
-       Tooltip wiring
+       Tooltip (NEW hook)
        ======================= */
-    let tipOpen = false;
-    let tipX = 0;
-    let tipY = 0;
-    let tipMoment: MomentTip | null = null;
-    let tipCluster: MarkerCluster | null = null;
-
-    let tipHideTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function openMomentTip(e: MouseEvent, tip: MomentTip) {
-        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
-        tipOpen = true;
-        tipMoment = tip;
-        tipCluster = null;
-        tipX = e.clientX;
-        tipY = e.clientY;
+    function handleMarkerActivate(c: MarkerCluster) {
+        jumpTo(c.ts, `marker:${c.id}`);
+        tip.closeNow();
     }
 
-    function openClusterTip(e: MouseEvent, c: MarkerCluster) {
-        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
-        tipOpen = true;
-        tipCluster = c;
-        tipMoment = null;
-        tipX = e.clientX;
-        tipY = e.clientY;
-    }
+    const tip = useTooltip({
+        isCoarsePointer: () => isCoarsePointer,
+        onActivateCluster: (c) => handleMarkerActivate(c),
+        hoverDelayMs: 600,
+        closeDelayMs: 120,
+        ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
+    });
 
-    function moveTip(e: MouseEvent) {
-        if (!tipOpen) return;
-        tipX = e.clientX;
-        tipY = e.clientY;
-    }
+    const tipState = tip.state;
 
-    function scheduleCloseTip() {
-        if (tipHideTimer) clearTimeout(tipHideTimer);
-        tipHideTimer = setTimeout(() => {
-            tipOpen = false;
-            tipCluster = null;
-            tipHideTimer = null;
-        }, 120);
-    }
-
-    function keepTipOpen() {
-        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
-    }
-
-    function closeTipNow() {
-        if (tipHideTimer) { clearTimeout(tipHideTimer); tipHideTimer = null; }
-        tipOpen = false;
-        tipCluster = null;
-    }
-
-    /* =======================
-       Pointer animation logic (your original)
-       ======================= */
-    let displayAngle = pointerAngleDeg;
-    let lastAngle = pointerAngleDeg;
-
-    let lastSpinCmdId = 0;
-    let lastPreTurnCmdId = 0;
-
-    let spinLock = false;
-    let spinLockTarget = 0;
-    let spinLockTimer: ReturnType<typeof setTimeout> | null = null;
-
-    let noTransition = false;
-    let resetTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function clearSnapMode() {
-        // это именно “анти-залипание” после NextE (и любых будущих snap-фич)
-        if (resetTimer) {
-            clearTimeout(resetTimer);
-            resetTimer = null;
-        }
-        noTransition = false;
-    }
-
-    function normalizeNearest(baseAngle: number, current: number) {
-        let t = baseAngle;
-        while (t - current > 180) t -= 360;
-        while (t - current < -180) t += 360;
-        return t;
-    }
-
-    let nowDisplayAngle = 0;
-    let lastNowAngle = 0;
-
-    $: {
-        if (!showNowPointer || nowPointerAngleDeg === null) {
-            // noop
-        } else {
-            const target = safeAngle(nowPointerAngleDeg, lastNowAngle);
-            const t = normalizeNearest(target, lastNowAngle);
-            nowDisplayAngle = t;
-            lastNowAngle = t;
-        }
-    }
-
-    function normalizeByDirection(baseAngle: number, current: number, dir: -1 | 0 | 1) {
-        let t = normalizeNearest(baseAngle, current);
-        if (dir === 0) return t;
-
-        //  1 => forward => CCW => negative delta
-        // -1 => back    => CW  => positive delta
-        const wantSign = dir > 0 ? -1 : 1;
-        let delta = t - current;
-
-        if (Math.abs(delta) > 1e-9 && Math.sign(delta) !== wantSign) {
-            t += 360 * wantSign;
-            delta = t - current;
-        }
-        return t;
-    }
-
-    function computeFullTurnTarget(targetAngleDeg0: number, current: number, dir: 1 | -1) {
-        const turn = -360 * dir;
-        const wantSign = Math.sign(turn);
-
-        let t = normalizeNearest(targetAngleDeg0, current);
-
-        const d0 = t - current;
-        if (Math.abs(d0) > 1e-9 && Math.sign(d0) !== wantSign) {
-            t += 360 * wantSign;
-        }
-
-        return t + turn;
-    }
-
-    function computePreTurnTarget(currentTargetAngle: number, current: number, dir: 1 | -1) {
-        const turn = -360 * dir;
-        const base = normalizeNearest(currentTargetAngle, current);
-        return base + turn;
-    }
-
-    function startSpinLock(target: number) {
-        spinLock = true;
-        spinLockTarget = target;
-
-        if (spinLockTimer) clearTimeout(spinLockTimer);
-        spinLockTimer = setTimeout(() => {
-            spinLock = false;
-        }, POINTER_ANIM_MS + 20);
-    }
-
-    function mod(n: number, m: number) {
-        return ((n % m) + m) % m;
-    }
-
-    function nearestSpokeIndexFromAngle(angleDeg: number) {
-        const raw = (-angleDeg) / stepDeg;
-        const i = Math.round(raw);
-        return mod(i, spokeCount);
-    }
-
-    let nearestSpokeIndex = 0;
-    $: nearestSpokeIndex = nearestSpokeIndexFromAngle(safeAngle(displayAngle, 0));
-
-    $: {
-        lastAngle = safeAngle(lastAngle, 0);
-
-        const ptr = safeAngle(pointerAngleDeg, lastAngle);
-        const dir0 = safeDir(timeDir);
-
-        if (spinLock) {
-            const t = safeAngle(spinLockTarget, lastAngle);
-            displayAngle = t;
-            lastAngle = t;
-        } else if (spinCmd && spinCmd.id !== lastSpinCmdId) {
-            lastSpinCmdId = spinCmd.id;
-
-            const cmdDir: 1 | -1 = spinCmd.dir;
-            const targetBase = safeAngle(spinCmd.targetAngleDeg, lastAngle);
-            const target = computeFullTurnTarget(targetBase, lastAngle, cmdDir);
-
-            startSpinLock(target);
-            displayAngle = target;
-            lastAngle = target;
-        } else if (preTurnCmd && preTurnCmd.id !== lastPreTurnCmdId) {
-            lastPreTurnCmdId = preTurnCmd.id;
-
-            const cmdDir: 1 | -1 = preTurnCmd.dir;
-
-            if (cmdDir === 1 || cmdDir === -1) {
-                const target = computePreTurnTarget(ptr, lastAngle, cmdDir);
-                startSpinLock(target);
-                displayAngle = target;
-                lastAngle = target;
-            } else {
-                const t = normalizeNearest(ptr, lastAngle);
-                displayAngle = t;
-                lastAngle = t;
-            }
-        } else {
-            const t = normalizeByDirection(ptr, lastAngle, dir0);
-            displayAngle = t;
-            lastAngle = t;
-        }
+    function handleMarkerPick(ts0: number) {
+        jumpTo(ts0, `tipPick`);
+        tip.closeNow();
     }
 
     /* =======================
        Click handlers
        ======================= */
     function handleSpokeActivate(i: number) {
-        clearSnapMode();
         const t = spokeTimes[i];
-        if (t) jumpTo(t);
+        if (t) jumpTo(t, `spoke:${i}`);
     }
 
     function handleBoundaryActivate(i: number) {
-        clearSnapMode();
         const t = boundaryTimes[i];
-        if (t) jumpTo(t);
-    }
-
-    function handleMarkerActivate(c: MarkerCluster) {
-        clearSnapMode();
-        jumpTo(c.ts);
-        closeTipNow();
-    }
-
-    function handleMarkerPick(ts0: number) {
-        clearSnapMode();
-        jumpTo(ts0);
-        closeTipNow();
-    }
-
-    function handleNextE() {
-        clearSnapMode();
-
-        // “E+” — anchors.E_next. Чтобы избежать boundary-no-op, делаем шаг внутрь цикла.
-        const endTs = anchors.E_next;
-        jumpTo(endTs + SHIFT_EPS_MS);
-
-        // затем короткий режим “snap” без transition, чтобы не было рывка на новом цикле
-        resetTimer = setTimeout(() => {
-            noTransition = true;
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    noTransition = false;
-                });
-            });
-            jumpTo(endTs);
-        }, POINTER_ANIM_MS);
+        if (t) jumpTo(t, `boundary:${i}`);
     }
 
     /* =======================
        Lifecycle
        ======================= */
-    onMount(() => {
-        startNowTicker();
-        queueMicrotask(recomputeWheelSize);
-        window.addEventListener('pointerdown', handleGlobalPointerDown, { capture: true });
-        if (wrapEl && 'ResizeObserver' in window) {
-            ro = new ResizeObserver(recomputeWheelSize);
-            ro.observe(wrapEl);
-        }
-        if (typeof window !== 'undefined' && 'matchMedia' in window) {
-            mqCoarse = window.matchMedia('(pointer: coarse)');
-            updatePointerMode();
-
-            const onChange = () => updatePointerMode();
-            // Safari старый: addListener/removeListener
-            if ('addEventListener' in mqCoarse) mqCoarse.addEventListener('change', onChange);
-            else (mqCoarse as any).addListener(onChange);
-
-            return () => {
-                if (!mqCoarse) return;
-                if ('removeEventListener' in mqCoarse) mqCoarse.removeEventListener('change', onChange);
-                else (mqCoarse as any).removeListener(onChange);
-            };
-        }
-    });
-
-    onDestroy(() => {
-        clearTimers();
-        clearNowTimers();
-        window.removeEventListener('pointerdown', handleGlobalPointerDown, { capture: true } as any);
-        if (ro && wrapEl) ro.unobserve(wrapEl);
-        ro?.disconnect();
-
-        if (resetTimer) clearTimeout(resetTimer);
-        if (spinLockTimer) clearTimeout(spinLockTimer);
-        if (tipHideTimer) clearTimeout(tipHideTimer);
-    });
+    onMount(() => {});
+    onDestroy(() => {});
 </script>
 
 <section class="panel">
@@ -798,64 +412,70 @@
         </div>
 
         <div class="right">
-            <button type="button"
+            <button
+                    type="button"
                     class="navBtn"
                     title={`Previous ${CYCLE_META[kind].label}`}
                     on:click={() => shiftCycle(-1)}
-                    disabled={isCycling}>←</button>
+                    disabled={isCycling}
+            >←</button>
 
-            <button type="button"
+            <button
+                    type="button"
                     class="navBtn"
                     title={`Next ${CYCLE_META[kind].label}`}
                     on:click={() => shiftCycle(1)}
-                    disabled={isCycling}>→</button>
+                    disabled={isCycling}
+            >→</button>
 
-            <button type="button"
+            <button
+                    type="button"
                     class="navBtn"
                     title="Docs"
-                    on:click={openDocs}>i</button>
+                    on:click={openDocs}
+            >i</button>
         </div>
     </header>
 
     <div class="wrap" bind:this={wrapEl}>
         <section class="wheelPanel">
-
-            <!-- Wheel SVG -->
             <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
                 <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                 <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
-                <!-- clickable house-boundary ticks -->
                 {#each Array(spokeCount) as _, i (i)}
                     {@const a = boundaryAngleDeg(i)}
                     {@const pA = polarToXY(rOuter * 0.96, a)}
                     {@const pB = polarToXY(rOuter * 1.1, a)}
                     {@const pHit = polarToXY(rOuter, a)}
+                    {@const boundaryTip = buildBoundaryTip(labels[i], labels[(i + 1) % spokeCount], boundaryTimes[i])}
+                    {@const boundaryKey = `boundary:${i}`}
                     {@const boundaryClick = createMomentClickHandler({
-                        onSingle: (e) =>
-                            openMomentTip(e, buildBoundaryTip(labels[i], labels[(i+1)%spokeCount], boundaryTimes[i])),
-                        onDouble: () => jumpTo(boundaryTimes[i]),
+                        onSingle: (e) => tip.openMomentNow(e, boundaryTip),
+                        onDouble: () => handleBoundaryActivate(i),
                     })}
-                    <g class="tick"
-                       role="button"
-                       tabindex="0"
-                       aria-label={`House boundary ${i + 1}`}
-                       on:click={boundaryClick.onClick}
-                       on:dblclick={boundaryClick.onDblClick}
-                       on:mouseenter={(e) => { /* desktop hover */ openMomentTip(e, buildBoundaryTip(labels[i], labels[(i+1)%spokeCount], boundaryTimes[i]))}}
-                       on:mouseleave={scheduleCloseTip}
-                       on:keydown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleBoundaryActivate(i);
-                          }
-                       }}>
-                        <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine"/>
-                        <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent"/>
+
+                    <g
+                            class="tick"
+                            role="button"
+                            tabindex="0"
+                            aria-label={`House boundary ${i + 1}`}
+                            on:click={boundaryClick.onClick}
+                            on:dblclick={boundaryClick.onDblClick}
+                            on:mouseenter={(e) => tip.hoverMomentEnter(e, boundaryTip, boundaryKey)}
+                            on:mouseleave={() => tip.hoverLeave(boundaryKey)}
+                            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleBoundaryActivate(i);
+              }
+            }}
+                    >
+                        <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
+                        <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
                     </g>
                 {/each}
 
-                <!-- quadrant tint ring -->
                 <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
                     <path d={ringSectorPath(-45, -135)} class="q q-red" />
                     <path d={ringSectorPath(-135, -225)} class="q q-white" />
@@ -868,92 +488,108 @@
                     {@const p1 = polarToXY(rInner, a)}
                     {@const p2 = polarToXY(rOuter, a)}
                     {@const pt = polarToXY(rLabel, a)}
+                    {@const spokeTip = buildSpokeTip(kind, label, spokeTimes[i])}
+                    {@const spokeKey = `spoke:${i}`}
                     {@const spokeClick = createMomentClickHandler({
-                        onSingle: (e) =>
-                            openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])),
+                        onSingle: (e) => tip.openMomentNow(e, spokeTip),
                         onDouble: () => handleSpokeActivate(i),
                     })}
 
-                    <g class="spoke"
-                       role="button"
-                       tabindex="0"
-                       aria-label={`Spoke ${label}`}
-                       on:click={spokeClick.onClick}
-                       on:dblclick={spokeClick.onDblClick}
-                       on:mouseenter={spokeClick.onClick}
-                       on:mouseleave={scheduleCloseTip}
-                       on:keydown={(e) => {
-                          if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            handleSpokeActivate(i);
-                          }
-                       }}>
-                        <line x1={p1.x} y1={p1.y}
-                              x2={p2.x} y2={p2.y}
-                              stroke="currentColor"
-                              stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
-                              stroke-width={i % 4 === 0 ? 7 : 4}
-                              stroke-linecap="round"/>
+                    <g
+                            class="spoke"
+                            role="button"
+                            tabindex="0"
+                            aria-label={`Spoke ${label}`}
+                            on:click={spokeClick.onClick}
+                            on:dblclick={spokeClick.onDblClick}
+                            on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
+                            on:mouseleave={() => tip.hoverLeave(spokeKey)}
+                            on:keydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleSpokeActivate(i);
+              }
+            }}
+                    >
+                        <line
+                                x1={p1.x} y1={p1.y}
+                                x2={p2.x} y2={p2.y}
+                                stroke="currentColor"
+                                stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
+                                stroke-width={i % 4 === 0 ? 7 : 4}
+                                stroke-linecap="round"
+                        />
 
                         {#if i === nearestSpokeIndex}
-                            <circle cx={pt.x}
+                            <circle
+                                    cx={pt.x}
                                     cy={pt.y}
                                     r={VB * 0.046}
                                     fill="transparent"
                                     stroke="currentColor"
                                     stroke-opacity="0.55"
-                                    stroke-width="3"/>
+                                    stroke-width="3"
+                            />
                         {/if}
 
-                        <text class="spokeLabel"
-                              x={pt.x} y={pt.y}
-                              text-anchor="middle"
-                              dominant-baseline="middle"
-                              font-size={VB * 0.035}
-                              fill="currentColor"
-                              fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}>
+                        <text
+                                class="spokeLabel"
+                                x={pt.x} y={pt.y}
+                                text-anchor="middle"
+                                dominant-baseline="middle"
+                                font-size={VB * 0.035}
+                                fill="currentColor"
+                                fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
+                        >
                             {label}
                         </text>
 
                         {#if i === 0}
                             {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
+                            {@const ePlusTip = buildSpokeTip(kind, 'E_next', spokeTimes[16])}
+                            {@const ePlusKey = `eplus`}
                             {@const ePlusClick = createMomentClickHandler({
-                                onSingle: (e) =>
-                                    openMomentTip(e, buildSpokeTip(kind, 'E_next', spokeTimes[16])),
+                                onSingle: (e) => tip.openMomentNow(e, ePlusTip),
                                 onDouble: () => handleNextE()
                             })}
-                            <g class="eplus"
-                               role="button"
-                               tabindex="0"
-                               aria-label={`Spoke E+`}
-                               on:click|stopPropagation={ePlusClick.onClick}
-                               on:dblclick|stopPropagation={ePlusClick.onDblClick}
-                               on:mouseenter={ePlusClick.onClick}
-                               on:mouseleave={scheduleCloseTip}
-                               on:keydown={(e) => {
-                                  if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    handleNextE();
-                                  }
-                               }}>
 
+                            <g
+                                    class="eplus"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label="Spoke E+"
+                                    on:click|stopPropagation={ePlusClick.onClick}
+                                    on:dblclick|stopPropagation={ePlusClick.onDblClick}
+                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
+                                    on:mouseleave={() => tip.hoverLeave(ePlusKey)}
+                                    on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleNextE();
+                  }
+                }}
+                            >
                                 {#if 16 === nearestSpokeIndex}
-                                    <circle cx={pt2.x}
+                                    <circle
+                                            cx={pt2.x}
                                             cy={pt2.y}
                                             r={VB * 0.046}
                                             fill="transparent"
                                             stroke="currentColor"
                                             stroke-opacity="0.55"
-                                            stroke-width="3"/>
+                                            stroke-width="3"
+                                    />
                                 {/if}
 
-                                <text class="spokeLabel eplusLabel"
-                                      x={pt2.x} y={pt2.y}
-                                      text-anchor="middle"
-                                      dominant-baseline="middle"
-                                      font-size={VB * 0.034}
-                                      fill="currentColor"
-                                      fill-opacity={0.55}>
+                                <text
+                                        class="spokeLabel eplusLabel"
+                                        x={pt2.x} y={pt2.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                        font-size={VB * 0.034}
+                                        fill="currentColor"
+                                        fill-opacity={0.55}
+                                >
                                     E+
                                 </text>
                             </g>
@@ -965,13 +601,16 @@
 
                 {#if showNowPointer && nowPointerAngleDeg !== null}
                     <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
-                        <line x1={cx} y1={cy}
-                              x2={cx + rOuter} y2={cy}
-                              stroke="var(--accent-live)"
-                              stroke-width="10"
-                              stroke-linecap="round"
-                              stroke-opacity="0.35"/>
-                        <circle cx={cx + rOuter}
+                        <line
+                                x1={cx} y1={cy}
+                                x2={cx + rOuter} y2={cy}
+                                stroke="var(--accent-live)"
+                                stroke-width="10"
+                                stroke-linecap="round"
+                                stroke-opacity="0.35"
+                        />
+                        <circle
+                                cx={cx + rOuter}
                                 cy={cy}
                                 r={VB * 0.018}
                                 fill="var(--accent-live)"
@@ -979,63 +618,79 @@
                                 role="button"
                                 tabindex="0"
                                 aria-label="Go LIVE (now)"
-                                on:click|stopPropagation={startLive}
+                                on:click|stopPropagation={now.startLive}
                                 on:keydown|stopPropagation={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      startLive();
-                                    }
-                                }}/>
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  now.startLive();
+                }
+              }}
+                        />
                     </g>
                 {/if}
 
-                <!-- Moment Markers (clustered) -->
                 {#each markerClusters as c (c.id)}
                     {@const a = c.angleDeg}
                     {@const rMark = orbitToRadiusVB(c.orbit)}
                     {@const p = polarToXY(rMark, a)}
-                    <g class="marker"
-                       data-marker="1"
-                       transform={`translate(${p.x} ${p.y})`}
-                       on:click={(e) => handleMarkerClick(e, c)}
-                       on:mouseenter={(e) => { if (!isCoarsePointer) openClusterTip(e, c); }}
-                       on:mousemove={(e) => { if (!isCoarsePointer) moveTip(e); }}
-                       on:mouseleave={() => { if (!isCoarsePointer) scheduleCloseTip(); }}>
+                    {@const markerKey = `marker:${c.id}`}
+
+                    <g
+                            class="marker"
+                            data-marker="1"
+                            transform={`translate(${p.x} ${p.y})`}
+                            on:click={(e) => tip.handleClusterClick(e, c)}
+                            on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
+                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
+                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
+                    >
                         <circle r={VB * 0.035} fill="transparent" />
 
-                        <circle r={VB * 0.02}
+                        <circle
+                                r={VB * 0.02}
                                 fill={c.bg}
                                 stroke="currentColor"
                                 stroke-opacity="0.45"
-                                stroke-width="3"/>
-                        <circle r={VB * 0.018}
+                                stroke-width="3"
+                        />
+                        <circle
+                                r={VB * 0.018}
                                 fill="none"
                                 stroke="var(--bg)"
                                 stroke-opacity="0.5"
-                                stroke-width="2"/>
+                                stroke-width="2"
+                        />
 
-                        <text text-anchor="middle"
-                              dominant-baseline="middle"
-                              font-size={VB * 0.02}
-                              fill="currentColor"
-                              fill-opacity="0.95"
-                              style="pointer-events:none">
+                        <text
+                                text-anchor="middle"
+                                dominant-baseline="middle"
+                                font-size={VB * 0.02}
+                                fill="currentColor"
+                                fill-opacity="0.95"
+                                style="pointer-events:none"
+                        >
                             {c.count === 1 ? c.emoji : c.label}
                         </text>
                     </g>
                 {/each}
 
-                <!--Current Moment Pointer -->
                 <g transform={`translate(${cx} ${cy})`}>
-                    <g class="pointer" class:noTransition={noTransition} style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
-                        <line x1="0" y1="0"
-                              x2={rOuter} y2="0"
-                              stroke="currentColor"
-                              stroke-width="9"
-                              stroke-linecap="round"/>
+                    <g
+                            class="pointer"
+                            class:noTransition={noTransition}
+                            style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
+                    >
+                        <line
+                                x1="0" y1="0"
+                                x2={rOuter} y2="0"
+                                stroke="currentColor"
+                                stroke-width="9"
+                                stroke-linecap="round"
+                        />
                         <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
                     </g>
                 </g>
+
                 <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
             </svg>
 
@@ -1045,28 +700,30 @@
                 </div>
             {/if}
 
-            <!-- Tooltip -->
-            {#if tipOpen && (tipCluster || tipMoment)}
-                <Tooltip x={tipX}
-                        y={tipY}
-                        cluster={tipCluster}
-                        moment={tipMoment}
+            {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
+                <Tooltip
+                        x={$tipState.x}
+                        y={$tipState.y}
+                        cluster={$tipState.cluster}
+                        moment={$tipState.moment}
                         onPickTs={handleMarkerPick}
-                        onMouseEnter={keepTipOpen}
-                        onMouseLeave={scheduleCloseTip}
-                        onClose={closeTipNow}/>
+                        onMouseEnter={tip.keepOpen}
+                        onMouseLeave={tip.scheduleClose}
+                        onClose={tip.closeNow}
+                />
             {/if}
         </section>
     </div>
 
-    <!-- Wheel Info -->
     <div class="info">
         {#each infoItems as row (row.key)}
             <div class="infoRow">
-                <button class="jump"
+                <button
+                        class="jump"
                         type="button"
                         title={`Go to ${row.key}`}
-                        on:click={() => jumpTo(row.ts)}>
+                        on:click={() => jumpTo(row.ts, `info:${row.key}`)}
+                >
                     <strong class="k">{row.key}:</strong>
                     <span class="dt">{formatDateTime(row.ts)}</span>
                     <span class={row.key === 'S' ? 'sep' : ''}>—</span>
@@ -1074,16 +731,21 @@
                 </button>
 
                 {#if row.showHouse}
-                          <span class="houseBtns">
-                            <button type="button"
-                                    class="hb"
-                                    title={`House start: ${formatDateTime(houseStartTs(row.houseIndex))}`}
-                                    on:click={() => jumpTo(houseStartTs(row.houseIndex))}>start</button>
-                            <button type="button"
-                                    class="hb"
-                                    title={`House end: ${formatDateTime(houseEndTs(row.houseIndex))}`}
-                                    on:click={() => jumpTo(houseEndTs(row.houseIndex))}>end</button>
-                          </span>
+          <span class="houseBtns">
+            <button
+                    type="button"
+                    class="hb"
+                    title={`House start: ${formatDateTime(houseStartTs(row.houseIndex))}`}
+                    on:click={() => jumpTo(houseStartTs(row.houseIndex), `house:start:${row.houseIndex}`)}
+            >start</button>
+
+            <button
+                    type="button"
+                    class="hb"
+                    title={`House end: ${formatDateTime(houseEndTs(row.houseIndex))}`}
+                    on:click={() => jumpTo(houseEndTs(row.houseIndex), `house:end:${row.houseIndex}`)}
+            >end</button>
+          </span>
                 {/if}
             </div>
         {/each}
@@ -1150,7 +812,7 @@
         aspect-ratio: 1 / 1;
         width: 100%;
         max-width: 100%;
-        overflow: hidden; /* режем только SVG, не info */
+        overflow: hidden;
     }
 
     .wheelPanel{
@@ -1161,10 +823,11 @@
     }
 
     svg {
-        display: block;       /* чтобы не было странных inline-gap */
+        display: block;
         max-width: 100%;
         max-height: 100%;
     }
+
     .spoke { cursor: pointer; user-select: none; }
 
     .pointer {
@@ -1225,7 +888,6 @@
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
 
-    /* info block */
     .info {
         width: 100%;
         max-width: 100%;
