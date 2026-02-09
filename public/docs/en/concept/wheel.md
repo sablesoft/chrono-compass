@@ -133,6 +133,38 @@ It answers the question:
 
 ---
 
+---
+
+## Upper Bound of Cyclic Structure
+
+Chrono Compass models only **cyclic or quasi-cyclic relations** that arise from
+stable orbital or rotational motion.
+
+For any Wheel type that relies on orbital planes, axial motion, or repeated
+phase structure, the existence of a **higher-level reference** is required.
+This naturally introduces an **upper bound** to the depth of cyclic modeling.
+
+In the current model, the **Galactic Center** represents the practical upper
+limit of cyclic relations:
+
+- many bodies (stars, including the Sun) orbit the Galactic Center,
+- but the Galactic Center itself does **not** orbit any higher-level focus,
+- therefore it does not possess its own orbital plane.
+
+As a result:
+- Wheels may implicitly rely on the Galactic Center as a **terminal reference**,
+- but no Wheel can be constructed *above* it,
+- and no Nodal, Bind, or similar Wheel can treat the Galactic Center as a target
+  that requires a higher-level orbital reference.
+
+This constraint is intentional.
+
+It prevents infinite hierarchical recursion and clearly separates:
+- **cyclic structure** (modeled by Wheels),
+- from **background motion and cosmological drift**, which lie outside the scope of Chrono Compass.
+
+---
+
 ## Wheel Types
 
 Chrono Compass defines several Wheel types.  
@@ -364,6 +396,9 @@ Axial-orbital cycles describing the orientation of a target body’s rotational 
 
 Cycles describing the motion of a target body’s orbital nodes relative to the orbital plane of a focus body.
 
+A Nodal Wheel is well-defined only if the focus body itself has an orbital plane, defined by its own orbital relation to a higher-level focus.
+The higher-level focus is implicit and not an explicit attribute of the Wheel. If the focus body has no orbital plane, a Nodal Wheel cannot be constructed.
+
 **Required attributes:**
   - focus
   - target
@@ -420,6 +455,4 @@ Wheels are the structural building blocks of Chrono Compass.
 
 Each Wheel is simple.  
 Meaning emerges from their **composition**, not from any single relation.
-
-Chrono Compass does not reduce reality to one universal cycle.  
-It provides a coherent framework for navigating how different relational structures intersect.
+Chrono Compass It provides a coherent framework for navigating how different relational structures intersect.
