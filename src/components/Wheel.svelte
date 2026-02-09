@@ -158,7 +158,7 @@
 
     const rOuter = VB * 0.42;
     const rInner = VB * 0.18;
-    const rLabel = VB * 0.48;
+    const rLabel = VB * 0.47;
 
     function boundaryAngleDeg(i: number) {
         return -(i + 0.5) * stepDeg;
@@ -735,7 +735,7 @@
 
         // “E+” — anchors.E_next. Чтобы избежать boundary-no-op, делаем шаг внутрь цикла.
         const endTs = anchors.E_next;
-        jumpTo(endTs - SHIFT_EPS_MS);
+        jumpTo(endTs + SHIFT_EPS_MS);
 
         // затем короткий режим “snap” без transition, чтобы не было рывка на новом цикле
         resetTimer = setTimeout(() => {
@@ -745,6 +745,7 @@
                     noTransition = false;
                 });
             });
+            jumpTo(endTs);
         }, POINTER_ANIM_MS);
     }
 
@@ -792,7 +793,8 @@
 <section class="panel">
     <header class="top">
         <div class="left">
-            <div class="title">{CYCLE_META[kind].label} - {CYCLE_META[kind].description}</div>
+            <div class="title">{CYCLE_META[kind].description}</div>
+            <div class="wheel-code">{CYCLE_META[kind].label}</div>
         </div>
 
         <div class="right">
@@ -826,9 +828,9 @@
                 <!-- clickable house-boundary ticks -->
                 {#each Array(spokeCount) as _, i (i)}
                     {@const a = boundaryAngleDeg(i)}
-                    {@const pA = polarToXY(rOuter * 0.93, a)}
-                    {@const pB = polarToXY(rOuter * 1.02, a)}
-                    {@const pHit = polarToXY(rOuter * 1.02, a)}
+                    {@const pA = polarToXY(rOuter * 0.96, a)}
+                    {@const pB = polarToXY(rOuter * 1.1, a)}
+                    {@const pHit = polarToXY(rOuter, a)}
                     {@const boundaryClick = createMomentClickHandler({
                         onSingle: (e) =>
                             openMomentTip(e, buildBoundaryTip(labels[i], labels[(i+1)%spokeCount], boundaryTimes[i])),
@@ -878,7 +880,7 @@
                        aria-label={`Spoke ${label}`}
                        on:click={spokeClick.onClick}
                        on:dblclick={spokeClick.onDblClick}
-                       on:mouseenter={(e) => { /* desktop hover */ openMomentTip(e, buildSpokeTip(kind, label, spokeTimes[i])) }}
+                       on:mouseenter={spokeClick.onClick}
                        on:mouseleave={scheduleCloseTip}
                        on:keydown={(e) => {
                           if (e.key === 'Enter' || e.key === ' ') {
@@ -896,7 +898,7 @@
                         {#if i === nearestSpokeIndex}
                             <circle cx={pt.x}
                                     cy={pt.y}
-                                    r={VB * 0.054}
+                                    r={VB * 0.046}
                                     fill="transparent"
                                     stroke="currentColor"
                                     stroke-opacity="0.55"
@@ -907,7 +909,7 @@
                               x={pt.x} y={pt.y}
                               text-anchor="middle"
                               dominant-baseline="middle"
-                              font-size={VB * 0.042}
+                              font-size={VB * 0.035}
                               fill="currentColor"
                               fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}>
                             {label}
@@ -915,23 +917,36 @@
 
                         {#if i === 0}
                             {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
-                            <g class="eplus">
-                                <circle class="eplusHit"
-                                        cx={pt2.x}
-                                        cy={pt2.y}
-                                        r={VB * 0.04}
-                                        fill="transparent"
-                                        on:click|stopPropagation={handleNextE}
-                                        role="button"
-                                        tabindex="0"
-                                        aria-label="Next cycle (E+)"
-                                        on:keydown|stopPropagation={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                              e.preventDefault();
-                                              handleNextE();
-                                            }
-                                        }}/>
-                                <title>{spokeTimes[16] ? formatDateTime(spokeTimes[16]) : ''}</title>
+                            {@const ePlusClick = createMomentClickHandler({
+                                onSingle: (e) =>
+                                    openMomentTip(e, buildSpokeTip(kind, 'E_next', spokeTimes[16])),
+                                onDouble: () => handleNextE()
+                            })}
+                            <g class="eplus"
+                               role="button"
+                               tabindex="0"
+                               aria-label={`Spoke E+`}
+                               on:click|stopPropagation={ePlusClick.onClick}
+                               on:dblclick|stopPropagation={ePlusClick.onDblClick}
+                               on:mouseenter={ePlusClick.onClick}
+                               on:mouseleave={scheduleCloseTip}
+                               on:keydown={(e) => {
+                                  if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault();
+                                    handleNextE();
+                                  }
+                               }}>
+
+                                {#if 16 === nearestSpokeIndex}
+                                    <circle cx={pt2.x}
+                                            cy={pt2.y}
+                                            r={VB * 0.046}
+                                            fill="transparent"
+                                            stroke="currentColor"
+                                            stroke-opacity="0.55"
+                                            stroke-width="3"/>
+                                {/if}
+
                                 <text class="spokeLabel eplusLabel"
                                       x={pt2.x} y={pt2.y}
                                       text-anchor="middle"
@@ -1088,7 +1103,7 @@
         border: 1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 18px;
-        padding: 18px;
+        padding: 14px;
         overflow: hidden;
     }
 
@@ -1131,7 +1146,7 @@
     .wrap {
         display: grid;
         place-items: center;
-        padding: 12px;
+        padding: 0;
         aspect-ratio: 1 / 1;
         width: 100%;
         max-width: 100%;
@@ -1310,5 +1325,10 @@
         opacity: 0.92;
         text-align: center;
         user-select: none;
+    }
+    .wheel-code {
+        font-size: 16px;
+        margin-top: 7px;
+        border-top: 1px solid var(--btn-border);
     }
 </style>

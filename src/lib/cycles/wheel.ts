@@ -171,15 +171,16 @@ export function buildSpokeTip(
 ): MomentTip {
     let result;
     const desc = SPOKE_DESC[kind][spokeLabel as keyof typeof SPOKE_DESC[typeof kind]];
+    let label = spokeLabel == 'E_next' ? 'E+' : spokeLabel;
     if (desc) {
         result = {
-            label: `${spokeLabel} — ${desc}`,
+            label: `${label} — ${desc}`,
             ts,
             desc: undefined
         };
     } else {
         result = {
-            label: spokeLabel,
+            label: label,
             ts,
             desc: undefined
         };
