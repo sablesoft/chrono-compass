@@ -439,260 +439,262 @@
 
     <div class="wrap" bind:this={wrapEl}>
         <section class="wheelPanel">
-            <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
-                <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
-                <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
+            <div class="wheelBox">
+                <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Wheel">
+                    <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
+                    <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
-                {#each Array(spokeCount) as _, i (i)}
-                    {@const a = boundaryAngleDeg(i)}
-                    {@const pA = polarToXY(rOuter * 0.96, a)}
-                    {@const pB = polarToXY(rOuter * 1.1, a)}
-                    {@const pHit = polarToXY(rOuter, a)}
-                    {@const boundaryTip = buildBoundaryTip(labels[i], labels[(i + 1) % spokeCount], boundaryTimes[i])}
-                    {@const boundaryKey = `boundary:${i}`}
-                    {@const boundaryClick = createMomentClickHandler({
-                        onSingle: (e) => tip.openMomentNow(e, boundaryTip),
-                        onDouble: () => handleBoundaryActivate(i),
-                    })}
+                    {#each Array(spokeCount) as _, i (i)}
+                        {@const a = boundaryAngleDeg(i)}
+                        {@const pA = polarToXY(rOuter * 0.96, a)}
+                        {@const pB = polarToXY(rOuter * 1.1, a)}
+                        {@const pHit = polarToXY(rOuter, a)}
+                        {@const boundaryTip = buildBoundaryTip(labels[i], labels[(i + 1) % spokeCount], boundaryTimes[i])}
+                        {@const boundaryKey = `boundary:${i}`}
+                        {@const boundaryClick = createMomentClickHandler({
+                            onSingle: (e) => tip.openMomentNow(e, boundaryTip),
+                            onDouble: () => handleBoundaryActivate(i),
+                        })}
 
-                    <g
-                            class="tick"
-                            role="button"
-                            tabindex="0"
-                            aria-label={`House boundary ${i + 1}`}
-                            on:click={boundaryClick.onClick}
-                            on:dblclick={boundaryClick.onDblClick}
-                            on:mouseenter={(e) => tip.hoverMomentEnter(e, boundaryTip, boundaryKey)}
-                            on:mouseleave={() => tip.hoverLeave(boundaryKey)}
-                            on:keydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleBoundaryActivate(i);
-              }
-            }}
-                    >
-                        <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
-                        <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
-                    </g>
-                {/each}
-
-                <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
-                    <path d={ringSectorPath(-45, -135)} class="q q-red" />
-                    <path d={ringSectorPath(-135, -225)} class="q q-white" />
-                    <path d={ringSectorPath(-225, -315)} class="q q-blue" />
-                    <path d={ringSectorPath(-315, -405)} class="q q-gold" />
-                </g>
-
-                {#each labels as label, i (label)}
-                    {@const a = spokeAngleDeg(i)}
-                    {@const p1 = polarToXY(rInner, a)}
-                    {@const p2 = polarToXY(rOuter, a)}
-                    {@const pt = polarToXY(rLabel, a)}
-                    {@const spokeTip = buildSpokeTip(kind, label, spokeTimes[i])}
-                    {@const spokeKey = `spoke:${i}`}
-                    {@const spokeClick = createMomentClickHandler({
-                        onSingle: (e) => tip.openMomentNow(e, spokeTip),
-                        onDouble: () => handleSpokeActivate(i),
-                    })}
-
-                    <g
-                            class="spoke"
-                            role="button"
-                            tabindex="0"
-                            aria-label={`Spoke ${label}`}
-                            on:click={spokeClick.onClick}
-                            on:dblclick={spokeClick.onDblClick}
-                            on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
-                            on:mouseleave={() => tip.hoverLeave(spokeKey)}
-                            on:keydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleSpokeActivate(i);
-              }
-            }}
-                    >
-                        <line
-                                x1={p1.x} y1={p1.y}
-                                x2={p2.x} y2={p2.y}
-                                stroke="currentColor"
-                                stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
-                                stroke-width={i % 4 === 0 ? 7 : 4}
-                                stroke-linecap="round"
-                        />
-
-                        {#if i === nearestSpokeIndex}
-                            <circle
-                                    cx={pt.x}
-                                    cy={pt.y}
-                                    r={VB * 0.046}
-                                    fill="transparent"
-                                    stroke="currentColor"
-                                    stroke-opacity="0.55"
-                                    stroke-width="3"
-                            />
-                        {/if}
-
-                        <text
-                                class="spokeLabel"
-                                x={pt.x} y={pt.y}
-                                text-anchor="middle"
-                                dominant-baseline="middle"
-                                font-size={VB * 0.035}
-                                fill="currentColor"
-                                fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
-                        >
-                            {label}
-                        </text>
-
-                        {#if i === 0}
-                            {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
-                            {@const ePlusTip = buildSpokeTip(kind, 'E_next', spokeTimes[16])}
-                            {@const ePlusKey = `eplus`}
-                            {@const ePlusClick = createMomentClickHandler({
-                                onSingle: (e) => tip.openMomentNow(e, ePlusTip),
-                                onDouble: () => handleNextE()
-                            })}
-
-                            <g
-                                    class="eplus"
-                                    role="button"
-                                    tabindex="0"
-                                    aria-label="Spoke E+"
-                                    on:click|stopPropagation={ePlusClick.onClick}
-                                    on:dblclick|stopPropagation={ePlusClick.onDblClick}
-                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
-                                    on:mouseleave={() => tip.hoverLeave(ePlusKey)}
-                                    on:keydown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleNextE();
-                  }
-                }}
-                            >
-                                {#if 16 === nearestSpokeIndex}
-                                    <circle
-                                            cx={pt2.x}
-                                            cy={pt2.y}
-                                            r={VB * 0.046}
-                                            fill="transparent"
-                                            stroke="currentColor"
-                                            stroke-opacity="0.55"
-                                            stroke-width="3"
-                                    />
-                                {/if}
-
-                                <text
-                                        class="spokeLabel eplusLabel"
-                                        x={pt2.x} y={pt2.y}
-                                        text-anchor="middle"
-                                        dominant-baseline="middle"
-                                        font-size={VB * 0.034}
-                                        fill="currentColor"
-                                        fill-opacity={0.55}
-                                >
-                                    E+
-                                </text>
-                            </g>
-                        {/if}
-
-                        <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
-                    </g>
-                {/each}
-
-                {#if showNowPointer && nowPointerAngleDeg !== null}
-                    <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
-                        <line
-                                x1={cx} y1={cy}
-                                x2={cx + rOuter} y2={cy}
-                                stroke="var(--accent-live)"
-                                stroke-width="10"
-                                stroke-linecap="round"
-                                stroke-opacity="0.35"
-                        />
-                        <circle
-                                cx={cx + rOuter}
-                                cy={cy}
-                                r={VB * 0.018}
-                                fill="var(--accent-live)"
-                                fill-opacity="0.65"
+                        <g
+                                class="tick"
                                 role="button"
                                 tabindex="0"
-                                aria-label="Go LIVE (now)"
-                                on:click|stopPropagation={now.startLive}
-                                on:keydown|stopPropagation={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  now.startLive();
-                }
-              }}
-                        />
-                    </g>
-                {/if}
-
-                {#each markerClusters as c (c.id)}
-                    {@const a = c.angleDeg}
-                    {@const rMark = orbitToRadiusVB(c.orbit)}
-                    {@const p = polarToXY(rMark, a)}
-                    {@const markerKey = `marker:${c.id}`}
-
-                    <g
-                            class="marker"
-                            data-marker="1"
-                            transform={`translate(${p.x} ${p.y})`}
-                            on:click={(e) => tip.handleClusterClick(e, c)}
-                            on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
-                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
-                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
-                    >
-                        <circle r={VB * 0.035} fill="transparent" />
-
-                        <circle
-                                r={VB * 0.02}
-                                fill={c.bg}
-                                stroke="currentColor"
-                                stroke-opacity="0.45"
-                                stroke-width="3"
-                        />
-                        <circle
-                                r={VB * 0.018}
-                                fill="none"
-                                stroke="var(--bg)"
-                                stroke-opacity="0.5"
-                                stroke-width="2"
-                        />
-
-                        <text
-                                text-anchor="middle"
-                                dominant-baseline="middle"
-                                font-size={VB * 0.02}
-                                fill="currentColor"
-                                fill-opacity="0.95"
-                                style="pointer-events:none"
+                                aria-label={`House boundary ${i + 1}`}
+                                on:click={boundaryClick.onClick}
+                                on:dblclick={boundaryClick.onDblClick}
+                                on:mouseenter={(e) => tip.hoverMomentEnter(e, boundaryTip, boundaryKey)}
+                                on:mouseleave={() => tip.hoverLeave(boundaryKey)}
+                                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleBoundaryActivate(i);
+                  }
+                }}
                         >
-                            {c.count === 1 ? c.emoji : c.label}
-                        </text>
-                    </g>
-                {/each}
+                            <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
+                            <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
+                        </g>
+                    {/each}
 
-                <g transform={`translate(${cx} ${cy})`}>
-                    <g
-                            class="pointer"
-                            class:noTransition={noTransition}
-                            style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
-                    >
-                        <line
-                                x1="0" y1="0"
-                                x2={rOuter} y2="0"
-                                stroke="currentColor"
-                                stroke-width="9"
-                                stroke-linecap="round"
-                        />
-                        <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
+                    <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
+                        <path d={ringSectorPath(-45, -135)} class="q q-red" />
+                        <path d={ringSectorPath(-135, -225)} class="q q-white" />
+                        <path d={ringSectorPath(-225, -315)} class="q q-blue" />
+                        <path d={ringSectorPath(-315, -405)} class="q q-gold" />
                     </g>
-                </g>
 
-                <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
-            </svg>
+                    {#each labels as label, i (label)}
+                        {@const a = spokeAngleDeg(i)}
+                        {@const p1 = polarToXY(rInner, a)}
+                        {@const p2 = polarToXY(rOuter, a)}
+                        {@const pt = polarToXY(rLabel, a)}
+                        {@const spokeTip = buildSpokeTip(kind, label, spokeTimes[i])}
+                        {@const spokeKey = `spoke:${i}`}
+                        {@const spokeClick = createMomentClickHandler({
+                            onSingle: (e) => tip.openMomentNow(e, spokeTip),
+                            onDouble: () => handleSpokeActivate(i),
+                        })}
+
+                        <g
+                                class="spoke"
+                                role="button"
+                                tabindex="0"
+                                aria-label={`Spoke ${label}`}
+                                on:click={spokeClick.onClick}
+                                on:dblclick={spokeClick.onDblClick}
+                                on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
+                                on:mouseleave={() => tip.hoverLeave(spokeKey)}
+                                on:keydown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSpokeActivate(i);
+                  }
+                }}
+                        >
+                            <line
+                                    x1={p1.x} y1={p1.y}
+                                    x2={p2.x} y2={p2.y}
+                                    stroke="currentColor"
+                                    stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
+                                    stroke-width={i % 4 === 0 ? 7 : 4}
+                                    stroke-linecap="round"
+                            />
+
+                            {#if i === nearestSpokeIndex}
+                                <circle
+                                        cx={pt.x}
+                                        cy={pt.y}
+                                        r={VB * 0.046}
+                                        fill="transparent"
+                                        stroke="currentColor"
+                                        stroke-opacity="0.55"
+                                        stroke-width="3"
+                                />
+                            {/if}
+
+                            <text
+                                    class="spokeLabel"
+                                    x={pt.x} y={pt.y}
+                                    text-anchor="middle"
+                                    dominant-baseline="middle"
+                                    font-size={VB * 0.035}
+                                    fill="currentColor"
+                                    fill-opacity={selectedSpokeIndex === i ? 1 : 0.65}
+                            >
+                                {label}
+                            </text>
+
+                            {#if i === 0}
+                                {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
+                                {@const ePlusTip = buildSpokeTip(kind, 'E_next', spokeTimes[16])}
+                                {@const ePlusKey = `eplus`}
+                                {@const ePlusClick = createMomentClickHandler({
+                                    onSingle: (e) => tip.openMomentNow(e, ePlusTip),
+                                    onDouble: () => handleNextE()
+                                })}
+
+                                <g
+                                        class="eplus"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-label="Spoke E+"
+                                        on:click|stopPropagation={ePlusClick.onClick}
+                                        on:dblclick|stopPropagation={ePlusClick.onDblClick}
+                                        on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
+                                        on:mouseleave={() => tip.hoverLeave(ePlusKey)}
+                                        on:keydown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleNextE();
+                      }
+                    }}
+                                >
+                                    {#if 16 === nearestSpokeIndex}
+                                        <circle
+                                                cx={pt2.x}
+                                                cy={pt2.y}
+                                                r={VB * 0.046}
+                                                fill="transparent"
+                                                stroke="currentColor"
+                                                stroke-opacity="0.55"
+                                                stroke-width="3"
+                                        />
+                                    {/if}
+
+                                    <text
+                                            class="spokeLabel eplusLabel"
+                                            x={pt2.x} y={pt2.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                            font-size={VB * 0.034}
+                                            fill="currentColor"
+                                            fill-opacity={0.55}
+                                    >
+                                        E+
+                                    </text>
+                                </g>
+                            {/if}
+
+                            <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
+                        </g>
+                    {/each}
+
+                    {#if showNowPointer && nowPointerAngleDeg !== null}
+                        <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
+                            <line
+                                    x1={cx} y1={cy}
+                                    x2={cx + rOuter} y2={cy}
+                                    stroke="var(--accent-live)"
+                                    stroke-width="10"
+                                    stroke-linecap="round"
+                                    stroke-opacity="0.35"
+                            />
+                            <circle
+                                    cx={cx + rOuter}
+                                    cy={cy}
+                                    r={VB * 0.018}
+                                    fill="var(--accent-live)"
+                                    fill-opacity="0.65"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label="Go LIVE (now)"
+                                    on:click|stopPropagation={now.startLive}
+                                    on:keydown|stopPropagation={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      now.startLive();
+                    }
+                  }}
+                            />
+                        </g>
+                    {/if}
+
+                    {#each markerClusters as c (c.id)}
+                        {@const a = c.angleDeg}
+                        {@const rMark = orbitToRadiusVB(c.orbit)}
+                        {@const p = polarToXY(rMark, a)}
+                        {@const markerKey = `marker:${c.id}`}
+
+                        <g
+                                class="marker"
+                                data-marker="1"
+                                transform={`translate(${p.x} ${p.y})`}
+                                on:click={(e) => tip.handleClusterClick(e, c)}
+                                on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
+                                on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
+                                on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
+                        >
+                            <circle r={VB * 0.035} fill="transparent" />
+
+                            <circle
+                                    r={VB * 0.02}
+                                    fill={c.bg}
+                                    stroke="currentColor"
+                                    stroke-opacity="0.45"
+                                    stroke-width="3"
+                            />
+                            <circle
+                                    r={VB * 0.018}
+                                    fill="none"
+                                    stroke="var(--bg)"
+                                    stroke-opacity="0.5"
+                                    stroke-width="2"
+                            />
+
+                            <text
+                                    text-anchor="middle"
+                                    dominant-baseline="middle"
+                                    font-size={VB * 0.02}
+                                    fill="currentColor"
+                                    fill-opacity="0.95"
+                                    style="pointer-events:none"
+                            >
+                                {c.count === 1 ? c.emoji : c.label}
+                            </text>
+                        </g>
+                    {/each}
+
+                    <g transform={`translate(${cx} ${cy})`}>
+                        <g
+                                class="pointer"
+                                class:noTransition={noTransition}
+                                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
+                        >
+                            <line
+                                    x1="0" y1="0"
+                                    x2={rOuter} y2="0"
+                                    stroke="currentColor"
+                                    stroke-width="9"
+                                    stroke-linecap="round"
+                            />
+                            <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
+                        </g>
+                    </g>
+
+                    <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
+                </svg>
+            </div>
 
             {#if currentSpokeTip}
                 <div class="currentSpoke">
@@ -806,26 +808,42 @@
     .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
 
     .wrap {
-        display: grid;
-        place-items: center;
-        padding: 0;
-        aspect-ratio: 1 / 1;
         width: 100%;
         max-width: 100%;
+    }
+
+    /* Весь блок колеса + подпись */
+    .wheelPanel {
+        display: grid;
+        gap: 10px;
+        width: 100%;
+        justify-items: center;
+    }
+
+    /* ТОЛЬКО колесо */
+    .wheelBox {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        display: grid;
+        place-items: stretch;
         overflow: hidden;
     }
 
-    .wheelPanel{
-        display: grid;
-        gap: 10px;
-        place-items: center;
+    .wheelBox svg {
         width: 100%;
+        height: 100%;
+        display: block;
     }
 
+    /* САМОЕ ВАЖНОЕ: svg занимает весь квадрат wrap */
     svg {
         display: block;
-        max-width: 100%;
-        max-height: 100%;
+        width: 100%;
+        height: 100%;
+
+        /* опционально, но помогает избежать сюрпризов */
+        max-width: none;
+        max-height: none;
     }
 
     .spoke { cursor: pointer; user-select: none; }
