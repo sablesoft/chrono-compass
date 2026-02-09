@@ -105,20 +105,12 @@
        Docs
        ======================= */
     const docs = useWheelDocs(() => kind, dbg as any, () => wheelTag);
+    const docsState = docs.state;
 
-    let docsOpen = false;
-    let docsLoading = false;
-    let docsMd = '';
-    let docsUrl = '';
-    let docsTitle = '';
-
-    $: docsOpen = docs.open;
-    $: docsLoading = docs.loading;
-    $: docsMd = docs.md;
-    $: docsUrl = docs.url;
-    $: docsTitle = docs.title;
-
-    function openDocs() { return docs.openDocs(); }
+    function openDocs() {
+        console.log('openDocs click');
+        return docs.openDocs();
+    }
     function closeDocs() { return docs.closeDocs(); }
 
     /* =======================
@@ -432,7 +424,7 @@
                     type="button"
                     class="navBtn"
                     title="Docs"
-                    on:click={openDocs}
+                    on:click={docs.openDocs}
             >i</button>
         </div>
     </header>
@@ -755,11 +747,11 @@
 </section>
 
 <DocsModal
-        open={docsOpen}
-        title={docsTitle}
-        md={docsLoading ? '# Loading…' : docsMd}
-        url={docsUrl}
-        onClose={closeDocs}
+        open={$docsState.open}
+        title={$docsState.title}
+        md={$docsState.loading ? '# Loading…' : $docsState.md}
+        url={$docsState.url}
+        onClose={docs.closeDocs}
 />
 
 <style>
