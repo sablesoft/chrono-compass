@@ -18,37 +18,37 @@ export type CycleOption = {
 
 export const CYCLE_META: Record<CycleKind, CycleMeta> = {
     diurnal:   {
-        label: 'Diurnal',
-        description: 'Earth Day',
+        label: 'Earth Horizon: Sun',
+        description: 'Day Cycle',
         order: 10
     },
     lunarSynodic:  {
-        label: 'Synodic',
+        label: 'Earth Synod: Sun - Moon',
         description: 'Moon Phases',
         order: 20
     },
     lunarDraconic: {
-        label: ' Draconic',
-        description: 'Eclipses Nodes',
+        label: ' Earth Nodal: Moon',
+        description: 'Draconic',
         order: 25
     },
     lunarAnomalistic: {
-        label: 'Lunar Anomalistic',
-        description: 'Moon Distance',
+        label: 'Earth Bind: Moon',
+        description: 'Moon Orbit',
         order: 30
     },
     solarTropical:  {
-        label: 'Tropical',
-        description: 'Seasons Cycle',
+        label: 'Sun Season: Earth',
+        description: 'Tropical Year',
         order: 40
     },
     solarAnomalistic: {
-        label: 'Solar Anomalistic',
-        description: 'Earth-Sun Distance',
+        label: 'Sun Bind: Earth',
+        description: 'Earth Orbit',
         order: 45
     },
     plato: {
-        label: 'Plato',
+        label: 'Galaxy Plato: Earth',
         description: 'Precession Cycle',
         order: 50
     },
