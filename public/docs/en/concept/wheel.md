@@ -204,28 +204,6 @@ Compass Wheels do **not** require horizon crossings and are valid for any celest
   
   `Jupiter Compass: Satellites`  
   (looker: Jupiter, targets: multiple, observer: Jupiter surface point)
-  
-  **TODO (Compass Wheel design and behavior):**
-
-  - Compass Wheel represents a **spatial snapshot**, not a phase cycle.
-  - Multiple targets may be displayed simultaneously.
-  - Angular position corresponds to **azimuth** (compass direction).
-  - Radial distance corresponds to **altitude**:
-    - closer to center → higher in the sky,
-    - closer to the edge → nearer to horizon.
-  - Support display modes:
-    - Northern Hemisphere only,
-    - Southern Hemisphere only,
-    - full 360° view.
-  - Targets should be shown as markers with:
-    - name,
-    - altitude,
-    - visibility state,
-    - links to related Wheels.
-  - Clicking a target fixes it as active.
-  - With an active target, Compass becomes a **temporal navigation tool**:
-    - selecting a compass direction jumps to the next/previous time when the target occupies that direction.
-  - Compass serves as a **navigation hub** connecting multiple Wheels related to the same target.
 
 ---
 
@@ -394,26 +372,33 @@ Axial-orbital cycles describing the orientation of a target body’s rotational 
 
 ### Nodal Wheels
 
-Cycles describing the motion of a target body’s orbital nodes relative to the orbital plane of a focus body.
+Cycles describing the motion of a target body’s orbital nodes relative to a **leading orbital plane**.
 
-A Nodal Wheel is well-defined only if the focus body itself has an orbital plane, defined by its own orbital relation to a higher-level focus.
-The higher-level focus is implicit and not an explicit attribute of the Wheel. If the focus body has no orbital plane, a Nodal Wheel cannot be constructed.
+In a Nodal Wheel, the reference plane is the orbital plane of a **looker body** around its **focus body**.  
+The nodes are defined as the intersections between:
+- the orbital plane of the target body around the looker body, and
+- the orbital plane of the looker body around the focus body.
+
+A Nodal Wheel is well-defined only if:
+- the target body orbits the looker body, and
+- the looker body itself orbits the focus body, thereby providing a leading reference plane.
 
 **Required attributes:**
-  - focus
-  - target
+- looker
+- focus
+- target
 
-  → [nodal-wheel.md](nodal-wheel.md)
+→ [nodal-wheel.md](nodal-wheel.md)
 
-  *Examples:*  
-  `Earth Nodal: Moon`  
-  (focus: Earth, target: Moon)
+*Examples:*  
+`Earth Nodal: Sun – Moon`  
+(looker: Earth, focus: Sun, target: Moon)
 
-  `Jupiter Nodal: Europe`  
-  (focus: Jupiter, target: Europe)
+`Jupiter Nodal: Sun – Europa`  
+(looker: Jupiter, focus: Sun, target: Europa)
 
-  `Sun Nodal: Mars`  
-  (focus: Sun, target: Mars)
+`Sun Nodal: Galaxy – Earth`  
+(looker: Sun, focus: Galaxy, target: Earth)
 
 ---
 
