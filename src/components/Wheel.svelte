@@ -107,12 +107,6 @@
     const docs = useWheelDocs(() => kind, dbg as any, () => wheelTag);
     const docsState = docs.state;
 
-    function openDocs() {
-        console.log('openDocs click');
-        return docs.openDocs();
-    }
-    function closeDocs() { return docs.closeDocs(); }
-
     /* =======================
        Derived model
        ======================= */
@@ -185,9 +179,14 @@
     let lastSeenTs = selectedTs;
     let timeDir: -1 | 0 | 1 = 0;
 
-    const animator = new PointerAnimator();
     let displayAngle = 0;
     let noTransition = false;
+
+    const animator = new PointerAnimator((s) => {
+        // это и есть триггер Svelte-обновления на каждом кадре
+        displayAngle = s.angleDeg;
+        noTransition = s.noTransition;
+    });
 
     const ANIM_MS = 420;
 
@@ -286,15 +285,7 @@
         lastSeenTs = selectedTs;
 
         const cycleKey = `${anchors.E}:${anchors.E_next}`;
-        animator.applyInput({
-            baseAngleDeg: pointerAngleDeg,
-            timeDir,
-            cycleKey
-        });
-
-        const after = animator.get();
-        displayAngle = after.angleDeg;
-        noTransition = after.noTransition;
+        animator.applyInput({ baseAngleDeg: pointerAngleDeg, timeDir, cycleKey });
     }
 
     let nearestSpokeIndex = 0;
