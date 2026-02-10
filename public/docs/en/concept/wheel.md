@@ -193,7 +193,7 @@ Compass Wheels do **not** require horizon crossings and are valid for any celest
 - the bodies always above or below the horizon,
 - stars and planets alike.
 
-→ [compass-wheel.md](compass-wheel.md)
+→ [compass.md](compass.md)
 
   *Examples:*  
   `Earth Compass: Sky`  
