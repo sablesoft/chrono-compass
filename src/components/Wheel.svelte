@@ -39,8 +39,8 @@
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useNowPointer } from '../lib/wheel/ui/useNowPointer';
-    import { useWheelDocs } from '../lib/wheel/ui/useWheelDocs';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
+    import {useDocs} from "../lib/docs";
 
     export let kind: CycleKind = 'diurnal';
     export let lat: number;
@@ -104,7 +104,13 @@
     /* =======================
        Docs
        ======================= */
-    const docs = useWheelDocs(() => kind, dbg as any, () => wheelTag);
+    const docs = useDocs(
+        () => 'cycles/' + kind + '.md',
+        {
+            dbg,
+            tag: () => wheelTag
+        }
+    );
     const docsState = docs.state;
 
     /* =======================

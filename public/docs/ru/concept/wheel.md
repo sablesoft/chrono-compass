@@ -183,7 +183,7 @@ Compass Wheels **не требуют пересечений горизонта**
 - тел, всегда находящихся над или под горизонтом,
 - звёзд и планет.
 
-→ [compass.md](complass.md)
+→ [compass.md](compass.md)
 
 *Примеры:*  
 `Earth Compass: Sky`  
