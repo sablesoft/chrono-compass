@@ -7,7 +7,7 @@ export const compass = {
         // Earth Compass: Sky (targets are selectable)
         {
             looker: ['Earth'],
-            target: ['Sun', 'Moon']
+            target: ['Sun', 'Moon', 'Mercury', 'Venus', "Mars", "Jupiter", "Neptune", "Pluto", "Saturn", "Uranus"]
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'compass' }>;

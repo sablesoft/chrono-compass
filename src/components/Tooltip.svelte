@@ -260,9 +260,9 @@
     }
 
     .emoji {
-        width: 24px;
+        width: 36px;
         text-align: center;
-        font-size: 16px;
+        font-size: 40px;
     }
 
     .dt {

@@ -303,6 +303,8 @@
                         {@const rMark = orbitToRadiusVB(c.orbit)}
                         {@const p = polarToXY(rMark, a)}
                         {@const markerKey = `marker:${c.id}`}
+                        {@const isCluster = c.count > 1}
+                        {@const o = c.opacity ?? 1}
 
                         <g
                                 class="marker"
@@ -320,20 +322,20 @@
                                     r={VB * 0.02}
                                     fill="transparent"
                                     stroke="currentColor"
-                                    stroke-opacity="0.45"
+                                    stroke-opacity={0.28}
                                     stroke-width="3"
                             />
                             <text
                                     text-anchor="middle"
                                     dominant-baseline="middle"
-                                    font-size={c.count === 1 ? VB * 0.02 : VB * 0.028}
-                                    font-weight={c.count === 1 ? 500 : 800}
+                                    font-size={VB * (isCluster ? 0.022 : 0.035)}
+                                    font-weight={isCluster ? 900 : 700}
                                     letter-spacing={c.count === 1 ? 0 : 0.6}
                                     fill="currentColor"
-                                    fill-opacity="0.95"
+                                    fill-opacity={o}
                                     style="pointer-events:none"
                                     stroke={c.count > 1 ? "var(--bg)" : "none"}
-                                    stroke-width={c.count > 1 ? 4 : 0}
+                                    stroke-width={isCluster ? 5 : 0}
                                     paint-order="stroke"
                             >
                                 {c.count === 1 ? c.emoji : c.label}
