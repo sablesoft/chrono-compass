@@ -23,15 +23,14 @@ function finiteNumber(x: unknown): x is number {
 }
 
 /**
- * Compass clustering (2D, по экранной дистанции):
- * - "сливать", если перекрытие > 1/3  => dist < (4/3)*R
- * - учитывает и разные орбиты (высоты): сравниваем в 2D, а не по дуге на кольце
- * - прозрачность кластера: min(opacity) внутри (undefined считается как 1)
+ * КРУТИЛКА КЛАСТЕРИЗАЦИИ:
+ * dist < (CLUSTER_DISTANCE_FACTOR * markerRadiusPx) => items сливаются
  *
- * Важно: this file НЕ знает про SVG-геометрию (cx/cy). Поэтому считаем дистанцию
- * по локальным координатам относительно центра: (r*cos(a), r*sin(a)).
- * Это эквивалентно реальным SVG координатам для сравнения дистанций.
+ * Было раньше: 4/3 ≈ 1.333 (довольно агрессивно).
+ * Хочешь реже сливать: 1.15 / 1.10 / 1.00
  */
+export const CLUSTER_DISTANCE_FACTOR = 0.75;
+
 export function compassClusters(
     items: MarkerItem[],
     getRadiusPx: (orbit: number) => number,
@@ -39,23 +38,26 @@ export function compassClusters(
 ): MarkerCluster[] {
     if (!items.length) return [];
 
-    // overlap>1/3 => dist < (4/3)R
-    const thresholdPx = (4 / 3) * markerRadiusPx;
+    const thresholdPx = CLUSTER_DISTANCE_FACTOR * markerRadiusPx;
 
-    // подготовим точки в "локальных" координатах (относительно центра)
+    // точки в локальных координатах (относительно центра)
     const pts = items.map((it) => {
         const r = Math.max(0, getRadiusPx(it.orbit));
         const aRad = (it.angleDeg * Math.PI) / 180;
         const x = r * Math.cos(aRad);
         const y = r * Math.sin(aRad);
-        return { it, r, x, y };
+        return { it, x, y };
     });
 
-    // чтобы кластеры были стабильными (и не зависели от порядка в массиве),
-    // сортируем по orbit/angle/ts — как раньше
-    pts.sort((a, b) => (a.it.orbit - b.it.orbit) || (norm360(a.it.angleDeg) - norm360(b.it.angleDeg)) || (a.it.ts - b.it.ts));
+    // стабильность: сортируем как раньше
+    pts.sort(
+        (a, b) =>
+            (a.it.orbit - b.it.orbit) ||
+            (norm360(a.it.angleDeg) - norm360(b.it.angleDeg)) ||
+            (a.it.ts - b.it.ts)
+    );
 
-    // простой Union-Find: если A близко к B -> одна компонента
+    // Union-Find
     const n = pts.length;
     const parent = Array.from({ length: n }, (_, i) => i);
 
@@ -73,7 +75,7 @@ export function compassClusters(
         if (ra !== rb) parent[rb] = ra;
     };
 
-    // O(n^2) — для компаса targets обычно мало (Sun/Moon/планеты/пара объектов), норм.
+    // O(n^2) — targets обычно мало
     for (let i = 0; i < n; i++) {
         for (let j = i + 1; j < n; j++) {
             const dx = pts[i].x - pts[j].x;
@@ -83,7 +85,7 @@ export function compassClusters(
         }
     }
 
-    // соберём компоненты
+    // компоненты
     const groups = new Map<number, MarkerItem[]>();
     for (let i = 0; i < n; i++) {
         const root = find(i);
@@ -99,7 +101,7 @@ export function compassClusters(
         const head = itemsSortedByTs[0];
         const count = itemsSortedByTs.length;
 
-        // кластерная прозрачность: min(opacity) (undefined => 1)
+        // opacity кластера: min(opacity) (undefined => 1)
         let minOpacity = 1;
         let sawOpacity = false;
         for (const it of itemsSortedByTs) {
@@ -111,8 +113,7 @@ export function compassClusters(
         }
         const opacity = sawOpacity ? minOpacity : itemOpacity(head);
 
-        // угол и орбиту берём как "средние" в 2D, чтобы кластер рисовался ровно между ними
-        // (это и решает твой кейс: Солнце+Луна чуть разные по высоте, но кластер будет в середине)
+        // средняя позиция кластера в 2D
         let sx = 0;
         let sy = 0;
         for (const it of itemsSortedByTs) {
@@ -126,16 +127,7 @@ export function compassClusters(
 
         const aAvgRad = Math.atan2(sy, sx);
         const aAvgDeg0_360 = norm360((aAvgRad * 180) / Math.PI);
-        const rAvg = Math.hypot(sx, sy);
 
-        // обратного преобразования r->orbit у нас нет (и не надо):
-        // берём orbit головы, а позиционирование по углу будет точным.
-        // Чтобы кластер реально оказался "между" по радиусу тоже, можно сделать "виртуальный orbit"
-        // через долю от r в вашей шкале. Но без знания шкалы это опасно.
-        // Поэтому: orbit = head.orbit (как раньше), а угол — средний 2D.
-        //
-        // Если хочешь прям идеал: добавь в сигнатуру getOrbitFromRadius или отдавай orbitToRadiusVB,
-        // но это уже отдельный рефактор.
         const id =
             count === 1
                 ? head.id
@@ -145,7 +137,7 @@ export function compassClusters(
             id,
             ts: head.ts,
             angleDeg: toSignedAngle(aAvgDeg0_360),
-            orbit: head.orbit,
+            orbit: head.orbit, // без обратного r->orbit оставляем так (стабильно)
             bg: head.bg,
             count,
             emoji: count === 1 ? head.emoji : undefined,
@@ -155,8 +147,12 @@ export function compassClusters(
         });
     }
 
-    // стабильный порядок рендера
-    out.sort((a, b) => (a.orbit - b.orbit) || (norm360(a.angleDeg) - norm360(b.angleDeg)) || (a.ts - b.ts));
+    out.sort(
+        (a, b) =>
+            (a.orbit - b.orbit) ||
+            (norm360(a.angleDeg) - norm360(b.angleDeg)) ||
+            (a.ts - b.ts)
+    );
 
     return out;
 }

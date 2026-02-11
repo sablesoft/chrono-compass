@@ -4,6 +4,7 @@
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import DocsModal from './DocsModal.svelte';
+    import Tooltip from './Tooltip.svelte';
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
@@ -65,6 +66,13 @@
             dbg.log?.('roles', roles);
             dbg.log?.('title', title);
         });
+    }
+
+    function handleMarkerPick(ts0: number) {
+        onUserActivity();
+        // можно сделать jumpTo позже, пока просто выставим selectedTs если нужно
+        // но у компаса сейчас нет jumpTo, так что хотя бы закрываем:
+        tip.closeNow();
     }
 
     function handleCancel() {
@@ -336,6 +344,19 @@
                     <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
                 </svg>
             </div>
+
+            {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
+                <Tooltip
+                        x={$tipState.x}
+                        y={$tipState.y}
+                        cluster={$tipState.cluster}
+                        moment={$tipState.moment}
+                        onPickTs={handleMarkerPick}
+                        onMouseEnter={tip.keepOpen}
+                        onMouseLeave={tip.scheduleClose}
+                        onClose={tip.closeNow}
+                />
+            {/if}
         </section>
     </div>
 
@@ -579,4 +600,7 @@
         fill: currentColor;
         opacity: 0.85;
     }
+
+    .marker { cursor: pointer; }
+    .marker:hover circle { stroke-opacity: 0.75; }
 </style>
