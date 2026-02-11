@@ -14,8 +14,6 @@
     import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
     import {
         buildHouseBoundaries,
-        buildMarkerItemsForWheel,
-        clusterMarkerItems,
         computeAnchors,
         computeAngle,
         createMomentClickHandler,
@@ -40,7 +38,8 @@
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useNowPointer } from '../lib/wheel/ui/useNowPointer';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
-    import {useDocs} from "../lib/docs";
+    import { useDocs } from "../lib/docs";
+    import { buildMarkerItemsForWheel, clusterMarkerItems } from "../lib/wheel/ui/wheelClusters";
 
     export let kind: CycleKind = 'diurnal';
     export let lat: number;

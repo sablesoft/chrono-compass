@@ -17,6 +17,9 @@ export interface Body {
 
     /** Localized display name */
     name: LocalizedString;
+
+    /** Default emoji/icon for UI */
+    emoji: string;
 }
 
 export type WheelType =

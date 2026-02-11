@@ -1,19 +1,23 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
-    // Compass MVP: visual skeleton only (no ephemeris logic yet)
+    // Compass MVP: now draws selected targets
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import DocsModal from './DocsModal.svelte';
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
-    import { clusterMarkerItems, type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
+    import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
 
     import WheelControl from './WheelControl.svelte';
 
     import { wheels } from '../lib/catalog';
     import type { WheelRolesState } from '../lib/wheel/control';
-    import type { WheelSpec, CompassRoleSet } from '../lib/catalog';
+    import type { WheelSpec, CompassRoleSet, BodyId } from '../lib/catalog';
+
+    // NEW: compass engine
+    import { computeCompassTargets, compassTargetsToMarkerItems } from '../lib/wheel/compass';
+    import {compassClusters} from "../lib/wheel/ui/compassClusters";
 
     export let lat: number;
     export let lon: number;
@@ -32,9 +36,9 @@
     );
     const docsState = docs.state;
 
-/* =======================
-   WheelControl state (applied)
-   ======================= */
+    /* =======================
+       WheelControl state (applied)
+       ======================= */
     const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
     function pickDefaultRoles(s: Extract<WheelSpec, { type: 'compass' }>): WheelRolesState {
@@ -61,13 +65,9 @@
             dbg.log?.('roles', roles);
             dbg.log?.('title', title);
         });
-
-        // тут позже будет “пересчёт / перерисовка” компаса под выбранные роли
-        // пока просто сохраняем состояние, UI в хедере обновится сам.
     }
 
     function handleCancel() {
-        // сейчас ничего не надо, но оставляем хук под логи/аналитику
         dbg.log('WheelControl.cancel');
     }
 
@@ -92,8 +92,16 @@
 
     // TEMP (как в Wheel): orbit in [0..1] -> map into [zenith..horizon]
     function orbitToRadiusVB(orbit: number) {
-        const o = Math.max(0, Math.min(1, orbit));
-        return rHorizon * o; // 0 = zenith, 1 = horizon
+        const o = Math.max(0, orbit);
+
+        if (o <= 1) {
+            // visible sky: zenith → horizon
+            return rHorizon * o;
+        } else {
+            // below horizon: horizon → outer rim
+            const t = Math.min(1, o - 1); // map [1..2] → [0..1]
+            return rHorizon + (rOuter - rHorizon) * t;
+        }
     }
 
     function pieSectorPath(a0: number, a1: number, r: number) {
@@ -120,10 +128,63 @@
         dbg.log('Cluster Activate', c);
     }
 
+    function asBodyIdArray(v: unknown): BodyId[] {
+        if (Array.isArray(v)) return v.filter(Boolean) as BodyId[];
+        if (typeof v === 'string' && v) return [v as BodyId];
+        return [];
+    }
+
+    function asBodyIdOrNull(v: unknown): BodyId | null {
+        if (typeof v === 'string' && v) return v as BodyId;
+        if (Array.isArray(v) && typeof v[0] === 'string') return (v[0] as BodyId) ?? null;
+        return null;
+    }
+
     $: {
-        // todo
-        const items: MarkerItem[] = [];
-        markerClusters = clusterMarkerItems(items, orbitToRadiusVB, MIN_ARC_PX);
+        const looker = asBodyIdOrNull(roles.looker) ?? 'Earth';
+        const targets = asBodyIdArray(roles.target);
+
+        dbg.log?.('Compass.recalc.in', {
+            selectedTs,
+            lat,
+            lon,
+            looker,
+            targets,
+            roles
+        });
+
+        if (!targets.length) {
+            markerClusters = [];
+            dbg.log?.('Compass.recalc.out', { reason: 'no targets' });
+        } else {
+            const solved = computeCompassTargets({
+                ts: selectedTs,
+                looker,
+                observer: { lat, lon },
+                targets,
+                refraction: false,
+                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+            });
+
+            if (!solved.ok) {
+                markerClusters = [];
+                dbg.log?.('Compass.recalc.out', { ok: false, reason: solved.reason });
+            } else {
+                const items: MarkerItem[] = compassTargetsToMarkerItems(selectedTs, solved.targets, looker);
+
+                dbg.log?.('Compass.items', {
+                    count: items.length,
+                    sample: items[0]
+                });
+
+                markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+
+                dbg.log?.('Compass.clusters', {
+                    count: markerClusters.length,
+                    sample: markerClusters[0]
+                });
+            }
+        }
     }
 
     /* =======================
@@ -160,7 +221,6 @@
         />
 
         <div class="right">
-            <!-- placeholders: real controls will be added later -->
             <button type="button" class="navBtn" title="Previous" disabled>←</button>
             <button type="button" class="navBtn" title="Next" disabled>→</button>
             <button
@@ -172,18 +232,13 @@
         </div>
     </header>
 
-    <!-- Wheel -->
     <div class="wrap" bind:this={wrapEl}>
         <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Compass Wheel">
-                    <!-- Outer rim -->
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
-
-                    <!-- Horizon line (altitude = 0°) drawn slightly inward to reserve an outer ring -->
                     <circle cx={cx} cy={cy} r={rHorizon} fill="none" class="horizon" />
 
-                    <!-- House boundaries (ticks) -->
                     {#each Array(spokeCount) as _, i (i)}
                         {@const a = boundaryAngleDeg(i)}
                         {@const pA = polarToXY(rOuter * 0.96, a)}
@@ -196,7 +251,6 @@
                         </g>
                     {/each}
 
-                    <!-- Quadrants (keep the same "wheel grammar") -->
                     <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
                         <path d={pieSectorPath(-45,  -135, rHorizon)} class="q q-red" />
                         <path d={pieSectorPath(-135, -225, rHorizon)} class="q q-white" />
@@ -204,7 +258,6 @@
                         <path d={pieSectorPath(-315, -405, rHorizon)} class="q q-gold" />
                     </g>
 
-                    <!-- Spokes + labels (from zenith center to outer rim) -->
                     {#each labels as label, i (label)}
                         {@const a = spokeAngleDeg(i)}
                         {@const p1 = { x: cx, y: cy }}
@@ -237,7 +290,6 @@
                         </g>
                     {/each}
 
-                    <!-- Markers -->
                     {#each markerClusters as c (c.id)}
                         {@const a = c.angleDeg}
                         {@const rMark = orbitToRadiusVB(c.orbit)}
@@ -248,6 +300,7 @@
                                 class="marker"
                                 data-marker="1"
                                 transform={`translate(${p.x} ${p.y})`}
+                                style={`opacity:${c.opacity ?? 1}`}
                                 on:click={(e) => tip.handleClusterClick(e, c)}
                                 on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
                                 on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
@@ -257,25 +310,17 @@
 
                             <circle
                                     r={VB * 0.02}
-                                    fill={c.bg}
+                                    fill="transparent"
                                     stroke="currentColor"
                                     stroke-opacity="0.45"
                                     stroke-width="3"
                             />
-                            <circle
-                                    r={VB * 0.018}
-                                    fill="none"
-                                    stroke="var(--bg)"
-                                    stroke-opacity="0.5"
-                                    stroke-width="2"
-                            />
-
                             <text
                                     text-anchor="middle"
                                     dominant-baseline="middle"
                                     font-size={VB * 0.02}
                                     fill="currentColor"
-                                    fill-opacity="0.95"
+                                    fill-opacity={(c.opacity ?? 1)}
                                     style="pointer-events:none"
                             >
                                 {c.count === 1 ? c.emoji : c.label}
@@ -283,7 +328,6 @@
                         </g>
                     {/each}
 
-                    <!-- Zenith point -->
                     <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
                 </svg>
             </div>
@@ -300,9 +344,9 @@
             </button>
 
             <span class="houseBtns">
-        <button type="button" class="hb" disabled>start</button>
-        <button type="button" class="hb" disabled>end</button>
-      </span>
+                <button type="button" class="hb" disabled>start</button>
+                <button type="button" class="hb" disabled>end</button>
+            </span>
         </div>
 
         <div class="infoRow">
@@ -314,9 +358,9 @@
             </button>
 
             <span class="houseBtns">
-        <button type="button" class="hb" disabled>prev</button>
-        <button type="button" class="hb" disabled>next</button>
-      </span>
+                <button type="button" class="hb" disabled>prev</button>
+                <button type="button" class="hb" disabled>next</button>
+            </span>
         </div>
     </div>
 </section>
