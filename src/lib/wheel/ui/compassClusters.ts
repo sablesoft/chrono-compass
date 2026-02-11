@@ -1,4 +1,4 @@
-// src/lib/wheel/clusterByOverlap.ts
+// src/lib/wheel/compassClusters.ts
 import type { MarkerItem, MarkerCluster } from '../wheel';
 
 function norm360(deg: number): number {
@@ -13,6 +13,17 @@ function toSignedAngle(deg0_360: number): number {
     return a;
 }
 
+// если у тебя opacity ещё не в MarkerItem типе — оставим мягко
+function itemOpacity(it: MarkerItem): number | undefined {
+    return (it as any).opacity;
+}
+
+/**
+ * Compass clustering:
+ * - "сливать", если перекрытие > 1/3 (по дуге на одной окружности)
+ * - неважно: над горизонтом / под горизонтом
+ * - прозрачность кластера: min(opacity) внутри (чтобы “за горизонтом” не становилось внезапно непрозрачным)
+ */
 export function compassClusters(
     items: MarkerItem[],
     getRadiusPx: (orbit: number) => number,
@@ -20,11 +31,10 @@ export function compassClusters(
 ): MarkerCluster[] {
     if (!items.length) return [];
 
-    // overlap>1/3 => dist < (4/3)R  (см. вывод выше)
+    // overlap>1/3 => dist < (4/3)R
     const minArcPx = (4 / 3) * markerRadiusPx;
 
-    // чтобы не потерять смысл “разные окружности”, группируем по радиусу (не по orbit)
-    // округляем радиус до 0.5px, чтобы стабильно (и чтобы фиксированный “за горизонтом” схлопнулся)
+    // группируем по фактическому радиусу (а не по orbit) — стабильно и “за горизонтом” схлопывается
     const bucketKey = (r: number) => Math.round(r * 2); // 0.5px buckets
 
     const byRing = new Map<number, MarkerItem[]>();
@@ -41,13 +51,14 @@ export function compassClusters(
     for (const [k, ringItems] of byRing) {
         const r = Math.max(1, k / 2);
 
+        // дуговой порог в градусах
         const epsDeg = (minArcPx / r) * (180 / Math.PI);
 
         const list = ringItems
-            .map(it => ({ it, a: norm360(it.angleDeg) }))
+            .map((it) => ({ it, a: norm360(it.angleDeg) }))
             .sort((x, y) => (x.a - y.a) || (x.it.ts - y.it.ts));
 
-        // линейные кластера
+        // линейная кластеризация по соседям
         const clusters: { items: MarkerItem[]; aSum: number; aFirst: number; aLast: number }[] = [];
         let c: { items: MarkerItem[]; aSum: number; aFirst: number; aLast: number } | null = null;
 
@@ -68,14 +79,14 @@ export function compassClusters(
         }
         if (c) clusters.push(c);
 
-        // wrap-around: склеиваем первый и последний, если близко через 360
+        // wrap-around: склеить первый и последний, если близко через 360
         if (clusters.length >= 2) {
             const first = clusters[0];
             const last = clusters[clusters.length - 1];
 
             const wrapGap = (first.aFirst + 360) - last.aLast;
             if (wrapGap <= epsDeg) {
-                // переносим углы first как +360, чтобы среднее было корректным
+                // переносим углы first как +360, чтобы среднее не уехало
                 const moved = first.items;
                 const movedSum = moved.reduce((sum, it) => sum + (norm360(it.angleDeg) + 360), 0);
 
@@ -101,17 +112,32 @@ export function compassClusters(
                     ? head.id
                     : `cluster:${head.collectionId}:${k}:${Math.round(aRender0_360 * 10)}:${count}`;
 
+            // opacity кластера: берём минимум из всех (если у кого-то undefined — считаем 1)
+            let opacity: number | undefined = undefined;
+            {
+                let min = 1;
+                let saw = false;
+                for (const it of itemsSortedByTs) {
+                    const o = itemOpacity(it);
+                    if (typeof o === 'number' && Number.isFinite(o)) {
+                        saw = true;
+                        if (o < min) min = o;
+                    }
+                }
+                opacity = saw ? min : itemOpacity(head);
+            }
+
             out.push({
                 id,
                 ts: head.ts,
                 angleDeg: toSignedAngle(aRender0_360),
-                orbit: head.orbit, // любой из них; радиус уже зафиксирован через bucket
+                orbit: head.orbit, // радиус уже “зафиксирован” bucket’ом
                 bg: head.bg,
                 count,
                 emoji: count === 1 ? head.emoji : undefined,
                 label: count > 1 ? String(count) : undefined,
                 items: itemsSortedByTs,
-                opacity: (head as any).opacity
+                opacity
             });
         }
     }

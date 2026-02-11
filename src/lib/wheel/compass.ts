@@ -147,6 +147,20 @@ export function computeCompassTargets(input: CompassInput): CompassSolveResult {
     };
 }
 
+function toSigned180(deg0_360: number): number {
+    let a = norm360(deg0_360);
+    if (a > 180) a -= 360;
+    return a;
+}
+
+/**
+ * Convert geodetic azimuth (0=N, 90=E) -> wheel angle for your SVG geom
+ * (0=E, -90=N, ±180=W, +90=S).
+ */
+function azimuthToWheelAngleDeg(azimuthDeg: number): number {
+    return toSigned180(azimuthDeg - 90);
+}
+
 export function compassTargetsToMarkerItems(
     ts: number,
     targets: CompassTargetState[],
@@ -171,7 +185,7 @@ export function compassTargetsToMarkerItems(
             collectionId,
 
             ts,
-            angleDeg: t.azimuthDeg,
+            angleDeg: azimuthToWheelAngleDeg(t.azimuthDeg),
             orbit,
 
             bg: 'transparent',
