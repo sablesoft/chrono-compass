@@ -318,10 +318,15 @@
                             <text
                                     text-anchor="middle"
                                     dominant-baseline="middle"
-                                    font-size={VB * 0.02}
+                                    font-size={c.count === 1 ? VB * 0.02 : VB * 0.028}
+                                    font-weight={c.count === 1 ? 500 : 800}
+                                    letter-spacing={c.count === 1 ? 0 : 0.6}
                                     fill="currentColor"
-                                    fill-opacity={(c.opacity ?? 1)}
+                                    fill-opacity="0.95"
                                     style="pointer-events:none"
+                                    stroke={c.count > 1 ? "var(--bg)" : "none"}
+                                    stroke-width={c.count > 1 ? 4 : 0}
+                                    paint-order="stroke"
                             >
                                 {c.count === 1 ? c.emoji : c.label}
                             </text>

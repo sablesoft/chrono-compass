@@ -654,7 +654,9 @@
                             <text
                                     text-anchor="middle"
                                     dominant-baseline="middle"
-                                    font-size={VB * 0.02}
+                                    font-size={c.count === 1 ? VB * 0.02 : VB * 0.024}
+                                    font-weight={c.count === 1 ? 500 : 800}
+                                    letter-spacing={c.count === 1 ? 0 : 0.5}
                                     fill="currentColor"
                                     fill-opacity="0.95"
                                     style="pointer-events:none"
