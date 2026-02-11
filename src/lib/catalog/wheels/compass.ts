@@ -1,7 +1,8 @@
 import type { WheelSpec } from '../types';
 
-export const CompassWheel: WheelSpec = {
+export const compass = {
     type: 'compass',
+    multiTarget: true,
     roles: [
         // Earth Compass: Sky (targets are selectable)
         {
@@ -9,4 +10,4 @@ export const CompassWheel: WheelSpec = {
             target: ['Sun', 'Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'compass' }>;

@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const ChannelWheel: WheelSpec = {
+export const channel = {
     type: 'channel',
     roles: [
         // Sun Channel: Earth – Moon
@@ -16,4 +16,4 @@ export const ChannelWheel: WheelSpec = {
             target: ['Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'channel' }>;

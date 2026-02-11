@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const NodalWheel: WheelSpec = {
+export const nodal = {
     type: 'nodal',
     roles: [
         // Earth Nodal: Sun - Moon
@@ -11,4 +11,4 @@ export const NodalWheel: WheelSpec = {
             target: ['Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'nodal' }>;

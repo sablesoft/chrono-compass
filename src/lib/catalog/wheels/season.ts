@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const SeasonWheel: WheelSpec = {
+export const season = {
     type: 'season',
     roles: [
         // Sun Season: Earth
@@ -14,4 +14,4 @@ export const SeasonWheel: WheelSpec = {
             target: ['Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'season' }>;

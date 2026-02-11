@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const BindWheel: WheelSpec = {
+export const bind = {
     type: 'bind',
     roles: [
         // Sun Bind: Earth
@@ -14,4 +14,4 @@ export const BindWheel: WheelSpec = {
             target: ['Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'bind' }>;

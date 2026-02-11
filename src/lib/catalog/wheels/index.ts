@@ -1,23 +1,29 @@
+// src/lib/catalog/wheels/index.ts
 import type { WheelSpec, WheelType } from '../types';
 
-import { CompassWheel } from './compass';
-import { HorizonWheel } from './horizon';
-import { BindWheel } from './bind';
-import { SeasonWheel } from './season';
-import { SynodWheel } from './synod';
-import { ChannelWheel } from './channel';
-import { NodalWheel } from './nodal';
-import { PlatoWheel } from './plato';
-import { RangeWheel } from './range';
+import { compass } from './compass';
+import { horizon } from './horizon';
+import { synod } from './synod';
+import { channel } from './channel';
+import { bind } from './bind';
+import { range } from './range';
+import { season } from './season';
+import { nodal } from './nodal';
+import { plato } from './plato';
 
-export const wheels: Record<WheelType, WheelSpec> = {
-    compass: CompassWheel,
-    horizon: HorizonWheel,
-    bind: BindWheel,
-    range: RangeWheel,
-    season: SeasonWheel,
-    synod: SynodWheel,
-    channel: ChannelWheel,
-    nodal: NodalWheel,
-    plato: PlatoWheel
+// тип: для каждого ключа — свой конкретный кусок WheelSpec
+export type WheelsCatalog = {
+    [K in WheelType]: Extract<WheelSpec, { type: K }>
+};
+
+export const wheels: WheelsCatalog = {
+    compass,
+    horizon,
+    synod,
+    channel,
+    bind,
+    range,
+    season,
+    nodal,
+    plato
 };

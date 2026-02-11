@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const RangeWheel: WheelSpec = {
+export const range = {
     type: 'range',
     roles: [
         // Sun Range: Moon
@@ -18,4 +18,4 @@ export const RangeWheel: WheelSpec = {
             target: ['Sun']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'range' }>;

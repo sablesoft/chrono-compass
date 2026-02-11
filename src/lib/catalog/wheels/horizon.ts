@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const HorizonWheel: WheelSpec = {
+export const horizon = {
     type: 'horizon',
     roles: [
         // Earth Horizon: Sun / Moon
@@ -11,4 +11,4 @@ export const HorizonWheel: WheelSpec = {
             target: ['Sun', 'Moon']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'horizon' }>;

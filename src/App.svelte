@@ -13,6 +13,7 @@
   import {CYCLE_META} from "./lib/cycles/meta";
   import Wheel from "./components/Wheel.svelte";
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
+  import Compass from "./components/Compass.svelte";
 
   // local mirrors
   let lat = -23.22;
@@ -57,6 +58,7 @@
     <Header />
 
     <section class="grid">
+      <Compass lat={lat} lon={lon} selectedTs={$selectedTsStore}/>
       {#each cyclesOrdered as kind (kind)}
         <Wheel kind="{kind}"
                 lat={lat}

@@ -88,7 +88,7 @@ export type PlatoRoleSet = RequireRoles<
 /* ===== WheelSpec as discriminated union ===== */
 
 export type WheelSpec =
-    | { type: 'compass'; roles: CompassRoleSet[] }
+    | { type: 'compass'; roles: CompassRoleSet[]; multiTarget: true }
     | { type: 'horizon'; roles: HorizonRoleSet[] }
     | { type: 'synod'; roles: SynodRoleSet[] }
     | { type: 'channel'; roles: ChannelRoleSet[] }

@@ -1,6 +1,6 @@
 import type { WheelSpec } from '../types';
 
-export const SynodWheel: WheelSpec = {
+export const synod = {
     type: 'synod',
     roles: [
         // Earth Synod: Sun - Moon (classic synodic relation as seen from Earth)
@@ -17,4 +17,4 @@ export const SynodWheel: WheelSpec = {
             target: ['Earth']
         }
     ]
-};
+} satisfies Extract<WheelSpec, { type: 'synod' }>;

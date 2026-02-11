@@ -506,7 +506,7 @@
                                     x2={p2.x} y2={p2.y}
                                     stroke="currentColor"
                                     stroke-opacity={selectedSpokeIndex === i ? 0.9 : 0.35}
-                                    stroke-width={i % 4 === 0 ? 7 : 4}
+                                    stroke-width={i % 4 === 0 ? 4 : 2}
                                     stroke-linecap="round"
                             />
 
