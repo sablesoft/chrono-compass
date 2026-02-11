@@ -1,5 +1,5 @@
 // src/lib/debug.ts
-type DebugApi = {
+export type DebugApi = {
     enabled: boolean;
     group<T>(title: string, fn: () => T): T;
     log: (...args: any[]) => void;

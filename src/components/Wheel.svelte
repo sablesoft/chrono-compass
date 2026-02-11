@@ -299,15 +299,16 @@
     /* =======================
        NOW pointer
        ======================= */
-    const now = useNowPointer(() => kind, () => anchors);
+    const now = useNowPointer(() => kind, () => anchors, dbg);
+    const nowState = now.state;
 
     let showNowPointer = false;
     let nowPointerAngleDeg: number | null = null;
     let nowDisplayAngle = 0;
 
-    $: showNowPointer = now.show;
-    $: nowPointerAngleDeg = now.angleDeg;
-    $: nowDisplayAngle = now.displayAngle;
+    $: showNowPointer = $nowState.show;
+    $: nowPointerAngleDeg = $nowState.angleDeg;
+    $: nowDisplayAngle = $nowState.displayAngle;
 
     /* =======================
        Info block helpers
