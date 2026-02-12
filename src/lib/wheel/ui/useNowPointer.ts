@@ -56,14 +56,17 @@ export function useNowPointer(
         const win = pickWindow(a);
 
         if (live) {
+            // когда live=true, стрелка "now" скрыта
             state.set({ show: false, angleDeg: null, displayAngle: 0 });
             dbg?.log?.('[NOW] tick', { reason, live, show: false, why: 'isLive=true' });
+            lastAngle = 0;
             return;
         }
 
         if (!win) {
             state.set({ show: false, angleDeg: null, displayAngle: 0 });
             dbg?.warn?.('[NOW] tick', { reason, live, show: false, why: 'no window', anchors: a });
+            lastAngle = 0;
             return;
         }
 
@@ -77,6 +80,8 @@ export function useNowPointer(
             while (t - lastAngle < -180) t += 360;
             displayAngle = t;
             lastAngle = t;
+        } else {
+            lastAngle = 0;
         }
 
         state.set({ show: inside, angleDeg, displayAngle });
@@ -105,11 +110,29 @@ export function useNowPointer(
         }, msToNextMinute + 5);
     }
 
-    onMount(startTicker);
-    onDestroy(clearTimers);
+    // NEW: дергаем пересчет вручную, когда внешние зависимости поменялись
+    function refresh(reason = 'refresh') {
+        tick(reason);
+    }
+
+    let unsubLive: (() => void) | null = null;
+
+    onMount(() => {
+        startTicker();
+
+        // NEW: isLive переключили — пересчитать сразу, не ждать минуты
+        unsubLive = isLive.subscribe(() => tick('isLive'));
+    });
+
+    onDestroy(() => {
+        clearTimers();
+        unsubLive?.();
+        unsubLive = null;
+    });
 
     return {
         state,
-        startLive
+        startLive,
+        refresh
     };
 }
