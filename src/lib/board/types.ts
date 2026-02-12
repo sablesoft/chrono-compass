@@ -1,3 +1,4 @@
+// src/lib/board/types.ts
 import type { WheelType } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 

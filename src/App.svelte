@@ -3,7 +3,7 @@
   import Header from './components/Header.svelte';
   import Board from './components/Board.svelte';
 
-  import { currentLocation, initLocation } from './lib/stores/location';
+  import { currentLocation, initLocation } from './lib/location/store';
   import { selectedTs as selectedTsStore, startLive } from './lib/stores/time';
 
   import SwUpdateToast from "./components/SwUpdateToast.svelte";

@@ -31,6 +31,7 @@ const KNOWN_CHANNELS: Record<string, () => any> = {
     APP: () => import.meta.env.VITE_DEBUG_APP,
 
     // wheel / ui
+    LOCATION: () => import.meta.env.VITE_DEBUG_LOCATION,
     COMPASS: () => import.meta.env.VITE_DEBUG_COMPASS,
     PROFILE: () => import.meta.env.VITE_DEBUG_PROFILE,
     BOARD: () => import.meta.env.VITE_DEBUG_BOARD,
