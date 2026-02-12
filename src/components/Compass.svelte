@@ -10,7 +10,7 @@
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
 
-    import WheelControl from './WheelControl.svelte';
+    import WheelPicker from './WheelPicker.svelte';
 
     import { wheels } from '../lib/catalog';
     import type { WheelRolesState } from '../lib/wheel/control';
@@ -38,7 +38,7 @@
     const docsState = docs.state;
 
     /* =======================
-       WheelControl state (applied)
+       WheelPicker state (applied)
        ======================= */
     const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
@@ -49,7 +49,7 @@
         const looker = rs.looker?.[0] ?? null;
         const target = rs.target?.[0] ?? null;
 
-        // у Compass нет focus — оставляем как null, чтобы WheelControl спокойно жил
+        // у Compass нет focus — оставляем как null, чтобы WheelPicker спокойно жил
         return { looker, focus: null, target };
     }
 
@@ -220,7 +220,7 @@
 
 <section class="panel">
     <header class="top">
-        <WheelControl
+        <WheelPicker
                 type="compass"
                 {roles}
                 {title}

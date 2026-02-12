@@ -1,4 +1,4 @@
-<!-- src/components/WheelControl.svelte -->
+<!-- src/components/WheelPicker.svelte -->
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import type { BodyId, WheelType, WheelSpec, RoleName } from '../lib/catalog';
@@ -17,15 +17,55 @@
         shallowEqualRoles
     } from '../lib/wheel/control';
 
+    import { debug } from '../lib/debug';
+
+    // NEW: profiles (saved wheels live here now)
+    import { activeProfile, profilesApi } from '../lib/profile/store';
+    import type { SavedWheel } from '../lib/profile/types';
+
+    const dbg = debug('PROFILE', '🧩');
+
     export let type: WheelType;
 
     // applied values
     export let roles: WheelRolesState = {};
     export let title: string = '';
 
-    // Svelte 5: callback props
     export let onApply: (payload: { roles: WheelRolesState; title: string }) => void = () => {};
     export let onCancel: () => void = () => {};
+
+    // -----------------------------------------
+    // helpers: stable id by config (type+roles)
+    // -----------------------------------------
+    function normalizeRoleValue(v: any): string | null {
+        if (v == null || v === '') return null;
+        if (Array.isArray(v)) return v.map(String).sort().join(',');
+        return String(v);
+    }
+
+    function stableRolesKey(roles: WheelRolesState): string {
+        const entries = Object.entries(roles ?? {})
+            .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
+            .filter(([, v]) => v !== null);
+
+        entries.sort((a, b) => a[0].localeCompare(b[0]));
+        return entries.map(([k, v]) => `${k}=${v}`).join('&');
+    }
+
+    function makeWheelId(type: WheelType, roles: WheelRolesState): string {
+        const rolesKey = stableRolesKey(roles);
+        const raw = `${type}::${rolesKey}`;
+
+        // base64url
+        const b64 = btoa(unescape(encodeURIComponent(raw)))
+            .replaceAll('+', '-')
+            .replaceAll('/', '_')
+            .replaceAll('=', '');
+
+        return `wheel:${type}:${b64}`;
+    }
+
+    // -----------------------------------------
 
     let spec: WheelSpec;
     $: spec = wheels[type];
@@ -39,10 +79,7 @@
     $: specText = formatWheelSpec(type, roles);
     $: titleText = title?.trim()?.length ? title.trim() : defaultTitle(type, roles);
 
-    // modal focus
     let modalEl: HTMLDivElement | null = null;
-
-    // modal state
     let open = false;
 
     let draftRoles: WheelRolesState = {};
@@ -51,23 +88,58 @@
     let initialRoles: WheelRolesState = {};
     let initialTitle = '';
 
-    // multi-target (compass)
     let multiTarget = false;
     $: multiTarget = isMultiTarget(spec);
     let draftTargets: BodyId[] = [];
 
-    // derived “effective” draft roles (single source of truth)
     let effectiveDraftRoles: WheelRolesState = {};
-    $: effectiveDraftRoles = multiTarget ?
-        { ...draftRoles, target: draftTargets }
-        : draftRoles;
+    $: effectiveDraftRoles = multiTarget ? { ...draftRoles, target: draftTargets } : draftRoles;
 
-    const uid = `wc_${Math.random().toString(36).slice(2)}`;
+    const uid = `wp_${Math.random().toString(36).slice(2)}`;
     const idName = `${uid}_name`;
     const idSpec = `${uid}_spec`;
+    const idSaved = `${uid}_saved`;
     const roleId = (r: string) => `${uid}_role_${r}`;
 
+    // -----------------------------------------
+    // saved wheels list (reactive from profile)
+    // -----------------------------------------
+    let savedList: SavedWheel[] = [];
+    $: {
+        const p = $activeProfile;
+        const list = (p?.data?.wheels ?? []).filter(w => w.type === type);
+
+        list.sort((a, b) => {
+            const af = !!a.favorite;
+            const bf = !!b.favorite;
+            if (af !== bf) return af ? -1 : 1;
+            return (b.updatedAt - a.updatedAt);
+        });
+
+        savedList = list;
+    }
+
+    // UI select state (for loading into draft)
+    let pickedSavedId = '';
+
+    // current config id from draft (for "is saved?" + delete/fav on match)
+    let currentCfgId = '';
+    $: currentCfgId = makeWheelId(type, effectiveDraftRoles);
+
+    let currentSaved: SavedWheel | null = null;
+    $: currentSaved = savedList.find(w => w.id === currentCfgId) ?? null;
+
+    let isSaved = false;
+    $: isSaved = currentSaved != null;
+
+    let isFav = false;
+    $: isFav = !!currentSaved?.favorite;
+
+    // -----------------------------------------
+
     function openModal() {
+        dbg.log('WheelPicker.open', { type });
+
         initialRoles = { ...roles };
         initialTitle = title ?? '';
 
@@ -81,25 +153,33 @@
             draftTargets = [];
         }
 
+        pickedSavedId = '';
         open = true;
         queueMicrotask(() => modalEl?.focus());
     }
 
     function closeModal(reason: 'cancel' | 'apply' = 'cancel') {
+        dbg.log('WheelPicker.close', { type, reason });
         open = false;
         if (reason === 'cancel') onCancel();
     }
 
     function clearDraft() {
+        dbg.log('WheelPicker.clearDraft', { type });
+
         for (const r of usedRoles) {
             if (r === 'target' && multiTarget) continue;
             draftRoles[r] = null;
         }
         draftRoles = { ...draftRoles };
         if (multiTarget) draftTargets = [];
+        draftTitle = '';
+        pickedSavedId = '';
     }
 
     function resetDraft() {
+        dbg.log('WheelPicker.resetDraft', { type });
+
         draftRoles = { ...initialRoles };
         draftTitle = initialTitle;
 
@@ -109,25 +189,26 @@
         } else {
             draftTargets = [];
         }
+
+        pickedSavedId = '';
     }
 
     function setRole(role: RoleName, value: string) {
         const v = (value || '') as BodyId;
-
-        // target в multi-режиме меняется ТОЛЬКО через draftTargets
         if (role === 'target' && multiTarget) return;
 
         draftRoles = { ...draftRoles, [role]: (v ? v : null) };
         draftRoles = normalizeRolesForType(spec, draftRoles);
 
-        // после изменения looker/focus могли измениться допуски для target — подчистим draftTargets
         if (multiTarget) {
             const normalized = normalizeRolesForType(spec, { ...draftRoles, target: draftTargets });
             const t = normalized.target;
             draftTargets = Array.isArray(t) ? (t as BodyId[]) : [];
-            // draftRoles оставляем без target — он придёт через effectiveDraftRoles
             draftRoles = { ...normalized, target: draftRoles.target };
         }
+
+        // если пользователь начал вручную править — селект сохранённых не должен "врать"
+        pickedSavedId = '';
     }
 
     function handleRoleChange(role: RoleName, e: Event) {
@@ -144,13 +225,12 @@
             .map(o => o.value)
             .filter(Boolean) as BodyId[];
 
-        // нормализуем (выкидываем недопустимое) и синкаем обратно в draftTargets
         const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
         const t = normalized.target;
         draftTargets = Array.isArray(t) ? (t as BodyId[]) : [];
-
-        // draftRoles сохраняем (без попытки держать target тут “истиной”)
         draftRoles = { ...normalized, target: draftRoles.target };
+
+        pickedSavedId = '';
     }
 
     // validity / apply
@@ -166,6 +246,7 @@
 
     function apply() {
         if (!canApply) return;
+        dbg.log('WheelPicker.apply', { type, roles: effectiveDraftRoles, title: (draftTitle ?? '').trim() });
         onApply({ roles: effectiveDraftRoles, title: (draftTitle ?? '').trim() });
         open = false;
     }
@@ -188,12 +269,80 @@
 
     let draftSpec = '';
     $: draftSpec = formatWheelSpec(type, effectiveDraftRoles);
+
+    function handlePickSaved(e: Event) {
+        const el = e.currentTarget as HTMLSelectElement | null;
+        const id = el?.value ?? '';
+        pickedSavedId = id;
+
+        if (!id) return;
+
+        const w = savedList.find(x => x.id === id) ?? null;
+
+        dbg.group('WheelPicker.pickSaved', () => {
+            dbg.log('picked', { profileId: $activeProfile?.id, type, id, wheel: w?.title });
+        });
+
+        if (!w) return;
+
+        // загрузка в draft, но НЕ apply
+        draftTitle = w.title ?? '';
+        const r = w.roles ?? {};
+
+        draftRoles = { ...r };
+        draftRoles = normalizeRolesForType(spec, draftRoles);
+
+        if (multiTarget) {
+            const t = (r as any).target;
+            draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+
+            const normalized = normalizeRolesForType(spec, { ...draftRoles, target: draftTargets });
+            const nt = normalized.target;
+            draftTargets = Array.isArray(nt) ? (nt as BodyId[]) : [];
+            draftRoles = { ...normalized, target: draftRoles.target };
+        } else {
+            draftTargets = [];
+        }
+    }
+
+    function saveCurrentConfig() {
+        if (!hasAllRolesOk || !draftCompatible) {
+            dbg.warn('WheelPicker.save blocked', { profileId: $activeProfile?.id, type, hasAllRolesOk, draftCompatible });
+            return;
+        }
+
+        const t = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
+
+        // важно: тут “сопоставление по конфигу”.
+        // saveWheel перезапишет существующее с тем же type+roles (в рамках профиля).
+        const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles });
+
+        dbg.log('WheelPicker.saved', { id: savedId, title: t });
+
+        // UI: показываем сохранённое (и оно будет совпадать с currentCfgId)
+        pickedSavedId = savedId;
+    }
+
+    function deleteCurrentConfig() {
+        if (!currentSaved) return;
+
+        profilesApi.deleteWheel(currentSaved.id);
+        dbg.log('WheelPicker.deleted', { id: currentSaved.id });
+
+        if (pickedSavedId === currentSaved.id) pickedSavedId = '';
+    }
+
+    function toggleFavCurrent() {
+        if (!currentSaved) return;
+        profilesApi.setWheelFavorite(currentSaved.id, !currentSaved.favorite);
+        dbg.log('WheelPicker.favorite', { id: currentSaved.id, value: !currentSaved.favorite });
+    }
 </script>
 
 <div class="left">
     <div class="title">{titleText}</div>
 
-    <button type="button" class="wheelCodeBtn" on:click={openModal} title="Wheel control">
+    <button type="button" class="wheelCodeBtn" on:click={openModal} title="Wheel picker">
         {specText}
     </button>
 </div>
@@ -204,17 +353,58 @@
                 class="modal"
                 role="dialog"
                 aria-modal="true"
-                aria-label="Wheel control"
+                aria-label="Wheel picker"
                 tabindex="-1"
                 bind:this={modalEl}
                 on:click|stopPropagation
         >
             <header class="modalTop">
-                <div class="modalTitle">Wheel Control</div>
+                <div class="modalTitle">Wheel Picker</div>
                 <button class="x" type="button" aria-label="Close" on:click={() => closeModal('cancel')}>×</button>
             </header>
 
             <div class="modalBody">
+                <!-- Saved wheels (from profile) -->
+                <div class="row">
+                    <label class="lbl" for={idSaved}>Saved</label>
+
+                    <div class="savedRow">
+                        <select id={idSaved} class="sel" on:change={handlePickSaved} bind:value={pickedSavedId}>
+                            <option value="" selected={pickedSavedId === ''}>—</option>
+
+                            {#each savedList as w (w.id)}
+                                <option value={w.id}>
+                                    {w.favorite ? '★ ' : ''}{w.title || '(untitled)'}
+                                </option>
+                            {/each}
+                        </select>
+
+                        <button
+                                type="button"
+                                class="iconBtn"
+                                title={isSaved ? 'Save (overwrite)' : 'Save'}
+                                on:click={saveCurrentConfig}
+                                disabled={!hasAllRolesOk || !draftCompatible}
+                        >💾</button>
+
+                        <button
+                                type="button"
+                                class="iconBtn"
+                                title={isFav ? 'Unfavorite' : 'Favorite'}
+                                on:click={toggleFavCurrent}
+                                disabled={!isSaved}
+                        >{isFav ? '★' : '☆'}</button>
+
+                        <button
+                                type="button"
+                                class="iconBtn danger"
+                                title="Delete"
+                                on:click={deleteCurrentConfig}
+                                disabled={!isSaved}
+                        >🗑</button>
+                    </div>
+                </div>
+
                 <div class="row">
                     <label class="lbl" for={idName}>Name</label>
                     <input
@@ -250,11 +440,7 @@
                                 {/each}
                             </select>
                         {:else}
-                            <select
-                                    id={roleId(r)}
-                                    class="sel"
-                                    on:change={(e) => handleRoleChange(r, e)}
-                            >
+                            <select id={roleId(r)} class="sel" on:change={(e) => handleRoleChange(r, e)}>
                                 <option value="" selected={(effectiveDraftRoles[r] ?? '') === ''}>—</option>
 
                                 {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
@@ -300,31 +486,24 @@
         margin-top: 7px;
         border-top: 1px solid var(--btn-border);
         border-radius: 0;
-
         background: transparent;
         border-left: 0;
         border-right: 0;
         border-bottom: 0;
-
         padding: 0;
         text-align: left;
         font: inherit;
         color: inherit;
-
         cursor: pointer;
         opacity: 0.9;
-
         transition: opacity 120ms ease, transform 120ms ease;
     }
-
     .wheelCodeBtn:hover {
         opacity: 1;
         color: var(--accent-gold);
         transform: translateY(-1px);
     }
-
     .wheelCodeBtn:active { transform: translateY(0px); }
-
     .wheelCodeBtn:focus-visible {
         outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
         outline-offset: 3px;
@@ -342,7 +521,7 @@
     }
 
     .modal {
-        width: min(560px, 96vw);
+        width: min(620px, 96vw);
         border: 1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 18px;
@@ -378,7 +557,6 @@
         font-size: 20px;
         line-height: 1;
     }
-
     .x:hover {
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
@@ -396,8 +574,6 @@
         align-items: center;
         gap: 10px;
     }
-
-    /* ключ: правой колонке разрешаем реально ужиматься */
     .row > * { min-width: 0; }
 
     .lbl {
@@ -408,10 +584,7 @@
         letter-spacing: 0.04em;
     }
 
-    .inp, .sel, .specPreview {
-        width: 100%;
-        box-sizing: border-box;
-    }
+    .inp, .sel, .specPreview { width: 100%; box-sizing: border-box; }
 
     .inp, .sel {
         border-radius: 12px;
@@ -421,6 +594,39 @@
         padding: 10px 12px;
         font: inherit;
         outline: none;
+    }
+
+    .savedRow {
+        display: grid;
+        grid-template-columns: 1fr auto auto auto;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .iconBtn {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: inherit;
+        cursor: pointer;
+        font-weight: 900;
+        display: grid;
+        place-items: center;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
+    }
+    .iconBtn:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        transform: translateY(-1px);
+    }
+    .iconBtn:active:not(:disabled) { transform: translateY(0px); }
+    .iconBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
+
+    .iconBtn.danger:hover:not(:disabled) {
+        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
+        background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 
     .selMulti {
