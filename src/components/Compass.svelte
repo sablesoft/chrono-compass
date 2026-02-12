@@ -233,6 +233,50 @@
         ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
     });
     const tipState = tip.state;
+
+    // --- add near other helpers in Compass.svelte ---
+
+    function norm360(deg: number): number {
+        let x = deg % 360;
+        if (x < 0) x += 360;
+        return x;
+    }
+
+    function angDistDeg(a: number, b: number): number {
+        // минимальная дистанция на окружности
+        const d = Math.abs(norm360(a) - norm360(b));
+        return Math.min(d, 360 - d);
+    }
+
+    function nearestSpokeByAngle(angleDeg: number): number {
+        // safest: compare to actual spokeAngleDeg(i) from geom
+        let bestI = 0;
+        let bestD = Infinity;
+
+        for (let i = 0; i < spokeCount; i++) {
+            const aSpoke = spokeAngleDeg(i);
+            const d = angDistDeg(angleDeg, aSpoke);
+            if (d < bestD) { bestD = d; bestI = i; }
+        }
+        return bestI;
+    }
+
+    // spokes-with-bodies (like Wheel nearest ring, but multiple)
+    let occupiedSpokes: boolean[] = [];
+    $: {
+        const occ = Array.from({ length: spokeCount }, () => false);
+
+        for (const c of markerClusters) {
+            const i = nearestSpokeByAngle(c.angleDeg);
+            occ[i] = true;
+        }
+
+        occupiedSpokes = occ;
+        dbg.log?.('Compass.occupiedSpokes', {
+            count: occ.filter(Boolean).length,
+            idx: occ.map((v, i) => (v ? i : -1)).filter(i => i >= 0)
+        });
+    }
 </script>
 
 <section class="panel">
@@ -298,6 +342,19 @@
                                     stroke-width={i % 4 === 0 ? 4 : 2}
                                     stroke-linecap="round"
                             />
+
+                            {#if occupiedSpokes[i]}
+                                <circle
+                                        cx={pt.x}
+                                        cy={pt.y}
+                                        r={VB * 0.046}
+                                        fill="transparent"
+                                        stroke="currentColor"
+                                        stroke-opacity="0.55"
+                                        stroke-width="3"
+                                        class="spokeHasBody"
+                                />
+                            {/if}
 
                             <text
                                     class="spokeLabel"
@@ -622,4 +679,8 @@
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
+    /* add in <style> */
+    .spokeHasBody {
+        filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 70%));
+    }
 </style>
