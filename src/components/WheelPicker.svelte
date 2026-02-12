@@ -246,8 +246,15 @@
 
     function apply() {
         if (!canApply) return;
-        dbg.log('WheelPicker.apply', { type, roles: effectiveDraftRoles, title: (draftTitle ?? '').trim() });
-        onApply({ roles: effectiveDraftRoles, title: (draftTitle ?? '').trim() });
+
+        const nextTitle = (draftTitle ?? '').trim();
+        const nextRoles = effectiveDraftRoles;
+
+        dbg.log('WheelPicker.apply', { type, roles: nextRoles, title: nextTitle });
+
+        // 1) применяем к виджету (как было)
+        onApply({ roles: nextRoles, title: nextTitle });
+
         open = false;
     }
 

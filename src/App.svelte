@@ -1,26 +1,20 @@
-<!-- src/App.svelte -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import Header from './components/Header.svelte';
+  import Board from './components/Board.svelte';
 
   import { currentLocation, initLocation } from './lib/stores/location';
-  import {
-    selectedTs as selectedTsStore,
-    startLive,
-  } from './lib/stores/time';
+  import { selectedTs as selectedTsStore, startLive } from './lib/stores/time';
 
   import { cycles } from './lib/stores/cycle';
-  import {CYCLE_META} from "./lib/cycles/meta";
+  import { CYCLE_META } from "./lib/cycles/meta";
   import Wheel from "./components/Wheel.svelte";
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
-  import Compass from "./components/Compass.svelte";
 
-  // local mirrors
   let lat = -23.22;
   let lon = -44.72;
 
   let resetUiId = 0;
-
   let unsubLoc: (() => void) | null = null;
   let unsubTime: (() => void) | null = null;
 
@@ -57,13 +51,18 @@
   <div class="container">
     <Header />
 
-    <section class="grid">
-      <Compass lat={lat} lon={lon} selectedTs={$selectedTsStore}/>
+    <!-- Новый board -->
+    <Board lat={lat} lon={lon} selectedTs={$selectedTsStore} />
+
+    <!-- Старый список cycles — временно оставляем -->
+    <section class="grid legacy">
       {#each cyclesOrdered as kind (kind)}
-        <Wheel kind="{kind}"
+        <Wheel
+                kind={kind}
                 lat={lat}
                 lon={lon}
-                selectedTs={$selectedTsStore}/>
+                selectedTs={$selectedTsStore}
+        />
       {/each}
     </section>
   </div>
@@ -93,4 +92,6 @@
   }
   @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+  .legacy { margin-top: 16px; opacity: 0.98; }
 </style>

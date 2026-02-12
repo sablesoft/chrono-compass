@@ -9,6 +9,7 @@
     import { debug } from '../lib/debug';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
+    import { boardApi } from '../lib/board/store';
 
     import WheelPicker from './WheelPicker.svelte';
 
@@ -23,6 +24,8 @@
     export let lat: number;
     export let lon: number;
     export let selectedTs: number;
+    export let boardRoles: WheelRolesState | null = null;
+    export let boardTitle: string = '';
     export let onUserActivity: () => void = () => {};
 
     const dbg = debug('COMPASS', '🧭');
@@ -55,12 +58,26 @@
 
     let roles: WheelRolesState = pickDefaultRoles(spec);
     let title = '';
+    // Подхватываем состояние из доски (после загрузки/перезагрузки).
+    // Это делает Compass “controlled” от board store.
+    $: {
+        if (boardRoles) {
+            roles = boardRoles;
+            title = boardTitle ?? '';
+        }
+    }
 
     function handleApply(payload: { roles: WheelRolesState; title: string }) {
         onUserActivity();
 
         roles = payload.roles;
         title = payload.title;
+
+        // ВАЖНО: компас на доске всегда один — сохраняем изменения сразу в доску (localStorage).
+        boardApi.upsertCompass(
+            { title: title?.trim() || 'Compass', roles },
+            'Compass.apply'
+        );
 
         dbg.group?.('WheelControl.apply', () => {
             dbg.log?.('roles', roles);

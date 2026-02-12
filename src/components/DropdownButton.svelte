@@ -1,3 +1,4 @@
+<!-- src/components/DropdownButton.svelte -->
 <script lang="ts">
     import { onDestroy, tick } from 'svelte';
     import Portal from 'svelte-portal';

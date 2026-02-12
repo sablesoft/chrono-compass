@@ -19,7 +19,7 @@ export type BoardState = {
     updatedAt: number;
 };
 
-const dbg = debug('PROFILE', '👤');
+const dbg = debug('board', '👤');
 
 const KEY = 'chrono:board';
 
@@ -82,11 +82,33 @@ function normalizeBoard(input: any): BoardState {
     });
 }
 
+function defaultCompassItem(order: number): BoardWheelItem {
+    return {
+        kind: 'wheel',
+        wheelType: 'compass',
+        title: 'Compass',
+        roles: { looker: 'Earth', focus: null, target: ['Moon', 'Sun'] } as any,
+        order
+    };
+}
+
+function ensureCompass(items: BoardWheelItem[], reason: string): BoardWheelItem[] {
+    if (items.some(x => x.wheelType === 'compass')) return items;
+
+    dbg.warn('board.ensureCompass.inject', { reason });
+    return [...items, defaultCompassItem(items.length)];
+}
+
 function loadBoard(): BoardState {
     return dbg.group('board.load', () => {
         const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(KEY) : null;
         const parsed = safeParse<any>(raw, null);
         const state = normalizeBoard(parsed);
+
+        // просто лог, сохранение всё равно произойдёт через subscribe
+        if (!raw || !parsed?.items?.length) {
+            dbg.warn('board.load.bootstrapDefault', { hasRaw: !!raw, count: state.items.length });
+        }
 
         dbg.log('board.load.ok', { hasRaw: !!raw, count: state.items.length });
         return state;
@@ -114,14 +136,19 @@ boardState.subscribe((s) => {
 export const boardItems = derived(boardState, ($s) => $s.items.slice().sort((a, b) => a.order - b.order));
 
 function setItems(nextItems: BoardWheelItem[], reason: string) {
-    boardState.update((s) => {
-        const items = nextItems
+    boardState.update(() => {
+        let items = nextItems
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .map((x, i) => ({ ...x, order: i }));
+
+        // 🔥 главное: если после любых операций доска пуста/без компаса — добавляем дефолтный компас
+        items = ensureCompass(items, reason)
             .slice()
             .sort((a, b) => a.order - b.order)
             .map((x, i) => ({ ...x, order: i }));
 
         const next: BoardState = { items, updatedAt: now() };
-
         dbg.log('board.setItems', { reason, count: next.items.length, updatedAt: next.updatedAt });
         return next;
     });
@@ -157,6 +184,7 @@ export const boardApi = {
      */
     upsertCompass(payload: { title: string; roles: WheelRolesState; size?: number }, reason = 'upsertCompass') {
         dbg.group('boardApi.upsertCompass', () => {
+            dbg.log('payload', payload);
             const cur = get(boardState).items.slice();
             const idx = cur.findIndex(x => x.kind === 'wheel' && x.wheelType === 'compass');
 
