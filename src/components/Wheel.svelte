@@ -302,6 +302,16 @@
     const now = useNowPointer(() => kind, () => anchors, dbg);
     const nowState = now.state;
 
+    // NEW: при любом изменении окна цикла/типа — пересчитать "now" немедленно
+    $: {
+        // привязываемся к ключевым полям окна, чтобы refresh вызвался именно когда надо
+        const k = kind;
+        const e0 = anchors?.E;
+        const e1 = anchors?.E_next;
+        // сам факт вычисления этих значений делает реактивную зависимость
+        now.refresh?.(`deps:${k}:${e0}:${e1}`);
+    }
+
     let showNowPointer = false;
     let nowPointerAngleDeg: number | null = null;
     let nowDisplayAngle = 0;
