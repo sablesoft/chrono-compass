@@ -6,7 +6,7 @@ import type { WheelRolesState } from '../wheel/control';
 export type ProfileId = string;
 
 export type SavedWheel = {
-    id: string;
+    id: string;               // deterministic: makeWheelId(type, roles)
     type: WheelType;
     title: string;
     roles: WheelRolesState;

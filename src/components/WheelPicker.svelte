@@ -19,11 +19,11 @@
 
     import { debug } from '../lib/debug';
 
-    // NEW: profiles (saved wheels live here now)
-    import { activeProfile, profilesApi } from '../lib/profile/store';
+    // profiles (saved wheels live here now)
+    import { activeProfile, profilesApi, makeWheelId } from '../lib/profile/store';
     import type { SavedWheel } from '../lib/profile/types';
 
-    const dbg = debug('PROFILE', '🧩');
+    const dbg = debug('profile', '🧩');
 
     export let type: WheelType;
 
@@ -33,39 +33,6 @@
 
     export let onApply: (payload: { roles: WheelRolesState; title: string }) => void = () => {};
     export let onCancel: () => void = () => {};
-
-    // -----------------------------------------
-    // helpers: stable id by config (type+roles)
-    // -----------------------------------------
-    function normalizeRoleValue(v: any): string | null {
-        if (v == null || v === '') return null;
-        if (Array.isArray(v)) return v.map(String).sort().join(',');
-        return String(v);
-    }
-
-    function stableRolesKey(roles: WheelRolesState): string {
-        const entries = Object.entries(roles ?? {})
-            .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
-            .filter(([, v]) => v !== null);
-
-        entries.sort((a, b) => a[0].localeCompare(b[0]));
-        return entries.map(([k, v]) => `${k}=${v}`).join('&');
-    }
-
-    function makeWheelId(type: WheelType, roles: WheelRolesState): string {
-        const rolesKey = stableRolesKey(roles);
-        const raw = `${type}::${rolesKey}`;
-
-        // base64url
-        const b64 = btoa(unescape(encodeURIComponent(raw)))
-            .replaceAll('+', '-')
-            .replaceAll('/', '_')
-            .replaceAll('=', '');
-
-        return `wheel:${type}:${b64}`;
-    }
-
-    // -----------------------------------------
 
     let spec: WheelSpec;
     $: spec = wheels[type];
@@ -135,8 +102,6 @@
     let isFav = false;
     $: isFav = !!currentSaved?.favorite;
 
-    // -----------------------------------------
-
     function openModal() {
         dbg.log('WheelPicker.open', { type });
 
@@ -153,7 +118,10 @@
             draftTargets = [];
         }
 
-        pickedSavedId = '';
+        // если текущая applied-конфигурация уже сохранена — сразу подсветим в селекте
+        const appliedId = makeWheelId(type, roles);
+        pickedSavedId = savedList.some(w => w.id === appliedId) ? appliedId : '';
+
         open = true;
         queueMicrotask(() => modalEl?.focus());
     }
@@ -190,7 +158,9 @@
             draftTargets = [];
         }
 
-        pickedSavedId = '';
+        // вернём подсветку сохранённого, если initial-конфиг сохранён
+        const id = makeWheelId(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles);
+        pickedSavedId = savedList.some(w => w.id === id) ? id : '';
     }
 
     function setRole(role: RoleName, value: string) {
@@ -207,7 +177,7 @@
             draftRoles = { ...normalized, target: draftRoles.target };
         }
 
-        // если пользователь начал вручную править — селект сохранённых не должен "врать"
+        // ручная правка — селект "Saved" не должен врать
         pickedSavedId = '';
     }
 
@@ -252,9 +222,7 @@
 
         dbg.log('WheelPicker.apply', { type, roles: nextRoles, title: nextTitle });
 
-        // 1) применяем к виджету (как было)
         onApply({ roles: nextRoles, title: nextTitle });
-
         open = false;
     }
 
@@ -320,14 +288,13 @@
 
         const t = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
 
-        // важно: тут “сопоставление по конфигу”.
-        // saveWheel перезапишет существующее с тем же type+roles (в рамках профиля).
+        // deterministic id => saveWheel вернёт тот же id, что и makeWheelId(type, roles)
         const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles });
 
         dbg.log('WheelPicker.saved', { id: savedId, title: t });
 
-        // UI: показываем сохранённое (и оно будет совпадать с currentCfgId)
-        pickedSavedId = savedId;
+        // UI: подсветим сохранённое
+        pickedSavedId = savedId || makeWheelId(type, effectiveDraftRoles);
     }
 
     function deleteCurrentConfig() {
@@ -371,14 +338,12 @@
             </header>
 
             <div class="modalBody">
-                <!-- Saved wheels (from profile) -->
                 <div class="row">
                     <label class="lbl" for={idSaved}>Saved</label>
 
                     <div class="savedRow">
                         <select id={idSaved} class="sel" on:change={handlePickSaved} bind:value={pickedSavedId}>
-                            <option value="" selected={pickedSavedId === ''}>—</option>
-
+                            <option value="">—</option>
                             {#each savedList as w (w.id)}
                                 <option value={w.id}>
                                     {w.favorite ? '★ ' : ''}{w.title || '(untitled)'}
@@ -392,7 +357,7 @@
                                 title={isSaved ? 'Save (overwrite)' : 'Save'}
                                 on:click={saveCurrentConfig}
                                 disabled={!hasAllRolesOk || !draftCompatible}
-                        >💾</button>
+                        ><span class="ico">💾</span></button>
 
                         <button
                                 type="button"
@@ -400,7 +365,7 @@
                                 title={isFav ? 'Unfavorite' : 'Favorite'}
                                 on:click={toggleFavCurrent}
                                 disabled={!isSaved}
-                        >{isFav ? '★' : '☆'}</button>
+                        ><span class="ico">{isFav ? '★' : '☆'}</span></button>
 
                         <button
                                 type="button"
@@ -408,7 +373,7 @@
                                 title="Delete"
                                 on:click={deleteCurrentConfig}
                                 disabled={!isSaved}
-                        >🗑</button>
+                        ><span class="ico">🗑</span></button>
                     </div>
                 </div>
 
@@ -449,7 +414,6 @@
                         {:else}
                             <select id={roleId(r)} class="sel" on:change={(e) => handleRoleChange(r, e)}>
                                 <option value="" selected={(effectiveDraftRoles[r] ?? '') === ''}>—</option>
-
                                 {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
                                     <option value={id} selected={effectiveDraftRoles[r] === id}>
                                         {bodyLabel(id)}
@@ -610,6 +574,7 @@
         align-items: center;
     }
 
+    /* icon buttons: hard-center content */
     .iconBtn {
         width: 38px;
         height: 38px;
@@ -618,11 +583,15 @@
         background: var(--btn-bg);
         color: inherit;
         cursor: pointer;
-        font-weight: 900;
-        display: grid;
-        place-items: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+        padding: 0;
         transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
     }
+    .ico { display: inline-block; line-height: 1; transform: translateY(-0.5px); }
+
     .iconBtn:hover:not(:disabled) {
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);

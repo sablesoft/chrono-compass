@@ -6,10 +6,12 @@ import type { BodyId, WheelType } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 
 import type { BoardItem, Profile, ProfileId, ProfilesState, SavedWheel } from './types';
-import { loadProfilesState, saveProfilesState } from './storage';
 import { boardApi } from '../board/store';
 
-const dbg = debug('PROFILE', '👤');
+const dbg = debug('profile', '👤');
+
+const KEY = 'chrono:profiles';
+const ACTIVE_KEY = 'chrono:profiles:activeId';
 
 function now(): number {
     return Date.now();
@@ -39,6 +41,182 @@ export function createDefaultProfile(): Profile {
     };
 }
 
+// ---------------------------
+// deterministic wheelId
+// ---------------------------
+
+function normalizeRoleValue(v: any): string | null {
+    if (v == null || v === '') return null;
+    if (Array.isArray(v)) return v.map(String).sort().join(',');
+    return String(v);
+}
+
+function stableRolesKey(roles: WheelRolesState): string {
+    const entries = Object.entries(roles ?? {})
+        .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
+        .filter(([, v]) => v !== null);
+
+    entries.sort((a, b) => a[0].localeCompare(b[0]));
+    return entries.map(([k, v]) => `${k}=${v}`).join('&');
+}
+
+export function makeWheelId(type: WheelType, roles: WheelRolesState): string {
+    const rolesKey = stableRolesKey(roles);
+    const raw = `${type}::${rolesKey}`;
+
+    // base64url (stable, compact)
+    const b64 = btoa(unescape(encodeURIComponent(raw)))
+        .replaceAll('+', '-')
+        .replaceAll('/', '_')
+        .replaceAll('=', '');
+
+    return `wheel:${type}:${b64}`;
+}
+
+// ---------------------------
+// storage
+// ---------------------------
+
+function loadProfilesState(): ProfilesState | null {
+    return dbg.group('storage.loadProfilesState', () => {
+        try {
+            const raw = localStorage.getItem(KEY);
+            const rawActive = localStorage.getItem(ACTIVE_KEY);
+
+            dbg.log('storage.load.raw', {
+                hasState: !!raw,
+                hasActive: !!rawActive,
+                activeLen: rawActive?.length ?? 0
+            });
+
+            if (!raw) return null;
+
+            const parsed = JSON.parse(raw) as ProfilesState;
+
+            const activeId =
+                (rawActive && rawActive.length)
+                    ? rawActive
+                    : (parsed.activeId ?? null);
+
+            const state: ProfilesState = {
+                profiles: Array.isArray(parsed.profiles) ? parsed.profiles : [],
+                activeId
+            };
+
+            dbg.log('storage.load.ok', {
+                profiles: state.profiles.length,
+                activeId: state.activeId
+            });
+
+            return state;
+        } catch (err) {
+            dbg.warn('storage.load.fail', err);
+            return null;
+        }
+    });
+}
+
+function saveProfilesState(state: ProfilesState) {
+    dbg.group('storage.saveProfilesState', () => {
+        try {
+            dbg.log('storage.save.in', {
+                profiles: state.profiles.length,
+                activeId: state.activeId
+            });
+
+            localStorage.setItem(
+                KEY,
+                JSON.stringify({ profiles: state.profiles, activeId: state.activeId })
+            );
+
+            localStorage.setItem(ACTIVE_KEY, state.activeId ?? '');
+
+            dbg.log('storage.save.ok');
+        } catch (err) {
+            dbg.warn('storage.save.fail', err);
+        }
+    });
+}
+
+// ---------------------------
+// normalize + MIGRATION
+// ---------------------------
+
+function migrateProfile(p: Profile): Profile {
+    const t = now();
+
+    const wheels = Array.isArray(p?.data?.wheels) ? p.data.wheels : [];
+    const favorites = Array.isArray(p?.data?.favorites) ? p.data.favorites : [];
+
+    // 1) migrate wheels to deterministic id + dedupe by id
+    const byId = new Map<string, SavedWheel>();
+    for (const w of wheels) {
+        if (!w || typeof w.type !== 'string') continue;
+
+        const id = makeWheelId(w.type, w.roles ?? {});
+        const prev = byId.get(id);
+
+        const candidate: SavedWheel = {
+            id,
+            type: w.type,
+            title: typeof w.title === 'string' ? w.title : '',
+            roles: (w.roles && typeof w.roles === 'object') ? w.roles : {},
+            favorite: !!w.favorite,
+            createdAt: Number.isFinite(w.createdAt) ? w.createdAt : t,
+            updatedAt: Number.isFinite(w.updatedAt) ? w.updatedAt : t
+        };
+
+        if (!prev) {
+            byId.set(id, candidate);
+            continue;
+        }
+
+        // merge duplicates: keep newest updatedAt, but createdAt should be earliest
+        const keep = (candidate.updatedAt >= prev.updatedAt) ? candidate : prev;
+        const other = (keep === candidate) ? prev : candidate;
+
+        byId.set(id, {
+            ...keep,
+            favorite: !!(keep.favorite || other.favorite),
+            createdAt: Math.min(keep.createdAt, other.createdAt),
+            updatedAt: Math.max(keep.updatedAt, other.updatedAt),
+            // title: keep.title (newest wins). if empty -> try other
+            title: (keep.title?.trim()?.length ? keep.title : other.title) ?? ''
+        });
+    }
+
+    const migratedWheels = Array.from(byId.values());
+
+    // 2) favorites: rebuild from wheels.favorite + old favorites mapping (best effort)
+    const favSet = new Set<string>();
+
+    for (const w of migratedWheels) {
+        if (w.favorite) favSet.add(w.id);
+    }
+
+    // best-effort: old favorites might contain old ids; map them by matching config if possible
+    // (we can’t recover config from old id reliably, so just keep only those that match current ids)
+    for (const id of favorites) {
+        if (byId.has(id)) favSet.add(id);
+    }
+
+    const migratedFavorites = Array.from(favSet);
+
+    const next: Profile = {
+        ...p,
+        data: {
+            ...emptyProfileData(),
+            ...(p.data ?? {}),
+            wheels: migratedWheels,
+            favorites: migratedFavorites,
+            bodies: (p.data?.bodies ?? {}) as any,
+            wheelsOnScreen: Array.isArray(p.data?.wheelsOnScreen) ? p.data.wheelsOnScreen : []
+        }
+    };
+
+    return next;
+}
+
 function normalizeState(s: ProfilesState | null): ProfilesState {
     return dbg.group('normalizeState', () => {
         const def = createDefaultProfile();
@@ -49,7 +227,11 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
         }
 
         const hasDefault = s.profiles.some(p => p?.id === def.id);
-        const profiles = hasDefault ? s.profiles : [def, ...s.profiles];
+        const rawProfiles = hasDefault ? s.profiles : [def, ...s.profiles];
+
+        const profiles = rawProfiles
+            .filter(Boolean)
+            .map(migrateProfile);
 
         const activeId =
             s.activeId && profiles.some(p => p.id === s.activeId)
@@ -65,6 +247,10 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
         return { profiles, activeId };
     });
 }
+
+// ---------------------------
+// store init
+// ---------------------------
 
 const loaded = loadProfilesState();
 const initial = normalizeState(loaded);
@@ -115,6 +301,10 @@ function updateProfile(profileId: ProfileId, fn: (p: Profile) => Profile) {
         return { ...s, profiles };
     });
 }
+
+// ---------------------------
+// api
+// ---------------------------
 
 export const profilesApi = {
     list(): Profile[] {
@@ -208,44 +398,40 @@ export const profilesApi = {
     },
 
     // ---------------------------
-    // Wheels library (presets)
+    // Wheels library (presets) - deterministic id
     // ---------------------------
 
     saveWheel(input: { type: WheelType; title: string; roles: WheelRolesState; favorite?: boolean }): string {
         return dbg.group('api.saveWheel', () => {
             const ap = get(activeProfile);
-            const dedupeKey = wheelDedupeKey(input.type, input.roles);
+            const id = makeWheelId(input.type, input.roles);
             const t = now();
 
             dbg.log('api.saveWheel.in', {
                 profileId: ap.id,
+                id,
                 type: input.type,
                 title: input.title,
                 roles: input.roles,
                 favorite: input.favorite
             });
 
-            let savedId: string | null = null;
-
             updateProfile(ap.id, (p) => {
                 const wheels = p.data.wheels.slice();
-                const idx = wheels.findIndex(w => wheelDedupeKey(w.type, w.roles) === dedupeKey);
+                const idx = wheels.findIndex(w => w.id === id);
 
                 if (idx >= 0) {
                     const prev = wheels[idx];
-                    const next: SavedWheel = {
+                    wheels[idx] = {
                         ...prev,
                         title: input.title?.trim() || prev.title,
                         roles: input.roles,
                         favorite: input.favorite ?? prev.favorite,
                         updatedAt: t
                     };
-                    wheels[idx] = next;
-                    savedId = next.id;
-                    dbg.log('api.saveWheel.overwrite', { wheelId: next.id });
+                    dbg.log('api.saveWheel.overwrite', { wheelId: id });
                 } else {
-                    const id = uid('wheel');
-                    const next: SavedWheel = {
+                    wheels.push({
                         id,
                         type: input.type,
                         title: input.title?.trim() || defaultWheelTitle(input.type, input.roles),
@@ -253,9 +439,7 @@ export const profilesApi = {
                         favorite: input.favorite ?? false,
                         createdAt: t,
                         updatedAt: t
-                    };
-                    wheels.push(next);
-                    savedId = id;
+                    });
                     dbg.log('api.saveWheel.created', { wheelId: id });
                 }
 
@@ -264,8 +448,7 @@ export const profilesApi = {
                 return { ...p, updatedAt: t, data: { ...p.data, wheels, favorites } };
             });
 
-            if (!savedId) dbg.warn('api.saveWheel.noId', { profileId: ap.id });
-            return savedId ?? '';
+            return id;
         });
     },
 
@@ -330,10 +513,6 @@ export const profilesApi = {
     // Board snapshot (profile <-> board)
     // ---------------------------
 
-    /**
-     * Сохранить текущую доску (board store) в активный профиль.
-     * Это НЕ сохраняет отдельные колёса в библиотеку, это снапшот.
-     */
     saveBoardToActiveProfile(): void {
         dbg.group('api.saveBoardToActiveProfile', () => {
             const ap = get(activeProfile);
@@ -362,10 +541,6 @@ export const profilesApi = {
         });
     },
 
-    /**
-     * Загрузить доску из активного профиля в board store.
-     * Полная замена доски.
-     */
     loadBoardFromActiveProfile(): void {
         dbg.group('api.loadBoardFromActiveProfile', () => {
             const ap = get(activeProfile);
@@ -382,41 +557,26 @@ export const profilesApi = {
             }));
 
             boardApi.setFromSnapshot(items as any, 'loadBoardFromProfile');
-
             dbg.log('ok', { profileId: ap.id, count: items.length });
         });
     },
 
-    /**
-     * Удобный метод, который ты просил оставить:
-     * "Сохранить доску, исходя из текущего компаса".
-     *
-     * В новой архитектуре он не “создаёт wheelId”, а просто:
-     * 1) гарантирует актуальный компас на доске (board)
-     * 2) сохраняет доску в профиль (snapshot)
-     *
-     * Если хочешь, можно вызывать его из кнопки "Сохранить доску",
-     * когда пока на доске только компас.
-     */
     saveBoardFromCurrentCompass(input: { type: WheelType; title: string; roles: WheelRolesState }): void {
         dbg.group('api.saveBoardFromCurrentCompass', () => {
             dbg.log('in', { type: input.type, title: input.title });
 
-            // 1) обновляем живую доску (НЕ профиль)
             if (input.type === 'compass') {
                 boardApi.upsertCompass({ title: input.title, roles: input.roles }, 'saveBoardFromCurrentCompass');
             } else {
                 dbg.warn('saveBoardFromCurrentCompass.nonCompass', { type: input.type });
             }
 
-            // 2) сохраняем снапшот доски в профиль
             profilesApi.saveBoardToActiveProfile();
-
             dbg.log('ok');
         });
     },
 
-    // bodies overrides (оставляем как было)
+    // bodies overrides
     setBodyOverride(bodyId: BodyId, patch: { name?: { en?: string }; emoji?: string }) {
         dbg.group('api.setBodyOverride', () => {
             const ap = get(activeProfile);
@@ -471,23 +631,4 @@ function normalizeFavorites(favorites: string[], wheels: SavedWheel[]): string[]
 
     const valid = new Set(wheels.map(w => w.id));
     return Array.from(set).filter(id => valid.has(id));
-}
-
-function wheelDedupeKey(type: WheelType, roles: WheelRolesState): string {
-    return `${type}::${stableRolesKey(roles)}`;
-}
-
-function stableRolesKey(roles: WheelRolesState): string {
-    const entries = Object.entries(roles ?? {})
-        .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
-        .filter(([, v]) => v !== null);
-
-    entries.sort((a, b) => a[0].localeCompare(b[0]));
-    return entries.map(([k, v]) => `${k}=${v}`).join('&');
-}
-
-function normalizeRoleValue(v: any): string | null {
-    if (v == null || v === '') return null;
-    if (Array.isArray(v)) return v.map(String).sort().join(',');
-    return String(v);
 }
