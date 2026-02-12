@@ -1,6 +1,6 @@
 // src/lib/cycles/meta.ts
 import type { CycleKind } from './types';
-import type {SpokeKey} from "../wheel/spokes";
+import type {SpokeKey} from "../wheel/types";
 
 export type CycleMeta = {
     label: string;

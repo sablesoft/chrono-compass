@@ -9,7 +9,7 @@
     import { debug } from '../lib/debug';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
-    import { boardApi } from '../lib/board/store';
+    import { boardApi, boardItems } from '../lib/board/store';
 
     import WheelPicker from './WheelPicker.svelte';
 
@@ -20,10 +20,12 @@
     // NEW: compass engine
     import { computeCompassTargets, compassTargetsToMarkerItems } from '../lib/wheel/compass';
     import {compassClusters} from "../lib/wheel/ui/compassClusters";
+    import LocationPicker from "./LocationPicker.svelte";
 
     export let lat: number;
     export let lon: number;
     export let selectedTs: number;
+    export let wheelId: string;
     export let boardRoles: WheelRolesState | null = null;
     export let boardTitle: string = '';
     export let onUserActivity: () => void = () => {};
@@ -65,6 +67,15 @@
             roles = boardRoles;
             title = boardTitle ?? '';
         }
+    }
+
+    $: compassCount = $boardItems.filter((x) => x.wheelType === 'compass').length;
+    $: canClose = compassCount > 1;
+
+    function closeCompass() {
+        if (!canClose) return;
+        onUserActivity();
+        boardApi.removeWheelById(wheelId, 'Compass.close');
     }
 
     function handleApply(payload: { roles: WheelRolesState; title: string }) {
@@ -298,6 +309,14 @@
                     title="Docs"
                     on:click={docs.openDocs}
             >i</button>
+            <button
+                    type="button"
+                    class="navBtn danger"
+                    title={canClose ? 'Close compass' : 'Can’t close the last compass'}
+                    aria-label="Close compass"
+                    disabled={!canClose}
+                    on:click|stopPropagation={closeCompass}
+            >×</button>
         </div>
     </header>
 
@@ -437,6 +456,9 @@
     </div>
 
     <div class="info">
+        <div class="infoRow">
+            <LocationPicker />
+        </div>
         <div class="infoRow">
             <button class="jump" type="button" disabled>
                 <strong class="k">FIX:</strong>
@@ -682,5 +704,9 @@
     /* add in <style> */
     .spokeHasBody {
         filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 70%));
+    }
+    .navBtn.danger:hover:not(:disabled) {
+        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
+        background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 </style>

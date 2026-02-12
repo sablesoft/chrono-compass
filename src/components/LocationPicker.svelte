@@ -15,9 +15,45 @@
     } from '../lib/location/store';
 
     import { IANA_TIMEZONES } from '../lib/location/iana';
-    import type { SavedLocation } from '../lib/location/types';
+    import type { Location, SavedLocation } from '../lib/location/types';
 
-    const dbg = debug('location', '📍');
+    const dbg = debug('Location', '📍');
+
+    /**
+     * CONTROLLED API
+     * - value: текущая локация для конкретного колеса/хедера
+     * - locked: замок для конкретного колеса/хедера
+     * - onChange: сообщаем наверх, что выбрана/изменена локация
+     * - onToggleLock: сообщаем наверх, что замок переключили
+     *
+     * Backward-compatible:
+     * - если value === null → берём $currentLocation (global)
+     * - если onChange не задан → пишем в global store (setLocation/saveLocation)
+     */
+    export let value: Location | null = null;
+    export let locked: boolean = false;
+
+    export let onChange: ((loc: Location, meta?: { savedId?: string | null }) => void) | null = null;
+    export let onToggleLock: ((next: boolean) => void) | null = null;
+
+    function effectiveValue(): Location {
+        return value ?? $currentLocation;
+    }
+
+    function emitChange(loc: Location, meta?: { savedId?: string | null }) {
+        if (onChange) {
+            onChange(loc, meta);
+            dbg.log('emitChange.onChange', loc, meta);
+        } else {
+            setLocation(loc);
+            dbg.log('emitChange.global', loc, meta);
+        } // fallback = global
+    }
+
+    function emitToggleLock(next: boolean) {
+        if (onToggleLock) onToggleLock(next);
+        else locked = next; // fallback = локально в компоненте (на время)
+    }
 
     let open = false;
     let modalEl: HTMLDivElement | null = null;
@@ -28,8 +64,16 @@
     let lonDraft = '';
     let tzDraft = '';
     let tzSearch = '';
+    let filteredTz: string[] = [];
 
     const COORD_DP = 3;
+
+    function roundCoord(v: number, dp = COORD_DP) {
+        return Number(v.toFixed(dp));
+    }
+    function fmtCoord(v: number) {
+        return roundCoord(v, COORD_DP).toFixed(COORD_DP);
+    }
 
     function getOffsetLabel(tz: string) {
         try {
@@ -46,49 +90,41 @@
         }
     }
 
-    function fmtCoord(v: number) {
-        return v.toFixed(COORD_DP);
+    function syncDraftFromValue() {
+        const cur = effectiveValue();
+        labelDraft = (cur.label ?? 'New place').trim();
+        latDraft = fmtCoord(cur.lat ?? 0);
+        lonDraft = fmtCoord(cur.lon ?? 0);
+        tzDraft = (cur.tz && cur.tz.trim()) ? cur.tz.trim() : (getSystemTimeZone() || 'UTC');
     }
 
-    function syncDraftFromCurrent() {
-        const cur = $currentLocation;
+    function parseDraft(): Location | null {
+        const lat = Number(String(latDraft).replace(',', '.'));
+        const lon = Number(String(lonDraft).replace(',', '.'));
+        const label = (labelDraft || 'New place').trim();
+        const tz = (tzDraft || getSystemTimeZone() || 'UTC').trim();
 
-        labelDraft = cur.label;
-        latDraft = fmtCoord(cur.lat);
-        lonDraft = fmtCoord(cur.lon);
-        tzDraft = cur.tz || getSystemTimeZone() || 'UTC';
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-        dbg.log('syncDraftFromCurrent', cur);
-    }
-
-    function parseDraft() {
-        const lat = Number(latDraft.replace(',', '.'));
-        const lon = Number(lonDraft.replace(',', '.'));
-
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-            dbg.warn('invalid coords');
-            return null;
-        }
+        const latN = Math.max(-90, Math.min(90, lat));
+        const lonN = ((lon + 180) % 360 + 360) % 360 - 180;
 
         return {
-            lat,
-            lon,
-            label: (labelDraft || 'New place').trim(),
-            tz: tzDraft || getSystemTimeZone() || 'UTC'
+            lat: roundCoord(latN),
+            lon: roundCoord(lonN),
+            label: label || 'New place',
+            tz
         };
     }
 
     function newLoc() {
-        dbg.log('newLoc');
         selectedId = '';
-        syncDraftFromCurrent();
+        syncDraftFromValue();
     }
 
-    function pick(id: string) {
+    function pickSaved(id: string) {
         const p = $savedLocations.find((x: SavedLocation) => x.id === id);
         if (!p) return;
-
-        dbg.log('pick', id);
 
         selectedId = id;
         labelDraft = p.label;
@@ -96,19 +132,37 @@
         lonDraft = fmtCoord(p.lon);
         tzDraft = p.tz;
 
-        setLocation(p);
+        emitChange({ lat: p.lat, lon: p.lon, label: p.label, tz: p.tz }, { savedId: id });
+    }
+
+    function onPickChange(e: Event) {
+        const el = e.currentTarget;
+        if (!(el instanceof HTMLSelectElement)) return;
+        pickSaved(el.value);
+    }
+
+    function applyDraftNow() {
+        const loc = parseDraft();
+        if (!loc) return;
+        emitChange(loc, { savedId: null });
     }
 
     function save() {
         const loc = parseDraft();
         if (!loc) return;
 
-        setLocation(loc);
+        // обновим value наверху
+        emitChange(loc, { savedId: null });
+
+        // сохраняем в savedLocations (это глобальное хранилище — ок)
         const id = saveLocation(loc);
 
         if (id) {
             selectedId = id;
-            dbg.log('saved', id);
+
+            // если есть контроллер — можно сообщить, что теперь есть savedId
+            // (например wheel может хранить locationId = id)
+            emitChange(loc, { savedId: id });
         }
 
         close('save');
@@ -116,53 +170,53 @@
 
     function del() {
         if (!selectedId) return;
-        dbg.warn('delete', selectedId);
         deleteSavedLocation(selectedId);
         selectedId = '';
+        // модалку оставляем открытой
     }
 
     function openModal() {
-        // dbg.log('openModal');
         open = true;
 
-        // Сначала синхронизация
-        syncDraftFromCurrent();
+        syncDraftFromValue();
 
-        const cur = $currentLocation;
+        // подсветить текущую как saved (если совпало по координатам)
+        const cur = effectiveValue();
         const hit = $savedLocations.find((p: SavedLocation) =>
             Math.abs(p.lat - cur.lat) < 1e-9 &&
             Math.abs(p.lon - cur.lon) < 1e-9 &&
-            p.label === cur.label
+            p.label === cur.label &&
+            p.tz === cur.tz
         );
         selectedId = hit?.id ?? '';
 
         document.body.style.overflow = 'hidden';
 
         queueMicrotask(() => {
-            // dbg.log('microtask.afterOpen', {
-            //     open,
-            //     hasModalEl: !!modalEl,
-            //     hasOverlayEl: !!overlayEl
-            // });
-
             modalEl?.focus();
 
-            // GPS после открытия
-            if (!selectedId) {
+            // GPS: полезно только в глобальном режиме или если parent хочет так же
+            // оставим как удобный хинт, но только когда value===null (global mode)
+            if (!selectedId && value === null) {
                 trySetGeolocationAsCurrentOnce();
             }
         });
     }
 
     function close(reason = 'close') {
-        // dbg.warn('closeModal', { reason });
         open = false;
         document.body.style.overflow = '';
+        dbg.log?.('close', reason);
     }
 
     function toggle() {
-        // dbg.log('toggle', { open });
         open ? close('toggle') : openModal();
+    }
+
+    function toggleLock(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        emitToggleLock(!locked);
     }
 
     function onKeyDown(e: KeyboardEvent) {
@@ -173,116 +227,157 @@
         }
     }
 
-    function onPickChange(e: Event) {
-        const el = e.currentTarget as HTMLSelectElement;
-        pick(el.value);
-    }
-
     onMount(() => window.addEventListener('keydown', onKeyDown));
     onDestroy(() => {
         window.removeEventListener('keydown', onKeyDown);
         document.body.style.overflow = '';
     });
 
-    $: filteredTz = IANA_TIMEZONES.filter(t =>
-        t.toLowerCase().includes(tzSearch.toLowerCase())
-    );
+    $: {
+        const q = (tzSearch || '').trim().toLowerCase();
+        filteredTz = q
+            ? IANA_TIMEZONES.filter(t => t.toLowerCase().includes(q))
+            : IANA_TIMEZONES.slice(0, 60); // чтобы не рисовать сразу 400+ строк
+    }
 </script>
 
 <div class="wrap">
-    <button
+    <div
             class="face"
-            type="button"
-            on:mousedown|stopPropagation={() => dbg.log('face.mousedown')}
-            on:click|stopPropagation={() => {
-            dbg.log('face.click');
-            toggle();
-        }}
+            role="button"
+            tabindex="0"
+            aria-haspopup="dialog"
+            aria-expanded={open}
+            on:click|stopPropagation={toggle}
+            on:keydown|stopPropagation={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    }}
     >
-        <span class="label">{$currentLocation.label}</span>
-        <span class="tz">
-            {getOffsetLabel($currentLocation.tz)}
-        </span>
-    </button>
+    <span class="left">
+      <span class="label" title={effectiveValue().label}>{effectiveValue().label}</span>
+    </span>
+
+        <span class="right">
+      <span class="tz" title={effectiveValue().tz}>
+        {getOffsetLabel(effectiveValue().tz)}
+      </span>
+
+      <button
+              class="lockBtn"
+              type="button"
+              aria-label={locked ? 'Unlock location' : 'Lock location'}
+              title={locked ? 'Location locked' : 'Location follows global'}
+              on:click|stopPropagation={toggleLock}
+      >
+        <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+      </button>
+    </span>
+    </div>
 </div>
 
 {#if open}
     <Portal target="body">
-        <div class="overlay"
+        <div
+                class="overlay"
                 on:click={(e) => {
-                    if (e.target === e.currentTarget) close('overlay');
-                }}>
+                if (e.target === e.currentTarget) close('overlay');
+            }}
+        >
             <div
                     class="modal"
                     bind:this={modalEl}
                     tabindex="-1"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Location picker"
                     on:click|stopPropagation
             >
                 <header class="modalTop">
                     <div class="modalTitle">Location</div>
-                    <button class="x" type="button" on:click={() => close('x')}>×</button>
+                    <button class="x" type="button" aria-label="Close" on:click={() => close('x')}>×</button>
                 </header>
 
                 <div class="modalBody">
-                    <div class="section">
-                        <label>Saved</label>
-                        <select class="sel" bind:value={selectedId} on:change={onPickChange}>
-                            <option value="" disabled>
-                                {$savedLocations.length ? 'Pick…' : 'No saved locations'}
-                            </option>
-
-                            {#each $savedLocations as p}
-                                <option value={p.id}>
-                                    {p.label} ({getOffsetLabel(p.tz)})
+                    <div class="row2">
+                        <div class="field">
+                            <label class="lbl">Saved</label>
+                            <select class="sel" bind:value={selectedId} on:change={onPickChange}>
+                                <option value="" disabled>
+                                    {$savedLocations.length ? 'Pick…' : 'No saved locations'}
                                 </option>
-                            {/each}
-                        </select>
-                    </div>
-
-                    <div class="section">
-                        <label>Name</label>
-                        <input class="inp" bind:value={labelDraft} />
-                    </div>
-
-                    <div class="coordsRow">
-                        <div>
-                            <label>Latitude</label>
-                            <input class="inp" bind:value={latDraft} />
+                                {#each $savedLocations as p}
+                                    <option value={p.id}>
+                                        {p.label} · {getOffsetLabel(p.tz)}
+                                    </option>
+                                {/each}
+                            </select>
                         </div>
-                        <div>
-                            <label>Longitude</label>
-                            <input class="inp" bind:value={lonDraft} />
+
+                        <div class="field">
+                            <label class="lbl">Name</label>
+                            <input class="inp" bind:value={labelDraft} on:blur={applyDraftNow} />
                         </div>
                     </div>
 
-                    <div class="section">
-                        <label>Timezone</label>
+                    <div class="row3">
+                        <div class="field">
+                            <label class="lbl">Lat</label>
+                            <input class="inp" bind:value={latDraft} inputmode="decimal" on:blur={applyDraftNow} />
+                        </div>
+                        <div class="field">
+                            <label class="lbl">Lon</label>
+                            <input class="inp" bind:value={lonDraft} inputmode="decimal" on:blur={applyDraftNow} />
+                        </div>
+                        <div class="field">
+                            <label class="lbl">TZ</label>
+                            <button
+                                    class="miniBtn"
+                                    type="button"
+                                    title="Use system time zone"
+                                    on:click={() => {
+                                    tzDraft = getSystemTimeZone() || 'UTC';
+                                    applyDraftNow();
+                                }}
+                            >
+                                System
+                            </button>
+                        </div>
+                    </div>
 
-                        <div class="systemHint">
-                            System detected: {getSystemTimeZone()} ({getOffsetLabel(getSystemTimeZone() || 'UTC')})
+                    <div class="tzBlock">
+                        <div class="tzTop">
+                            <div class="lbl2">Timezone</div>
+                            <div class="hint">
+                                {effectiveValue().tz} · {getOffsetLabel(effectiveValue().tz)}
+                            </div>
                         </div>
 
-                        <input
-                                class="inp"
-                                placeholder="Search timezone..."
-                                bind:value={tzSearch}
-                        />
+                        <input class="inp" placeholder="Search IANA timezone..." bind:value={tzSearch} />
 
-                        <select class="sel" size="6" bind:value={tzDraft}>
+                        <select class="sel tzList" size="7" bind:value={tzDraft} on:change={applyDraftNow}>
                             {#each filteredTz as tz}
                                 <option value={tz}>
-                                    {tz} ({getOffsetLabel(tz)})
+                                    {tz} · {getOffsetLabel(tz)}
                                 </option>
                             {/each}
                         </select>
+
+                        <div class="hint2">
+                            System detected: {getSystemTimeZone()} · {getOffsetLabel(getSystemTimeZone() || 'UTC')}
+                        </div>
                     </div>
                 </div>
 
                 <footer class="modalBottom">
-                    <button class="btn ghost" type="button" on:click={newLoc}>New</button>
-                    <button class="btn ghost" type="button" on:click={del} disabled={!selectedId}>Delete</button>
-                    <button class="btn ghost" type="button" on:click={() => close('button-close')}>Close</button>
-                    <button class="btn primary" type="button" on:click={save}>Save</button>
+                    <div class="leftBtns">
+                        <button class="btn ghost" type="button" on:click={newLoc}>New</button>
+                        <button class="btn danger" type="button" on:click={del} disabled={!selectedId}>Delete</button>
+                    </div>
+
+                    <div class="rightBtns">
+                        <button class="btn ghost" type="button" on:click={() => close('close')}>Close</button>
+                        <button class="btn primary" type="button" on:click={save}>Save</button>
+                    </div>
                 </footer>
             </div>
         </div>
@@ -294,7 +389,7 @@
 
     .face{
         width: 100%;
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 10px;
@@ -307,22 +402,59 @@
         min-width: 0;
     }
 
+    .left{
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .right{
+        margin-left:auto;              /* вот это главное */
+        display:flex;
+        align-items:center;
+        gap:10px;
+    }
+
     .label{
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-weight: 700;
+        font-weight: 800;
     }
+
+    .lockBtn{
+        width: 34px;
+        height: 34px;
+        padding: 0;
+        border-radius: 10px;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--btn-bg), transparent 8%);
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+        flex: 0 0 auto;
+        transform: translateY(-0.5px);
+    }
+
+    .lockBtn:hover{
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+    }
+
+    .lockIco{ line-height: 1; }
+
+    .right{ display: inline-flex; align-items: center; gap: 8px; }
 
     .tz{
         font-variant-numeric: tabular-nums;
         opacity: 0.8;
-        font-weight: 700;
+        font-weight: 800;
         white-space: nowrap;
     }
 
-    /* Главное: фиксируем поверх всего */
+    /* modal */
     .overlay{
         position: fixed;
         inset: 0;
@@ -335,7 +467,7 @@
 
     .modal{
         width: min(760px, 96vw);
-        max-height: min(80vh, 820px);
+        max-height: min(82vh, 860px);
         overflow: auto;
         background: var(--modal-bg, var(--panel));
         border: 1px solid var(--modal-border, var(--panel-border));
@@ -350,7 +482,7 @@
         top: 0;
         background: var(--modal-bg, var(--panel));
         border-bottom: var(--modal-header-border, 1px solid var(--btn-border));
-        padding: 14px 16px;
+        padding: 12px 14px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -360,7 +492,8 @@
 
     .modalTitle{
         font-size: 18px;
-        font-weight: 800;
+        font-weight: 900;
+        opacity: 0.92;
     }
 
     .x{
@@ -378,23 +511,20 @@
     }
 
     .modalBody{
-        padding: 16px;
+        padding: 14px;
         display: grid;
-        gap: 14px;
+        gap: 12px;
     }
 
-    .section{
-        display: grid;
-        gap: 8px;
-    }
-
-    label{
-        font-size: 13px;
-        font-weight: 800;
+    .lbl{
+        font-size: 12px;
+        font-weight: 900;
+        opacity: 0.75;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--muted);
     }
+
+    .field{ display: grid; gap: 6px; min-width: 0; }
 
     .inp, .sel{
         width: 100%;
@@ -412,33 +542,93 @@
         outline-offset: 2px;
     }
 
-    .coordsRow{
+    .row2{
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
+        grid-template-columns: 1.2fr 1.8fr;
+        gap: 10px;
+        align-items: end;
     }
 
-    .systemHint{
-        color: var(--muted);
+    .row3{
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 10px;
+        align-items: end;
+    }
+
+    .miniBtn{
+        height: 42px;
+        padding: 0 12px;
+        border-radius: 12px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        font-weight: 900;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+    .tzBlock{
+        display: grid;
+        gap: 10px;
+        padding-top: 4px;
+    }
+
+    .tzTop{
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 10px;
+        min-width: 0;
+    }
+
+    .lbl2{
+        font-size: 12px;
+        font-weight: 900;
+        opacity: 0.75;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+
+    .hint{
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        opacity: 0.75;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .tzList{
+        min-height: 170px;
+        padding: 8px 10px;
+    }
+
+    .hint2{
+        opacity: 0.7;
         font-size: 13px;
+        font-weight: 700;
     }
 
     .modalBottom{
         border-top: var(--modal-footer-border, 1px solid var(--btn-border));
-        padding: 12px 16px;
+        padding: 12px 14px 14px 14px;
         display: flex;
+        justify-content: space-between;
         gap: 10px;
-        justify-content: flex-end;
-        flex-wrap: wrap;
         background: var(--modal-bg, var(--panel));
+        flex-wrap: wrap;
     }
+
+    .leftBtns, .rightBtns{ display: inline-flex; gap: 10px; }
 
     .btn{
         padding: 10px 12px;
         border-radius: 12px;
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
-        font-weight: 800;
+        font-weight: 900;
         cursor: pointer;
     }
 
@@ -451,7 +641,14 @@
         cursor: default;
     }
 
+    .btn.danger:hover:not(:disabled){
+        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
+        background: color-mix(in oklab, var(--accent-red), transparent 86%);
+    }
+
     @media (max-width: 720px){
-        .coordsRow{ grid-template-columns: 1fr; }
+        .row2{ grid-template-columns: 1fr; }
+        .row3{ grid-template-columns: 1fr; }
+        .rightBtns, .leftBtns{ width: 100%; justify-content: space-between; }
     }
 </style>

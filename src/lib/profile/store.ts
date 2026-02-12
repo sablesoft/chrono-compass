@@ -1,12 +1,17 @@
 // src/lib/profile/store.ts
-import { writable, derived, get } from 'svelte/store';
+import {derived, get, writable} from 'svelte/store';
 
-import { debug } from '../debug';
-import type { BodyId, WheelType } from '../catalog';
-import type { WheelRolesState } from '../wheel/control';
+import {debug} from '../debug';
+import type {BodyId, WheelType} from '../catalog';
+import type {WheelRolesState} from '../wheel/control';
 
-import type { BoardItem, Profile, ProfileId, ProfilesState, SavedWheel } from './types';
-import { boardApi } from '../board/store';
+import type {BoardItem, Profile, ProfileId, ProfilesState, SavedWheel} from './types';
+import {boardApi} from '../board/store';
+
+import {makeWheelId as makeWheelIdImpl} from '../wheel/id';
+import type {WheelObserverState, WheelTimeState} from '../wheel/types';
+
+export const makeWheelId = makeWheelIdImpl;
 
 const dbg = debug('profile', '👤');
 
@@ -16,6 +21,10 @@ const ACTIVE_KEY = 'chrono:profiles:activeId';
 function now(): number {
     return Date.now();
 }
+
+const DEFAULT_LOCATION_ID = 'loc:system'; // “глобальная” локация по умолчанию (пока без связки с location store)
+const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
+const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 
 function uid(prefix: string) {
     return `${prefix}_${Math.random().toString(36).slice(2)}_${Math.random().toString(36).slice(2)}`;
@@ -58,19 +67,6 @@ function stableRolesKey(roles: WheelRolesState): string {
 
     entries.sort((a, b) => a[0].localeCompare(b[0]));
     return entries.map(([k, v]) => `${k}=${v}`).join('&');
-}
-
-export function makeWheelId(type: WheelType, roles: WheelRolesState): string {
-    const rolesKey = stableRolesKey(roles);
-    const raw = `${type}::${rolesKey}`;
-
-    // base64url (stable, compact)
-    const b64 = btoa(unescape(encodeURIComponent(raw)))
-        .replaceAll('+', '-')
-        .replaceAll('/', '_')
-        .replaceAll('=', '');
-
-    return `wheel:${type}:${b64}`;
 }
 
 // ---------------------------
@@ -142,81 +138,6 @@ function saveProfilesState(state: ProfilesState) {
 // normalize + MIGRATION
 // ---------------------------
 
-function migrateProfile(p: Profile): Profile {
-    const t = now();
-
-    const wheels = Array.isArray(p?.data?.wheels) ? p.data.wheels : [];
-    const favorites = Array.isArray(p?.data?.favorites) ? p.data.favorites : [];
-
-    // 1) migrate wheels to deterministic id + dedupe by id
-    const byId = new Map<string, SavedWheel>();
-    for (const w of wheels) {
-        if (!w || typeof w.type !== 'string') continue;
-
-        const id = makeWheelId(w.type, w.roles ?? {});
-        const prev = byId.get(id);
-
-        const candidate: SavedWheel = {
-            id,
-            type: w.type,
-            title: typeof w.title === 'string' ? w.title : '',
-            roles: (w.roles && typeof w.roles === 'object') ? w.roles : {},
-            favorite: !!w.favorite,
-            createdAt: Number.isFinite(w.createdAt) ? w.createdAt : t,
-            updatedAt: Number.isFinite(w.updatedAt) ? w.updatedAt : t
-        };
-
-        if (!prev) {
-            byId.set(id, candidate);
-            continue;
-        }
-
-        // merge duplicates: keep newest updatedAt, but createdAt should be earliest
-        const keep = (candidate.updatedAt >= prev.updatedAt) ? candidate : prev;
-        const other = (keep === candidate) ? prev : candidate;
-
-        byId.set(id, {
-            ...keep,
-            favorite: !!(keep.favorite || other.favorite),
-            createdAt: Math.min(keep.createdAt, other.createdAt),
-            updatedAt: Math.max(keep.updatedAt, other.updatedAt),
-            // title: keep.title (newest wins). if empty -> try other
-            title: (keep.title?.trim()?.length ? keep.title : other.title) ?? ''
-        });
-    }
-
-    const migratedWheels = Array.from(byId.values());
-
-    // 2) favorites: rebuild from wheels.favorite + old favorites mapping (best effort)
-    const favSet = new Set<string>();
-
-    for (const w of migratedWheels) {
-        if (w.favorite) favSet.add(w.id);
-    }
-
-    // best-effort: old favorites might contain old ids; map them by matching config if possible
-    // (we can’t recover config from old id reliably, so just keep only those that match current ids)
-    for (const id of favorites) {
-        if (byId.has(id)) favSet.add(id);
-    }
-
-    const migratedFavorites = Array.from(favSet);
-
-    const next: Profile = {
-        ...p,
-        data: {
-            ...emptyProfileData(),
-            ...(p.data ?? {}),
-            wheels: migratedWheels,
-            favorites: migratedFavorites,
-            bodies: (p.data?.bodies ?? {}) as any,
-            wheelsOnScreen: Array.isArray(p.data?.wheelsOnScreen) ? p.data.wheelsOnScreen : []
-        }
-    };
-
-    return next;
-}
-
 function normalizeState(s: ProfilesState | null): ProfilesState {
     return dbg.group('normalizeState', () => {
         const def = createDefaultProfile();
@@ -227,11 +148,7 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
         }
 
         const hasDefault = s.profiles.some(p => p?.id === def.id);
-        const rawProfiles = hasDefault ? s.profiles : [def, ...s.profiles];
-
-        const profiles = rawProfiles
-            .filter(Boolean)
-            .map(migrateProfile);
+        const profiles = hasDefault ? s.profiles : [def, ...s.profiles];
 
         const activeId =
             s.activeId && profiles.some(p => p.id === s.activeId)
@@ -401,10 +318,20 @@ export const profilesApi = {
     // Wheels library (presets) - deterministic id
     // ---------------------------
 
-    saveWheel(input: { type: WheelType; title: string; roles: WheelRolesState; favorite?: boolean }): string {
+    saveWheel(input: {
+        type: WheelType;
+        title: string;
+        roles: WheelRolesState;
+        observer?: WheelObserverState;
+        time?: WheelTimeState;
+        favorite?: boolean;
+    }): string {
         return dbg.group('api.saveWheel', () => {
             const ap = get(activeProfile);
-            const id = makeWheelId(input.type, input.roles);
+            const observer = input.observer ?? DEFAULT_OBSERVER;
+            const time = input.time ?? DEFAULT_TIME;
+
+            const id = makeWheelIdImpl(input.type, input.roles, observer, time);
             const t = now();
 
             dbg.log('api.saveWheel.in', {
@@ -426,6 +353,8 @@ export const profilesApi = {
                         ...prev,
                         title: input.title?.trim() || prev.title,
                         roles: input.roles,
+                        observer,
+                        time,
                         favorite: input.favorite ?? prev.favorite,
                         updatedAt: t
                     };
@@ -436,6 +365,8 @@ export const profilesApi = {
                         type: input.type,
                         title: input.title?.trim() || defaultWheelTitle(input.type, input.roles),
                         roles: input.roles,
+                        observer,
+                        time,
                         favorite: input.favorite ?? false,
                         createdAt: t,
                         updatedAt: t
@@ -523,6 +454,8 @@ export const profilesApi = {
                 wheelType: x.wheelType,
                 title: x.title,
                 roles: x.roles,
+                observer: x.observer,
+                time: x.time,
                 order: x.order,
                 size: x.size
             }));
@@ -553,6 +486,8 @@ export const profilesApi = {
                 wheelType: x.wheelType,
                 title: x.title,
                 roles: x.roles,
+                observer: x.observer,
+                time: x.time,
                 size: x.size
             }));
 

@@ -34,24 +34,25 @@
 </script>
 
 <section class="grid">
-    {#each items as it (it.wheelType)}
+    {#each items as it (it.wheelId)}
         {#if it.wheelType === 'compass'}
             <Compass lat={lat}
                     lon={lon}
+                    wheelId={it.wheelId}
                     selectedTs={selectedTs}
                     boardRoles={it.roles}
                     boardTitle={it.title}
             />
         {:else}
             <!-- позже: любые другие колёса с доски -->
-            {#if wheelTypeToCycleKind(it.wheelType)}
-                <Wheel
-                        kind={wheelTypeToCycleKind(it.wheelType)}
-                        lat={lat}
-                        lon={lon}
-                        selectedTs={selectedTs}
-                />
-            {/if}
+            <!--{#if wheelTypeToCycleKind(it.wheelType)}-->
+            <!--    <Wheel-->
+            <!--            kind={wheelTypeToCycleKind(it.wheelType)}-->
+            <!--            lat={lat}-->
+            <!--            lon={lon}-->
+            <!--            selectedTs={selectedTs}-->
+            <!--    />-->
+            <!--{/if}-->
         {/if}
 
         <!-- TODO - старый список cycles — временно оставляем -->

@@ -1,3 +1,4 @@
+// src/lib/location/store.ts
 import { writable, get } from 'svelte/store';
 import { debug } from '../debug';
 import type { Location, SavedLocation, GeoStatus, LocationData } from './types';

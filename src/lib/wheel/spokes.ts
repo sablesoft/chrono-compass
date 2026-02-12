@@ -10,12 +10,7 @@
 // Order (indices 0..16):
 // E, ENE, NE, NNE, N, NNW, NW, WNW, W, WSW, SW, SSW, S, SSE, SE, ESE, E_next
 
-export type SpokeKey =
-    | 'E' | 'ENE' | 'NE' | 'NNE'
-    | 'N' | 'NNW' | 'NW' | 'WNW'
-    | 'W' | 'WSW' | 'SW' | 'SSW'
-    | 'S' | 'SSE' | 'SE' | 'ESE'
-    | 'E_next';
+import type {SpokeKey} from "./types";
 
 export type Anchors = {
     start: number;
