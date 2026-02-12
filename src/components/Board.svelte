@@ -6,6 +6,9 @@
     import { CYCLE_META } from '../lib/cycles/meta';
     import type { WheelType } from '../lib/catalog';
 
+    // TODO - legacy wheel cycles
+    import { cycles } from '../lib/stores/cycle';
+
     export let lat: number;
     export let lon: number;
     export let selectedTs: number;
@@ -23,6 +26,11 @@
     $: items = ($boardItems ?? []).slice().sort((a, b) => a.order - b.order);
 
     // если позже появится несколько виджетов — можно будет тут сортировать/фильтровать
+
+    // TODO - legacy wheel cycles
+    $: cyclesOrdered = ($cycles ?? [])
+        .slice()
+        .sort((a, b) => CYCLE_META[a].order - CYCLE_META[b].order);
 </script>
 
 <section class="grid">
@@ -45,6 +53,16 @@
                 />
             {/if}
         {/if}
+
+        <!-- TODO - старый список cycles — временно оставляем -->
+        {#each cyclesOrdered as kind (kind)}
+            <Wheel
+                    kind={kind}
+                    lat={lat}
+                    lon={lon}
+                    selectedTs={selectedTs}
+            />
+        {/each}
     {/each}
 </section>
 
