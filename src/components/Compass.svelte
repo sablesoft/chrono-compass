@@ -336,12 +336,34 @@
         return bestI;
     }
 
-    // spokes-with-bodies (like Wheel nearest ring, but multiple)
+    // spokes-with-bodies above horizon (like Wheel nearest ring, but multiple)
+    function clusterHasAboveHorizon(c: any): boolean {
+        // главный кейс: у кластера есть orbit, и он в твоей системе 0..1 = above horizon
+        if (typeof c?.orbit === 'number') return c.orbit <= 1;
+
+        // запасной кейс (если когда-нибудь появится altDeg)
+        if (typeof c?.altDeg === 'number') return c.altDeg > 0;
+
+        // ещё запасной (если кластер хранит items)
+        if (Array.isArray(c?.items)) {
+            return c.items.some((it: any) =>
+                (typeof it?.orbit === 'number' && it.orbit <= 1) ||
+                (typeof it?.altDeg === 'number' && it.altDeg > 0)
+            );
+        }
+
+        // если структура неожиданная — лучше подсветить, чем “сломать UX”
+        return true;
+    }
+
+    // spokes-with-bodies (only ABOVE horizon)
     let occupiedSpokes: boolean[] = [];
     $: {
         const occ = Array.from({ length: spokeCount }, () => false);
 
         for (const c of markerClusters) {
+            if (!clusterHasAboveHorizon(c)) continue;
+
             const i = nearestSpokeByAngle(c.angleDeg);
             occ[i] = true;
         }
@@ -562,33 +584,14 @@
                         boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
                     }}/>
         </div>
-        <div class="infoRow">
-            <button class="jump" type="button" disabled>
-                <strong class="k">FIX:</strong>
-                <span class="dt">—</span>
-                <span class="sep">—</span>
-                <span class="desc">No fixed target</span>
-            </button>
-
-            <span class="houseBtns">
-                <button type="button" class="hb" disabled>start</button>
-                <button type="button" class="hb" disabled>end</button>
-            </span>
-        </div>
-
-        <div class="infoRow">
-            <button class="jump" type="button" disabled>
-                <strong class="k">AZ:</strong>
-                <span class="dt">—</span>
-                <span class="sep">—</span>
-                <span class="desc">Spoke / boundary navigation</span>
-            </button>
-
-            <span class="houseBtns">
-                <button type="button" class="hb" disabled>prev</button>
-                <button type="button" class="hb" disabled>next</button>
-            </span>
-        </div>
+<!--        <div class="infoRow">-->
+<!--            <button class="jump" type="button" disabled>-->
+<!--                <strong class="k">FIX:</strong>-->
+<!--                <span class="dt">—</span>-->
+<!--                <span class="sep">—</span>-->
+<!--                <span class="desc">No fixed target</span>-->
+<!--            </button>-->
+<!--        </div>-->
     </div>
 </section>
 
@@ -690,12 +693,6 @@
         pointer-events: none;
     }
 
-    .wheel-code {
-        font-size: 16px;
-        margin-top: 7px;
-        border-top: 1px solid var(--btn-border);
-    }
-
     .info {
         width: 100%;
         max-width: 100%;
@@ -704,6 +701,7 @@
         opacity: 0.82;
         display: grid;
         gap: 2px;
+        margin-top: 150px;
     }
 
     .infoRow {
