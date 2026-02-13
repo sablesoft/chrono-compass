@@ -3,30 +3,30 @@
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import DocsModal from './DocsModal.svelte';
-    import Tooltip from './Tooltip.svelte';
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
-    import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
+    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { boardApi, boardItems } from '../lib/board/store';
     import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
 
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
-    import type {WheelObserverState, WheelTimeState} from '../lib/wheel/types';
+    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
 
     import WheelPicker from './WheelPicker.svelte';
-
-    import { wheels } from '../lib/catalog';
+    import { wheels, bodies } from '../lib/catalog';
     import type { WheelRolesState } from '../lib/wheel/control';
     import type { WheelSpec, CompassRoleSet, BodyId } from '../lib/catalog';
 
-    // NEW: compass engine
     import { computeCompassTargets, compassTargetsToMarkerItems } from '../lib/wheel/compass';
-    import {compassClusters} from "../lib/wheel/ui/compassClusters";
-    import LocationPicker from "./LocationPicker.svelte";
-    import {ms} from "../lib/format";
-    import {onDestroy} from "svelte";
-    import TimePicker from "./TimePicker.svelte";
+    import type { CompassTargetState } from '../lib/wheel/compass';
+    import { compassClusters } from '../lib/wheel/ui/compassClusters';
+    import LocationPicker from './LocationPicker.svelte';
+    import { ms } from '../lib/format';
+    import { onDestroy } from 'svelte';
+    import TimePicker from './TimePicker.svelte';
+
+    import CompassTooltip from './CompassTooltip.svelte';
 
     export let selectedTs: number;
     export let wheelId: string;
@@ -46,9 +46,6 @@
     );
     const docsState = docs.state;
 
-    /* =======================
-       WheelPicker state (applied)
-       ======================= */
     const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
     let localLiveNowTs = ms(Date.now());
@@ -75,6 +72,15 @@
         }, msToNextMinute + 5);
     }
 
+    let observer: WheelObserverState = { locationId: 'loc:system', locked: false } as any;
+    let time: WheelTimeState = { live: true, locked: false } as any;
+
+    $: {
+        const me = $boardItems.find((x) => x.wheelId === wheelId);
+        if (me?.observer) observer = me.observer;
+        if (me?.time) time = me.time;
+    }
+
     $: {
         const needLocalLive = !!time.locked && !!time.live;
         if (needLocalLive) startLocalLiveTicker();
@@ -91,19 +97,14 @@
     function pickDefaultRoles(s: Extract<WheelSpec, { type: 'compass' }>): WheelRolesState {
         const rs: CompassRoleSet | undefined = s.roles?.[0];
         if (!rs) return {};
-
         const looker = rs.looker?.[0] ?? null;
         const target = rs.target?.[0] ?? null;
-
-        // у Compass нет focus — оставляем как null, чтобы WheelPicker спокойно жил
         return { looker, focus: null, target };
     }
 
     let roles: WheelRolesState = pickDefaultRoles(spec);
     let title = '';
 
-    // Подхватываем состояние из доски (после загрузки/перезагрузки).
-    // Это делает Compass “controlled” от board store.
     $: {
         if (boardRoles) {
             roles = boardRoles;
@@ -113,16 +114,6 @@
 
     $: compassCount = $boardItems.filter((x) => x.wheelType === 'compass').length;
     $: canClose = compassCount > 1;
-
-    let observer: WheelObserverState = { locationId: 'loc:system', locked: false } as any;
-    let time: WheelTimeState = { live: true, locked: false } as any;
-
-    // подтягиваем observer из доски (как ты делаешь для roles/title)
-    $: {
-        const me = $boardItems.find((x) => x.wheelId === wheelId);
-        if (me?.observer) observer = me.observer;
-        if (me?.time) time = me.time;
-    }
 
     let globalTs = ms(Date.now());
     let globalLive = true;
@@ -134,8 +125,6 @@
 
     $: {
         if (!time.locked) {
-            // колесо следует глобалу
-            // (если globalLive=true — ts может быть не нужен, но normalizeWheelTime сам решит)
             if (time.live !== globalLive || (time as any).ts !== (globalLive ? (time as any).ts : globalTs)) {
                 boardApi.updateWheelTime(
                     wheelId,
@@ -146,7 +135,6 @@
         }
     }
 
-    // если колесо не locked — оно следует globalLocationId
     $: {
         const globalId = $currentLocationId;
         if (!observer.locked && observer.locationId !== globalId) {
@@ -166,14 +154,9 @@
 
     function handleMarkerPick(ts0: number) {
         onUserActivity();
-        // можно сделать jumpTo позже, пока просто выставим effTs если нужно
-        // но у компаса сейчас нет jumpTo, так что хотя бы закрываем:
         tip.closeNow();
     }
 
-    /* =======================
-       GEOM (same as Wheel)
-       ======================= */
     const geom = createWheelGeom(16, 1000);
     const labels = SPOKE_LABELS;
     const spokeCount = geom.spokeCount;
@@ -190,18 +173,11 @@
     const spokeAngleDeg = geom.spokeAngleDeg;
     const polarToXY = geom.polarToXY;
 
-    // TEMP (как в Wheel): orbit in [0..1] -> map into [zenith..horizon]
     function orbitToRadiusVB(orbit: number) {
         const o = Math.max(0, orbit);
-
-        if (o <= 1) {
-            // visible sky: zenith → horizon
-            return rHorizon * o;
-        } else {
-            // below horizon: horizon → outer rim
-            const t = Math.min(1, o - 1); // map [1..2] → [0..1]
-            return rHorizon + (rOuter - rHorizon) * t;
-        }
+        if (o <= 1) return rHorizon * o;
+        const t = Math.min(1, o - 1);
+        return rHorizon + (rOuter - rHorizon) * t;
     }
 
     function pieSectorPath(a0: number, a1: number, r: number) {
@@ -223,6 +199,7 @@
 
     const MIN_ARC_PX = 28;
     let markerClusters: MarkerCluster[] = [];
+    let lastTargets: CompassTargetState[] = [];
 
     function handleMarkerActivate(c: MarkerCluster) {
         dbg.log('Cluster Activate', c);
@@ -240,22 +217,71 @@
         return null;
     }
 
+    // ---- pin state ----
+    let pinnedBodyId: BodyId | null = null;
+    function togglePin(id: BodyId) {
+        pinnedBodyId = (pinnedBodyId === id) ? null : id;
+    }
+
+    // ---- house mapping helpers ----
+    function norm360(deg: number): number {
+        let x = deg % 360;
+        if (x < 0) x += 360;
+        return x;
+    }
+
+    function angDistDeg(a: number, b: number): number {
+        const d = Math.abs(norm360(a) - norm360(b));
+        return Math.min(d, 360 - d);
+    }
+
+    function nearestSpokeByAngle(angleDeg: number): number {
+        let bestI = 0;
+        let bestD = Infinity;
+        for (let i = 0; i < spokeCount; i++) {
+            const aSpoke = spokeAngleDeg(i);
+            const d = angDistDeg(angleDeg, aSpoke);
+            if (d < bestD) { bestD = d; bestI = i; }
+        }
+        return bestI;
+    }
+
+    function azimuthToWheelAngleDeg(azimuthDeg: number): number {
+        let a = norm360(azimuthDeg - 90);
+        if (a > 180) a -= 360;
+        return a;
+    }
+
+    function houseLabelForAzimuth(azimuthDeg: number): string {
+        const wheelAngle = azimuthToWheelAngleDeg(azimuthDeg);
+        const i = nearestSpokeByAngle(wheelAngle);
+        return labels[i] ?? '—';
+    }
+
+    $: allBodies = lastTargets.map(t => {
+        const b = (bodies as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
+        const name = b?.name?.en ?? String(t.id);
+        const emoji = b?.emoji ?? '•';
+        const house = houseLabelForAzimuth(t.azimuthDeg);
+
+        return {
+            id: t.id,
+            emoji,
+            name,
+            azimuthDeg: t.azimuthDeg,
+            altitudeDeg: t.altitudeDeg,
+            house,
+            visible: t.altitudeDeg >= 0
+        };
+    });
+
     $: {
         const looker = asBodyIdOrNull(roles.looker) ?? 'Earth';
         const targets = asBodyIdArray(roles.target);
 
-        dbg.log?.('Compass.recalc.in', {
-            effTs,
-            wheelLat,
-            wheelLon,
-            looker,
-            targets,
-            roles
-        });
-
         if (!targets.length) {
             markerClusters = [];
-            dbg.log?.('Compass.recalc.out', { reason: 'no targets' });
+            lastTargets = [];
         } else {
             const solved = computeCompassTargets({
                 ts: effTs,
@@ -268,28 +294,15 @@
 
             if (!solved.ok) {
                 markerClusters = [];
-                dbg.log?.('Compass.recalc.out', { ok: false, reason: solved.reason });
+                lastTargets = [];
             } else {
+                lastTargets = solved.targets;
                 const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, solved.targets, looker);
-
-                dbg.log?.('Compass.items', {
-                    count: items.length,
-                    sample: items[0]
-                });
-
                 markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
-
-                dbg.log?.('Compass.clusters', {
-                    count: markerClusters.length,
-                    sample: markerClusters[0]
-                });
             }
         }
     }
 
-    /* =======================
-       Responsive (same as Wheel)
-       ======================= */
     const responsive = useWheelResponsive();
     let size = 360;
     $: size = responsive.size;
@@ -309,92 +322,31 @@
     });
     const tipState = tip.state;
 
-    // --- add near other helpers in Compass.svelte ---
-
-    function norm360(deg: number): number {
-        let x = deg % 360;
-        if (x < 0) x += 360;
-        return x;
-    }
-
-    function angDistDeg(a: number, b: number): number {
-        // минимальная дистанция на окружности
-        const d = Math.abs(norm360(a) - norm360(b));
-        return Math.min(d, 360 - d);
-    }
-
-    function nearestSpokeByAngle(angleDeg: number): number {
-        // safest: compare to actual spokeAngleDeg(i) from geom
-        let bestI = 0;
-        let bestD = Infinity;
-
-        for (let i = 0; i < spokeCount; i++) {
-            const aSpoke = spokeAngleDeg(i);
-            const d = angDistDeg(angleDeg, aSpoke);
-            if (d < bestD) { bestD = d; bestI = i; }
-        }
-        return bestI;
-    }
-
-    // spokes-with-bodies above horizon (like Wheel nearest ring, but multiple)
-    function clusterHasAboveHorizon(c: any): boolean {
-        // главный кейс: у кластера есть orbit, и он в твоей системе 0..1 = above horizon
-        if (typeof c?.orbit === 'number') return c.orbit <= 1;
-
-        // запасной кейс (если когда-нибудь появится altDeg)
-        if (typeof c?.altDeg === 'number') return c.altDeg > 0;
-
-        // ещё запасной (если кластер хранит items)
-        if (Array.isArray(c?.items)) {
-            return c.items.some((it: any) =>
-                (typeof it?.orbit === 'number' && it.orbit <= 1) ||
-                (typeof it?.altDeg === 'number' && it.altDeg > 0)
-            );
-        }
-
-        // если структура неожиданная — лучше подсветить, чем “сломать UX”
-        return true;
-    }
-
-    // spokes-with-bodies (only ABOVE horizon)
+    // occupied spokes: only if at least one visible body in that house
     let occupiedSpokes: boolean[] = [];
     $: {
         const occ = Array.from({ length: spokeCount }, () => false);
-
-        for (const c of markerClusters) {
-            if (!clusterHasAboveHorizon(c)) continue;
-
-            const i = nearestSpokeByAngle(c.angleDeg);
-            occ[i] = true;
+        for (const b of allBodies) {
+            if (!b.visible) continue;
+            const i = labels.indexOf(b.house as any);
+            if (i >= 0) occ[i] = true;
         }
-
         occupiedSpokes = occ;
-        dbg.log?.('Compass.occupiedSpokes', {
-            count: occ.filter(Boolean).length,
-            idx: occ.map((v, i) => (v ? i : -1)).filter(i => i >= 0)
-        });
+    }
+
+    function buildHouseTip(label: string): MomentTip {
+        return { label, ts: effTs, desc: `house:${label}` };
     }
 </script>
 
 <section class="panel">
     <header class="top">
-        <WheelPicker type="compass"
-                {roles}
-                {title}
-                baseObserver={observer}
-                baseTime={time}
-                baseWheelId={wheelId}
-        />
+        <WheelPicker type="compass" {roles} {title} baseObserver={observer} baseTime={time} baseWheelId={wheelId} />
 
         <div class="right">
             <button type="button" class="navBtn" title="Previous" disabled>←</button>
             <button type="button" class="navBtn" title="Next" disabled>→</button>
-            <button
-                    type="button"
-                    class="navBtn"
-                    title="Docs"
-                    on:click={docs.openDocs}
-            >i</button>
+            <button type="button" class="navBtn" title="Docs" on:click={docs.openDocs}>i</button>
             <button
                     type="button"
                     class="navBtn danger"
@@ -437,8 +389,18 @@
                         {@const p1 = { x: cx, y: cy }}
                         {@const p2 = polarToXY(rOuter, a)}
                         {@const pt = polarToXY(rLabel, a)}
+                        {@const houseTip = buildHouseTip(label)}
+                        {@const houseKey = `house:${label}`}
 
-                        <g class="spoke" aria-hidden="true">
+                        <g
+                                class="spoke"
+                                role="button"
+                                tabindex="0"
+                                aria-label={`House ${label}`}
+                                on:click={(e) => tip.openMomentNow(e, houseTip)}
+                                on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
+                                on:mouseleave={() => tip.hoverLeave(houseKey)}
+                        >
                             <line
                                     x1={p1.x} y1={p1.y}
                                     x2={p2.x} y2={p2.y}
@@ -527,11 +489,14 @@
             </div>
 
             {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
-                <Tooltip
+                <CompassTooltip
                         x={$tipState.x}
                         y={$tipState.y}
                         cluster={$tipState.cluster}
                         moment={$tipState.moment}
+                        allBodies={allBodies}
+                        pinnedBodyId={pinnedBodyId}
+                        onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}
                         onMouseEnter={tip.keepOpen}
                         onMouseLeave={tip.scheduleClose}
@@ -547,51 +512,44 @@
                     value={wheelLoc}
                     locked={observer.locked}
                     onChange={(loc, meta) => {
-                        onUserActivity();
+          onUserActivity();
 
-                        // meta.savedId теперь всегда есть
-                        const patch: Partial<WheelObserverState> = {
-                          locationId: meta.savedId,
-                          locked: meta.lockOnApply ? true : observer.locked
-                        };
+          const patch: Partial<WheelObserverState> = {
+            locationId: meta.savedId,
+            locked: meta.lockOnApply ? true : observer.locked
+          };
 
-                        dbg.log?.('Compass.location.apply', { patch });
-
-                        boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
-                      }}
+          dbg.log?.('Compass.location.apply', { patch });
+          boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
+        }}
                     onToggleLock={(next) => {
-                        onUserActivity();
-                        boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
-                    }}/>
+          onUserActivity();
+          boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
+        }}
+            />
         </div>
+
         <div class="infoRow">
             <TimePicker
                     value={time}
                     locked={time.locked}
                     liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                     onChange={(next, meta) => {
-                        onUserActivity();
+          onUserActivity();
 
-                        const patch: Partial<WheelTimeState> =
-                            next.live
-                                ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                                : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+          const patch: Partial<WheelTimeState> =
+            next.live
+              ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+              : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
 
-                        boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
-                    }}
+          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
+        }}
                     onToggleLock={(next) => {
-                        onUserActivity();
-                        boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
-                    }}/>
+          onUserActivity();
+          boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
+        }}
+            />
         </div>
-<!--        <div class="infoRow">-->
-<!--            <button class="jump" type="button" disabled>-->
-<!--                <strong class="k">FIX:</strong>-->
-<!--                <span class="dt">—</span>-->
-<!--                <span class="sep">—</span>-->
-<!--                <span class="desc">No fixed target</span>-->
-<!--            </button>-->
-<!--        </div>-->
     </div>
 </section>
 
@@ -612,13 +570,7 @@
         overflow: hidden;
     }
 
-    .top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-
+    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .right { display: flex; gap: 10px; }
 
     .navBtn {
@@ -635,46 +587,14 @@
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
         transform: translateY(-1px);
     }
-    .navBtn:active:not(:disabled) { transform: translateY(0px); }
-    .navBtn:focus-visible {
-        outline: 2px solid color-mix(in oklab, var(--fg), transparent 65%);
-        outline-offset: 3px;
-    }
     .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
 
-    .wrap {
-        width: 100%;
-        max-width: 100%;
-    }
+    .wrap { width: 100%; max-width: 100%; }
 
-    .wheelPanel {
-        display: grid;
-        gap: 10px;
-        width: 100%;
-        justify-items: center;
-    }
-
-    .wheelBox {
-        width: 100%;
-        aspect-ratio: 1 / 1;
-        display: grid;
-        place-items: stretch;
-        overflow: hidden;
-    }
-
-    .wheelBox svg {
-        width: 100%;
-        height: 100%;
-        display: block;
-    }
-
-    svg {
-        display: block;
-        width: 100%;
-        height: 100%;
-        max-width: none;
-        max-height: none;
-    }
+    .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
+    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: hidden; }
+    .wheelBox svg { width: 100%; height: 100%; display: block; }
+    svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; }
 
     .quadrants .q { fill-opacity: 0.16; stroke: none; }
     .quadrants .q-red   { fill: var(--accent-red); }
@@ -682,124 +602,21 @@
     .quadrants .q-blue  { fill: var(--accent-blue); }
     .quadrants .q-gold  { fill: var(--accent-gold); }
 
-    .tickLine{
-        stroke: currentColor;
-        stroke-opacity: 0.32;
-        stroke-width: 5;
-        stroke-linecap: round;
-    }
+    .tickLine{ stroke: currentColor; stroke-opacity: 0.32; stroke-width: 5; stroke-linecap: round; }
+    .spokeLabel { pointer-events: none; }
 
-    .spokeLabel {
-        pointer-events: none;
-    }
+    .info { width: 100%; max-width: 100%; font-size: 18px; line-height: 1.75; opacity: 0.82; display: grid; gap: 2px; margin-top: 150px; }
+    .infoRow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 10px; }
 
-    .info {
-        width: 100%;
-        max-width: 100%;
-        font-size: 18px;
-        line-height: 1.75;
-        opacity: 0.82;
-        display: grid;
-        gap: 2px;
-        margin-top: 150px;
-    }
-
-    .infoRow {
-        display: grid;
-        grid-template-columns: 1fr auto;
-        align-items: center;
-        gap: 10px;
-        padding: 4px 6px;
-        border-radius: 10px;
-    }
-
-    .jump {
-        display: grid;
-        grid-template-columns: 32px auto 18px 1fr;
-        align-items: center;
-        gap: 6px;
-
-        width: 100%;
-        min-width: 0;
-
-        background: transparent;
-        border: 0;
-        padding: 0;
-        border-radius: 8px;
-
-        text-align: left;
-        font: inherit;
-        color: inherit;
-
-        cursor: pointer;
-    }
-    .jump:hover { background: color-mix(in oklab, var(--fg), transparent 92%); }
-    .jump:active { background: color-mix(in oklab, var(--fg), transparent 88%); }
-    .jump:focus-visible {
-        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
-        outline-offset: 2px;
-    }
-
-    .k { text-align: right; opacity: 0.85; }
-    .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; }
-    .desc {
-        opacity: 0.6;
-        font-weight: 700;
-        min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .houseBtns {
-        display: inline-flex;
-        justify-content: flex-end;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .hb {
-        padding: 6px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 800;
-        opacity: 0.9;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, opacity 120ms ease;
-    }
-    .hb:hover {
-        opacity: 1;
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        transform: translateY(-1px);
-    }
-    .hb:active { transform: translateY(0px); }
-    .hb:focus-visible {
-        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
-        outline-offset: 2px;
-    }
-    .hb:disabled { opacity: 0.45; cursor: default; transform: none; }
-
-    .horizon {
-        stroke: currentColor;
-        stroke-opacity: 0.28;
-        stroke-width: 6;
-    }
-
-    .zenith {
-        fill: currentColor;
-        opacity: 0.85;
-    }
+    .horizon { stroke: currentColor; stroke-opacity: 0.28; stroke-width: 6; }
+    .zenith { fill: currentColor; opacity: 0.85; }
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
-    /* add in <style> */
-    .spokeHasBody {
-        filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 70%));
-    }
+
+    .spoke { cursor: pointer; user-select: none; }
+    .spokeHasBody { filter: drop-shadow(0 0 6px color-mix(in oklab, var(--fg), transparent 70%)); }
+
     .navBtn.danger:hover:not(:disabled) {
         border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
         background: color-mix(in oklab, var(--accent-red), transparent 86%);
