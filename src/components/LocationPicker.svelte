@@ -268,17 +268,17 @@
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
     }}
     >
-    <span class="left">
+    <span class="left seg">
       <span class="label" title={faceLoc.label}>{faceLoc.label}</span>
     </span>
 
         <span class="right">
-      <span class="tz" title={faceLoc.tz}>
+      <span class="tz seg tzSeg" title={faceLoc.tz}>
         {getOffsetLabel(faceLoc.tz)}
       </span>
 
       <button
-              class="lockBtn"
+              class="lockBtn seg lockSeg"
               type="button"
               aria-label={locked ? 'Unlock location' : 'Lock location'}
               title={locked ? 'Location locked' : 'Location follows global'}
@@ -385,69 +385,139 @@
 {/if}
 
 <style>
-    .wrap { position: relative; min-width: 0; }
-
-    .face{
-        width: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 10px;
-        border-radius: 14px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        padding: 0 12px;
-        min-height: 44px;
-        cursor: pointer;
+    .wrap {
+        position: relative;
         min-width: 0;
     }
 
-    .left{ display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-
-    .right{
-        margin-left:auto;
-        display:flex;
-        align-items:center;
-        gap:10px;
+    /* === FACE как у TimePicker: капсула + сегменты === */
+    .face {
+        width: 100%;
+        display: inline-flex;
+        align-items: stretch;              /* как у TimePicker */
+        border-radius: 12px;               /* было 14px → как у TimePicker */
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        overflow: hidden;                  /* важно для сегментов */
+        min-width: 0;
+        cursor: pointer;
     }
 
-    .label{
+    /* делаем внутренности сегментами */
+    .left,
+    .right {
+        display: inline-flex;
+        align-items: center;
+        min-width: 0;
+    }
+
+    /* label-сегмент */
+    .left {
+        padding: 6px 10px;                 /* похоже на seg padding */
+        gap: 8px;
+        min-width: 0;
+        flex: 1 1 auto;                    /* занимает остаток */
+    }
+
+    /* tz+lock сегменты справа */
+    .right {
+        margin-left: auto;
+        flex: 0 0 auto;
+    }
+
+    /* общий стиль “сегмента” (как button.seg) */
+    .seg {
+        border-radius: 0;
+        background: transparent;
+        outline: none;
+        box-shadow: none;
+        padding: 6px 10px;
+        min-width: 0;                      /* 🔥 не раздуваемся */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+        height: auto;
+    }
+
+    /* визуальные разделители между сегментами */
+    .seg + .seg {
+        border-left: 1px solid var(--btn-border);
+    }
+
+    /* hover/focus как в TimePicker */
+    .seg:hover {
+        outline: none;
+        box-shadow: none;
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
+    }
+
+    .seg:focus,
+    .seg:focus-visible {
+        outline: none;
+        box-shadow: none;
+    }
+
+    /* label */
+    .label {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-weight: 800;
+        font-weight: 850;
+        font-size: 15px;                   /* как timeText */
+        letter-spacing: 0.01em;
+        opacity: 0.95;
     }
 
-    .lockBtn{
-        width: 34px;
-        height: 34px;
-        padding: 0;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: color-mix(in oklab, var(--btn-bg), transparent 8%);
-        display: grid;
-        place-items: center;
+    /* tz */
+    .tz {
+        font-variant-numeric: tabular-nums;
+        opacity: 0.8;
+        font-weight: 850;
+        white-space: nowrap;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+    }
+
+    /* lock button превращаем в seg */
+    .lockBtn {
+        border: 0;
+        background: transparent;
+        padding: 0;                        /* padding даст .seg */
         cursor: pointer;
-        flex: 0 0 auto;
+        width: 38px;                       /* как у TimePicker lockBtn */
+        min-width: 38px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .lockIco {
+        line-height: 1;
+        font-size: 16px;
         transform: translateY(-0.5px);
     }
 
-    .lockBtn:hover{
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+    /* применяем seg-стили к конкретным кускам разметки */
+    .left { }
+    .right .tzWrap { } /* если решишь обернуть tz в div позже — не помешает */
+
+    /* хелпер: чтобы tz и lock были сегментами */
+    .tzSeg {
+        width: 58px;                       /* компактно, но читаемо */
+        justify-content: center;
+        padding: 6px 8px;
     }
 
-    .lockIco{ line-height: 1; }
-
-    .tz{
-        font-variant-numeric: tabular-nums;
-        opacity: 0.8;
-        font-weight: 800;
-        white-space: nowrap;
+    .lockSeg {
+        width: 38px;
+        padding: 0;
+        justify-content: center;
     }
 
-    .overlay{
+    /* === MODAL (оставляем почти как было, но чуть компактнее в ритме) === */
+    .overlay {
         position: fixed;
         inset: 0;
         z-index: 9999;
@@ -457,24 +527,24 @@
         background: var(--modal-overlay, rgba(0,0,0,0.45));
     }
 
-    .modal{
-        width: min(760px, 96vw);
+    .modal {
+        width: min(720px, 96vw);           /* чуть компактнее */
         max-height: min(82vh, 860px);
         overflow: auto;
         background: var(--modal-bg, var(--panel));
         border: 1px solid var(--modal-border, var(--panel-border));
-        border-radius: var(--modal-radius, 18px);
-        box-shadow: var(--modal-shadow, 0 18px 60px rgba(0,0,0,0.45));
+        border-radius: 18px;
+        box-shadow: 0 18px 60px rgba(0,0,0,0.45);
         display: flex;
         flex-direction: column;
     }
 
-    .modalTop{
+    .modalTop {
         position: sticky;
         top: 0;
         background: var(--modal-bg, var(--panel));
-        border-bottom: var(--modal-header-border, 1px solid var(--btn-border));
-        padding: 12px 14px;
+        border-bottom: 1px solid var(--btn-border);
+        padding: 10px 12px;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -482,9 +552,13 @@
         z-index: 1;
     }
 
-    .modalTitle{ font-size: 18px; font-weight: 900; opacity: 0.92; }
+    .modalTitle {
+        font-size: 16px;
+        font-weight: 900;
+        opacity: 0.92;
+    }
 
-    .x{
+    .x {
         width: 34px;
         height: 34px;
         border-radius: 10px;
@@ -498,9 +572,14 @@
         padding: 0;
     }
 
-    .modalBody{ padding: 14px; display: grid; gap: 12px; }
+    .modalBody {
+        padding: 12px;
+        display: grid;
+        gap: 12px;
+    }
 
-    .lbl{
+    .lbl,
+    .lbl2 {
         font-size: 12px;
         font-weight: 900;
         opacity: 0.75;
@@ -508,9 +587,9 @@
         letter-spacing: 0.04em;
     }
 
-    .field{ display: grid; gap: 6px; min-width: 0; }
+    .field { display: grid; gap: 6px; min-width: 0; }
 
-    .inp, .sel{
+    .inp, .sel {
         width: 100%;
         box-sizing: border-box;
         padding: 10px 12px;
@@ -521,26 +600,26 @@
         font: inherit;
     }
 
-    .inp:focus-visible, .sel:focus-visible{
+    .inp:focus-visible, .sel:focus-visible {
         outline: 3px solid var(--ring);
         outline-offset: 2px;
     }
 
-    .row2{
+    .row2 {
         display: grid;
         grid-template-columns: 1.2fr 1.8fr;
         gap: 10px;
         align-items: end;
     }
 
-    .row3{
+    .row3 {
         display: grid;
         grid-template-columns: 1fr 1fr auto;
         gap: 10px;
         align-items: end;
     }
 
-    .miniBtn{
+    .miniBtn {
         height: 42px;
         padding: 0 12px;
         border-radius: 12px;
@@ -551,9 +630,9 @@
         white-space: nowrap;
     }
 
-    .tzBlock{ display: grid; gap: 10px; padding-top: 4px; }
+    .tzBlock { display: grid; gap: 10px; padding-top: 4px; }
 
-    .tzTop{
+    .tzTop {
         display: flex;
         justify-content: space-between;
         align-items: baseline;
@@ -561,16 +640,7 @@
         min-width: 0;
     }
 
-    .lbl2{
-        font-size: 12px;
-        font-weight: 900;
-        opacity: 0.75;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        white-space: nowrap;
-    }
-
-    .hint{
+    .hint {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -580,13 +650,13 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .tzList{ min-height: 170px; padding: 8px 10px; }
+    .tzList { min-height: 170px; padding: 8px 10px; }
 
-    .hint2{ opacity: 0.7; font-size: 13px; font-weight: 700; }
+    .hint2 { opacity: 0.7; font-size: 13px; font-weight: 700; }
 
-    .modalBottom{
-        border-top: var(--modal-footer-border, 1px solid var(--btn-border));
-        padding: 12px 14px 14px 14px;
+    .modalBottom {
+        border-top: 1px solid var(--btn-border);
+        padding: 12px 12px 14px 12px;
         display: flex;
         justify-content: space-between;
         gap: 10px;
@@ -594,9 +664,9 @@
         flex-wrap: wrap;
     }
 
-    .leftBtns, .rightBtns{ display: inline-flex; gap: 10px; }
+    .leftBtns, .rightBtns { display: inline-flex; gap: 10px; }
 
-    .btn{
+    .btn {
         padding: 10px 12px;
         border-radius: 12px;
         border: 1px solid var(--btn-border);
@@ -605,20 +675,30 @@
         cursor: pointer;
     }
 
-    .btn.primary{
+    .btn.primary {
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 25%);
     }
 
-    .btn:disabled{ opacity: 0.5; cursor: default; }
+    .btn:disabled { opacity: 0.5; cursor: default; }
 
-    .btn.danger:hover:not(:disabled){
+    .btn.danger:hover:not(:disabled) {
         border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
         background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 
-    @media (max-width: 720px){
-        .row2{ grid-template-columns: 1fr; }
-        .row3{ grid-template-columns: 1fr; }
-        .rightBtns, .leftBtns{ width: 100%; justify-content: space-between; }
+    /* === Mobile tightening, как в TimePicker === */
+    @media (max-width: 520px) {
+        .left { padding: 6px 8px; }
+        .label { font-size: 14px; }
+        .tz { font-size: 12px; }
+
+        .tzSeg { width: 52px; padding: 6px 6px; }
+        .lockBtn, .lockSeg { width: 36px; min-width: 36px; }
+    }
+
+    @media (max-width: 720px) {
+        .row2 { grid-template-columns: 1fr; }
+        .row3 { grid-template-columns: 1fr; }
+        .rightBtns, .leftBtns { width: 100%; justify-content: space-between; }
     }
 </style>
