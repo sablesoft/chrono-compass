@@ -15,7 +15,6 @@ import {
 
 export type BoardWheelItem = {
     kind: 'wheel';
-
     wheelId: string;
 
     wheelType: WheelType;
@@ -58,8 +57,8 @@ function safeParse<T>(raw: string | null, fallback: T): T {
 function normalizeOrder(items: BoardWheelItem[]): BoardWheelItem[] {
     return items
         .slice()
-        .sort((a: BoardWheelItem, b: BoardWheelItem) => a.order - b.order)
-        .map((x: BoardWheelItem, i: number) => ({ ...x, order: i }));
+        .sort((a, b) => a.order - b.order)
+        .map((x, i) => ({ ...x, order: i }));
 }
 
 function defaultCompassItem(order: number): BoardWheelItem {
@@ -81,7 +80,7 @@ function defaultCompassItem(order: number): BoardWheelItem {
 }
 
 function ensureCompass(items: BoardWheelItem[], reason: string): BoardWheelItem[] {
-    if (items.some((x: BoardWheelItem) => x.wheelType === 'compass')) return items;
+    if (items.some((x) => x.wheelType === 'compass')) return items;
 
     dbg.warn('board.ensureCompass.inject', { reason });
     return [...items, defaultCompassItem(items.length)];
@@ -98,7 +97,7 @@ function normalizeBoard(input: any): BoardState {
                 const wheelType = x.wheelType as WheelType;
 
                 const roles: WheelRolesState =
-                    (x.roles && typeof x.roles === 'object') ? (x.roles as WheelRolesState) : ({} as WheelRolesState);
+                    x.roles && typeof x.roles === 'object' ? (x.roles as WheelRolesState) : ({} as WheelRolesState);
 
                 const observer: WheelObserverState = normalizeWheelObserver(x.observer, DEFAULT_LOCATION_ID);
                 const time: WheelTimeState = normalizeWheelTime(x.time);
@@ -118,14 +117,10 @@ function normalizeBoard(input: any): BoardState {
                 };
             });
 
-        // order normalize
         let items = normalizeOrder(parsedItems);
-
-        // 🔥 мгновенная дедупликация (первый по order выигрывает)
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
 
-        // policy: always keep at least one compass
         items = ensureCompass(items, 'normalizeBoard');
         items = normalizeOrder(items);
 
@@ -141,7 +136,7 @@ function normalizeBoard(input: any): BoardState {
 
 function loadBoard(): BoardState {
     return dbg.group('board.load', () => {
-        const raw = (typeof localStorage !== 'undefined') ? localStorage.getItem(KEY) : null;
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
         const parsed = safeParse<any>(raw, null);
         const state = normalizeBoard(parsed);
 
@@ -173,14 +168,11 @@ boardState.subscribe((s: BoardState) => {
 });
 
 export const boardItems = derived(boardState, ($s: BoardState) =>
-    $s.items
-        .slice()
-        .sort((a: BoardWheelItem, b: BoardWheelItem) => a.order - b.order)
+    $s.items.slice().sort((a, b) => a.order - b.order)
 );
 
 function setItems(nextItems: BoardWheelItem[], reason: string) {
     boardState.update(() => {
-        // normalize order + dedupe + compass policy
         let items = normalizeOrder(nextItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
@@ -194,6 +186,19 @@ function setItems(nextItems: BoardWheelItem[], reason: string) {
     });
 }
 
+type WheelSelector =
+    | { mode: 'updateById'; wheelId: string }
+    | { mode: 'upsertByKey' };
+
+type WheelPatch = {
+    wheelType?: WheelType;
+    title?: string;
+    roles?: WheelRolesState;
+    observer?: Partial<WheelObserverState>;
+    time?: Partial<WheelTimeState>;
+    size?: number;
+};
+
 export const boardApi = {
     get(): BoardState {
         const s = get(boardState);
@@ -203,59 +208,168 @@ export const boardApi = {
 
     getItems(): BoardWheelItem[] {
         const s = get(boardState);
-        return s.items.slice().sort((a: BoardWheelItem, b: BoardWheelItem) => a.order - b.order);
+        return s.items.slice().sort((a, b) => a.order - b.order);
+    },
+
+    hasWheelId(wheelId: string): boolean {
+        const cur = get(boardState).items;
+        return cur.some((x) => x.wheelId === wheelId);
     },
 
     removeWheelById(wheelId: string, reason = 'removeWheelById') {
         dbg.group('boardApi.removeWheelById', () => {
-            const cur: BoardWheelItem[] = get(boardState).items;
-            const next: BoardWheelItem[] = cur.filter((x: BoardWheelItem) => x.wheelId !== wheelId);
+            const cur = get(boardState).items;
+            const next = cur.filter((x) => x.wheelId !== wheelId);
 
             dbg.log('removeWheelById', { wheelId, before: cur.length, after: next.length, reason });
             setItems(next, reason);
         });
     },
 
-    updateWheelObserver(
-        wheelId: string,
-        patch: Partial<WheelObserverState>,
-        reason = 'updateWheelObserver'
-    ) {
-        dbg.group('boardApi.updateWheelObserver', () => {
+    /**
+     * Универсальный upsert.
+     *
+     * mode:
+     * - updateById: обновить КОНКРЕТНЫЙ айтем (пересчитает wheelId). При конфликте с другим wheelId — заблокирует.
+     * - upsertByKey: upsert по вычисленному wheelId (если найден — заменит, иначе добавит).
+     *
+     * Возвращает:
+     * - ok=false если не нашёл базу (updateById) или конфликт
+     * - nextWheelId (если ok)
+     */
+    upsertWheel(sel: WheelSelector, patch: WheelPatch, reason = 'upsertWheel'): { ok: boolean; nextWheelId?: string } {
+        return dbg.group('boardApi.upsertWheel', () => {
             const cur = get(boardState).items.slice();
-            const idx = cur.findIndex((x) => x.wheelId === wheelId);
-            if (idx < 0) return;
 
-            const prev = cur[idx];
-            const nextObserver: WheelObserverState = normalizeWheelObserver(
-                { ...(prev.observer as any), ...(patch as any) },
+            const idx = sel.mode === 'updateById' ? cur.findIndex((x) => x.wheelId === sel.wheelId) : -1;
+            const prev = idx >= 0 ? cur[idx] : null;
+
+            if (sel.mode === 'updateById' && !prev) {
+                dbg.warn('upsertWheel.notFound', { wheelId: sel.wheelId, reason });
+                return { ok: false };
+            }
+
+            const wheelType: WheelType = patch.wheelType ?? prev?.wheelType ?? ('compass' as WheelType);
+            const roles: WheelRolesState = patch.roles ?? prev?.roles ?? ({} as WheelRolesState);
+
+            const observer: WheelObserverState = normalizeWheelObserver(
+                { ...(prev?.observer ?? DEFAULT_OBSERVER), ...(patch.observer ?? {}) },
                 DEFAULT_LOCATION_ID
             );
 
-            // wheelId у тебя детерминированный и включает observer/time → значит при изменении observer
-            // нужен новый wheelId
-            const nextWheelId = makeWheelId(prev.wheelType, prev.roles, nextObserver, prev.time);
+            const time: WheelTimeState = normalizeWheelTime({ ...(prev?.time ?? DEFAULT_TIME), ...(patch.time ?? {}) });
 
-            cur[idx] = {
-                ...prev,
+            const title: string = ((patch.title ?? prev?.title ?? '') as any) ?? '';
+            const size: number | undefined = patch.size ?? prev?.size;
+
+            const nextWheelId = makeWheelId(wheelType, roles, observer, time);
+
+            if (sel.mode === 'updateById') {
+                // конфликт: другой айтем уже имеет nextWheelId
+                const conflict = cur.some((x, i) => i !== idx && x.wheelId === nextWheelId);
+                if (conflict) {
+                    dbg.warn('upsertWheel.conflict', { mode: sel.mode, from: sel.wheelId, to: nextWheelId, reason });
+                    return { ok: false };
+                }
+
+                cur[idx] = {
+                    ...prev!,
+                    wheelId: nextWheelId,
+                    wheelType,
+                    roles,
+                    observer,
+                    time,
+                    title,
+                    size
+                };
+
+                dbg.log('upsertWheel.updatedById', { from: sel.wheelId, to: nextWheelId, reason });
+                setItems(cur, reason);
+                return { ok: true, nextWheelId };
+            }
+
+            // upsertByKey
+            const hit = cur.findIndex((x) => x.wheelId === nextWheelId);
+            const order = hit >= 0 ? cur[hit].order : cur.length;
+
+            const nextItem: BoardWheelItem = {
+                kind: 'wheel',
                 wheelId: nextWheelId,
-                observer: nextObserver
+                wheelType,
+                title,
+                roles,
+                observer,
+                time,
+                order,
+                size
             };
 
-            dbg.log('updated', { wheelId, nextWheelId, patch, reason });
+            if (hit >= 0) {
+                cur[hit] = { ...nextItem, order: cur[hit].order, size: size ?? cur[hit].size };
+                dbg.log('upsertWheel.updatedByKey', { wheelId: nextWheelId, reason });
+            } else {
+                cur.push(nextItem);
+                dbg.log('upsertWheel.createdByKey', { wheelId: nextWheelId, reason });
+            }
+
             setItems(cur, reason);
+            return { ok: true, nextWheelId };
         });
     },
 
-    /**
-     * Полная замена доски (используется "Загрузить доску из профиля").
-     * Нормализует order, wheelId и гарантирует наличие компаса по текущей политике.
-     */
+    // --- Compatibility wrappers (можно удалить позже, но удобно для миграции) ---
+
+    updateWheelObserver(wheelId: string, patch: Partial<WheelObserverState>, reason = 'updateWheelObserver') {
+        return boardApi.upsertWheel({ mode: 'updateById', wheelId }, { observer: patch }, reason);
+    },
+
+    updateWheelRolesAndTitle(
+        wheelId: string,
+        patch: { roles?: WheelRolesState; title?: string },
+        reason = 'updateWheelRolesAndTitle'
+    ) {
+        return boardApi.upsertWheel({ mode: 'updateById', wheelId }, { roles: patch.roles, title: patch.title }, reason);
+    },
+
+    addWheelFromBase(
+        baseWheelId: string,
+        payload: { wheelType: WheelType; roles: WheelRolesState; title: string },
+        reason = 'addWheelFromBase'
+    ) {
+        return dbg.group('boardApi.addWheelFromBase', () => {
+            const cur = get(boardState).items.slice();
+            const base = cur.find((x) => x.wheelId === baseWheelId);
+            if (!base) {
+                dbg.warn('addWheelFromBase.notFound', { baseWheelId, reason });
+                return { ok: false as const };
+            }
+
+            const nextWheelId = makeWheelId(payload.wheelType, payload.roles, base.observer, base.time);
+            if (cur.some((x) => x.wheelId === nextWheelId)) {
+                dbg.warn('addWheelFromBase.exists', { baseWheelId, nextWheelId, reason });
+                return { ok: false as const };
+            }
+
+            return boardApi.upsertWheel(
+                { mode: 'upsertByKey' },
+                {
+                    wheelType: payload.wheelType,
+                    roles: payload.roles,
+                    title: payload.title ?? '',
+                    observer: base.observer,
+                    time: base.time,
+                    size: base.size
+                },
+                reason
+            );
+        });
+    },
+
     setFromSnapshot(items: Omit<BoardWheelItem, 'order'>[], reason = 'setFromSnapshot') {
         dbg.group('boardApi.setFromSnapshot', () => {
             dbg.log('in', { reason, count: items.length });
 
-            const next: BoardWheelItem[] = items.map((x: Omit<BoardWheelItem, 'order'>, i: number): BoardWheelItem => {
+            const next: BoardWheelItem[] = items.map((x, i): BoardWheelItem => {
                 const wheelType = x.wheelType;
                 const roles = x.roles ?? ({} as WheelRolesState);
                 const observer = normalizeWheelObserver((x as any).observer, DEFAULT_LOCATION_ID);
@@ -279,11 +393,6 @@ export const boardApi = {
         });
     },
 
-    /**
-     * Upsert компаса (пока политика доски: компас должен существовать).
-     * ВАЖНО: observer/time теперь тоже часть wheelId, поэтому тут они важны.
-     * Если их не передали — используем дефолты (подписанный на глобальное).
-     */
     upsertCompass(
         payload: {
             title: string;
@@ -294,59 +403,24 @@ export const boardApi = {
         },
         reason = 'upsertCompass'
     ) {
-        dbg.group('boardApi.upsertCompass', () => {
-            dbg.log('payload', payload);
-
-            const cur = get(boardState).items.slice();
-
-            const wheelType: WheelType = 'compass';
-            const roles: WheelRolesState = payload.roles ?? ({} as WheelRolesState);
-
-            const observer: WheelObserverState = normalizeWheelObserver(
-                { ...(DEFAULT_OBSERVER as any), ...(payload.observer ?? {}) },
-                DEFAULT_LOCATION_ID
-            );
-
-            const time: WheelTimeState = normalizeWheelTime(
-                { ...(DEFAULT_TIME as any), ...(payload.time ?? {}) }
-            );
-
-            const wheelId = makeWheelId(wheelType, roles, observer, time);
-
-            // ищем по wheelId (потому что по одному wheelType уже нельзя — компасов может стать несколько)
-            const idx = cur.findIndex((x: BoardWheelItem) => x.kind === 'wheel' && x.wheelId === wheelId);
-
-            const nextItem: BoardWheelItem = {
-                kind: 'wheel',
-                wheelId,
-                wheelType,
+        return boardApi.upsertWheel(
+            { mode: 'upsertByKey' },
+            {
+                wheelType: 'compass',
+                roles: payload.roles,
                 title: payload.title ?? 'Compass',
-                roles,
-                observer,
-                time,
-                order: idx >= 0 ? cur[idx].order : cur.length,
-                size: payload.size ?? (idx >= 0 ? cur[idx].size : undefined)
-            };
-
-            if (idx >= 0) {
-                cur[idx] = nextItem;
-                dbg.log('updated', { reason, order: nextItem.order, wheelId });
-            } else {
-                cur.push(nextItem);
-                dbg.log('created', { reason, order: nextItem.order, wheelId });
-            }
-
-            setItems(cur, reason);
-        });
+                observer: payload.observer,
+                time: payload.time,
+                size: payload.size
+            },
+            reason
+        );
     },
 
-    /**
-     * Удаление всех колёс типа (ОСТОРОЖНО: сейчас по политике ensureCompass компас вернётся обратно).
-     */
     removeWheelType(type: WheelType, reason = 'removeWheelType') {
         dbg.group('boardApi.removeWheelType', () => {
             const cur = get(boardState).items;
-            const next = cur.filter((x: BoardWheelItem) => x.wheelType !== type);
+            const next = cur.filter((x) => x.wheelType !== type);
             dbg.log('remove', { type, before: cur.length, after: next.length, reason });
             setItems(next, reason);
         });
@@ -355,19 +429,18 @@ export const boardApi = {
     reorder(nextWheelIds: string[], reason = 'reorder') {
         dbg.group('boardApi.reorder', () => {
             const cur = get(boardState).items.slice();
-            const byId = new Map<string, BoardWheelItem>(cur.map((x: BoardWheelItem) => [x.wheelId, x]));
+            const byId = new Map<string, BoardWheelItem>(cur.map((x) => [x.wheelId, x]));
             const next: BoardWheelItem[] = [];
 
             for (const id of nextWheelIds) {
                 const it = byId.get(id);
                 if (it) next.push(it);
             }
-            // хвост
             for (const it of cur) {
-                if (!next.some((x: BoardWheelItem) => x.wheelId === it.wheelId)) next.push(it);
+                if (!next.some((x) => x.wheelId === it.wheelId)) next.push(it);
             }
 
-            dbg.log('reorder', { reason, count: next.length, order: next.map((x: BoardWheelItem) => x.wheelId) });
+            dbg.log('reorder', { reason, count: next.length, order: next.map((x) => x.wheelId) });
             setItems(next, reason);
         });
     },

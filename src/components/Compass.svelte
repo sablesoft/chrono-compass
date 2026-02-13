@@ -11,7 +11,7 @@
     import { boardApi, boardItems } from '../lib/board/store';
 
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
-    import type { WheelObserverState } from '../lib/wheel/types';
+    import type {WheelObserverState, WheelTimeState} from '../lib/wheel/types';
 
     import WheelPicker from './WheelPicker.svelte';
 
@@ -73,11 +73,13 @@
     $: canClose = compassCount > 1;
 
     let observer: WheelObserverState = { locationId: 'loc:system', locked: false } as any;
+    let time: WheelTimeState = { live: true, locked: false } as any;
 
     // подтягиваем observer из доски (как ты делаешь для roles/title)
     $: {
         const me = $boardItems.find((x) => x.wheelId === wheelId);
         if (me?.observer) observer = me.observer;
+        if (me?.time) time = me.time;
     }
 
     // если колесо не locked — оно следует globalLocationId
@@ -98,33 +100,11 @@
         boardApi.removeWheelById(wheelId, 'Compass.close');
     }
 
-    function handleApply(payload: { roles: WheelRolesState; title: string }) {
-        onUserActivity();
-
-        roles = payload.roles;
-        title = payload.title;
-
-        // ВАЖНО: компас на доске всегда один — сохраняем изменения сразу в доску (localStorage).
-        boardApi.upsertCompass(
-            { title: title?.trim() || 'Compass', roles },
-            'Compass.apply'
-        );
-
-        dbg.group?.('WheelControl.apply', () => {
-            dbg.log?.('roles', roles);
-            dbg.log?.('title', title);
-        });
-    }
-
     function handleMarkerPick(ts0: number) {
         onUserActivity();
         // можно сделать jumpTo позже, пока просто выставим selectedTs если нужно
         // но у компаса сейчас нет jumpTo, так что хотя бы закрываем:
         tip.closeNow();
-    }
-
-    function handleCancel() {
-        dbg.log('WheelControl.cancel');
     }
 
     /* =======================
@@ -312,12 +292,12 @@
 
 <section class="panel">
     <header class="top">
-        <WheelPicker
-                type="compass"
+        <WheelPicker type="compass"
                 {roles}
                 {title}
-                onApply={handleApply}
-                onCancel={handleCancel}
+                baseObserver={observer}
+                baseTime={time}
+                baseWheelId={wheelId}
         />
 
         <div class="right">

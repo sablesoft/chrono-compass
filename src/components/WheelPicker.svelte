@@ -20,17 +20,27 @@
     import { debug } from '../lib/debug';
 
     // profiles (saved wheels live here now)
-    import { activeProfile, profilesApi, makeWheelId } from '../lib/profile/store';
+    import { activeProfile, profilesApi } from '../lib/profile/store';
     import type { SavedWheel } from '../lib/profile/types';
+
+    // board
+    import { boardApi } from '../lib/board/store';
+    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
+    import { makeWheelId } from '../lib/wheel/id';
 
     const dbg = debug('profile', '🧩');
 
     export let type: WheelType;
-
     // applied values
     export let roles: WheelRolesState = {};
     export let title: string = '';
 
+    // base wheel context (needed for New + board key check)
+    export let baseWheelId: string;
+    export let baseObserver: WheelObserverState;
+    export let baseTime: WheelTimeState;
+
+    // kept for compatibility; we will call it on Update (so parent can still do extra stuff if needed)
     export let onApply: (payload: { roles: WheelRolesState; title: string }) => void = () => {};
     export let onCancel: () => void = () => {};
 
@@ -91,7 +101,7 @@
 
     // current config id from draft (for "is saved?" + delete/fav on match)
     let currentCfgId = '';
-    $: currentCfgId = makeWheelId(type, effectiveDraftRoles);
+    $: currentCfgId = makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime);
 
     let currentSaved: SavedWheel | null = null;
     $: currentSaved = savedList.find(w => w.id === currentCfgId) ?? null;
@@ -101,6 +111,32 @@
 
     let isFav = false;
     $: isFav = !!currentSaved?.favorite;
+
+    // board existence check for this exact wheelId
+    let existsOnBoard = false;
+    $: existsOnBoard = !!currentCfgId && boardApi.hasWheelId(currentCfgId);
+
+    // validity / dirty
+    let draftCompatible = false;
+    let hasAllRolesOk = false;
+    let isDirty = false;
+
+    $: draftCompatible = isCompatible(spec, effectiveDraftRoles);
+    $: hasAllRolesOk = usedRoles.every(r => hasRoleValue(spec, r, effectiveDraftRoles[r]));
+    $: isDirty = !shallowEqualRoles(roles, effectiveDraftRoles) || (title ?? '') !== (draftTitle ?? '');
+
+    // Update is only meaningful if dirty + valid + AND not conflicting with other wheel on board.
+    // If config matches some existing wheelId on board, Update would collide unless it's the same wheel.
+    let canUpdate = false;
+    $: canUpdate =
+        hasAllRolesOk &&
+        draftCompatible &&
+        isDirty &&
+        (!existsOnBoard || currentCfgId === baseWheelId);
+
+    // New: valid config + must not already exist on board
+    let canNew = false;
+    $: canNew = hasAllRolesOk && draftCompatible && !existsOnBoard;
 
     function openModal() {
         dbg.log('WheelPicker.open', { type });
@@ -118,15 +154,14 @@
             draftTargets = [];
         }
 
-        // если текущая applied-конфигурация уже сохранена — сразу подсветим в селекте
-        const appliedId = makeWheelId(type, roles);
+        const appliedId = makeWheelId(type, roles, baseObserver, baseTime);
         pickedSavedId = savedList.some(w => w.id === appliedId) ? appliedId : '';
 
         open = true;
         queueMicrotask(() => modalEl?.focus());
     }
 
-    function closeModal(reason: 'cancel' | 'apply' = 'cancel') {
+    function closeModal(reason: 'cancel' | 'update' | 'new' = 'cancel') {
         dbg.log('WheelPicker.close', { type, reason });
         open = false;
         if (reason === 'cancel') onCancel();
@@ -158,8 +193,7 @@
             draftTargets = [];
         }
 
-        // вернём подсветку сохранённого, если initial-конфиг сохранён
-        const id = makeWheelId(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles);
+        const id = makeWheelId(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles, baseObserver, baseTime);
         pickedSavedId = savedList.some(w => w.id === id) ? id : '';
     }
 
@@ -177,7 +211,6 @@
             draftRoles = { ...normalized, target: draftRoles.target };
         }
 
-        // ручная правка — селект "Saved" не должен врать
         pickedSavedId = '';
     }
 
@@ -203,27 +236,42 @@
         pickedSavedId = '';
     }
 
-    // validity / apply
-    let draftCompatible = false;
-    let hasAllRolesOk = false;
-    let isDirty = false;
-    let canApply = false;
-
-    $: draftCompatible = isCompatible(spec, effectiveDraftRoles);
-    $: hasAllRolesOk = usedRoles.every(r => hasRoleValue(spec, r, effectiveDraftRoles[r]));
-    $: isDirty = !shallowEqualRoles(roles, effectiveDraftRoles) || (title ?? '') !== (draftTitle ?? '');
-    $: canApply = hasAllRolesOk && draftCompatible && isDirty;
-
-    function apply() {
-        if (!canApply) return;
+    function updateExisting() {
+        if (!canUpdate) return;
 
         const nextTitle = (draftTitle ?? '').trim();
         const nextRoles = effectiveDraftRoles;
 
-        dbg.log('WheelPicker.apply', { type, roles: nextRoles, title: nextTitle });
+        dbg.log('WheelPicker.update', { type, roles: nextRoles, title: nextTitle, baseWheelId });
 
+        // keep old hook (parent might update UI title etc.)
         onApply({ roles: nextRoles, title: nextTitle });
-        open = false;
+
+        // ensure board updated (safe even if parent also does it; upsertWheel will compute id)
+        boardApi.upsertWheel(
+            { mode: 'updateById', wheelId: baseWheelId },
+            { wheelType: type, roles: nextRoles, title: nextTitle },
+            'WheelPicker.update'
+        );
+
+        closeModal('update');
+    }
+
+    function createNew() {
+        if (!canNew) return;
+
+        const nextTitle = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
+        const nextRoles = effectiveDraftRoles;
+
+        dbg.log('WheelPicker.new', { type, roles: nextRoles, title: nextTitle });
+
+        boardApi.upsertWheel(
+            { mode: 'upsertByKey' },
+            { wheelType: type, roles: nextRoles, title: nextTitle, observer: baseObserver, time: baseTime },
+            'WheelPicker.new'
+        );
+
+        closeModal('new');
     }
 
     function onKeyDown(e: KeyboardEvent) {
@@ -260,7 +308,6 @@
 
         if (!w) return;
 
-        // загрузка в draft, но НЕ apply
         draftTitle = w.title ?? '';
         const r = w.roles ?? {};
 
@@ -287,14 +334,10 @@
         }
 
         const t = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
-
-        // deterministic id => saveWheel вернёт тот же id, что и makeWheelId(type, roles)
         const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles });
 
         dbg.log('WheelPicker.saved', { id: savedId, title: t });
-
-        // UI: подсветим сохранённое
-        pickedSavedId = savedId || makeWheelId(type, effectiveDraftRoles);
+        pickedSavedId = savedId || makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime);
     }
 
     function deleteCurrentConfig() {
@@ -427,6 +470,10 @@
                 {#if !draftCompatible && hasAllRolesOk}
                     <div class="warn">⚠ This configuration is unavailable (catalog changed). Edit roles.</div>
                 {/if}
+
+                {#if existsOnBoard && currentCfgId !== baseWheelId}
+                    <div class="existsNote">⚠ This wheel already exists on board.</div>
+                {/if}
             </div>
 
             <footer class="modalBottom">
@@ -437,7 +484,8 @@
 
                 <div class="rightBtns">
                     <button type="button" class="btn ghost" on:click={() => closeModal('cancel')}>Cancel</button>
-                    <button type="button" class="btn primary" on:click={apply} disabled={!canApply}>Apply</button>
+                    <button type="button" class="btn primary" on:click={updateExisting} disabled={!canUpdate}>Update</button>
+                    <button type="button" class="btn primary" on:click={createNew} disabled={!canNew}>New</button>
                 </div>
             </footer>
         </div>
@@ -574,7 +622,6 @@
         align-items: center;
     }
 
-    /* icon buttons: hard-center content */
     .iconBtn {
         width: 38px;
         height: 38px;
@@ -636,6 +683,16 @@
         opacity: 0.9;
     }
 
+    .existsNote {
+        font-size: 12px;
+        font-weight: 750;
+        opacity: 0.8;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 60%);
+        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 14%);
+    }
+
     .modalBottom {
         display: flex;
         justify-content: space-between;
@@ -671,4 +728,14 @@
     }
 
     .btn.ghost { opacity: 0.92; }
+
+    /* make disabled look consistently disabled even when the base styles are "active" */
+    .btn:disabled,
+    .btn.primary:disabled,
+    .btn.ghost:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        pointer-events: none;
+        filter: saturate(0.8);
+    }
 </style>
