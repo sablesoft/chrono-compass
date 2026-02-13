@@ -25,7 +25,7 @@
   --modal-header-border: 1px solid var(--btn-border);
   --modal-footer-border: 1px solid var(--btn-border);
 
-  --accent-live: oklch(0.709 0.218 145.158); /* тот же зелёный, можно чуть подкрутить */
+  --accent-live: oklch(0.711 0.139 82.569); /* тот же зелёный, можно чуть подкрутить */
 }
 
 html, body {
