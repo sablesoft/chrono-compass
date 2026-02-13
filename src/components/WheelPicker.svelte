@@ -334,7 +334,7 @@
         }
 
         const t = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
-        const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles });
+        const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles, observer: baseObserver, time: baseTime});
 
         dbg.log('WheelPicker.saved', { id: savedId, title: t });
         pickedSavedId = savedId || makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime);
