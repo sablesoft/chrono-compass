@@ -90,9 +90,8 @@
     }
 
     function emitChange(next: { ts: number; live: boolean }) {
-        if (onChange) onChange(next, { lockOnApply: value !== null });
+        if (onChange) onChange(next, { lockOnApply: value != null });
         else {
-            // fallback global mode
             if (next.live) toggleGlobalLive();
             else setGlobalSelectedTs(next.ts);
         }
@@ -131,40 +130,27 @@
     // ✅ source of truth
     // global mode: подписки на стора
     const unsub1 = globalSelectedTs.subscribe((v: number) => {
-        if (value !== null) return;
+        if (value != null) return;
         currentTs = v;
         recomputeStateAndTimers();
     });
 
     const unsub2 = globalIsLive.subscribe((v: boolean) => {
-        if (value !== null) return;
+        if (value != null) return;
         live = v;
-
-        if (prevLive && !live) {
-            clearFutureTimer();
-            timeState = 'PAST';
-        } else {
-            recomputeStateAndTimers();
-        }
-        prevLive = live;
+        clearFutureTimer();
+        recomputeStateAndTimers();
     });
 
     const unsub3 = isGlobalTimeLocked.subscribe((v: boolean) => {
-        if (value !== null) return;
+        if (value != null) return;
         locked = v;
     });
 
     // wheel mode: реактивно из props
-    $: if (value !== null) {
+    $: if (value != null) {
         live = !!value.live;
-
-        if (live) {
-            // 🔥 live в колесе должен уметь "тикать", даже если value не меняется каждую минуту
-            currentTs = ms(liveNowTs ?? Date.now());
-        } else {
-            currentTs = ms((value as any).ts ?? Date.now());
-        }
-
+        currentTs = ms((value as any).ts ?? Date.now());
         recomputeStateAndTimers();
     }
 
