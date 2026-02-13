@@ -28,9 +28,6 @@
 
     import CompassTooltip from './CompassTooltip.svelte';
 
-    // последняя решёнка компаса, чтобы можно было вывести pinned-row под колесом
-    let lastSolvedTargets: any[] = []; // или CompassTargetState[] если тип доступен
-
     function togglePinned(id: BodyId) {
         pinnedBodyId = (pinnedBodyId === id) ? null : id;
     }
@@ -338,13 +335,6 @@
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
-
-    function toSigned180(deg0_360: number): number {
-        let a = deg0_360 % 360;
-        if (a < 0) a += 360;
-        if (a > 180) a -= 360;
-        return a;
-    }
 
     function houseFromAzimuth(az: number): string {
         const wdeg = azimuthToWheelAngleDeg(az);
