@@ -9,6 +9,9 @@
 
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
 
+  // 🔥 ранний init (сработает до первого рендера)
+  if (typeof window !== 'undefined') initLocation();
+
   let lat = -23.22;
   let lon = -44.72;
 
@@ -16,7 +19,6 @@
   let unsubLoc: (() => void) | null = null;
 
   onMount(() => {
-    initLocation();
     unsubLoc = currentLocation.subscribe((v) => {
       lat = v.lat;
       lon = v.lon;
@@ -26,9 +28,7 @@
     startLive();
   });
 
-  onDestroy(() => {
-    unsubLoc?.(); unsubLoc = null;
-  });
+  onDestroy(() => { unsubLoc?.(); unsubLoc = null; });
 
   const isDev = import.meta.env.DEV;
 </script>

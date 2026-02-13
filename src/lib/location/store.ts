@@ -13,35 +13,10 @@ export const GLOBAL_CUSTOM_LOCATION_ID = 'loc:custom';
  */
 export const currentLocationId = writable<string>(GLOBAL_CUSTOM_LOCATION_ID);
 
-/**
- * Резолвим Location по locationId.
- * - savedId -> savedLocations[id]
- * - loc:custom -> currentLocation
- * - loc:system -> currentLocation
- */
-export function resolveLocationById(locationId: string | null | undefined): Location {
-    const id = (locationId || '').trim();
-
-    if (!id || id === GLOBAL_CUSTOM_LOCATION_ID || id === 'loc:system') {
-        return get(currentLocation);
-    }
-
-    const hit = get(savedLocations).find((x: SavedLocation) => x.id === id);
-    return hit ? { lat: hit.lat, lon: hit.lon, label: hit.label, tz: hit.tz } : get(currentLocation);
-}
-
-/**
- * Когда глобальный пикер выбирает локацию — он должен выставлять и currentLocation, и currentLocationId.
- * Вызывай это из Header/глобального LocationPicker onChange.
- */
-export function setGlobalLocation(loc: Location, meta?: { savedId?: string | null }) {
-    setLocation(loc);
-    currentLocationId.set(meta?.savedId ? meta.savedId : GLOBAL_CUSTOM_LOCATION_ID);
-}
-
 const dbg = debug('location', '📍');
 
 const KEY = 'chrono:location';
+const KEY_ID = 'chrono:location:id';
 
 export function getSystemTimeZone(): string {
     try {
@@ -146,6 +121,23 @@ function load(): LocationData {
     return { current, saved };
 }
 
+function loadId(): string {
+    try {
+        const v = localStorage.getItem(KEY_ID);
+        return (v && v.trim()) ? v.trim() : GLOBAL_CUSTOM_LOCATION_ID;
+    } catch {
+        return GLOBAL_CUSTOM_LOCATION_ID;
+    }
+}
+
+function persistId(id: string) {
+    try {
+        localStorage.setItem(KEY_ID, id);
+    } catch {
+        // ignore
+    }
+}
+
 const initial =
     typeof window !== 'undefined'
         ? load()
@@ -168,8 +160,45 @@ export const savedLocations: Readable<SavedLocation[]> = {
 export const geoStatus = writable<GeoStatus>('idle');
 export const geoError = writable<string>('');
 
+/**
+ * Резолвим Location по locationId.
+ * - savedId -> savedLocations[id]
+ * - loc:custom -> currentLocation
+ * - loc:system -> currentLocation
+ */
+export function resolveLocationById(locationId: string | null | undefined): Location {
+    const id = (locationId || '').trim();
+
+    if (!id || id === GLOBAL_CUSTOM_LOCATION_ID || id === 'loc:system') {
+        return get(currentLocation);
+    }
+
+    const hit = get(savedLocations).find((x: SavedLocation) => x.id === id);
+    return hit ? { lat: hit.lat, lon: hit.lon, label: hit.label, tz: hit.tz } : get(currentLocation);
+}
+
+/**
+ * Когда глобальный пикер выбирает локацию — он должен выставлять и currentLocation, и currentLocationId.
+ * Вызывай это из Header/глобального LocationPicker onChange.
+ */
+export function setGlobalLocation(loc: Location, meta?: { savedId?: string | null }) {
+    setLocation(loc);
+    currentLocationId.set(meta?.savedId ? meta.savedId : GLOBAL_CUSTOM_LOCATION_ID);
+}
+
+/* =======================
+   Persistence wiring
+   ======================= */
+
 if (typeof window !== 'undefined') {
+    // 1) поднимаем last chosen id сразу при старте
+    currentLocationId.set(loadId());
+
+    // 2) сохраняем state (current + saved)
     locationState.subscribe((s) => persist(s));
+
+    // 3) сохраняем id выбора отдельно (иначе после reload всегда loc:custom)
+    currentLocationId.subscribe((id) => persistId(id));
 }
 
 /* =======================
@@ -195,7 +224,6 @@ export function ensureAtLeastOneSavedLocation(fallback?: Location): string {
 
     const base = sanitizeLocation(fallback ?? state.current) ?? DEFAULT;
 
-    // делаем прямую вставку, чтобы сразу был id и saved не зависел от "позже"
     const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
     const t = now();
 
@@ -211,7 +239,6 @@ export function ensureAtLeastOneSavedLocation(fallback?: Location): string {
         saved: [item]
     });
 
-    // в этом режиме логично тоже считать это "выбранным" savedId
     currentLocationId.set(id);
 
     return id;
@@ -252,7 +279,6 @@ export function saveLocation(loc?: Location): string | null {
         saved: nextSaved
     });
 
-    // save — это осознанное действие, можно считать "выбором" этой saved
     currentLocationId.set(id);
 
     return id;
@@ -263,6 +289,19 @@ export function deleteSavedLocation(id: string) {
         ...state,
         saved: state.saved.filter(p => p.id !== id)
     }));
+
+    // если удалили выбранную saved-локацию — мягко откатимся
+    const curId = get(currentLocationId);
+    if (curId === id) {
+        const s = get(locationState);
+        const next = s.saved[0];
+        if (next) {
+            setLocation(next);
+            currentLocationId.set(next.id);
+        } else {
+            currentLocationId.set(GLOBAL_CUSTOM_LOCATION_ID);
+        }
+    }
 }
 
 export async function trySetGeolocationAsCurrentOnce() {
@@ -284,6 +323,9 @@ export async function trySetGeolocationAsCurrentOnce() {
                     tz: getSystemTimeZone()
                 });
 
+                // GPS — это “custom”, если не делали Save()
+                currentLocationId.set(GLOBAL_CUSTOM_LOCATION_ID);
+
                 geoStatus.set('ok');
                 resolve();
             },
@@ -299,19 +341,32 @@ export async function trySetGeolocationAsCurrentOnce() {
 /**
  * Можно вызывать при старте приложения.
  * Делаем так, чтобы:
- * - current = первая saved (если есть)
- * - иначе saved создаётся из current/DEFAULT
+ * - если currentLocationId указывает на saved — используем её
+ * - иначе если есть saved — используем первую
+ * - иначе создаём saved из current/DEFAULT
  */
 export function initLocation() {
     const state = get(locationState);
+    const id = get(currentLocationId);
 
+    // 1) если id указывает на saved — берём его
+    const hit = state.saved.find((x) => x.id === id);
+    if (hit) {
+        setLocation(hit);
+        currentLocationId.set(hit.id);
+        return;
+    }
+
+    // 2) иначе если есть saved — берём первую
     if (state.saved.length > 0) {
         setLocation(state.saved[0]);
         currentLocationId.set(state.saved[0].id);
-    } else {
-        const id = ensureAtLeastOneSavedLocation(state.current ?? DEFAULT);
-        const s2 = get(locationState);
-        const first = s2.saved.find((x) => x.id === id) ?? s2.saved[0];
-        if (first) setLocation(first);
+        return;
     }
+
+    // 3) иначе создаём fallback saved и берём её
+    const newId = ensureAtLeastOneSavedLocation(state.current ?? DEFAULT);
+    const s2 = get(locationState);
+    const first = s2.saved.find((x) => x.id === newId) ?? s2.saved[0];
+    if (first) setLocation(first);
 }
