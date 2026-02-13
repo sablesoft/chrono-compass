@@ -277,15 +277,16 @@
         {getOffsetLabel(faceLoc.tz)}
       </span>
 
-      <button
-              class="lockBtn seg lockSeg"
-              type="button"
-              aria-label={locked ? 'Unlock location' : 'Lock location'}
-              title={locked ? 'Location locked' : 'Location follows global'}
-              on:click|stopPropagation={toggleLock}
-      >
-        <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
-      </button>
+        <button
+                class="lockBtn seg ui-lock"
+                class:locked={locked}
+                type="button"
+                aria-label={locked ? 'Unlock location' : 'Lock location'}
+                title={locked ? 'Location locked' : 'Location follows global'}
+                on:click|stopPropagation={toggleLock}
+        >
+          <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+        </button>
     </span>
     </div>
 </div>
@@ -478,25 +479,6 @@
         white-space: nowrap;
         font-size: 13px;
         letter-spacing: 0.04em;
-    }
-
-    /* lock button превращаем в seg */
-    .lockBtn {
-        border: 0;
-        background: transparent;
-        padding: 0;                        /* padding даст .seg */
-        cursor: pointer;
-        width: 38px;                       /* как у TimePicker lockBtn */
-        min-width: 38px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .lockIco {
-        line-height: 1;
-        font-size: 16px;
-        transform: translateY(-0.5px);
     }
 
     /* применяем seg-стили к конкретным кускам разметки */
@@ -693,7 +675,7 @@
         .tz { font-size: 12px; }
 
         .tzSeg { width: 52px; padding: 6px 6px; }
-        .lockBtn, .lockSeg { width: 36px; min-width: 36px; }
+        .lockBtn { width: 36px; min-width: 36px; }
     }
 
     @media (max-width: 720px) {

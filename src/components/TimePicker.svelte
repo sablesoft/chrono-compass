@@ -4,26 +4,34 @@
     import { formatDateTime, ms } from '../lib/format';
 
     import {
-        selectedTs,
-        isLive,
+        selectedTs as globalSelectedTs,
+        isLive as globalIsLive,
         isGlobalTimeLocked,
-        setSelectedTs,
-        toggleLive,
+        setSelectedTs as setGlobalSelectedTs,
+        toggleLive as toggleGlobalLive,
         toggleGlobalTimeLock
     } from '../lib/time/store';
 
     import MomentControl from './MomentControl.svelte';
+    import type { WheelTimeState } from '../lib/wheel/types';
 
     type TimeState = 'LIVE' | 'FUTURE' | 'PAST';
 
+    // ✅ CONTROLLED API (как LocationPicker)
+    export let value: WheelTimeState | null = null; // null => global mode
+    export let locked = false;
+
+    type ChangeMeta = { lockOnApply?: boolean };
+    export let onChange: ((next: { ts: number; live: boolean }, meta: ChangeMeta) => void) | null = null;
+    export let onToggleLock: ((next: boolean) => void) | null = null;
+
     let currentTs = ms(Date.now());
     let live = false;
-    let locked = false;
 
     let timeState: TimeState = 'PAST';
     let prevLive = false;
 
-    // FUTURE watcher
+    // FUTURE watcher (как было)
     let futureTimer: ReturnType<typeof setInterval> | null = null;
     let futureTargetSec = 0;
     let localNowSec = 0;
@@ -31,10 +39,7 @@
     let pickerEl: HTMLInputElement | null = null;
 
     function clearFutureTimer() {
-        if (futureTimer) {
-            clearInterval(futureTimer);
-            futureTimer = null;
-        }
+        if (futureTimer) { clearInterval(futureTimer); futureTimer = null; }
     }
 
     function toLocalInputValue(ts: number) {
@@ -54,17 +59,12 @@
 
     function startFutureWatcher(targetTs: number) {
         clearFutureTimer();
-
         futureTargetSec = Math.floor(ms(targetTs) / 1000);
         localNowSec = Math.floor(ms(Date.now()) / 1000);
 
-        if (futureTargetSec <= localNowSec) {
-            timeState = 'PAST';
-            return;
-        }
+        if (futureTargetSec <= localNowSec) { timeState = 'PAST'; return; }
 
         timeState = 'FUTURE';
-
         futureTimer = setInterval(() => {
             localNowSec += 1;
             if (localNowSec >= futureTargetSec) {
@@ -76,14 +76,23 @@
 
     function recomputeStateAndTimers() {
         clearFutureTimer();
-
-        if (live) {
-            timeState = 'LIVE';
-            return;
-        }
-
+        if (live) { timeState = 'LIVE'; return; }
         if (currentTs > Date.now()) startFutureWatcher(currentTs);
         else timeState = 'PAST';
+    }
+
+    function emitToggleLock(next: boolean) {
+        if (onToggleLock) onToggleLock(next);
+        else toggleGlobalTimeLock(); // fallback for global mode
+    }
+
+    function emitChange(next: { ts: number; live: boolean }) {
+        if (onChange) onChange(next, { lockOnApply: value !== null });
+        else {
+            // fallback global mode
+            if (next.live) toggleGlobalLive();
+            else setGlobalSelectedTs(next.ts);
+        }
     }
 
     function handlePickerInput(e: Event) {
@@ -91,30 +100,41 @@
         if (!(el instanceof HTMLInputElement)) return;
 
         const t = fromLocalInputValue(el.value);
-        if (Number.isFinite(t)) setSelectedTs(t);
+        if (!Number.isFinite(t)) return;
+
+        // ✅ любое ручное выставление времени => live=false
+        emitChange({ ts: t, live: false });
     }
 
     function openPicker() {
         if (!pickerEl) return;
-
         pickerEl.value = toLocalInputValue(currentTs);
-
         if (typeof (pickerEl as any).showPicker === 'function') (pickerEl as any).showPicker();
         else pickerEl.click();
+    }
+
+    function toggleLiveClick(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        emitChange({ ts: currentTs, live: !live });
     }
 
     function toggleLock(e: MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
-        toggleGlobalTimeLock();
+        emitToggleLock(!locked);
     }
 
-    const unsub1 = selectedTs.subscribe((v: number) => {
+    // ✅ source of truth
+    // global mode: подписки на стора
+    const unsub1 = globalSelectedTs.subscribe((v: number) => {
+        if (value !== null) return;
         currentTs = v;
         recomputeStateAndTimers();
     });
 
-    const unsub2 = isLive.subscribe((v: boolean) => {
+    const unsub2 = globalIsLive.subscribe((v: boolean) => {
+        if (value !== null) return;
         live = v;
 
         if (prevLive && !live) {
@@ -123,18 +143,23 @@
         } else {
             recomputeStateAndTimers();
         }
-
         prevLive = live;
     });
 
     const unsub3 = isGlobalTimeLocked.subscribe((v: boolean) => {
+        if (value !== null) return;
         locked = v;
     });
 
+    // wheel mode: реактивно из props
+    $: if (value !== null) {
+        live = !!value.live;
+        currentTs = ms((value as any).ts ?? Date.now()); // если ts нет — считаем "сейчас"
+        recomputeStateAndTimers();
+    }
+
     onDestroy(() => {
-        unsub1();
-        unsub2();
-        unsub3();
+        unsub1(); unsub2(); unsub3();
         clearFutureTimer();
     });
 </script>
@@ -151,26 +176,26 @@
             🗓️
         </button>
 
-        <MomentControl buttonClass="seg mc-seg compact" ts={$selectedTs}/>
+        <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
 
         <button
                 class="seg nowBtn"
                 type="button"
                 title={live ? 'Stop live time' : 'Start live time'}
                 class:active={live}
-                on:click={toggleLive}
+                on:click={toggleLiveClick}
         >
             {live ? '⏹' : '▶'}
         </button>
 
         <button
-                class="seg lockBtn"
+                class="seg lockBtn ui-lock"
+                class:locked={locked}
                 type="button"
-                aria-label={locked ? 'Unlock global time' : 'Lock global time'}
-                title={locked ? 'Global time locked' : 'Global time follows wheels'}
-                on:click={toggleLock}
-        >
-            <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+                on:click={toggleLock}>
+            <span class="lockIco" aria-hidden="true">
+                {locked ? '🔒' : '🔓'}
+            </span>
         </button>
 
         <input
@@ -184,19 +209,24 @@
 </div>
 
 <style>
-    .wrap {
+    .wrap{
         position: relative;
         min-width: 0;
+        width: 100%;              /* ✅ */
     }
 
-    .face {
-        display: inline-flex;
+    .face{
+        display: flex;            /* ✅ вместо inline-flex */
         align-items: stretch;
+        width: 100%;              /* ✅ растянуть на строку */
+        min-width: 0;             /* ✅ чтобы дети могли сжиматься */
         border-radius: 12px;
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         overflow: hidden;
     }
+
+
 
     /* hover/focus for seg-buttons */
     .face :global(button.seg) {
@@ -245,8 +275,10 @@
         text-transform: uppercase;
     }
 
-    .timeText {
-        width: 190px;
+    .timeText{
+        flex: 1 1 auto;           /* ✅ занимает остаток */
+        min-width: 0;             /* ✅ включает ellipsis */
+        width: auto;              /* ✅ убираем фикс */
         font-size: 15px;
         font-weight: 850;
         letter-spacing: 0.01em;
@@ -276,17 +308,6 @@
 
     .nowBtn.active {
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
-    }
-
-    .lockBtn {
-        width: 38px;
-        min-width: 38px;
-        padding: 0;
-        cursor: pointer;
-    }
-
-    .lockIco {
-        line-height: 1;
     }
 
     /* 🔥 MomentControl — принудительно компактный */

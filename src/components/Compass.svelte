@@ -9,6 +9,7 @@
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
     import { boardApi, boardItems } from '../lib/board/store';
+    import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
 
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
     import type {WheelObserverState, WheelTimeState} from '../lib/wheel/types';
@@ -23,6 +24,9 @@
     import { computeCompassTargets, compassTargetsToMarkerItems } from '../lib/wheel/compass';
     import {compassClusters} from "../lib/wheel/ui/compassClusters";
     import LocationPicker from "./LocationPicker.svelte";
+    import {ms} from "../lib/format";
+    import {onDestroy} from "svelte";
+    import TimePicker from "./TimePicker.svelte";
 
     export let selectedTs: number;
     export let wheelId: string;
@@ -47,6 +51,43 @@
        ======================= */
     const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
+    let localLiveNowTs = ms(Date.now());
+    let localLiveTimer: ReturnType<typeof setInterval> | null = null;
+    let localAlignTimer: ReturnType<typeof setTimeout> | null = null;
+
+    function clearLocalLiveTimers() {
+        if (localAlignTimer) { clearTimeout(localAlignTimer); localAlignTimer = null; }
+        if (localLiveTimer) { clearInterval(localLiveTimer); localLiveTimer = null; }
+    }
+
+    function startLocalLiveTicker() {
+        clearLocalLiveTimers();
+        localLiveNowTs = ms(Date.now());
+
+        const now = Date.now();
+        const msToNextMinute = 60_000 - (now % 60_000);
+
+        localAlignTimer = setTimeout(() => {
+            localLiveNowTs = ms(Date.now());
+            localLiveTimer = setInterval(() => {
+                localLiveNowTs = ms(Date.now());
+            }, 60_000);
+        }, msToNextMinute + 5);
+    }
+
+    $: {
+        const needLocalLive = !!time.locked && !!time.live;
+        if (needLocalLive) startLocalLiveTicker();
+        else clearLocalLiveTimers();
+    }
+
+    $: effTs =
+        !time.locked
+            ? selectedTs
+            : time.live
+                ? localLiveNowTs
+                : ms((time as any).ts ?? selectedTs);
+
     function pickDefaultRoles(s: Extract<WheelSpec, { type: 'compass' }>): WheelRolesState {
         const rs: CompassRoleSet | undefined = s.roles?.[0];
         if (!rs) return {};
@@ -60,6 +101,7 @@
 
     let roles: WheelRolesState = pickDefaultRoles(spec);
     let title = '';
+
     // Подхватываем состояние из доски (после загрузки/перезагрузки).
     // Это делает Compass “controlled” от board store.
     $: {
@@ -82,6 +124,28 @@
         if (me?.time) time = me.time;
     }
 
+    let globalTs = ms(Date.now());
+    let globalLive = true;
+
+    const unsubGTs = globalSelectedTs.subscribe(v => globalTs = v);
+    const unsubGLive = globalIsLive.subscribe(v => globalLive = v);
+
+    onDestroy(() => { unsubGTs(); unsubGLive(); clearLocalLiveTimers(); });
+
+    $: {
+        if (!time.locked) {
+            // колесо следует глобалу
+            // (если globalLive=true — ts может быть не нужен, но normalizeWheelTime сам решит)
+            if (time.live !== globalLive || (time as any).ts !== (globalLive ? (time as any).ts : globalTs)) {
+                boardApi.updateWheelTime(
+                    wheelId,
+                    globalLive ? { live: true } : { live: false, ts: globalTs },
+                    'Compass.syncWheelTime'
+                );
+            }
+        }
+    }
+
     // если колесо не locked — оно следует globalLocationId
     $: {
         const globalId = $currentLocationId;
@@ -102,7 +166,7 @@
 
     function handleMarkerPick(ts0: number) {
         onUserActivity();
-        // можно сделать jumpTo позже, пока просто выставим selectedTs если нужно
+        // можно сделать jumpTo позже, пока просто выставим effTs если нужно
         // но у компаса сейчас нет jumpTo, так что хотя бы закрываем:
         tip.closeNow();
     }
@@ -181,7 +245,7 @@
         const targets = asBodyIdArray(roles.target);
 
         dbg.log?.('Compass.recalc.in', {
-            selectedTs,
+            effTs,
             wheelLat,
             wheelLon,
             looker,
@@ -194,7 +258,7 @@
             dbg.log?.('Compass.recalc.out', { reason: 'no targets' });
         } else {
             const solved = computeCompassTargets({
-                ts: selectedTs,
+                ts: effTs,
                 looker,
                 observer: { lat: wheelLat, lon: wheelLon },
                 targets,
@@ -206,7 +270,7 @@
                 markerClusters = [];
                 dbg.log?.('Compass.recalc.out', { ok: false, reason: solved.reason });
             } else {
-                const items: MarkerItem[] = compassTargetsToMarkerItems(selectedTs, solved.targets, looker);
+                const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, solved.targets, looker);
 
                 dbg.log?.('Compass.items', {
                     count: items.length,
@@ -479,6 +543,24 @@
                     }}/>
         </div>
         <div class="infoRow">
+            <TimePicker
+                    value={time}
+                    locked={time.locked}
+                    onChange={(next, meta) => {
+                          onUserActivity();
+                          // любое изменение времени в колесе => можно авто-лочить
+                            const patch: Partial<WheelTimeState> =
+                              next.live
+                                ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                                : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
+                        }}
+                    onToggleLock={(next) => {
+                          onUserActivity();
+                          boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
+                        }}/>
+        </div>
+        <div class="infoRow">
             <button class="jump" type="button" disabled>
                 <strong class="k">FIX:</strong>
                 <span class="dt">—</span>
@@ -530,12 +612,6 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-    }
-
-    .title {
-        font-size: 24px;
-        font-weight: 650;
-        opacity: 0.95;
     }
 
     .right { display: flex; gap: 10px; }

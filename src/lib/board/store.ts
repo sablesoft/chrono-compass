@@ -226,6 +226,41 @@ export const boardApi = {
         });
     },
 
+    updateWheelTime(
+        wheelId: string,
+        patch: Partial<WheelTimeState>,
+        reason = 'updateWheelTime'
+    ) {
+        dbg.group('boardApi.updateWheelTime', () => {
+            const cur = get(boardState).items.slice();
+            const idx = cur.findIndex((x) => x.wheelId === wheelId);
+            if (idx < 0) return;
+
+            const prev = cur[idx];
+            const nextTime: WheelTimeState = normalizeWheelTime(
+                { ...(prev.time as any), ...(patch as any) }
+            );
+
+            const nextWheelId = makeWheelId(prev.wheelType, prev.roles, prev.observer, nextTime);
+
+            // если конфликтует с другим колесом — блокируем
+            const conflict = cur.some((x, i) => i !== idx && x.wheelId === nextWheelId);
+            if (conflict) {
+                dbg.warn('updateWheelTime.conflict', { wheelId, nextWheelId, reason });
+                return;
+            }
+
+            cur[idx] = {
+                ...prev,
+                wheelId: nextWheelId,
+                time: nextTime
+            };
+
+            dbg.log('updated', { wheelId, nextWheelId, patch, reason });
+            setItems(cur, reason);
+        });
+    },
+
     /**
      * Универсальный upsert.
      *

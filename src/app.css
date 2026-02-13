@@ -145,3 +145,36 @@ button:focus-visible {
   outline: 3px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* ===========================
+   Global Lock UI pattern
+   =========================== */
+
+.ui-lock{
+  transition: background 120ms ease;
+}
+
+.ui-lock .lockIco{
+  line-height: 1;
+  font-size: 18px;
+  transition: opacity 120ms ease, filter 120ms ease;
+}
+
+/* 🔓 — пассивный */
+.ui-lock:not(.locked) .lockIco{
+  opacity: 0.45;
+  filter: saturate(0.6);
+}
+
+/* 🔒 — активный */
+.ui-lock.locked .lockIco{
+  opacity: 1;
+  filter: drop-shadow(
+          0 0 6px color-mix(in oklab, var(--accent-gold), transparent 40%)
+  );
+}
+
+/* optional subtle background when locked */
+.ui-lock.locked{
+  background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 14%);
+}
