@@ -11,7 +11,9 @@
         saveLocation,
         deleteSavedLocation,
         trySetGeolocationAsCurrentOnce,
-        getSystemTimeZone
+        getSystemTimeZone,
+        ensureAtLeastOneSavedLocation,
+        getGreenwichLocation
     } from '../lib/location/store';
 
     import { IANA_TIMEZONES } from '../lib/location/iana';
@@ -28,37 +30,36 @@
      *
      * Backward-compatible:
      * - если value === null → берём $currentLocation (global)
-     * - если onChange не задан → пишем в global store (setLocation/saveLocation)
+     * - если onChange не задан → пишем в global store (setLocation)
+     *
+     * IMPORTANT (new UX):
+     * - НИКАКИХ авто-emit на input/change.
+     * - Пользователь правит draft, затем жмёт Apply → только тогда emit + close.
      */
     export let value: Location | null = null;
-    export let locked: boolean = false;
+    export let locked = false;
 
-    export let onChange: ((loc: Location, meta?: { savedId?: string | null }) => void) | null = null;
     export let onToggleLock: ((next: boolean) => void) | null = null;
 
-    function effectiveValue(): Location {
-        return value ?? $currentLocation;
-    }
+    type ChangeMeta = { savedId: string; lockOnApply?: boolean };
 
-    function emitChange(loc: Location, meta?: { savedId?: string | null }) {
-        if (onChange) {
-            onChange(loc, meta);
-            dbg.log('emitChange.onChange', loc, meta);
-        } else {
-            setLocation(loc);
-            dbg.log('emitChange.global', loc, meta);
-        } // fallback = global
-    }
+    export let onChange: ((loc: Location, meta: ChangeMeta) => void) | null = null;
+
+    let faceLoc: Location;
+    $: faceLoc = value ?? $currentLocation;
 
     function emitToggleLock(next: boolean) {
         if (onToggleLock) onToggleLock(next);
-        else locked = next; // fallback = локально в компоненте (на время)
+        else locked = next; // fallback
     }
 
     let open = false;
     let modalEl: HTMLDivElement | null = null;
 
+    // selected saved id (must exist on Apply)
     let selectedId = '';
+
+    // drafts
     let labelDraft = '';
     let latDraft = '';
     let lonDraft = '';
@@ -83,19 +84,22 @@
                 timeZoneName: 'shortOffset'
             }).formatToParts(now);
 
-            const offset = parts.find(p => p.type === 'timeZoneName')?.value ?? '';
+            const offset = parts.find((p) => p.type === 'timeZoneName')?.value ?? '';
             return offset.replace('GMT', 'UTC');
         } catch {
             return '';
         }
     }
 
+    function syncDraftFromLocation(loc: Location) {
+        labelDraft = (loc.label ?? 'New place').trim();
+        latDraft = fmtCoord(loc.lat ?? 0);
+        lonDraft = fmtCoord(loc.lon ?? 0);
+        tzDraft = (loc.tz && loc.tz.trim()) ? loc.tz.trim() : (getSystemTimeZone() || 'UTC');
+    }
+
     function syncDraftFromValue() {
-        const cur = effectiveValue();
-        labelDraft = (cur.label ?? 'New place').trim();
-        latDraft = fmtCoord(cur.lat ?? 0);
-        lonDraft = fmtCoord(cur.lon ?? 0);
-        tzDraft = (cur.tz && cur.tz.trim()) ? cur.tz.trim() : (getSystemTimeZone() || 'UTC');
+        syncDraftFromLocation(faceLoc);
     }
 
     function parseDraft(): Location | null {
@@ -127,12 +131,7 @@
         if (!p) return;
 
         selectedId = id;
-        labelDraft = p.label;
-        latDraft = fmtCoord(p.lat);
-        lonDraft = fmtCoord(p.lon);
-        tzDraft = p.tz;
-
-        emitChange({ lat: p.lat, lon: p.lon, label: p.label, tz: p.tz }, { savedId: id });
+        syncDraftFromLocation({ lat: p.lat, lon: p.lon, label: p.label, tz: p.tz });
     }
 
     function onPickChange(e: Event) {
@@ -141,63 +140,81 @@
         pickSaved(el.value);
     }
 
-    function applyDraftNow() {
-        const loc = parseDraft();
-        if (!loc) return;
-        emitChange(loc, { savedId: null });
-    }
-
     function save() {
         const loc = parseDraft();
         if (!loc) return;
 
-        // обновим value наверху
-        emitChange(loc, { savedId: null });
-
-        // сохраняем в savedLocations (это глобальное хранилище — ок)
         const id = saveLocation(loc);
+        if (!id) return;
 
-        if (id) {
-            selectedId = id;
-
-            // если есть контроллер — можно сообщить, что теперь есть savedId
-            // (например wheel может хранить locationId = id)
-            emitChange(loc, { savedId: id });
-        }
-
-        close('save');
+        selectedId = id;
     }
 
     function del() {
         if (!selectedId) return;
         deleteSavedLocation(selectedId);
         selectedId = '';
-        // модалку оставляем открытой
+    }
+
+    function ensureSelectedIdOrCreateFallback(loc: Location): string {
+        // selectedId points to existing saved → ok
+        if (selectedId && $savedLocations.some((x) => x.id === selectedId)) return selectedId;
+
+        // any saved exists → pick first
+        if ($savedLocations.length) {
+            selectedId = $savedLocations[0].id;
+            return selectedId;
+        }
+
+        // none → create fallback saved
+        selectedId = ensureAtLeastOneSavedLocation(loc);
+        return selectedId;
+    }
+
+    function apply() {
+        const loc = parseDraft() ?? faceLoc ?? getGreenwichLocation();
+
+        // guarantee there is ALWAYS a saved location id
+        const savedId = ensureSelectedIdOrCreateFallback(loc);
+
+        // GLOBAL mode (value===null): face renders from $currentLocation, so keep it synced
+        if (value === null) setLocation(loc);
+
+        if (onChange) {
+            onChange(loc, { savedId, lockOnApply: value !== null });
+        } else {
+            // fallback global apply
+            setLocation(loc);
+        }
+
+        close('apply');
     }
 
     function openModal() {
         open = true;
 
+        // enforce invariant globally: at least 1 saved exists
+        ensureAtLeastOneSavedLocation(faceLoc ?? getGreenwichLocation());
+
         syncDraftFromValue();
 
-        // подсветить текущую как saved (если совпало по координатам)
-        const cur = effectiveValue();
+        // best-effort: highlight matching saved
+        const cur = faceLoc;
         const hit = $savedLocations.find((p: SavedLocation) =>
             Math.abs(p.lat - cur.lat) < 1e-9 &&
             Math.abs(p.lon - cur.lon) < 1e-9 &&
             p.label === cur.label &&
             p.tz === cur.tz
         );
-        selectedId = hit?.id ?? '';
+        selectedId = hit?.id ?? ($savedLocations[0]?.id ?? '');
 
         document.body.style.overflow = 'hidden';
 
         queueMicrotask(() => {
             modalEl?.focus();
 
-            // GPS: полезно только в глобальном режиме или если parent хочет так же
-            // оставим как удобный хинт, но только когда value===null (global mode)
-            if (!selectedId && value === null) {
+            // GPS hint only for global mode
+            if (value === null) {
                 trySetGeolocationAsCurrentOnce();
             }
         });
@@ -235,9 +252,7 @@
 
     $: {
         const q = (tzSearch || '').trim().toLowerCase();
-        filteredTz = q
-            ? IANA_TIMEZONES.filter(t => t.toLowerCase().includes(q))
-            : IANA_TIMEZONES.slice(0, 60); // чтобы не рисовать сразу 400+ строк
+        filteredTz = q ? IANA_TIMEZONES.filter((t) => t.toLowerCase().includes(q)) : IANA_TIMEZONES.slice(0, 60);
     }
 </script>
 
@@ -254,12 +269,12 @@
     }}
     >
     <span class="left">
-      <span class="label" title={effectiveValue().label}>{effectiveValue().label}</span>
+      <span class="label" title={faceLoc.label}>{faceLoc.label}</span>
     </span>
 
         <span class="right">
-      <span class="tz" title={effectiveValue().tz}>
-        {getOffsetLabel(effectiveValue().tz)}
+      <span class="tz" title={faceLoc.tz}>
+        {getOffsetLabel(faceLoc.tz)}
       </span>
 
       <button
@@ -277,12 +292,7 @@
 
 {#if open}
     <Portal target="body">
-        <div
-                class="overlay"
-                on:click={(e) => {
-                if (e.target === e.currentTarget) close('overlay');
-            }}
-        >
+        <div class="overlay" on:click={(e) => { if (e.target === e.currentTarget) close('overlay'); }}>
             <div
                     class="modal"
                     bind:this={modalEl}
@@ -302,31 +312,27 @@
                         <div class="field">
                             <label class="lbl">Saved</label>
                             <select class="sel" bind:value={selectedId} on:change={onPickChange}>
-                                <option value="" disabled>
-                                    {$savedLocations.length ? 'Pick…' : 'No saved locations'}
-                                </option>
+                                <option value="" disabled>{$savedLocations.length ? 'Pick…' : 'No saved locations'}</option>
                                 {#each $savedLocations as p}
-                                    <option value={p.id}>
-                                        {p.label} · {getOffsetLabel(p.tz)}
-                                    </option>
+                                    <option value={p.id}>{p.label} · {getOffsetLabel(p.tz)}</option>
                                 {/each}
                             </select>
                         </div>
 
                         <div class="field">
                             <label class="lbl">Name</label>
-                            <input class="inp" bind:value={labelDraft} on:blur={applyDraftNow} />
+                            <input class="inp" bind:value={labelDraft} />
                         </div>
                     </div>
 
                     <div class="row3">
                         <div class="field">
                             <label class="lbl">Lat</label>
-                            <input class="inp" bind:value={latDraft} inputmode="decimal" on:blur={applyDraftNow} />
+                            <input class="inp" bind:value={latDraft} inputmode="decimal" />
                         </div>
                         <div class="field">
                             <label class="lbl">Lon</label>
-                            <input class="inp" bind:value={lonDraft} inputmode="decimal" on:blur={applyDraftNow} />
+                            <input class="inp" bind:value={lonDraft} inputmode="decimal" />
                         </div>
                         <div class="field">
                             <label class="lbl">TZ</label>
@@ -334,10 +340,7 @@
                                     class="miniBtn"
                                     type="button"
                                     title="Use system time zone"
-                                    on:click={() => {
-                                    tzDraft = getSystemTimeZone() || 'UTC';
-                                    applyDraftNow();
-                                }}
+                                    on:click={() => { tzDraft = getSystemTimeZone() || 'UTC'; }}
                             >
                                 System
                             </button>
@@ -347,18 +350,14 @@
                     <div class="tzBlock">
                         <div class="tzTop">
                             <div class="lbl2">Timezone</div>
-                            <div class="hint">
-                                {effectiveValue().tz} · {getOffsetLabel(effectiveValue().tz)}
-                            </div>
+                            <div class="hint">{faceLoc.tz} · {getOffsetLabel(faceLoc.tz)}</div>
                         </div>
 
                         <input class="inp" placeholder="Search IANA timezone..." bind:value={tzSearch} />
 
-                        <select class="sel tzList" size="7" bind:value={tzDraft} on:change={applyDraftNow}>
+                        <select class="sel tzList" size="7" bind:value={tzDraft}>
                             {#each filteredTz as tz}
-                                <option value={tz}>
-                                    {tz} · {getOffsetLabel(tz)}
-                                </option>
+                                <option value={tz}>{tz} · {getOffsetLabel(tz)}</option>
                             {/each}
                         </select>
 
@@ -372,11 +371,12 @@
                     <div class="leftBtns">
                         <button class="btn ghost" type="button" on:click={newLoc}>New</button>
                         <button class="btn danger" type="button" on:click={del} disabled={!selectedId}>Delete</button>
+                        <button class="btn" type="button" on:click={save}>Save</button>
                     </div>
 
                     <div class="rightBtns">
                         <button class="btn ghost" type="button" on:click={() => close('close')}>Close</button>
-                        <button class="btn primary" type="button" on:click={save}>Save</button>
+                        <button class="btn primary" type="button" on:click={apply}>Apply</button>
                     </div>
                 </footer>
             </div>
@@ -402,15 +402,10 @@
         min-width: 0;
     }
 
-    .left{
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        min-width: 0;
-    }
+    .left{ display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 
     .right{
-        margin-left:auto;              /* вот это главное */
+        margin-left:auto;
         display:flex;
         align-items:center;
         gap:10px;
@@ -445,8 +440,6 @@
 
     .lockIco{ line-height: 1; }
 
-    .right{ display: inline-flex; align-items: center; gap: 8px; }
-
     .tz{
         font-variant-numeric: tabular-nums;
         opacity: 0.8;
@@ -454,7 +447,6 @@
         white-space: nowrap;
     }
 
-    /* modal */
     .overlay{
         position: fixed;
         inset: 0;
@@ -490,11 +482,7 @@
         z-index: 1;
     }
 
-    .modalTitle{
-        font-size: 18px;
-        font-weight: 900;
-        opacity: 0.92;
-    }
+    .modalTitle{ font-size: 18px; font-weight: 900; opacity: 0.92; }
 
     .x{
         width: 34px;
@@ -510,11 +498,7 @@
         padding: 0;
     }
 
-    .modalBody{
-        padding: 14px;
-        display: grid;
-        gap: 12px;
-    }
+    .modalBody{ padding: 14px; display: grid; gap: 12px; }
 
     .lbl{
         font-size: 12px;
@@ -567,11 +551,7 @@
         white-space: nowrap;
     }
 
-    .tzBlock{
-        display: grid;
-        gap: 10px;
-        padding-top: 4px;
-    }
+    .tzBlock{ display: grid; gap: 10px; padding-top: 4px; }
 
     .tzTop{
         display: flex;
@@ -600,16 +580,9 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .tzList{
-        min-height: 170px;
-        padding: 8px 10px;
-    }
+    .tzList{ min-height: 170px; padding: 8px 10px; }
 
-    .hint2{
-        opacity: 0.7;
-        font-size: 13px;
-        font-weight: 700;
-    }
+    .hint2{ opacity: 0.7; font-size: 13px; font-weight: 700; }
 
     .modalBottom{
         border-top: var(--modal-footer-border, 1px solid var(--btn-border));
@@ -636,10 +609,7 @@
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 25%);
     }
 
-    .btn:disabled{
-        opacity: 0.5;
-        cursor: default;
-    }
+    .btn:disabled{ opacity: 0.5; cursor: default; }
 
     .btn.danger:hover:not(:disabled){
         border-color: color-mix(in oklab, var(--accent-red), transparent 45%);

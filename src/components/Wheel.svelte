@@ -6,7 +6,7 @@
     import type { CycleKind } from '../lib/cycles/types';
     import { formatDateTime, ms } from '../lib/format';
 
-    import { setSelectedTs } from '../lib/stores/time';
+    import { setSelectedTs } from '../lib/time/store';
     import { momentsState } from '../lib/stores/moment';
 
     import { debug } from '../lib/debug';

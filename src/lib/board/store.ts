@@ -216,6 +216,37 @@ export const boardApi = {
         });
     },
 
+    updateWheelObserver(
+        wheelId: string,
+        patch: Partial<WheelObserverState>,
+        reason = 'updateWheelObserver'
+    ) {
+        dbg.group('boardApi.updateWheelObserver', () => {
+            const cur = get(boardState).items.slice();
+            const idx = cur.findIndex((x) => x.wheelId === wheelId);
+            if (idx < 0) return;
+
+            const prev = cur[idx];
+            const nextObserver: WheelObserverState = normalizeWheelObserver(
+                { ...(prev.observer as any), ...(patch as any) },
+                DEFAULT_LOCATION_ID
+            );
+
+            // wheelId у тебя детерминированный и включает observer/time → значит при изменении observer
+            // нужен новый wheelId
+            const nextWheelId = makeWheelId(prev.wheelType, prev.roles, nextObserver, prev.time);
+
+            cur[idx] = {
+                ...prev,
+                wheelId: nextWheelId,
+                observer: nextObserver
+            };
+
+            dbg.log('updated', { wheelId, nextWheelId, patch, reason });
+            setItems(cur, reason);
+        });
+    },
+
     /**
      * Полная замена доски (используется "Загрузить доску из профиля").
      * Нормализует order, wheelId и гарантирует наличие компаса по текущей политике.

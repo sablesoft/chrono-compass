@@ -2,13 +2,23 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { formatDateTime, ms } from '../lib/format';
-    import {selectedTs, isLive, setSelectedTs, toggleLive} from '../lib/stores/time';
+
+    import {
+        selectedTs,
+        isLive,
+        isGlobalTimeLocked,
+        setSelectedTs,
+        toggleLive,
+        toggleGlobalTimeLock
+    } from '../lib/time/store';
+
     import MomentControl from './MomentControl.svelte';
 
     type TimeState = 'LIVE' | 'FUTURE' | 'PAST';
 
     let currentTs = ms(Date.now());
     let live = false;
+    let locked = false;
 
     let timeState: TimeState = 'PAST';
     let prevLive = false;
@@ -72,13 +82,14 @@
             return;
         }
 
-        // not live
         if (currentTs > Date.now()) startFutureWatcher(currentTs);
         else timeState = 'PAST';
     }
 
     function handlePickerInput(e: Event) {
-        const el = e.currentTarget as HTMLInputElement;
+        const el = e.currentTarget;
+        if (!(el instanceof HTMLInputElement)) return;
+
         const t = fromLocalInputValue(el.value);
         if (Number.isFinite(t)) setSelectedTs(t);
     }
@@ -86,23 +97,26 @@
     function openPicker() {
         if (!pickerEl) return;
 
-        // держим value синхронным, чтобы при открытии показывало текущий момент
         pickerEl.value = toLocalInputValue(currentTs);
 
-        // Chrome/Edge/Safari (частично): нативный вызов
-        if (typeof pickerEl.showPicker === 'function') pickerEl.showPicker();
+        if (typeof (pickerEl as any).showPicker === 'function') (pickerEl as any).showPicker();
         else pickerEl.click();
     }
 
-    const unsub1 = selectedTs.subscribe((v) => {
+    function toggleLock(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleGlobalTimeLock();
+    }
+
+    const unsub1 = selectedTs.subscribe((v: number) => {
         currentTs = v;
         recomputeStateAndTimers();
     });
 
-    const unsub2 = isLive.subscribe((v) => {
+    const unsub2 = isLive.subscribe((v: boolean) => {
         live = v;
 
-        // LIVE -> not LIVE: мгновенно PAST
         if (prevLive && !live) {
             clearFutureTimer();
             timeState = 'PAST';
@@ -113,9 +127,14 @@
         prevLive = live;
     });
 
+    const unsub3 = isGlobalTimeLocked.subscribe((v: boolean) => {
+        locked = v;
+    });
+
     onDestroy(() => {
         unsub1();
         unsub2();
+        unsub3();
         clearFutureTimer();
     });
 </script>
@@ -128,24 +147,32 @@
           {formatDateTime(currentTs)}
         </span>
 
-        <!-- маленькая кнопка-иконка для открытия нативного пикера -->
         <button class="seg iconBtn" type="button" title="Pick date & time" on:click={openPicker}>
             🗓️
         </button>
 
-        <MomentControl buttonClass="seg mc-seg" ts={$selectedTs}/>
+        <MomentControl buttonClass="seg mc-seg compact" ts={$selectedTs}/>
 
         <button
                 class="seg nowBtn"
                 type="button"
-                title={live ? 'Stop live time' : 'Jump to now'}
+                title={live ? 'Stop live time' : 'Start live time'}
                 class:active={live}
                 on:click={toggleLive}
         >
-            {live ? 'Stop' : 'Now'}
+            {live ? '⏹' : '▶'}
         </button>
 
-        <!-- скрытый input: изменения сразу применяются -->
+        <button
+                class="seg lockBtn"
+                type="button"
+                aria-label={locked ? 'Unlock global time' : 'Lock global time'}
+                title={locked ? 'Global time locked' : 'Global time follows wheels'}
+                on:click={toggleLock}
+        >
+            <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+        </button>
+
         <input
                 bind:this={pickerEl}
                 class="hiddenPicker"
@@ -165,18 +192,20 @@
     .face {
         display: inline-flex;
         align-items: stretch;
-        border-radius: 14px;
+        border-radius: 12px;
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         overflow: hidden;
     }
+
+    /* hover/focus for seg-buttons */
     .face :global(button.seg) {
         border-radius: 0;
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 7px;
-        min-width: 60px;
+        padding: 6px 8px;
+        min-width: 0; /* 🔥 убираем раздувание */
     }
 
     .face :global(button.seg:hover) {
@@ -203,50 +232,75 @@
         user-select: none;
     }
 
-    .seg + .seg{
+    .seg + .seg {
         border-left: 1px solid var(--btn-border) !important;
     }
 
-    /* fixed widths */
-    .state{
-        width: 96px;
-        font-size: 16px;
+    /* компактные фикс-ширины */
+    .state {
+        width: 72px;
+        font-size: 13px;
         font-weight: 1000;
-        letter-spacing: .10em;
+        letter-spacing: 0.08em;
         text-transform: uppercase;
     }
 
-    .timeText{
-        width: 240px; /* фикс */
-        font-size: 18px;
+    .timeText {
+        width: 190px;
+        font-size: 15px;
         font-weight: 850;
-        letter-spacing: .02em;
+        letter-spacing: 0.01em;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
 
-    .iconBtn{
-        width: 56px;  /* фикс */
+    .iconBtn {
+        width: 40px;
+        padding: 0;
         cursor: pointer;
-        font-size: 20px;
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
+        font-size: 18px;
+        line-height: 1;
     }
 
-    .nowBtn{
-        width: 96px;
-        font-size: 20px;
-        font-weight: 800;
+    .nowBtn {
+        width: 34px;
+        padding: 0;
+        font-size: 18px;
+        font-weight: 900;
+        line-height: 1;
         cursor: pointer;
         background-color: var(--btn-bg) !important;
-        border-top-left-radius: 0;
-        border-bottom-left-radius: 0;
     }
 
-    .nowBtn.active{
+    .nowBtn.active {
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
+    }
+
+    .lockBtn {
+        width: 38px;
+        min-width: 38px;
+        padding: 0;
+        cursor: pointer;
+    }
+
+    .lockIco {
+        line-height: 1;
+    }
+
+    /* 🔥 MomentControl — принудительно компактный */
+    :global(.mc-seg.compact) {
+        min-width: 0 !important;
+        width: 44px !important;
+        padding: 0 !important;
+        justify-content: center !important;
+    }
+
+    /* если внутри MomentControl есть подписи — прячем (не повредит, если классов нет) */
+    :global(.mc-seg.compact .label),
+    :global(.mc-seg.compact .text) {
+        display: none;
     }
 
     /* state colors */
@@ -264,7 +318,7 @@
     }
 
     /* реально скрытый input, но доступный программно */
-    .hiddenPicker{
+    .hiddenPicker {
         position: absolute;
         width: 1px;
         height: 1px;
@@ -272,7 +326,20 @@
         pointer-events: none;
     }
 
-    @media (max-width: 520px){
-        .timeText{ width: 170px; }
+    @media (max-width: 520px) {
+        .state {
+            width: 60px;
+            font-size: 12px;
+        }
+        .timeText {
+            width: 140px;
+            font-size: 14px;
+        }
+        .iconBtn {
+            width: 36px;
+        }
+        :global(.mc-seg.compact) {
+            width: 40px !important;
+        }
     }
 </style>

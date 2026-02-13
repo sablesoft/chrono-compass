@@ -1,6 +1,5 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
-    // Compass MVP: now draws selected targets
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import DocsModal from './DocsModal.svelte';
@@ -10,6 +9,9 @@
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { type MarkerCluster, type MarkerItem } from '../lib/wheel/wheel';
     import { boardApi, boardItems } from '../lib/board/store';
+
+    import { currentLocationId, resolveLocationById } from '../lib/location/store';
+    import type { WheelObserverState } from '../lib/wheel/types';
 
     import WheelPicker from './WheelPicker.svelte';
 
@@ -22,8 +24,6 @@
     import {compassClusters} from "../lib/wheel/ui/compassClusters";
     import LocationPicker from "./LocationPicker.svelte";
 
-    export let lat: number;
-    export let lon: number;
     export let selectedTs: number;
     export let wheelId: string;
     export let boardRoles: WheelRolesState | null = null;
@@ -71,6 +71,26 @@
 
     $: compassCount = $boardItems.filter((x) => x.wheelType === 'compass').length;
     $: canClose = compassCount > 1;
+
+    let observer: WheelObserverState = { locationId: 'loc:system', locked: false } as any;
+
+    // подтягиваем observer из доски (как ты делаешь для roles/title)
+    $: {
+        const me = $boardItems.find((x) => x.wheelId === wheelId);
+        if (me?.observer) observer = me.observer;
+    }
+
+    // если колесо не locked — оно следует globalLocationId
+    $: {
+        const globalId = $currentLocationId;
+        if (!observer.locked && observer.locationId !== globalId) {
+            boardApi.updateWheelObserver(wheelId, { locationId: globalId }, 'Compass.syncObserverLocation');
+        }
+    }
+
+    $: wheelLoc = resolveLocationById(observer.locationId);
+    $: wheelLat = wheelLoc.lat;
+    $: wheelLon = wheelLoc.lon;
 
     function closeCompass() {
         if (!canClose) return;
@@ -182,8 +202,8 @@
 
         dbg.log?.('Compass.recalc.in', {
             selectedTs,
-            lat,
-            lon,
+            wheelLat,
+            wheelLon,
             looker,
             targets,
             roles
@@ -196,7 +216,7 @@
             const solved = computeCompassTargets({
                 ts: selectedTs,
                 looker,
-                observer: { lat, lon },
+                observer: { lat: wheelLat, lon: wheelLon },
                 targets,
                 refraction: false,
                 dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
@@ -457,7 +477,26 @@
 
     <div class="info">
         <div class="infoRow">
-            <LocationPicker />
+            <LocationPicker
+                    value={wheelLoc}
+                    locked={observer.locked}
+                    onChange={(loc, meta) => {
+                        onUserActivity();
+
+                        // meta.savedId теперь всегда есть
+                        const patch: Partial<WheelObserverState> = {
+                          locationId: meta.savedId,
+                          locked: meta.lockOnApply ? true : observer.locked
+                        };
+
+                        dbg.log?.('Compass.location.apply', { patch });
+
+                        boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
+                      }}
+                    onToggleLock={(next) => {
+                        onUserActivity();
+                        boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
+                    }}/>
         </div>
         <div class="infoRow">
             <button class="jump" type="button" disabled>

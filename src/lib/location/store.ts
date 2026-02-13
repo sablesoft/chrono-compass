@@ -2,6 +2,42 @@
 import { writable, get } from 'svelte/store';
 import { debug } from '../debug';
 import type { Location, SavedLocation, GeoStatus, LocationData } from './types';
+import type { Readable } from 'svelte/store';
+
+export const GLOBAL_CUSTOM_LOCATION_ID = 'loc:custom';
+
+/**
+ * Глобальный "id выбранной локации".
+ * - savedId -> id в savedLocations
+ * - loc:custom -> текущий currentLocation (набрали руками / несохранённое)
+ */
+export const currentLocationId = writable<string>(GLOBAL_CUSTOM_LOCATION_ID);
+
+/**
+ * Резолвим Location по locationId.
+ * - savedId -> savedLocations[id]
+ * - loc:custom -> currentLocation
+ * - loc:system -> currentLocation
+ */
+export function resolveLocationById(locationId: string | null | undefined): Location {
+    const id = (locationId || '').trim();
+
+    if (!id || id === GLOBAL_CUSTOM_LOCATION_ID || id === 'loc:system') {
+        return get(currentLocation);
+    }
+
+    const hit = get(savedLocations).find((x: SavedLocation) => x.id === id);
+    return hit ? { lat: hit.lat, lon: hit.lon, label: hit.label, tz: hit.tz } : get(currentLocation);
+}
+
+/**
+ * Когда глобальный пикер выбирает локацию — он должен выставлять и currentLocation, и currentLocationId.
+ * Вызывай это из Header/глобального LocationPicker onChange.
+ */
+export function setGlobalLocation(loc: Location, meta?: { savedId?: string | null }) {
+    setLocation(loc);
+    currentLocationId.set(meta?.savedId ? meta.savedId : GLOBAL_CUSTOM_LOCATION_ID);
+}
 
 const dbg = debug('location', '📍');
 
@@ -15,12 +51,11 @@ export function getSystemTimeZone(): string {
     }
 }
 
-const DEFAULT: Location = {
-    lat: 0,
-    lon: 0,
-    label: 'Greenwich',
-    tz: 'UTC'
-};
+export function getGreenwichLocation(): Location {
+    return { lat: 0, lon: 0, label: 'Greenwich', tz: 'UTC' };
+}
+
+const DEFAULT: Location = getGreenwichLocation();
 
 function now(): number {
     return Date.now();
@@ -118,14 +153,16 @@ const initial =
 
 export const locationState = writable<LocationData>(initial);
 
-export const currentLocation = {
-    subscribe: (run: any) =>
-        locationState.subscribe(s => run(s.current))
+export const currentLocation: Readable<Location> = {
+    subscribe(run) {
+        return locationState.subscribe((s: LocationData) => run(s.current));
+    }
 };
 
-export const savedLocations = {
-    subscribe: (run: any) =>
-        locationState.subscribe(s => run(s.saved))
+export const savedLocations: Readable<SavedLocation[]> = {
+    subscribe(run) {
+        return locationState.subscribe((s: LocationData) => run(s.saved));
+    }
 };
 
 export const geoStatus = writable<GeoStatus>('idle');
@@ -146,6 +183,38 @@ export function setLocation(loc: Location) {
         ...state,
         current: s
     }));
+}
+
+/**
+ * Гарантируем: в saved всегда есть хотя бы 1 локация.
+ * Возвращает id первой/созданной.
+ */
+export function ensureAtLeastOneSavedLocation(fallback?: Location): string {
+    const state = get(locationState);
+    if (state.saved.length > 0) return state.saved[0].id;
+
+    const base = sanitizeLocation(fallback ?? state.current) ?? DEFAULT;
+
+    // делаем прямую вставку, чтобы сразу был id и saved не зависел от "позже"
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+    const t = now();
+
+    const item: SavedLocation = {
+        ...base,
+        id,
+        createdAt: t,
+        updatedAt: t
+    };
+
+    locationState.set({
+        current: base,
+        saved: [item]
+    });
+
+    // в этом режиме логично тоже считать это "выбранным" savedId
+    currentLocationId.set(id);
+
+    return id;
 }
 
 export function saveLocation(loc?: Location): string | null {
@@ -182,6 +251,9 @@ export function saveLocation(loc?: Location): string | null {
         current: cur,
         saved: nextSaved
     });
+
+    // save — это осознанное действие, можно считать "выбором" этой saved
+    currentLocationId.set(id);
 
     return id;
 }
@@ -224,10 +296,22 @@ export async function trySetGeolocationAsCurrentOnce() {
     });
 }
 
+/**
+ * Можно вызывать при старте приложения.
+ * Делаем так, чтобы:
+ * - current = первая saved (если есть)
+ * - иначе saved создаётся из current/DEFAULT
+ */
 export function initLocation() {
     const state = get(locationState);
 
     if (state.saved.length > 0) {
         setLocation(state.saved[0]);
+        currentLocationId.set(state.saved[0].id);
+    } else {
+        const id = ensureAtLeastOneSavedLocation(state.current ?? DEFAULT);
+        const s2 = get(locationState);
+        const first = s2.saved.find((x) => x.id === id) ?? s2.saved[0];
+        if (first) setLocation(first);
     }
 }

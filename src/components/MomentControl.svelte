@@ -1,3 +1,4 @@
+<!-- src/component/MomentControl.svelte -->
 <script lang="ts">
     import {
         momentsState,
@@ -8,7 +9,6 @@
         findMomentInCollectionByTsFromState
     } from '../lib/stores/moment';
     import type { RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
-    import { onUserActivity } from "../lib/stores/time";
     import DropdownButton from './DropdownButton.svelte';
     import { getCycleOptions } from '../lib/cycles/meta';
     import type { CycleKind } from '../lib/cycles/types';
@@ -244,8 +244,6 @@
 
     function save() {
         if (!collectionId) return;
-
-        onUserActivity();
 
         let moment = {
             id: editingId ?? undefined,

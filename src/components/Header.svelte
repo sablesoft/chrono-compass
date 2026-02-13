@@ -1,3 +1,4 @@
+<!-- src/component/Header.svelte -->
 <script lang="ts">
     import logo from '../assets/logo-transparent-512.svg?raw';
 
@@ -9,6 +10,7 @@
     import {getCycleOptions} from "../lib/cycles/meta";
     import type {CycleKind} from "../lib/cycles/types";
     import CollectionControl from "./CollectionControl.svelte";
+    import {setGlobalLocation, setLocation} from "../lib/location/store";
 
     $: cycleItems = getCycleOptions().map(o => ({
         value: o.kind,
@@ -29,7 +31,13 @@
         <TimePicker />
     </div>
     <div class="slot loc">
-        <LocationPicker />
+        <LocationPicker
+                value={null}
+                locked={false}
+                onChange={(loc, meta) => {
+                    setLocation(loc);
+                    setGlobalLocation(loc, meta);
+                }}/>
     </div>
     <div class="slot">
         <CollectionControl />

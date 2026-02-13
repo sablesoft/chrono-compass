@@ -1,3 +1,4 @@
+// src/lib/wheel/types.ts
 export type WheelObserverState = {
     locationId: string;
     locked: boolean;
