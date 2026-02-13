@@ -1,4 +1,4 @@
-// src/lib/wheel/compass.ts
+// src/lib/compass.ts
 import {
     AstroTime,
     Body as EngineBody,
@@ -7,32 +7,11 @@ import {
     Observer
 } from 'astronomy-engine';
 
-import { bodies } from '../catalog';
-import type { BodyId } from '../catalog';
-import type { MarkerItem } from './wheel';
+import { bodies } from './catalog';
+import type { BodyId } from './catalog';
+import type { MarkerItem } from './wheel/wheel'; // если путь у тебя другой — скажи, поправлю
 
-export type CompassObserver = {
-    lat: number;
-    lon: number;
-    heightMeters?: number;
-};
-
-export type CompassDbg = {
-    log?: (...args: any[]) => void;
-    warn?: (...args: any[]) => void;
-    error?: (...args: any[]) => void;
-};
-
-export type CompassInput = {
-    ts: number;
-    looker: BodyId;
-    observer: CompassObserver;
-    targets: BodyId[];
-    refraction?: boolean;
-
-    // NEW
-    dbg?: CompassDbg;
-};
+import type { WheelInput, CompassSolveResult } from './board/runtime';
 
 export type CompassTargetState = {
     id: BodyId;
@@ -44,10 +23,6 @@ export type CompassTargetState = {
     decDeg?: number;
     distanceAu?: number;
 };
-
-export type CompassSolveResult =
-    | { ok: true; ts: number; looker: BodyId; observer: CompassObserver; targets: CompassTargetState[] }
-    | { ok: false; reason: string; ts: number; looker: BodyId; observer: CompassObserver; targets: CompassTargetState[] };
 
 function bodyEmoji(id: BodyId): string {
     const b = (bodies as any)[id] as { emoji?: string } | undefined;
@@ -73,38 +48,54 @@ function clamp(min: number, x: number, max: number): number {
 }
 
 type RefractionMode = 'normal' | 'jplhor' | undefined;
-
 function refractionMode(enabled: boolean, mode: 'normal' | 'jplhor' = 'normal'): RefractionMode {
     return enabled ? mode : undefined;
 }
 
-export function computeCompassTargets(input: CompassInput): CompassSolveResult {
-    const { ts, looker, observer, targets, refraction = false, dbg } = input;
+/**
+ * Главный solver для registry/runtime.
+ * Берёт:
+ * - ts из WheelInput
+ * - looker из WheelInput (по умолчанию Earth)
+ * - targets из WheelInput.target (BodyId или BodyId[])
+ * - observer из WheelInput.location (lat/lon)
+ *
+ * Возвращает:
+ * - CompassSolveResult из board/runtime: kind='compass', bodies=[]
+ */
+export function solveCompassWheel(input: WheelInput): CompassSolveResult<CompassTargetState> {
+    const dbg = input.dbg;
 
-    dbg?.log?.('computeCompassTargets.in', {
-        ts,
-        looker,
-        observer,
-        targets,
-        refraction
-    });
+    const ts = input.ts;
+    const looker = (input.looker ?? 'Earth') as BodyId;
+
+    const loc = input.location;
+    if (!loc) {
+        const reason = 'Compass wheel requires location (input.location is missing).';
+        dbg?.warn?.('solveCompassWheel.fail', reason);
+        return { ok: false, kind: 'compass', ts, reason, bodies: [] };
+    }
+
+    // targets из input.target (обязателен по твоему правилу)
+    const rawTarget = input.target;
+    const targets: BodyId[] = Array.isArray(rawTarget) ? rawTarget : [rawTarget];
+
+    dbg?.log?.('solveCompassWheel.in', { ts, looker, targets, loc });
 
     if (looker !== 'Earth') {
         const reason = `Compass: topocentric horizon supported only for looker=Earth (got ${String(looker)}).`;
-        dbg?.warn?.('computeCompassTargets.fail', reason);
+        dbg?.warn?.('solveCompassWheel.fail', reason);
+        return { ok: false, kind: 'compass', ts, reason, bodies: [] };
+    }
 
-        return {
-            ok: false,
-            reason,
-            ts,
-            looker,
-            observer,
-            targets: []
-        };
+    if (!targets.length) {
+        const reason = 'Compass: target list is empty.';
+        dbg?.warn?.('solveCompassWheel.fail', reason);
+        return { ok: false, kind: 'compass', ts, reason, bodies: [] };
     }
 
     const time = new AstroTime(new Date(ts));
-    const obs = new Observer(observer.lat, observer.lon, observer.heightMeters ?? 0);
+    const obs = new Observer(loc.lat, loc.lon, 0);
 
     const out: CompassTargetState[] = [];
 
@@ -112,8 +103,9 @@ export function computeCompassTargets(input: CompassInput): CompassSolveResult {
         try {
             const body = toEngineBody(id);
 
+            // refraction пока фикс false (как было в Compass.svelte)
             const eq = Equator(body, time, obs, true, true);
-            const hor = Horizon(time, obs, eq.ra, eq.dec, refractionMode(refraction));
+            const hor = Horizon(time, obs, eq.ra, eq.dec, refractionMode(false));
 
             const az = norm360(hor.azimuth);
             const alt = clamp(-90, hor.altitude, 90);
@@ -128,23 +120,13 @@ export function computeCompassTargets(input: CompassInput): CompassSolveResult {
                 distanceAu: eq.dist
             });
         } catch (err) {
-            dbg?.warn?.('computeCompassTargets.targetError', { id, err });
+            dbg?.warn?.('solveCompassWheel.targetError', { id, err });
         }
     }
 
-    dbg?.log?.('computeCompassTargets.out', {
-        count: out.length,
-        ids: out.map(x => x.id),
-        sample: out[0]
-    });
+    dbg?.log?.('solveCompassWheel.out', { count: out.length, ids: out.map(x => x.id) });
 
-    return {
-        ok: true,
-        ts,
-        looker,
-        observer,
-        targets: out
-    };
+    return { ok: true, kind: 'compass', ts, bodies: out };
 }
 
 function toSigned180(deg0_360: number): number {
@@ -161,6 +143,10 @@ function azimuthToWheelAngleDeg(azimuthDeg: number): number {
     return toSigned180(azimuthDeg - 90);
 }
 
+/**
+ * UI helper (как и раньше): вычисленные bodies -> MarkerItem[]
+ * Эту штуку обычно дергает Compass.svelte.
+ */
 export function compassTargetsToMarkerItems(
     ts: number,
     targets: CompassTargetState[],

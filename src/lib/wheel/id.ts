@@ -3,13 +3,13 @@ import type { WheelType } from '../catalog';
 import type { WheelRolesState } from './control';
 import type {WheelObserverState, WheelTimeState} from "./types";
 
-function normalizeRoleValue(v: any): string | null {
+export function normalizeRoleValue(v: any): string | null {
     if (v == null || v === '') return null;
     if (Array.isArray(v)) return v.map(String).sort().join(',');
     return String(v);
 }
 
-function stableRolesKey(roles: WheelRolesState): string {
+export function stableRolesKey(roles: WheelRolesState): string {
     const entries = Object.entries(roles ?? {})
         .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
         .filter(([, v]) => v !== null);

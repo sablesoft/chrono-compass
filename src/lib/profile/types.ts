@@ -3,6 +3,7 @@ import type { WheelType } from '../catalog';
 import type { BodyId } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
+import type {BoardWheel} from "../board/types";
 
 export type ProfileId = string;
 
@@ -25,30 +26,13 @@ export type BodyUserOverride = {
     emoji?: string;
 };
 
-/** Снапшот доски: колесо на экране (хранит ПОЛНУЮ конфигурацию, не ссылку на SavedWheel) */
-export type BoardWheelItem = {
-    kind: 'wheel';
-
-    wheelType: WheelType;
-    title: string;
-    roles: WheelRolesState;
-
-    observer: WheelObserverState;
-    time: WheelTimeState;
-
-    order: number;
-    size?: number;
-};
-
-export type BoardItem = BoardWheelItem;
-
 export type ProfileData = {
     wheels: SavedWheel[];
     favorites: string[];
     bodies: Partial<Record<BodyId, BodyUserOverride>>;
 
     /** Сохранённая доска в профиле (снапшот) */
-    wheelsOnScreen: BoardItem[];
+    wheelsOnScreen: BoardWheel[];
 };
 
 export type Profile = {

@@ -12,24 +12,10 @@ import {
     normalizeWheelTime,
     dedupeWheelItemsById
 } from '../wheel/id';
-
-export type BoardWheelItem = {
-    kind: 'wheel';
-    wheelId: string;
-
-    wheelType: WheelType;
-    title: string;
-    roles: WheelRolesState;
-
-    observer: WheelObserverState;
-    time: WheelTimeState;
-
-    order: number;
-    size?: number;
-};
+import type {BoardWheel} from "./types";
 
 export type BoardState = {
-    items: BoardWheelItem[];
+    items: BoardWheel[];
     updatedAt: number;
 };
 
@@ -54,21 +40,20 @@ function safeParse<T>(raw: string | null, fallback: T): T {
     }
 }
 
-function normalizeOrder(items: BoardWheelItem[]): BoardWheelItem[] {
+function normalizeOrder(items: BoardWheel[]): BoardWheel[] {
     return items
         .slice()
         .sort((a, b) => a.order - b.order)
         .map((x, i) => ({ ...x, order: i }));
 }
 
-function defaultCompassItem(order: number): BoardWheelItem {
+function defaultCompassItem(order: number): BoardWheel {
     const wheelType: WheelType = 'compass';
     const roles: WheelRolesState = { looker: 'Earth', focus: null, target: ['Moon', 'Sun'] } as any;
     const observer: WheelObserverState = { ...DEFAULT_OBSERVER };
     const time: WheelTimeState = { ...DEFAULT_TIME };
 
     return {
-        kind: 'wheel',
         wheelId: makeWheelId(wheelType, roles, observer, time),
         wheelType,
         title: 'Compass',
@@ -79,7 +64,7 @@ function defaultCompassItem(order: number): BoardWheelItem {
     };
 }
 
-function ensureCompass(items: BoardWheelItem[], reason: string): BoardWheelItem[] {
+function ensureCompass(items: BoardWheel[], reason: string): BoardWheel[] {
     if (items.some((x) => x.wheelType === 'compass')) return items;
 
     dbg.warn('board.ensureCompass.inject', { reason });
@@ -91,9 +76,9 @@ function normalizeBoard(input: any): BoardState {
         const t = now();
         const itemsRaw: any[] = Array.isArray(input?.items) ? input.items : [];
 
-        const parsedItems: BoardWheelItem[] = itemsRaw
-            .filter((x: any) => x && x.kind === 'wheel' && typeof x.wheelType === 'string')
-            .map((x: any, i: number): BoardWheelItem => {
+        const parsedItems: BoardWheel[] = itemsRaw
+            .filter((x: any) => x && typeof x.wheelType === 'string')
+            .map((x: any, i: number): BoardWheel => {
                 const wheelType = x.wheelType as WheelType;
 
                 const roles: WheelRolesState =
@@ -105,7 +90,6 @@ function normalizeBoard(input: any): BoardState {
                 const wheelId = makeWheelId(wheelType, roles, observer, time);
 
                 return {
-                    kind: 'wheel',
                     wheelId,
                     wheelType,
                     title: typeof x.title === 'string' ? x.title : '',
@@ -171,7 +155,7 @@ export const boardItems = derived(boardState, ($s: BoardState) =>
     $s.items.slice().sort((a, b) => a.order - b.order)
 );
 
-function setItems(nextItems: BoardWheelItem[], reason: string) {
+function setItems(nextItems: BoardWheel[], reason: string) {
     boardState.update(() => {
         let items = normalizeOrder(nextItems);
         items = dedupeWheelItemsById(items);
@@ -206,7 +190,7 @@ export const boardApi = {
         return s;
     },
 
-    getItems(): BoardWheelItem[] {
+    getItems(): BoardWheel[] {
         const s = get(boardState);
         return s.items.slice().sort((a, b) => a.order - b.order);
     },
@@ -327,8 +311,7 @@ export const boardApi = {
             const hit = cur.findIndex((x) => x.wheelId === nextWheelId);
             const order = hit >= 0 ? cur[hit].order : cur.length;
 
-            const nextItem: BoardWheelItem = {
-                kind: 'wheel',
+            const nextItem: BoardWheel = {
                 wheelId: nextWheelId,
                 wheelType,
                 title,
@@ -400,11 +383,11 @@ export const boardApi = {
         });
     },
 
-    setFromSnapshot(items: Omit<BoardWheelItem, 'order'>[], reason = 'setFromSnapshot') {
+    setFromSnapshot(items: Omit<BoardWheel, 'order'>[], reason = 'setFromSnapshot') {
         dbg.group('boardApi.setFromSnapshot', () => {
             dbg.log('in', { reason, count: items.length });
 
-            const next: BoardWheelItem[] = items.map((x, i): BoardWheelItem => {
+            const next: BoardWheel[] = items.map((x, i): BoardWheel => {
                 const wheelType = x.wheelType;
                 const roles = x.roles ?? ({} as WheelRolesState);
                 const observer = normalizeWheelObserver((x as any).observer, DEFAULT_LOCATION_ID);
@@ -412,7 +395,6 @@ export const boardApi = {
                 const wheelId = makeWheelId(wheelType, roles, observer, time);
 
                 return {
-                    kind: 'wheel',
                     wheelId,
                     wheelType,
                     title: x.title ?? '',
@@ -464,8 +446,8 @@ export const boardApi = {
     reorder(nextWheelIds: string[], reason = 'reorder') {
         dbg.group('boardApi.reorder', () => {
             const cur = get(boardState).items.slice();
-            const byId = new Map<string, BoardWheelItem>(cur.map((x) => [x.wheelId, x]));
-            const next: BoardWheelItem[] = [];
+            const byId = new Map<string, BoardWheel>(cur.map((x) => [x.wheelId, x]));
+            const next: BoardWheel[] = [];
 
             for (const id of nextWheelIds) {
                 const it = byId.get(id);

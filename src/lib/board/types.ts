@@ -5,8 +5,6 @@ import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 
 
 export type BoardWheel = {
-    kind: 'wheel';
-
     wheelId: string;          // deterministic
 
     wheelType: WheelType;

@@ -5,11 +5,12 @@ import {debug} from '../debug';
 import type {BodyId, WheelType} from '../catalog';
 import type {WheelRolesState} from '../wheel/control';
 
-import type {BoardItem, Profile, ProfileId, ProfilesState, SavedWheel} from './types';
+import type {Profile, ProfileId, ProfilesState, SavedWheel} from './types';
 import {boardApi} from '../board/store';
 
-import {makeWheelId as makeWheelIdImpl} from '../wheel/id';
+import {makeWheelId as makeWheelIdImpl, normalizeRoleValue} from '../wheel/id';
 import type {WheelObserverState, WheelTimeState} from '../wheel/types';
+import type {BoardWheel} from "../board/types";
 
 export const makeWheelId = makeWheelIdImpl;
 
@@ -35,7 +36,7 @@ function emptyProfileData() {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
         bodies: {} as Partial<Record<BodyId, { name?: { en?: string }; emoji?: string }>>,
-        wheelsOnScreen: [] as BoardItem[]
+        wheelsOnScreen: [] as BoardWheel[]
     };
 }
 
@@ -48,25 +49,6 @@ export function createDefaultProfile(): Profile {
         updatedAt: t,
         data: emptyProfileData()
     };
-}
-
-// ---------------------------
-// deterministic wheelId
-// ---------------------------
-
-function normalizeRoleValue(v: any): string | null {
-    if (v == null || v === '') return null;
-    if (Array.isArray(v)) return v.map(String).sort().join(',');
-    return String(v);
-}
-
-function stableRolesKey(roles: WheelRolesState): string {
-    const entries = Object.entries(roles ?? {})
-        .map(([k, v]) => [k, normalizeRoleValue(v)] as const)
-        .filter(([, v]) => v !== null);
-
-    entries.sort((a, b) => a[0].localeCompare(b[0]));
-    return entries.map(([k, v]) => `${k}=${v}`).join('&');
 }
 
 // ---------------------------
@@ -450,7 +432,7 @@ export const profilesApi = {
             const t = now();
 
             const board = boardApi.getItems().map((x) => ({
-                kind: 'wheel' as const,
+                wheelId: x.wheelId,
                 wheelType: x.wheelType,
                 title: x.title,
                 roles: x.roles,
@@ -482,7 +464,6 @@ export const profilesApi = {
             dbg.log('in', { profileId: ap.id, count: snap.length });
 
             const items = snap.map((x) => ({
-                kind: 'wheel' as const,
                 wheelType: x.wheelType,
                 title: x.title,
                 roles: x.roles,
