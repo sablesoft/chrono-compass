@@ -9,6 +9,27 @@ const dbg = debug('location', '📍');
 
 const KEY = 'chrono:location:v1';
 
+// === единственный источник правды по точности координат ===
+const COORD_DP = 3;
+const COORD_MUL = Math.pow(10, COORD_DP);
+
+function q(n: number): number {
+    // квантуем до 3 знаков
+    return Math.round(n * COORD_MUL) / COORD_MUL;
+}
+function qLat(lat: number): number {
+    return q(normalizeLat(lat));
+}
+function qLon(lon: number): number {
+    return q(normalizeLon(lon));
+}
+function coordKey(lat: number, lon: number, tz: string): string {
+    // сравнение по целым “миллиградусам”
+    const ilat = Math.round(lat * COORD_MUL);
+    const ilon = Math.round(lon * COORD_MUL);
+    return `${ilat}:${ilon}:${tz}`;
+}
+
 export function getSystemTimeZone(): string {
     try {
         return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -52,9 +73,9 @@ const DEFAULT = getGreenwichLocation();
 function sanitizeLocation(x: any, fallbackId = ''): Location | null {
     if (!x || typeof x !== 'object') return null;
 
-    const lat = isFiniteNum(x.lat) ? normalizeLat(x.lat) : null;
-    const lon = isFiniteNum(x.lon) ? normalizeLon(x.lon) : null;
-    if (lat === null || lon === null) return null;
+    const lat0 = isFiniteNum(x.lat) ? x.lat : null;
+    const lon0 = isFiniteNum(x.lon) ? x.lon : null;
+    if (lat0 === null || lon0 === null) return null;
 
     const tz = typeof x.tz === 'string' && x.tz.trim()
         ? x.tz.trim()
@@ -62,6 +83,10 @@ function sanitizeLocation(x: any, fallbackId = ''): Location | null {
 
     const label = typeof x.label === 'string' ? x.label.trim() : '';
     const id = typeof x.id === 'string' && x.id.trim() ? x.id.trim() : fallbackId;
+
+    // 🔥 всегда квантуем
+    const lat = qLat(lat0);
+    const lon = qLon(lon0);
 
     return {
         id,
@@ -74,14 +99,15 @@ function sanitizeLocation(x: any, fallbackId = ''): Location | null {
 
 function sanitizeSavedList(x: any): Location[] {
     if (!Array.isArray(x)) return [];
-
     const out: Location[] = [];
+
     for (const it of x) {
         const loc = sanitizeLocation(it, '');
         if (!loc) continue;
         if (!loc.id) continue;
         out.push(loc);
     }
+
     return out;
 }
 
@@ -113,7 +139,7 @@ const initial: LocationData =
 
 export const locationState = writable<LocationData>(initial);
 
-// keep current id as separate writable for convenience
+// single convenient writable (but we keep locationState.currentId mirrored for persistence/back-compat)
 export const currentLocationId = writable<string>(initial.currentId || '');
 
 export const savedLocations: Readable<Location[]> = {
@@ -122,20 +148,22 @@ export const savedLocations: Readable<Location[]> = {
     }
 };
 
+function getCurrentResolved(s: LocationData, id: string): Location {
+    return s.saved.find((x) => x.id === id) ?? s.saved[0] ?? DEFAULT;
+}
+
 export const currentLocation: Readable<Location> = {
     subscribe(run) {
-        const unsubA = locationState.subscribe(() => {
+        const emit = () => {
             const s = get(locationState);
             const id = get(currentLocationId);
-            const hit = s.saved.find((x) => x.id === id) ?? s.saved[0] ?? DEFAULT;
-            run(hit);
-        });
-        const unsubB = currentLocationId.subscribe(() => {
-            const s = get(locationState);
-            const id = get(currentLocationId);
-            const hit = s.saved.find((x) => x.id === id) ?? s.saved[0] ?? DEFAULT;
-            run(hit);
-        });
+            run(getCurrentResolved(s, id));
+        };
+
+        const unsubA = locationState.subscribe(() => emit());
+        const unsubB = currentLocationId.subscribe(() => emit());
+
+        emit();
         return () => { unsubA(); unsubB(); };
     }
 };
@@ -145,48 +173,46 @@ export const geoError = writable<string>('');
 
 // persistence wiring
 if (typeof window !== 'undefined') {
-    // persist whenever either saved list or currentId changes
-    locationState.subscribe((s) => {
+    const persistNow = () => {
+        const s = get(locationState);
         const id = get(currentLocationId);
         persist({ saved: s.saved, currentId: id });
-    });
-    currentLocationId.subscribe((id) => {
-        const s = get(locationState);
-        persist({ saved: s.saved, currentId: id });
-    });
+    };
+
+    locationState.subscribe(() => persistNow());
+    currentLocationId.subscribe(() => persistNow());
 }
 
 // ------------------------------------------------------------
 // Core helpers
 // ------------------------------------------------------------
-function sameCoord(a: number, b: number) {
-    // enough to treat as same place for UI purposes
-    return Math.abs(a - b) < 1e-9;
+function findMatch(saved: Location[], draft: Pick<Location, 'lat' | 'lon' | 'tz'>): Location | null {
+    const k = coordKey(draft.lat, draft.lon, draft.tz);
+    return saved.find(p => coordKey(p.lat, p.lon, p.tz) === k) ?? null;
 }
 
-function findMatch(saved: Location[], draft: Pick<Location, 'lat' | 'lon' | 'tz'>): Location | null {
-    return saved.find((p) =>
-        sameCoord(p.lat, draft.lat) &&
-        sameCoord(p.lon, draft.lon) &&
-        p.tz === draft.tz
-    ) ?? null;
+function setCurrentId(id: string) {
+    // держим обе “тени” синхронно
+    currentLocationId.set(id);
+    locationState.update((s) => ({ ...s, currentId: id }));
 }
 
 /**
- * Upsert по уникальности (lat,lon,tz).
+ * Upsert по уникальности (lat,lon,tz) с точностью COORD_DP.
  * - если найден match → обновляет label (если изменился), возвращает id match
  * - если нет → создаёт новую saved-локацию и возвращает новый id
  */
 export function upsertSavedLocation(input: Omit<Location, 'id'>, opts?: { setCurrent?: boolean }): string {
-    const lat = normalizeLat(input.lat);
-    const lon = normalizeLon(input.lon);
     const tz = (input.tz && input.tz.trim()) ? input.tz.trim() : getSystemTimeZone();
     const label = (input.label || 'New place').trim() || 'New place';
 
-    const state = get(locationState);
-    const draft = { lat, lon, tz };
+    // 🔥 нормализуем+квантуем тут, чтобы дальше всё было консистентно
+    const lat = qLat(input.lat);
+    const lon = qLon(input.lon);
 
-    const hit = findMatch(state.saved, draft);
+    const state = get(locationState);
+    const hit = findMatch(state.saved, { lat, lon, tz });
+
     if (hit) {
         if ((hit.label ?? '') !== label) {
             const updated: Location = { ...hit, label };
@@ -195,9 +221,8 @@ export function upsertSavedLocation(input: Omit<Location, 'id'>, opts?: { setCur
                 currentId: state.currentId
             });
         }
-        const id = hit.id;
-        if (opts?.setCurrent) currentLocationId.set(id);
-        return id;
+        if (opts?.setCurrent) setCurrentId(hit.id);
+        return hit.id;
     }
 
     const id = makeId('loc');
@@ -208,7 +233,7 @@ export function upsertSavedLocation(input: Omit<Location, 'id'>, opts?: { setCur
         currentId: state.currentId
     });
 
-    if (opts?.setCurrent) currentLocationId.set(id);
+    if (opts?.setCurrent) setCurrentId(id);
     return id;
 }
 
@@ -221,12 +246,11 @@ export function deleteSavedLocation(id: string) {
         currentId: state.currentId
     });
 
-    // if deleted current -> fallback
     const curId = get(currentLocationId);
     if (curId === id) {
         const next = nextSaved[0];
-        if (next) currentLocationId.set(next.id);
-        else currentLocationId.set('');
+        if (next) setCurrentId(next.id);
+        else setCurrentId('');
     }
 }
 
@@ -243,13 +267,12 @@ export function resolveLocationById(id: string | null | undefined): Location {
         if (hit) return hit;
     }
 
-    // fallback to current store-derived location
     return get(currentLocation) ?? DEFAULT;
 }
 
 /**
  * Попытаться получить GPS координаты (1 раз).
- * Возвращает LocationDraft (без id) или null.
+ * Возвращает draft (без id) или null.
  */
 export async function tryGetGeolocationOnce(): Promise<Omit<Location, 'id'> | null> {
     if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
@@ -265,8 +288,8 @@ export async function tryGetGeolocationOnce(): Promise<Omit<Location, 'id'> | nu
             (pos) => {
                 geoStatus.set('ok');
                 resolve({
-                    lat: normalizeLat(pos.coords.latitude),
-                    lon: normalizeLon(pos.coords.longitude),
+                    lat: qLat(pos.coords.latitude),   // 🔥 сразу квантуем
+                    lon: qLon(pos.coords.longitude),  // 🔥 сразу квантуем
                     label: 'Current (GPS)',
                     tz: getSystemTimeZone()
                 });
@@ -281,8 +304,7 @@ export async function tryGetGeolocationOnce(): Promise<Omit<Location, 'id'> | nu
 }
 
 /**
- * Инициализация/бутстрап (то, что ты описал).
- *
+ * Инициализация/бутстрап:
  * Гарантии после выполнения:
  * - saved.length >= 1
  * - currentLocationId указывает на существующий saved id
@@ -290,22 +312,23 @@ export async function tryGetGeolocationOnce(): Promise<Omit<Location, 'id'> | nu
 export async function initLocation() {
     const state0 = get(locationState);
 
-    // 1) если saved есть — просто валидируем currentId
+    // 1) если saved есть — валидируем currentId
     if (state0.saved.length > 0) {
-        const id = get(currentLocationId) || state0.currentId;
-        const hit = state0.saved.find((x) => x.id === id) ?? state0.saved[0];
+        const id0 = get(currentLocationId) || state0.currentId;
+        const hit = state0.saved.find((x) => x.id === id0) ?? state0.saved[0];
 
-        locationState.set({ saved: state0.saved, currentId: hit.id });
-        currentLocationId.set(hit.id);
+        // подлечим currentId если надо
+        setCurrentId(hit.id);
         return;
     }
 
     // 2) saved пуст: пробуем GPS
     const gps = await tryGetGeolocationOnce();
-
     if (gps) {
         const id = upsertSavedLocation(gps, { setCurrent: true });
-        locationState.set({ saved: get(locationState).saved, currentId: id });
+        // upsertSavedLocation уже сделал setCurrentId
+        // просто убедимся, что currentId внутри state отражён
+        setCurrentId(id);
         return;
     }
 
@@ -315,6 +338,5 @@ export async function initLocation() {
         { lat: def.lat, lon: def.lon, label: def.label, tz: def.tz },
         { setCurrent: true }
     );
-
-    locationState.set({ saved: get(locationState).saved, currentId: id });
+    setCurrentId(id);
 }

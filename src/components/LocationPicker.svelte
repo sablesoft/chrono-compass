@@ -20,21 +20,6 @@
 
     const dbg = debug('Location', '📍');
 
-    /**
-     * CONTROLLED API
-     * - value: текущая локация для конкретного колеса/хедера
-     * - locked: замок для конкретного колеса/хедера
-     * - onChange: сообщаем наверх, что выбрана/изменена локация
-     * - onToggleLock: сообщаем наверх, что замок переключили
-     *
-     * Backward-compatible:
-     * - если value === null → берём $currentLocation (global)
-     * - если onChange не задан → работаем с global currentLocationId
-     *
-     * IMPORTANT (new UX):
-     * - Apply всегда делает upsert (lat/lon/tz уникальны) и закрывает модалку
-     * - Save кнопки нет
-     */
     export let value: Location | null = null;
     export let locked = false;
 
@@ -54,10 +39,8 @@
     let open = false;
     let modalEl: HTMLDivElement | null = null;
 
-    // selected saved id (auto-derived from draft when match exists)
     let selectedId = '';
 
-    // drafts
     let labelDraft = '';
     let latDraft = '';
     let lonDraft = '';
@@ -116,6 +99,8 @@
     }
 
     function findMatchId(d: { lat: number; lon: number; tz: string }) {
+        // после фикса стора saved уже тоже хранится в 3 dp,
+        // так что match по 1e-9 снова становится корректным
         const hit = $savedLocations.find((p) =>
             Math.abs(p.lat - d.lat) < 1e-9 &&
             Math.abs(p.lon - d.lon) < 1e-9 &&
@@ -124,7 +109,6 @@
         return hit?.id ?? '';
     }
 
-    // whenever draft coords/tz change -> auto select matching saved id (if exists)
     $: {
         if (open) {
             const d = parseDraftBasic();
@@ -136,7 +120,6 @@
     }
 
     function newLoc() {
-        // reset draft to face (no id assumptions)
         syncDraftFromLocation(faceLoc ?? getGreenwichLocation());
         selectedId = findMatchId({ lat: faceLoc.lat, lon: faceLoc.lon, tz: faceLoc.tz }) || '';
     }
@@ -159,15 +142,12 @@
         if (!selectedId) return;
         deleteSavedLocation(selectedId);
         selectedId = '';
-
-        // keep draft as-is; it may match something else now
     }
 
     async function gpsFill() {
         const gps = await tryGetGeolocationOnce();
         if (!gps) return;
 
-        // fill drafts, selection will auto-snap to match if exists
         labelDraft = (gps.label || 'Current (GPS)').trim();
         latDraft = fmtCoord(gps.lat);
         lonDraft = fmtCoord(gps.lon);
@@ -183,24 +163,13 @@
         const tz = d?.tz ?? fallback.tz;
         const label = d?.label ?? fallback.label;
 
-        // Upsert always. Uniqueness: lat/lon/tz.
-        // If match exists -> it will update label if changed.
         const savedId = upsertSavedLocation({ lat, lon, tz, label }, { setCurrent: value === null });
 
-        // Build the resulting Location (id must exist now)
-        const loc: Location = {
-            id: savedId,
-            lat,
-            lon,
-            tz,
-            label
-        };
+        const loc: Location = { id: savedId, lat, lon, tz, label };
 
-        // Controlled mode: tell parent (wheel)
         if (onChange) {
             onChange(loc, { savedId, lockOnApply: value !== null });
         } else {
-            // Global fallback mode: set current via id only (already setCurrent above)
             currentLocationId.set(savedId);
         }
 
@@ -211,10 +180,8 @@
     function openModal() {
         open = true;
 
-        // init draft from current face
         syncDraftFromLocation(faceLoc ?? getGreenwichLocation());
 
-        // best-effort preselect by (lat,lon,tz) ignoring label
         const d = parseDraftBasic();
         selectedId = d ? findMatchId({ lat: d.lat, lon: d.lon, tz: d.tz }) : '';
 
@@ -267,44 +234,40 @@
             aria-expanded={open}
             on:click|stopPropagation={toggle}
             on:keydown|stopPropagation={(e) => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
-    }}
-    >
-    <span class="left seg">
-      <span class="label" title={faceLoc.label}>{faceLoc.label}</span>
-    </span>
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+            }}>
+        <span class="left seg">
+            <span class="label" title={faceLoc.label}>{faceLoc.label}</span>
+        </span>
 
         <span class="right">
-      <span class="tz seg tzSeg" title={faceLoc.tz}>
-        {getOffsetLabel(faceLoc.tz)}
-      </span>
+            <span class="tz seg tzSeg" title={faceLoc.tz}>
+                {getOffsetLabel(faceLoc.tz)}
+            </span>
 
-      <button
-              class="lockBtn seg ui-lock"
-              class:locked={locked}
-              type="button"
-              aria-label={locked ? 'Unlock location' : 'Lock location'}
-              title={locked ? 'Location locked' : 'Location follows global'}
-              on:click|stopPropagation={toggleLock}
-      >
-        <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
-      </button>
-    </span>
+            <button
+                    class="lockBtn seg ui-lock"
+                    class:locked={locked}
+                    type="button"
+                    aria-label={locked ? 'Unlock location' : 'Lock location'}
+                    title={locked ? 'Location locked' : 'Location follows global'}
+                    on:click|stopPropagation={toggleLock}>
+                <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+            </button>
+        </span>
     </div>
 </div>
 
 {#if open}
     <Portal target="body">
         <div class="overlay" on:click={(e) => { if (e.target === e.currentTarget) close('overlay'); }}>
-            <div
-                    class="modal"
+            <div class="modal"
                     bind:this={modalEl}
                     tabindex="-1"
                     role="dialog"
                     aria-modal="true"
                     aria-label="Location picker"
-                    on:click|stopPropagation
-            >
+                    on:click|stopPropagation>
                 <header class="modalTop">
                     <div class="modalTitle">Location</div>
                     <button class="x" type="button" aria-label="Close" on:click={() => close('x')}>×</button>
@@ -343,8 +306,7 @@
                                     class="miniBtn"
                                     type="button"
                                     title="Use system time zone"
-                                    on:click={() => { tzDraft = getSystemTimeZone() || 'UTC'; }}
-                            >
+                                    on:click={() => { tzDraft = getSystemTimeZone() || 'UTC'; }}>
                                 System
                             </button>
                         </div>
