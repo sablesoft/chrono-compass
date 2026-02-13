@@ -1,7 +1,7 @@
 <!--src/component/Board.svelte -->
 <script lang="ts">
     import { boardItems } from '../lib/board/store';
-    import { resolveLocationById } from '../lib/location/store';
+    import { currentLocationId, resolveLocationById } from '../lib/location/store';
     import { CYCLE_META } from '../lib/cycles/meta';
     import { getWheelEntry } from '../lib/board/registry';
 
@@ -24,12 +24,15 @@
         return entry.ui === 'compass' ? Compass : Cycle;
     }
 
-    function wheelLocation(w: BoardWheel) {
-        return resolveLocationById((w.observer as WheelObserverState)?.locationId);
-    }
-
     // стабильный порядок на всякий — boardItems уже отсортирован, но лучше не надеяться
+    $: globalLocId = $currentLocationId;
     $: items = ($boardItems ?? []).slice().sort((a, b) => a.order - b.order);
+
+    $: itemsView = items.map((w) => {
+        const obs = (w.observer as WheelObserverState) ?? { locationId: 'loc:system', locked: false };
+        const id = obs.locked ? obs.locationId : globalLocId;
+        return { w, loc: resolveLocationById(id) };
+    });
 
     // если позже появится несколько виджетов — можно будет тут сортировать/фильтровать
 
@@ -40,14 +43,9 @@
 </script>
 
 <section class="grid">
-    {#each items as w (w.wheelId)}
-        {@const C = pickComponent(w)}
-        <svelte:component
-                this={C}
-                wheel={w}
-                selectedTs={selectedTs}
-                location={wheelLocation(w)}
-        />
+    {#each itemsView as row (row.w.wheelId)}
+        {@const C = pickComponent(row.w)}
+        <svelte:component this={C} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
     {/each}
     <!-- TODO - старый список cycles — временно оставляем -->
     {#each cyclesOrdered as kind (kind)}

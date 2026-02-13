@@ -1,76 +1,89 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
+    import { onDestroy } from 'svelte';
+
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
+    import { useTooltip } from '../lib/wheel/ui/useTooltip';
+
     import DocsModal from './DocsModal.svelte';
+    import CompassTooltip from './CompassTooltip.svelte';
+    import LocationPicker from './LocationPicker.svelte';
+    import TimePicker from './TimePicker.svelte';
+    import WheelPicker from './WheelPicker.svelte';
+
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
-    import { useTooltip } from '../lib/wheel/ui/useTooltip';
-    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
-    import { boardApi, boardItems } from '../lib/board/store';
-    import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
+    import { ms } from '../lib/format';
 
-    import { currentLocationId, resolveLocationById } from '../lib/location/store';
+    import { bodies, wheels } from '../lib/catalog';
+    import type { BodyId, WheelSpec } from '../lib/catalog';
+
+    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
+    import { compassClusters } from '../lib/wheel/ui/compassClusters';
+
+    import { boardApi, boardItems } from '../lib/board/store';
+    import type { BoardWheel } from '../lib/board/types';
+    import { solveWheel } from '../lib/board/dispatcher';
+    import type { WheelSolveResult } from '../lib/board/runtime';
+
+    import type { Location } from '../lib/location/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
 
-    import WheelPicker from './WheelPicker.svelte';
-    import { wheels, bodies } from '../lib/catalog';
-    import type { WheelRolesState } from '../lib/wheel/control';
-    import type { WheelSpec, CompassRoleSet, BodyId } from '../lib/catalog';
+    import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
 
-    import { computeCompassTargets, compassTargetsToMarkerItems } from '../lib/wheel/compass';
-    import type { CompassTargetState } from '../lib/wheel/compass';
-    import { compassClusters } from '../lib/wheel/ui/compassClusters';
-    import LocationPicker from './LocationPicker.svelte';
-    import { ms } from '../lib/format';
-    import { onDestroy } from 'svelte';
-    import TimePicker from './TimePicker.svelte';
+    import { compassTargetsToMarkerItems } from '../lib/compass';
+    import type { CompassTargetState } from '../lib/compass';
 
-    import CompassTooltip from './CompassTooltip.svelte';
-
-    function togglePinned(id: BodyId) {
-        pinnedBodyId = (pinnedBodyId === id) ? null : id;
-    }
-
-    function clearPinned() {
-        pinnedBodyId = null;
-    }
-
-    function clusterContainsPinned(c: MarkerCluster): boolean {
-        if (!pinnedBodyId) return false;
-        return c.items?.some(it => {
-            const body = String(it.baseId ?? '').replace('body:', '');
-            return body === pinnedBodyId;
-        }) ?? false;
-    }
-
-    function clusterSingleBodyId(c: MarkerCluster): BodyId | null {
-        if (!c || c.count !== 1) return null;
-        const it = c.items?.[0];
-        const body = String(it?.baseId ?? '').replace('body:', '');
-        return (body ? (body as BodyId) : null);
-    }
-
+    // ------------------------------------------------------------
+    // Props (NEW contract: Board passes wheel + location)
+    // ------------------------------------------------------------
+    export let wheel: BoardWheel;
     export let selectedTs: number;
-    export let wheelId: string;
-    export let boardRoles: WheelRolesState | null = null;
-    export let boardTitle: string = '';
+    export let location: Location;
     export let onUserActivity: () => void = () => {};
 
     const dbg = debug('COMPASS', '🧭');
 
-    const docs = useDocs(
-        () => 'concept/compass.md',
-        {
-            getTitle: () => 'Compass Wheel',
-            dbg,
-            tag: () => 'compass'
-        }
-    );
+    // docs
+    const docs = useDocs(() => 'concept/compass.md', {
+        getTitle: () => 'Compass Wheel',
+        dbg,
+        tag: () => 'compass'
+    });
     const docsState = docs.state;
 
+    // catalog spec (kept for WheelPicker + defaults if needed)
     const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
+    // ------------------------------------------------------------
+    // Local derived state from wheel
+    // ------------------------------------------------------------
+    $: wheelId = wheel?.wheelId;
+    $: roles = (wheel?.roles ?? {}) as any;
+    $: title = wheel?.title ?? '';
+
+    $: observer = (wheel?.observer ?? { locationId: 'loc:system', locked: false }) as WheelObserverState;
+    $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
+
+    // prefer passed-in location (already resolved in Board)
+    $: wheelLoc = location;
+    $: wheelLat = wheelLoc?.lat;
+    $: wheelLon = wheelLoc?.lon;
+
+    // close button logic (still based on boardItems store)
+    $: compassCount = ($boardItems ?? []).filter((x) => x.wheelType === 'compass').length;
+    $: canClose = compassCount > 1;
+
+    function closeCompass() {
+        if (!canClose) return;
+        onUserActivity();
+        boardApi.removeWheelById(wheelId, 'Compass.close');
+    }
+
+    // ------------------------------------------------------------
+    // Time sync: global <-> wheel time
+    // ------------------------------------------------------------
     let localLiveNowTs = ms(Date.now());
     let localLiveTimer: ReturnType<typeof setInterval> | null = null;
     let localAlignTimer: ReturnType<typeof setTimeout> | null = null;
@@ -95,48 +108,18 @@
         }, msToNextMinute + 5);
     }
 
-    let observer: WheelObserverState = { locationId: 'loc:system', locked: false } as any;
-    let time: WheelTimeState = { live: true, locked: false } as any;
-
     $: {
-        const me = $boardItems.find((x) => x.wheelId === wheelId);
-        if (me?.observer) observer = me.observer;
-        if (me?.time) time = me.time;
-    }
-
-    $: {
-        const needLocalLive = !!time.locked && !!time.live;
+        const needLocalLive = !!time?.locked && !!time?.live;
         if (needLocalLive) startLocalLiveTicker();
         else clearLocalLiveTimers();
     }
 
     $: effTs =
-        !time.locked
+        !time?.locked
             ? selectedTs
-            : time.live
+            : time?.live
                 ? localLiveNowTs
-                : ms((time as any).ts ?? selectedTs);
-
-    function pickDefaultRoles(s: Extract<WheelSpec, { type: 'compass' }>): WheelRolesState {
-        const rs: CompassRoleSet | undefined = s.roles?.[0];
-        if (!rs) return {};
-        const looker = rs.looker?.[0] ?? null;
-        const target = rs.target?.[0] ?? null;
-        return { looker, focus: null, target };
-    }
-
-    let roles: WheelRolesState = pickDefaultRoles(spec);
-    let title = '';
-
-    $: {
-        if (boardRoles) {
-            roles = boardRoles;
-            title = boardTitle ?? '';
-        }
-    }
-
-    $: compassCount = $boardItems.filter((x) => x.wheelType === 'compass').length;
-    $: canClose = compassCount > 1;
+                : ms((time as any)?.ts ?? selectedTs);
 
     let globalTs = ms(Date.now());
     let globalLive = true;
@@ -144,10 +127,16 @@
     const unsubGTs = globalSelectedTs.subscribe(v => globalTs = v);
     const unsubGLive = globalIsLive.subscribe(v => globalLive = v);
 
-    onDestroy(() => { unsubGTs(); unsubGLive(); clearLocalLiveTimers(); });
+    onDestroy(() => {
+        unsubGTs();
+        unsubGLive();
+        clearLocalLiveTimers();
+    });
 
+    // If wheel time isn't locked -> keep it synced to global time
     $: {
-        if (!time.locked) {
+        if (wheelId)
+        if (!time?.locked) {
             if (time.live !== globalLive || (time as any).ts !== (globalLive ? (time as any).ts : globalTs)) {
                 boardApi.updateWheelTime(
                     wheelId,
@@ -158,28 +147,18 @@
         }
     }
 
+    // If observer isn't locked -> keep it synced to passed-in location (board already chose it)
+    // (We don't read global location store anymore in Compass; Board is the boss now.)
     $: {
-        const globalId = $currentLocationId;
-        if (!observer.locked && observer.locationId !== globalId) {
-            boardApi.updateWheelObserver(wheelId, { locationId: globalId }, 'Compass.syncObserverLocation');
-        }
+        if (wheelId)
+            if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
+                boardApi.updateWheelObserver(wheelId, { locationId: wheelLoc.id }, 'Compass.syncObserverLocation');
+            }
     }
 
-    $: wheelLoc = resolveLocationById(observer.locationId);
-    $: wheelLat = wheelLoc.lat;
-    $: wheelLon = wheelLoc.lon;
-
-    function closeCompass() {
-        if (!canClose) return;
-        onUserActivity();
-        boardApi.removeWheelById(wheelId, 'Compass.close');
-    }
-
-    function handleMarkerPick(ts0: number) {
-        onUserActivity();
-        tip.closeNow();
-    }
-
+    // ------------------------------------------------------------
+    // Geometry
+    // ------------------------------------------------------------
     const geom = createWheelGeom(16, 1000);
     const labels = SPOKE_LABELS;
     const spokeCount = geom.spokeCount;
@@ -220,14 +199,46 @@
         ].join(' ');
     }
 
+    // ------------------------------------------------------------
+    // Marker clustering + pinning
+    // ------------------------------------------------------------
     const MIN_ARC_PX = 28;
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
 
-    function handleMarkerActivate(c: MarkerCluster) {
-        dbg.log('Cluster Activate', c);
+    let pinnedBodyId: BodyId | null = null;
+
+    function clearPinned() {
+        pinnedBodyId = null;
     }
 
+    function togglePin(id: BodyId) {
+        pinnedBodyId = (pinnedBodyId === id) ? null : id;
+    }
+
+    function clusterContainsPinned(c: MarkerCluster): boolean {
+        if (!pinnedBodyId) return false;
+        return c.items?.some(it => {
+            const body = String(it.baseId ?? '').replace('body:', '');
+            return body === pinnedBodyId;
+        }) ?? false;
+    }
+
+    function clusterSingleBodyId(c: MarkerCluster): BodyId | null {
+        if (!c || c.count !== 1) return null;
+        const it = c.items?.[0];
+        const body = String(it?.baseId ?? '').replace('body:', '');
+        return (body ? (body as BodyId) : null);
+    }
+
+    function handleMarkerPick(ts0: number) {
+        onUserActivity();
+        tip.closeNow();
+    }
+
+    // ------------------------------------------------------------
+    // Helpers: roles parsing
+    // ------------------------------------------------------------
     function asBodyIdArray(v: unknown): BodyId[] {
         if (Array.isArray(v)) return v.filter(Boolean) as BodyId[];
         if (typeof v === 'string' && v) return [v as BodyId];
@@ -240,13 +251,9 @@
         return null;
     }
 
-    // ---- pin state ----
-    let pinnedBodyId: BodyId | null = null;
-    function togglePin(id: BodyId) {
-        pinnedBodyId = (pinnedBodyId === id) ? null : id;
-    }
-
-    // ---- house mapping helpers ----
+    // ------------------------------------------------------------
+    // House mapping helpers
+    // ------------------------------------------------------------
     function norm360(deg: number): number {
         let x = deg % 360;
         if (x < 0) x += 360;
@@ -281,6 +288,43 @@
         return labels[i] ?? '—';
     }
 
+    function houseFromAzimuth(az: number): string {
+        const wdeg = azimuthToWheelAngleDeg(az);
+        const i = nearestSpokeByAngle(wdeg);
+        return labels[i] ?? '—';
+    }
+
+    // ------------------------------------------------------------
+    // Solve via runtime dispatcher
+    // ------------------------------------------------------------
+    $: {
+        const targets = asBodyIdArray((roles as any)?.target);
+        const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
+
+        if (!wheel || !wheelLoc || !targets.length || wheelLat == null || wheelLon == null) {
+            markerClusters = [];
+            lastTargets = [];
+        } else {
+            const ctx = {
+                ts: effTs,
+                location: wheelLoc,
+                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+            };
+
+            const res: WheelSolveResult = solveWheel(wheel as any, ctx);
+
+            if (!res || res.kind !== 'compass' || !res.ok) {
+                markerClusters = [];
+                lastTargets = [];
+            } else {
+                lastTargets = (res.bodies as CompassTargetState[]) ?? [];
+                const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, lastTargets, looker);
+                markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+            }
+        }
+    }
+
+    // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
         const b = (bodies as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
         const name = b?.name?.en ?? String(t.id);
@@ -297,59 +341,6 @@
             visible: t.altitudeDeg >= 0
         };
     });
-
-    $: {
-        const looker = asBodyIdOrNull(roles.looker) ?? 'Earth';
-        const targets = asBodyIdArray(roles.target);
-
-        if (!targets.length) {
-            markerClusters = [];
-            lastTargets = [];
-        } else {
-            const solved = computeCompassTargets({
-                ts: effTs,
-                looker,
-                observer: { lat: wheelLat, lon: wheelLon },
-                targets,
-                refraction: false,
-                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
-            });
-
-            if (!solved.ok) {
-                markerClusters = [];
-                lastTargets = [];
-            } else {
-                lastTargets = solved.targets;
-                const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, solved.targets, looker);
-                markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
-            }
-        }
-    }
-
-    const responsive = useWheelResponsive();
-    let size = 360;
-    $: size = responsive.size;
-
-    let wrapEl: HTMLDivElement | null = null;
-    $: responsive.bindWrap(wrapEl);
-
-    let isCoarsePointer = false;
-    $: isCoarsePointer = responsive.isCoarsePointer;
-
-    function houseFromAzimuth(az: number): string {
-        const wdeg = azimuthToWheelAngleDeg(az);
-        const i = nearestSpokeByAngle(wdeg);
-        return labels[i] ?? '—';
-    }
-
-    const tip = useTooltip({
-        isCoarsePointer: () => isCoarsePointer,
-        onActivateCluster: (c) => handleMarkerActivate(c),
-        hoverDelayMs: 600,
-        closeDelayMs: 120,
-        ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
-    });
-    const tipState = tip.state;
 
     // occupied spokes: only if at least one visible body in that house
     let occupiedSpokes: boolean[] = [];
@@ -385,11 +376,44 @@
     function buildHouseTip(label: string): MomentTip {
         return { label, ts: effTs, desc: `house:${label}` };
     }
+
+    // ------------------------------------------------------------
+    // Responsive + tooltip
+    // ------------------------------------------------------------
+    const responsive = useWheelResponsive();
+    let size = 360;
+    $: size = responsive.size;
+
+    let wrapEl: HTMLDivElement | null = null;
+    $: responsive.bindWrap(wrapEl);
+
+    let isCoarsePointer = false;
+    $: isCoarsePointer = responsive.isCoarsePointer;
+
+    function handleMarkerActivate(c: MarkerCluster) {
+        dbg.log('Cluster Activate', c);
+    }
+
+    const tip = useTooltip({
+        isCoarsePointer: () => isCoarsePointer,
+        onActivateCluster: (c) => handleMarkerActivate(c),
+        hoverDelayMs: 600,
+        closeDelayMs: 120,
+        ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
+    });
+    const tipState = tip.state;
 </script>
 
 <section class="panel">
     <header class="top">
-        <WheelPicker type="compass" {roles} {title} baseObserver={observer} baseTime={time} baseWheelId={wheelId} />
+        <WheelPicker
+                type="compass"
+                roles={wheel.roles}
+                title={wheel.title}
+                baseObserver={wheel.observer}
+                baseTime={wheel.time}
+                baseWheelId={wheel.wheelId}
+        />
 
         <div class="right">
             <button type="button" class="navBtn" title="Previous" disabled>←</button>
@@ -500,26 +524,25 @@
                         {@const o = c.opacity ?? 1}
 
                         <g class="marker"
-                                class:pinnedMark={clusterContainsPinned(c)}
-                                data-marker="1"
-                                transform={`translate(${p.x} ${p.y})`}
-                                style={`opacity:${c.opacity ?? 1}`}
-                                on:click={(e) => {
+                           class:pinnedMark={clusterContainsPinned(c)}
+                           data-marker="1"
+                           transform={`translate(${p.x} ${p.y})`}
+                           style={`opacity:${c.opacity ?? 1}`}
+                           on:click={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
 
                                   const id = clusterSingleBodyId(c);
                                   if (id) {
-                                    togglePinned(id);              // ✅ pin/unpin
-                                    tip.openClusterNow(e, c);      // чтобы тултип открылся/обновился
+                                    togglePin(id);
+                                    tip.openClusterNow(e, c);
                                   } else {
-                                    // кластер > 1: просто открыть тултип (или оставить твою логику)
                                     tip.openClusterNow(e, c);
                                   }
                                 }}
-                                on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
-                                on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
-                                on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
+                           on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
+                           on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
+                           on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
                         >
                             <circle r={VB * 0.035} fill="transparent" />
 
@@ -571,7 +594,6 @@
     </div>
 
     <div class="info">
-        <!-- Location -->
         <div class="infoRow">
             <div class="rowFill">
                 <LocationPicker
@@ -594,7 +616,7 @@
                         }}/>
             </div>
         </div>
-        <!-- Date Time -->
+
         <div class="infoRow">
             <div class="rowFill">
                 <TimePicker
@@ -617,7 +639,7 @@
                         }}/>
             </div>
         </div>
-        <!-- Pinned Body -->
+
         <div class="infoRow pinnedRow" class:emptyPinned={!pinnedRow}>
             {#if pinnedRow}
                 <div class="rowFill">
