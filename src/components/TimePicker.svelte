@@ -21,6 +21,9 @@
     export let value: WheelTimeState | null = null; // null => global mode
     export let locked = false;
 
+    // ✅ NEW: "тик" для wheel-mode live (когда value.live=true, а value.ts может не меняться)
+    export let liveNowTs: number | null = null;
+
     type ChangeMeta = { lockOnApply?: boolean };
     export let onChange: ((next: { ts: number; live: boolean }, meta: ChangeMeta) => void) | null = null;
     export let onToggleLock: ((next: boolean) => void) | null = null;
@@ -154,7 +157,14 @@
     // wheel mode: реактивно из props
     $: if (value !== null) {
         live = !!value.live;
-        currentTs = ms((value as any).ts ?? Date.now()); // если ts нет — считаем "сейчас"
+
+        if (live) {
+            // 🔥 live в колесе должен уметь "тикать", даже если value не меняется каждую минуту
+            currentTs = ms(liveNowTs ?? Date.now());
+        } else {
+            currentTs = ms((value as any).ts ?? Date.now());
+        }
+
         recomputeStateAndTimers();
     }
 

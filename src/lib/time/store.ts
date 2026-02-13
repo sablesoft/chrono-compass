@@ -29,17 +29,65 @@ export const selectedTs = derived(
 export const isLive = derived(globalTime, ($gt) => !!$gt.live);
 export const isGlobalTimeLocked = derived(globalTime, ($gt) => !!$gt.locked);
 
-// внутренние таймеры (живут здесь, а не в App)
-let liveTimer: ReturnType<typeof setInterval> | null = null;
-let liveAlignTimer: ReturnType<typeof setTimeout> | null = null;
+// --- live scheduler (no drift): chain setTimeout to the next minute boundary ---
+let liveTickTimer: ReturnType<typeof setTimeout> | null = null;
 
 function clearLiveTimers() {
-    if (liveAlignTimer) { clearTimeout(liveAlignTimer); liveAlignTimer = null; }
-    if (liveTimer) { clearInterval(liveTimer); liveTimer = null; }
+    if (liveTickTimer) {
+        clearTimeout(liveTickTimer);
+        liveTickTimer = null;
+    }
 }
 
 function setLiveNowSystem(ts: number) {
     liveNowTs.set(ms(ts));
+}
+
+function scheduleNextMinuteTick() {
+    clearLiveTimers();
+
+    // если live уже выключили — не планируем
+    const gt = get(globalTime);
+    if (!gt.live) return;
+
+    const now = Date.now();
+    const msToNextMinute = 60_000 - (now % 60_000);
+
+    // небольшой буфер, чтобы гарантированно перескочить границу минуты
+    const fudge = 20;
+
+    liveTickTimer = setTimeout(() => {
+        // обновляем “сейчас”
+        setLiveNowSystem(Date.now());
+        // и снова планируем — каждый раз пересчитываем, дрейфа нет
+        scheduleNextMinuteTick();
+    }, msToNextMinute + fudge);
+}
+
+/**
+ * Гарантирует, что live-тикер реально запущен.
+ * Важно: DEFAULT.live=true → startLive() может не выполняться из App,
+ * поэтому таймеры должны уметь стартовать даже если live уже включен.
+ */
+function ensureLiveRunning() {
+    // даже если таймер уже есть — всё равно сделаем мягкий ресинк “сейчас”
+    setLiveNowSystem(Date.now());
+    scheduleNextMinuteTick();
+}
+
+// вкладка проснулась → ресинк, иначе можно получить “ждать полминуты”
+let visHandlerAttached = false;
+function ensureVisibilitySync() {
+    if (visHandlerAttached) return;
+    visHandlerAttached = true;
+
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && get(globalTime).live) {
+                ensureLiveRunning();
+            }
+        });
+    }
 }
 
 export function stopLive() {
@@ -58,31 +106,18 @@ export function stopLive() {
 
 export function startLive() {
     const gt = get(globalTime);
-    if (gt.live) return;
 
-    // включаем live
-    globalTime.set({
-        ...gt,
-        live: true
-        // ts не кладём специально (по контракту ts только когда live=false)
-    });
+    // если live ещё не включен — включаем
+    if (!gt.live) {
+        globalTime.set({
+            ...gt,
+            live: true
+            // ts не кладём специально (по контракту ts только когда live=false)
+        });
+    }
 
-    // сразу ставим актуальное время
-    setLiveNowSystem(Date.now());
-
-    // выравниваемся на следующую границу минуты
-    const now = Date.now();
-    const msToNextMinute = 60_000 - (now % 60_000);
-
-    clearLiveTimers();
-
-    liveAlignTimer = setTimeout(() => {
-        setLiveNowSystem(Date.now());
-
-        liveTimer = setInterval(() => {
-            setLiveNowSystem(Date.now());
-        }, 60_000);
-    }, msToNextMinute + 5);
+    ensureVisibilitySync();
+    ensureLiveRunning();
 }
 
 /**
@@ -90,10 +125,9 @@ export function startLive() {
  * Это СЧИТАЕМ действием из глобального пикера/хедера, поэтому игнорируем locked.
  */
 export function setSelectedTs(ts: number) {
-    // отключаем live и ставим ts
     const gt = get(globalTime);
 
-    clearLiveTimers(); // как stopLive(), но без лишних set’ов
+    clearLiveTimers();
 
     globalTime.set({
         ...gt,
@@ -105,12 +139,8 @@ export function setSelectedTs(ts: number) {
 export function toggleLive() {
     const gt = get(globalTime);
 
-    if (gt.live) {
-        // выключаем live: приземлимся на "сейчас", чтобы не было FUTURE из-за дрейфа
-        stopLive();
-    } else {
-        startLive();
-    }
+    if (gt.live) stopLive();
+    else startLive();
 }
 
 /**
@@ -125,3 +155,12 @@ export function setGlobalTimeLocked(next: boolean) {
 export function toggleGlobalTimeLock() {
     globalTime.update((s) => ({ ...s, locked: !s.locked }));
 }
+
+// Авто-старт таймера при импорте модуля, если live включен по дефолту/из persisted state
+if (typeof window !== 'undefined') {
+    ensureVisibilitySync();
+
+    const gt = get(globalTime);
+    if (gt.live) ensureLiveRunning();
+}
+

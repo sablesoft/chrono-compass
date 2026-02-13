@@ -546,19 +546,21 @@
             <TimePicker
                     value={time}
                     locked={time.locked}
+                    liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                     onChange={(next, meta) => {
-                          onUserActivity();
-                          // любое изменение времени в колесе => можно авто-лочить
-                            const patch: Partial<WheelTimeState> =
-                              next.live
+                        onUserActivity();
+
+                        const patch: Partial<WheelTimeState> =
+                            next.live
                                 ? { live: true, locked: meta.lockOnApply ? true : time.locked }
                                 : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
-                        }}
+
+                        boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
+                    }}
                     onToggleLock={(next) => {
-                          onUserActivity();
-                          boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
-                        }}/>
+                        onUserActivity();
+                        boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
+                    }}/>
         </div>
         <div class="infoRow">
             <button class="jump" type="button" disabled>
