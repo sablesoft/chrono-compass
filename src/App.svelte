@@ -4,13 +4,10 @@
   import Header from './components/Header.svelte';
   import Board from './components/Board.svelte';
 
-  import { currentLocation, initLocation } from './lib/location/store';
+  import { currentLocation } from './lib/location/store';
   import { selectedTs as selectedTsStore, startLive } from './lib/time/store';
 
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
-
-  // 🔥 ранний init (сработает до первого рендера)
-  if (typeof window !== 'undefined') initLocation();
 
   let lat = -23.22;
   let lon = -44.72;

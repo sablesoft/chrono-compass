@@ -7,17 +7,16 @@
     import {
         currentLocation,
         savedLocations,
-        setLocation,
-        saveLocation,
+        currentLocationId,
+        upsertSavedLocation,
         deleteSavedLocation,
-        trySetGeolocationAsCurrentOnce,
+        tryGetGeolocationOnce,
         getSystemTimeZone,
-        ensureAtLeastOneSavedLocation,
         getGreenwichLocation
     } from '../lib/location/store';
 
     import { IANA_TIMEZONES } from '../lib/location/iana';
-    import type { Location, SavedLocation } from '../lib/location/types';
+    import type { Location } from '../lib/location/types';
 
     const dbg = debug('Location', '📍');
 
@@ -30,11 +29,11 @@
      *
      * Backward-compatible:
      * - если value === null → берём $currentLocation (global)
-     * - если onChange не задан → пишем в global store (setLocation)
+     * - если onChange не задан → работаем с global currentLocationId
      *
      * IMPORTANT (new UX):
-     * - НИКАКИХ авто-emit на input/change.
-     * - Пользователь правит draft, затем жмёт Apply → только тогда emit + close.
+     * - Apply всегда делает upsert (lat/lon/tz уникальны) и закрывает модалку
+     * - Save кнопки нет
      */
     export let value: Location | null = null;
     export let locked = false;
@@ -42,7 +41,6 @@
     export let onToggleLock: ((next: boolean) => void) | null = null;
 
     type ChangeMeta = { savedId: string; lockOnApply?: boolean };
-
     export let onChange: ((loc: Location, meta: ChangeMeta) => void) | null = null;
 
     let faceLoc: Location;
@@ -50,13 +48,13 @@
 
     function emitToggleLock(next: boolean) {
         if (onToggleLock) onToggleLock(next);
-        else locked = next; // fallback
+        else locked = next;
     }
 
     let open = false;
     let modalEl: HTMLDivElement | null = null;
 
-    // selected saved id (must exist on Apply)
+    // selected saved id (auto-derived from draft when match exists)
     let selectedId = '';
 
     // drafts
@@ -98,11 +96,7 @@
         tzDraft = (loc.tz && loc.tz.trim()) ? loc.tz.trim() : (getSystemTimeZone() || 'UTC');
     }
 
-    function syncDraftFromValue() {
-        syncDraftFromLocation(faceLoc);
-    }
-
-    function parseDraft(): Location | null {
+    function parseDraftBasic(): { lat: number; lon: number; tz: string; label: string } | null {
         const lat = Number(String(latDraft).replace(',', '.'));
         const lon = Number(String(lonDraft).replace(',', '.'));
         const label = (labelDraft || 'New place').trim();
@@ -116,22 +110,43 @@
         return {
             lat: roundCoord(latN),
             lon: roundCoord(lonN),
-            label: label || 'New place',
-            tz
+            tz,
+            label: label || 'New place'
         };
     }
 
+    function findMatchId(d: { lat: number; lon: number; tz: string }) {
+        const hit = $savedLocations.find((p) =>
+            Math.abs(p.lat - d.lat) < 1e-9 &&
+            Math.abs(p.lon - d.lon) < 1e-9 &&
+            p.tz === d.tz
+        );
+        return hit?.id ?? '';
+    }
+
+    // whenever draft coords/tz change -> auto select matching saved id (if exists)
+    $: {
+        if (open) {
+            const d = parseDraftBasic();
+            if (d) {
+                const hitId = findMatchId({ lat: d.lat, lon: d.lon, tz: d.tz });
+                if (hitId) selectedId = hitId;
+            }
+        }
+    }
+
     function newLoc() {
-        selectedId = '';
-        syncDraftFromValue();
+        // reset draft to face (no id assumptions)
+        syncDraftFromLocation(faceLoc ?? getGreenwichLocation());
+        selectedId = findMatchId({ lat: faceLoc.lat, lon: faceLoc.lon, tz: faceLoc.tz }) || '';
     }
 
     function pickSaved(id: string) {
-        const p = $savedLocations.find((x: SavedLocation) => x.id === id);
+        const p = $savedLocations.find((x) => x.id === id);
         if (!p) return;
 
         selectedId = id;
-        syncDraftFromLocation({ lat: p.lat, lon: p.lon, label: p.label, tz: p.tz });
+        syncDraftFromLocation(p);
     }
 
     function onPickChange(e: Event) {
@@ -140,84 +155,71 @@
         pickSaved(el.value);
     }
 
-    function save() {
-        const loc = parseDraft();
-        if (!loc) return;
-
-        const id = saveLocation(loc);
-        if (!id) return;
-
-        selectedId = id;
-    }
-
     function del() {
         if (!selectedId) return;
         deleteSavedLocation(selectedId);
         selectedId = '';
+
+        // keep draft as-is; it may match something else now
     }
 
-    function ensureSelectedIdOrCreateFallback(loc: Location): string {
-        // selectedId points to existing saved → ok
-        if (selectedId && $savedLocations.some((x) => x.id === selectedId)) return selectedId;
+    async function gpsFill() {
+        const gps = await tryGetGeolocationOnce();
+        if (!gps) return;
 
-        // any saved exists → pick first
-        if ($savedLocations.length) {
-            selectedId = $savedLocations[0].id;
-            return selectedId;
-        }
-
-        // none → create fallback saved
-        selectedId = ensureAtLeastOneSavedLocation(loc);
-        return selectedId;
+        // fill drafts, selection will auto-snap to match if exists
+        labelDraft = (gps.label || 'Current (GPS)').trim();
+        latDraft = fmtCoord(gps.lat);
+        lonDraft = fmtCoord(gps.lon);
+        tzDraft = gps.tz || getSystemTimeZone() || 'UTC';
     }
 
     function apply() {
-        const loc = parseDraft() ?? faceLoc ?? getGreenwichLocation();
+        const d = parseDraftBasic();
+        const fallback = faceLoc ?? getGreenwichLocation();
 
-        // guarantee there is ALWAYS a saved location id
-        const savedId = ensureSelectedIdOrCreateFallback(loc);
+        const lat = d?.lat ?? fallback.lat;
+        const lon = d?.lon ?? fallback.lon;
+        const tz = d?.tz ?? fallback.tz;
+        const label = d?.label ?? fallback.label;
 
-        // GLOBAL mode (value===null): face renders from $currentLocation, so keep it synced
-        if (value === null) setLocation(loc);
+        // Upsert always. Uniqueness: lat/lon/tz.
+        // If match exists -> it will update label if changed.
+        const savedId = upsertSavedLocation({ lat, lon, tz, label }, { setCurrent: value === null });
 
+        // Build the resulting Location (id must exist now)
+        const loc: Location = {
+            id: savedId,
+            lat,
+            lon,
+            tz,
+            label
+        };
+
+        // Controlled mode: tell parent (wheel)
         if (onChange) {
             onChange(loc, { savedId, lockOnApply: value !== null });
         } else {
-            // fallback global apply
-            setLocation(loc);
+            // Global fallback mode: set current via id only (already setCurrent above)
+            currentLocationId.set(savedId);
         }
 
+        selectedId = savedId;
         close('apply');
     }
 
     function openModal() {
         open = true;
 
-        // enforce invariant globally: at least 1 saved exists
-        ensureAtLeastOneSavedLocation(faceLoc ?? getGreenwichLocation());
+        // init draft from current face
+        syncDraftFromLocation(faceLoc ?? getGreenwichLocation());
 
-        syncDraftFromValue();
-
-        // best-effort: highlight matching saved
-        const cur = faceLoc;
-        const hit = $savedLocations.find((p: SavedLocation) =>
-            Math.abs(p.lat - cur.lat) < 1e-9 &&
-            Math.abs(p.lon - cur.lon) < 1e-9 &&
-            p.label === cur.label &&
-            p.tz === cur.tz
-        );
-        selectedId = hit?.id ?? ($savedLocations[0]?.id ?? '');
+        // best-effort preselect by (lat,lon,tz) ignoring label
+        const d = parseDraftBasic();
+        selectedId = d ? findMatchId({ lat: d.lat, lon: d.lon, tz: d.tz }) : '';
 
         document.body.style.overflow = 'hidden';
-
-        queueMicrotask(() => {
-            modalEl?.focus();
-
-            // GPS hint only for global mode
-            if (value === null) {
-                trySetGeolocationAsCurrentOnce();
-            }
-        });
+        queueMicrotask(() => modalEl?.focus());
     }
 
     function close(reason = 'close') {
@@ -277,16 +279,16 @@
         {getOffsetLabel(faceLoc.tz)}
       </span>
 
-        <button
-                class="lockBtn seg ui-lock"
-                class:locked={locked}
-                type="button"
-                aria-label={locked ? 'Unlock location' : 'Lock location'}
-                title={locked ? 'Location locked' : 'Location follows global'}
-                on:click|stopPropagation={toggleLock}
-        >
-          <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
-        </button>
+      <button
+              class="lockBtn seg ui-lock"
+              class:locked={locked}
+              type="button"
+              aria-label={locked ? 'Unlock location' : 'Lock location'}
+              title={locked ? 'Location locked' : 'Location follows global'}
+              on:click|stopPropagation={toggleLock}
+      >
+        <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+      </button>
     </span>
     </div>
 </div>
@@ -351,7 +353,7 @@
                     <div class="tzBlock">
                         <div class="tzTop">
                             <div class="lbl2">Timezone</div>
-                            <div class="hint">{faceLoc.tz} · {getOffsetLabel(faceLoc.tz)}</div>
+                            <div class="hint">{tzDraft} · {getOffsetLabel(tzDraft || 'UTC')}</div>
                         </div>
 
                         <input class="inp" placeholder="Search IANA timezone..." bind:value={tzSearch} />
@@ -370,9 +372,9 @@
 
                 <footer class="modalBottom">
                     <div class="leftBtns">
-                        <button class="btn ghost" type="button" on:click={newLoc}>New</button>
+                        <button class="btn ghost" type="button" on:click={newLoc}>Reset</button>
+                        <button class="btn" type="button" on:click={gpsFill} title="Fill from GPS">GPS</button>
                         <button class="btn danger" type="button" on:click={del} disabled={!selectedId}>Delete</button>
-                        <button class="btn" type="button" on:click={save}>Save</button>
                     </div>
 
                     <div class="rightBtns">
@@ -386,54 +388,42 @@
 {/if}
 
 <style>
-    .wrap {
-        position: relative;
-        min-width: 0;
-    }
+    .wrap { position: relative; min-width: 0; }
 
-    /* === FACE как у TimePicker: капсула + сегменты === */
     .face {
         width: 100%;
         display: inline-flex;
-        align-items: stretch;              /* как у TimePicker */
-        border-radius: 12px;               /* было 14px → как у TimePicker */
+        align-items: stretch;
+        border-radius: 12px;
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
-        overflow: hidden;                  /* важно для сегментов */
+        overflow: hidden;
         min-width: 0;
         cursor: pointer;
     }
 
-    /* делаем внутренности сегментами */
-    .left,
-    .right {
+    .left, .right {
         display: inline-flex;
         align-items: center;
         min-width: 0;
     }
 
-    /* label-сегмент */
     .left {
-        padding: 6px 10px;                 /* похоже на seg padding */
+        padding: 6px 10px;
         gap: 8px;
         min-width: 0;
-        flex: 1 1 auto;                    /* занимает остаток */
+        flex: 1 1 auto;
     }
 
-    /* tz+lock сегменты справа */
-    .right {
-        margin-left: auto;
-        flex: 0 0 auto;
-    }
+    .right { margin-left: auto; flex: 0 0 auto; }
 
-    /* общий стиль “сегмента” (как button.seg) */
     .seg {
         border-radius: 0;
         background: transparent;
         outline: none;
         box-shadow: none;
         padding: 6px 10px;
-        min-width: 0;                      /* 🔥 не раздуваемся */
+        min-width: 0;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -441,37 +431,25 @@
         height: auto;
     }
 
-    /* визуальные разделители между сегментами */
-    .seg + .seg {
-        border-left: 1px solid var(--btn-border);
-    }
+    .seg + .seg { border-left: 1px solid var(--btn-border); }
 
-    /* hover/focus как в TimePicker */
     .seg:hover {
         outline: none;
         box-shadow: none;
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%);
     }
 
-    .seg:focus,
-    .seg:focus-visible {
-        outline: none;
-        box-shadow: none;
-    }
-
-    /* label */
     .label {
         min-width: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         font-weight: 850;
-        font-size: 15px;                   /* как timeText */
+        font-size: 15px;
         letter-spacing: 0.01em;
         opacity: 0.95;
     }
 
-    /* tz */
     .tz {
         font-variant-numeric: tabular-nums;
         opacity: 0.8;
@@ -481,24 +459,8 @@
         letter-spacing: 0.04em;
     }
 
-    /* применяем seg-стили к конкретным кускам разметки */
-    .left { }
-    .right .tzWrap { } /* если решишь обернуть tz в div позже — не помешает */
+    .tzSeg { width: 58px; justify-content: center; padding: 6px 8px; }
 
-    /* хелпер: чтобы tz и lock были сегментами */
-    .tzSeg {
-        width: 58px;                       /* компактно, но читаемо */
-        justify-content: center;
-        padding: 6px 8px;
-    }
-
-    .lockSeg {
-        width: 38px;
-        padding: 0;
-        justify-content: center;
-    }
-
-    /* === MODAL (оставляем почти как было, но чуть компактнее в ритме) === */
     .overlay {
         position: fixed;
         inset: 0;
@@ -510,7 +472,7 @@
     }
 
     .modal {
-        width: min(720px, 96vw);           /* чуть компактнее */
+        width: min(720px, 96vw);
         max-height: min(82vh, 860px);
         overflow: auto;
         background: var(--modal-bg, var(--panel));
@@ -534,11 +496,7 @@
         z-index: 1;
     }
 
-    .modalTitle {
-        font-size: 16px;
-        font-weight: 900;
-        opacity: 0.92;
-    }
+    .modalTitle { font-size: 16px; font-weight: 900; opacity: 0.92; }
 
     .x {
         width: 34px;
@@ -554,14 +512,9 @@
         padding: 0;
     }
 
-    .modalBody {
-        padding: 12px;
-        display: grid;
-        gap: 12px;
-    }
+    .modalBody { padding: 12px; display: grid; gap: 12px; }
 
-    .lbl,
-    .lbl2 {
+    .lbl, .lbl2 {
         font-size: 12px;
         font-weight: 900;
         opacity: 0.75;
@@ -587,19 +540,8 @@
         outline-offset: 2px;
     }
 
-    .row2 {
-        display: grid;
-        grid-template-columns: 1.2fr 1.8fr;
-        gap: 10px;
-        align-items: end;
-    }
-
-    .row3 {
-        display: grid;
-        grid-template-columns: 1fr 1fr auto;
-        gap: 10px;
-        align-items: end;
-    }
+    .row2 { display: grid; grid-template-columns: 1.2fr 1.8fr; gap: 10px; align-items: end; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
 
     .miniBtn {
         height: 42px;
@@ -614,13 +556,7 @@
 
     .tzBlock { display: grid; gap: 10px; padding-top: 4px; }
 
-    .tzTop {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        gap: 10px;
-        min-width: 0;
-    }
+    .tzTop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; }
 
     .hint {
         min-width: 0;
@@ -657,9 +593,7 @@
         cursor: pointer;
     }
 
-    .btn.primary {
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 25%);
-    }
+    .btn.primary { border-color: color-mix(in oklab, var(--btn-border), var(--fg) 25%); }
 
     .btn:disabled { opacity: 0.5; cursor: default; }
 
@@ -668,12 +602,10 @@
         background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 
-    /* === Mobile tightening, как в TimePicker === */
     @media (max-width: 520px) {
         .left { padding: 6px 8px; }
         .label { font-size: 14px; }
         .tz { font-size: 12px; }
-
         .tzSeg { width: 52px; padding: 6px 6px; }
         .lockBtn { width: 36px; min-width: 36px; }
     }

@@ -1,15 +1,27 @@
-import { mount } from 'svelte'
-import './app.css'
-import App from './App.svelte'
+// src/main.ts
+import { mount } from 'svelte';
+import './app.css';
+import App from './App.svelte';
 
 import { registerSW } from 'virtual:pwa-register';
-import { registerWheels } from './lib/bootstrap';
+import { bootstrap } from './lib/bootstrap';
 
-registerSW({ immediate: true });
-registerWheels();
+async function main() {
+  registerSW({ immediate: true });
 
-const app = mount(App, {
-  target: document.getElementById('app')!,
-})
+  // важно: дождаться initLocation + registerWheels
+  await bootstrap();
 
-export default app
+  mount(App, {
+    target: document.getElementById('app')!,
+  });
+}
+
+main().catch((err) => {
+  console.error('[main] bootstrap failed', err);
+
+  // Фолбэк: всё равно пытаемся поднять UI, чтобы не получить белый экран.
+  mount(App, {
+    target: document.getElementById('app')!,
+  });
+});

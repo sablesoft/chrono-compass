@@ -5,8 +5,14 @@ import { solveBindWheel } from './cycles/bind';
 import { solveCompassWheel } from './compass';
 
 import type { WheelRegistryEntry } from './board/registry';
+import {initLocation} from "./location/store";
 
-export function registerWheels() {
+export async function bootstrap() {
+    registerWheels();
+    await initLocation();
+}
+
+function registerWheels() {
     // bind...
     registerWheel({
         type: 'bind',

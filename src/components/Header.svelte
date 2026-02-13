@@ -10,7 +10,7 @@
     import {getCycleOptions} from "../lib/cycles/meta";
     import type {CycleKind} from "../lib/cycles/types";
     import CollectionControl from "./CollectionControl.svelte";
-    import {setGlobalLocation, setLocation} from "../lib/location/store";
+    import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
 
     $: cycleItems = getCycleOptions().map(o => ({
         value: o.kind,
@@ -21,6 +21,28 @@
 
     function handleCyclesChange(next: string[]) {
         setCycles(next as CycleKind[]);
+    }
+
+    import type { Location } from '../lib/location/types';
+
+    type ChangeMeta = {
+        savedId: string;
+        lockOnApply?: boolean;
+    };
+
+    function handleGlobalLocationChange(
+        loc: Location,
+        meta: ChangeMeta
+    ) {
+        const id = upsertSavedLocation({
+                lat: loc.lat,
+                lon: loc.lon,
+                tz: loc.tz,
+                label: loc.label
+            },
+            { setCurrent: true }
+        );
+        currentLocationId.set(id);
     }
 </script>
 
@@ -34,10 +56,7 @@
         <LocationPicker
                 value={null}
                 locked={false}
-                onChange={(loc, meta) => {
-                    setLocation(loc);
-                    setGlobalLocation(loc, meta);
-                }}/>
+                onChange={handleGlobalLocationChange}/>
     </div>
     <div class="slot">
         <CollectionControl />

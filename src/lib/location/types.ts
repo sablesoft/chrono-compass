@@ -1,16 +1,12 @@
 // src/lib/location/types.ts
 export type Location = {
+    id: string;
+
     lat: number;
     lon: number;
     label: string;
 
     tz: string; // IANA timezone, always defined
-};
-
-export type SavedLocation = Location & {
-    id: string;
-    createdAt: number;
-    updatedAt: number;
 };
 
 export type GeoStatus =
@@ -22,6 +18,6 @@ export type GeoStatus =
     | 'error';
 
 export type LocationData = {
-    current: Location;
-    saved: SavedLocation[];
+    currentId: string;   // ALWAYS points to saved[].id (after init)
+    saved: Location[];
 };

@@ -1,22 +1,13 @@
 // src/lib/location/store.ts
 import { writable, get } from 'svelte/store';
-import { debug } from '../debug';
-import type { Location, SavedLocation, GeoStatus, LocationData } from './types';
 import type { Readable } from 'svelte/store';
 
-export const GLOBAL_CUSTOM_LOCATION_ID = 'loc:custom';
-
-/**
- * Глобальный "id выбранной локации".
- * - savedId -> id в savedLocations
- * - loc:custom -> текущий currentLocation (набрали руками / несохранённое)
- */
-export const currentLocationId = writable<string>(GLOBAL_CUSTOM_LOCATION_ID);
+import { debug } from '../debug';
+import type { Location, GeoStatus, LocationData } from './types';
 
 const dbg = debug('location', '📍');
 
-const KEY = 'chrono:location';
-const KEY_ID = 'chrono:location:id';
+const KEY = 'chrono:location:v1';
 
 export function getSystemTimeZone(): string {
     try {
@@ -25,12 +16,6 @@ export function getSystemTimeZone(): string {
         return 'UTC';
     }
 }
-
-export function getGreenwichLocation(): Location {
-    return { lat: 0, lon: 0, label: 'Greenwich', tz: 'UTC' };
-}
-
-const DEFAULT: Location = getGreenwichLocation();
 
 function now(): number {
     return Date.now();
@@ -54,19 +39,32 @@ function normalizeLon(lon: number) {
     return ((((lon + 180) % 360) + 360) % 360) - 180;
 }
 
-function sanitizeLocation(x: any): Location | null {
+function makeId(prefix = 'loc'): string {
+    return `${prefix}:${now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function getGreenwichLocation(): Location {
+    return { id: 'loc:greenwich', lat: 0, lon: 0, label: 'Greenwich', tz: 'UTC' };
+}
+
+const DEFAULT = getGreenwichLocation();
+
+function sanitizeLocation(x: any, fallbackId = ''): Location | null {
     if (!x || typeof x !== 'object') return null;
 
     const lat = isFiniteNum(x.lat) ? normalizeLat(x.lat) : null;
     const lon = isFiniteNum(x.lon) ? normalizeLon(x.lon) : null;
     if (lat === null || lon === null) return null;
 
-    const label = typeof x.label === 'string' ? x.label.trim() : '';
     const tz = typeof x.tz === 'string' && x.tz.trim()
         ? x.tz.trim()
         : getSystemTimeZone();
 
+    const label = typeof x.label === 'string' ? x.label.trim() : '';
+    const id = typeof x.id === 'string' && x.id.trim() ? x.id.trim() : fallbackId;
+
     return {
+        id,
         lat,
         lon,
         label: label || 'New place',
@@ -74,299 +72,249 @@ function sanitizeLocation(x: any): Location | null {
     };
 }
 
-function sanitizeSavedList(x: any): SavedLocation[] {
+function sanitizeSavedList(x: any): Location[] {
     if (!Array.isArray(x)) return [];
 
-    const out: SavedLocation[] = [];
-
+    const out: Location[] = [];
     for (const it of x) {
-        const loc = sanitizeLocation(it);
+        const loc = sanitizeLocation(it, '');
         if (!loc) continue;
-
-        const id = typeof it.id === 'string' ? it.id : '';
-        if (!id) continue;
-
-        const createdAt = typeof it.createdAt === 'number' ? it.createdAt : now();
-        const updatedAt = typeof it.updatedAt === 'number' ? it.updatedAt : createdAt;
-
-        out.push({
-            ...loc,
-            id,
-            createdAt,
-            updatedAt
-        });
+        if (!loc.id) continue;
+        out.push(loc);
     }
-
     return out;
 }
 
-function persist(data: LocationData) {
+function load(): LocationData {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null;
+    const parsed = safeParse<any>(raw, null);
+
+    const saved = sanitizeSavedList(parsed?.saved);
+    const currentId = typeof parsed?.currentId === 'string' ? parsed.currentId.trim() : '';
+
+    return { saved, currentId };
+}
+
+function persist(state: LocationData) {
     try {
-        localStorage.setItem(KEY, JSON.stringify(data));
+        localStorage.setItem(KEY, JSON.stringify(state));
     } catch (err) {
         dbg.warn('persist.fail', err);
     }
 }
 
-function load(): LocationData {
-    const raw = typeof localStorage !== 'undefined'
-        ? localStorage.getItem(KEY)
-        : null;
-
-    const parsed = safeParse<any>(raw, null);
-
-    const current = sanitizeLocation(parsed?.current) ?? DEFAULT;
-    const saved = sanitizeSavedList(parsed?.saved);
-
-    return { current, saved };
-}
-
-function loadId(): string {
-    try {
-        const v = localStorage.getItem(KEY_ID);
-        return (v && v.trim()) ? v.trim() : GLOBAL_CUSTOM_LOCATION_ID;
-    } catch {
-        return GLOBAL_CUSTOM_LOCATION_ID;
-    }
-}
-
-function persistId(id: string) {
-    try {
-        localStorage.setItem(KEY_ID, id);
-    } catch {
-        // ignore
-    }
-}
-
-const initial =
+// ------------------------------------------------------------
+// Stores
+// ------------------------------------------------------------
+const initial: LocationData =
     typeof window !== 'undefined'
         ? load()
-        : { current: DEFAULT, saved: [] };
+        : { saved: [], currentId: '' };
 
 export const locationState = writable<LocationData>(initial);
 
-export const currentLocation: Readable<Location> = {
+// keep current id as separate writable for convenience
+export const currentLocationId = writable<string>(initial.currentId || '');
+
+export const savedLocations: Readable<Location[]> = {
     subscribe(run) {
-        return locationState.subscribe((s: LocationData) => run(s.current));
+        return locationState.subscribe((s) => run(s.saved));
     }
 };
 
-export const savedLocations: Readable<SavedLocation[]> = {
+export const currentLocation: Readable<Location> = {
     subscribe(run) {
-        return locationState.subscribe((s: LocationData) => run(s.saved));
+        const unsubA = locationState.subscribe(() => {
+            const s = get(locationState);
+            const id = get(currentLocationId);
+            const hit = s.saved.find((x) => x.id === id) ?? s.saved[0] ?? DEFAULT;
+            run(hit);
+        });
+        const unsubB = currentLocationId.subscribe(() => {
+            const s = get(locationState);
+            const id = get(currentLocationId);
+            const hit = s.saved.find((x) => x.id === id) ?? s.saved[0] ?? DEFAULT;
+            run(hit);
+        });
+        return () => { unsubA(); unsubB(); };
     }
 };
 
 export const geoStatus = writable<GeoStatus>('idle');
 export const geoError = writable<string>('');
 
-/**
- * Резолвим Location по locationId.
- * - savedId -> savedLocations[id]
- * - loc:custom -> currentLocation
- * - loc:system -> currentLocation
- */
-export function resolveLocationById(locationId: string | null | undefined): Location {
-    const id = (locationId || '').trim();
+// persistence wiring
+if (typeof window !== 'undefined') {
+    // persist whenever either saved list or currentId changes
+    locationState.subscribe((s) => {
+        const id = get(currentLocationId);
+        persist({ saved: s.saved, currentId: id });
+    });
+    currentLocationId.subscribe((id) => {
+        const s = get(locationState);
+        persist({ saved: s.saved, currentId: id });
+    });
+}
 
-    if (!id || id === GLOBAL_CUSTOM_LOCATION_ID || id === 'loc:system') {
-        return get(currentLocation);
+// ------------------------------------------------------------
+// Core helpers
+// ------------------------------------------------------------
+function sameCoord(a: number, b: number) {
+    // enough to treat as same place for UI purposes
+    return Math.abs(a - b) < 1e-9;
+}
+
+function findMatch(saved: Location[], draft: Pick<Location, 'lat' | 'lon' | 'tz'>): Location | null {
+    return saved.find((p) =>
+        sameCoord(p.lat, draft.lat) &&
+        sameCoord(p.lon, draft.lon) &&
+        p.tz === draft.tz
+    ) ?? null;
+}
+
+/**
+ * Upsert по уникальности (lat,lon,tz).
+ * - если найден match → обновляет label (если изменился), возвращает id match
+ * - если нет → создаёт новую saved-локацию и возвращает новый id
+ */
+export function upsertSavedLocation(input: Omit<Location, 'id'>, opts?: { setCurrent?: boolean }): string {
+    const lat = normalizeLat(input.lat);
+    const lon = normalizeLon(input.lon);
+    const tz = (input.tz && input.tz.trim()) ? input.tz.trim() : getSystemTimeZone();
+    const label = (input.label || 'New place').trim() || 'New place';
+
+    const state = get(locationState);
+    const draft = { lat, lon, tz };
+
+    const hit = findMatch(state.saved, draft);
+    if (hit) {
+        if ((hit.label ?? '') !== label) {
+            const updated: Location = { ...hit, label };
+            locationState.set({
+                saved: [updated, ...state.saved.filter((x) => x.id !== hit.id)],
+                currentId: state.currentId
+            });
+        }
+        const id = hit.id;
+        if (opts?.setCurrent) currentLocationId.set(id);
+        return id;
     }
 
-    const hit = get(savedLocations).find((x: SavedLocation) => x.id === id);
-    return hit ? { lat: hit.lat, lon: hit.lon, label: hit.label, tz: hit.tz } : get(currentLocation);
-}
-
-/**
- * Когда глобальный пикер выбирает локацию — он должен выставлять и currentLocation, и currentLocationId.
- * Вызывай это из Header/глобального LocationPicker onChange.
- */
-export function setGlobalLocation(loc: Location, meta?: { savedId?: string | null }) {
-    setLocation(loc);
-    currentLocationId.set(meta?.savedId ? meta.savedId : GLOBAL_CUSTOM_LOCATION_ID);
-}
-
-/* =======================
-   Persistence wiring
-   ======================= */
-
-if (typeof window !== 'undefined') {
-    // 1) поднимаем last chosen id сразу при старте
-    currentLocationId.set(loadId());
-
-    // 2) сохраняем state (current + saved)
-    locationState.subscribe((s) => persist(s));
-
-    // 3) сохраняем id выбора отдельно (иначе после reload всегда loc:custom)
-    currentLocationId.subscribe((id) => persistId(id));
-}
-
-/* =======================
-   Public API
-   ======================= */
-
-export function setLocation(loc: Location) {
-    const s = sanitizeLocation(loc) ?? DEFAULT;
-
-    locationState.update(state => ({
-        ...state,
-        current: s
-    }));
-}
-
-/**
- * Гарантируем: в saved всегда есть хотя бы 1 локация.
- * Возвращает id первой/созданной.
- */
-export function ensureAtLeastOneSavedLocation(fallback?: Location): string {
-    const state = get(locationState);
-    if (state.saved.length > 0) return state.saved[0].id;
-
-    const base = sanitizeLocation(fallback ?? state.current) ?? DEFAULT;
-
-    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-    const t = now();
-
-    const item: SavedLocation = {
-        ...base,
-        id,
-        createdAt: t,
-        updatedAt: t
-    };
+    const id = makeId('loc');
+    const item: Location = { id, lat, lon, tz, label };
 
     locationState.set({
-        current: base,
-        saved: [item]
+        saved: [item, ...state.saved],
+        currentId: state.currentId
     });
 
-    currentLocationId.set(id);
-
-    return id;
-}
-
-export function saveLocation(loc?: Location): string | null {
-    const cur = sanitizeLocation(loc ?? get(locationState).current);
-    if (!cur) return null;
-
-    const state = get(locationState);
-
-    const hitIdx = state.saved.findIndex(
-        p => Math.abs(p.lat - cur.lat) < 1e-9 &&
-            Math.abs(p.lon - cur.lon) < 1e-9
-    );
-
-    const id = hitIdx >= 0
-        ? state.saved[hitIdx].id
-        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-
-    const nowTs = now();
-    const prev = hitIdx >= 0 ? state.saved[hitIdx] : null;
-
-    const item: SavedLocation = {
-        ...cur,
-        id,
-        createdAt: prev?.createdAt ?? nowTs,
-        updatedAt: nowTs
-    };
-
-    const nextSaved =
-        hitIdx >= 0
-            ? [item, ...state.saved.filter((_, i) => i !== hitIdx)]
-            : [item, ...state.saved];
-
-    locationState.set({
-        current: cur,
-        saved: nextSaved
-    });
-
-    currentLocationId.set(id);
-
+    if (opts?.setCurrent) currentLocationId.set(id);
     return id;
 }
 
 export function deleteSavedLocation(id: string) {
-    locationState.update(state => ({
-        ...state,
-        saved: state.saved.filter(p => p.id !== id)
-    }));
+    const state = get(locationState);
+    const nextSaved = state.saved.filter((p) => p.id !== id);
 
-    // если удалили выбранную saved-локацию — мягко откатимся
+    locationState.set({
+        saved: nextSaved,
+        currentId: state.currentId
+    });
+
+    // if deleted current -> fallback
     const curId = get(currentLocationId);
     if (curId === id) {
-        const s = get(locationState);
-        const next = s.saved[0];
-        if (next) {
-            setLocation(next);
-            currentLocationId.set(next.id);
-        } else {
-            currentLocationId.set(GLOBAL_CUSTOM_LOCATION_ID);
-        }
+        const next = nextSaved[0];
+        if (next) currentLocationId.set(next.id);
+        else currentLocationId.set('');
     }
 }
 
-export async function trySetGeolocationAsCurrentOnce() {
-    if (!('geolocation' in navigator)) {
+/**
+ * Резолв по id:
+ * - если id не найден → текущая (а если и её нет → DEFAULT)
+ */
+export function resolveLocationById(id: string | null | undefined): Location {
+    const key = (id || '').trim();
+    const saved = get(savedLocations);
+
+    if (key) {
+        const hit = saved.find((x) => x.id === key);
+        if (hit) return hit;
+    }
+
+    // fallback to current store-derived location
+    return get(currentLocation) ?? DEFAULT;
+}
+
+/**
+ * Попытаться получить GPS координаты (1 раз).
+ * Возвращает LocationDraft (без id) или null.
+ */
+export async function tryGetGeolocationOnce(): Promise<Omit<Location, 'id'> | null> {
+    if (typeof navigator === 'undefined' || !('geolocation' in navigator)) {
         geoStatus.set('unavailable');
-        return;
+        return null;
     }
 
     geoStatus.set('loading');
     geoError.set('');
 
-    return new Promise<void>((resolve) => {
+    return new Promise((resolve) => {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                setLocation({
+                geoStatus.set('ok');
+                resolve({
                     lat: normalizeLat(pos.coords.latitude),
                     lon: normalizeLon(pos.coords.longitude),
                     label: 'Current (GPS)',
                     tz: getSystemTimeZone()
                 });
-
-                // GPS — это “custom”, если не делали Save()
-                currentLocationId.set(GLOBAL_CUSTOM_LOCATION_ID);
-
-                geoStatus.set('ok');
-                resolve();
             },
             (err) => {
-                geoStatus.set('error');
+                geoStatus.set(err?.code === 1 ? 'denied' : 'error');
                 geoError.set(err?.message ?? 'Geolocation error');
-                resolve();
+                resolve(null);
             }
         );
     });
 }
 
 /**
- * Можно вызывать при старте приложения.
- * Делаем так, чтобы:
- * - если currentLocationId указывает на saved — используем её
- * - иначе если есть saved — используем первую
- * - иначе создаём saved из current/DEFAULT
+ * Инициализация/бутстрап (то, что ты описал).
+ *
+ * Гарантии после выполнения:
+ * - saved.length >= 1
+ * - currentLocationId указывает на существующий saved id
  */
-export function initLocation() {
-    const state = get(locationState);
-    const id = get(currentLocationId);
+export async function initLocation() {
+    const state0 = get(locationState);
 
-    // 1) если id указывает на saved — берём его
-    const hit = state.saved.find((x) => x.id === id);
-    if (hit) {
-        setLocation(hit);
+    // 1) если saved есть — просто валидируем currentId
+    if (state0.saved.length > 0) {
+        const id = get(currentLocationId) || state0.currentId;
+        const hit = state0.saved.find((x) => x.id === id) ?? state0.saved[0];
+
+        locationState.set({ saved: state0.saved, currentId: hit.id });
         currentLocationId.set(hit.id);
         return;
     }
 
-    // 2) иначе если есть saved — берём первую
-    if (state.saved.length > 0) {
-        setLocation(state.saved[0]);
-        currentLocationId.set(state.saved[0].id);
+    // 2) saved пуст: пробуем GPS
+    const gps = await tryGetGeolocationOnce();
+
+    if (gps) {
+        const id = upsertSavedLocation(gps, { setCurrent: true });
+        locationState.set({ saved: get(locationState).saved, currentId: id });
         return;
     }
 
-    // 3) иначе создаём fallback saved и берём её
-    const newId = ensureAtLeastOneSavedLocation(state.current ?? DEFAULT);
-    const s2 = get(locationState);
-    const first = s2.saved.find((x) => x.id === newId) ?? s2.saved[0];
-    if (first) setLocation(first);
+    // 3) GPS не вышло: сохраняем DEFAULT и делаем текущей
+    const def = getGreenwichLocation();
+    const id = upsertSavedLocation(
+        { lat: def.lat, lon: def.lon, label: def.label, tz: def.tz },
+        { setCurrent: true }
+    );
+
+    locationState.set({ saved: get(locationState).saved, currentId: id });
 }
