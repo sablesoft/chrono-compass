@@ -105,9 +105,6 @@ function normalizeBoard(input: any): BoardState {
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
 
-        items = ensureCompass(items, 'normalizeBoard');
-        items = normalizeOrder(items);
-
         const out: BoardState = {
             items,
             updatedAt: Number.isFinite(input?.updatedAt) ? (input.updatedAt as number) : t
@@ -124,8 +121,8 @@ function loadBoard(): BoardState {
         const parsed = safeParse<any>(raw, null);
         const state = normalizeBoard(parsed);
 
-        if (!raw || !parsed?.items?.length) {
-            dbg.warn('board.load.bootstrapDefault', { hasRaw: !!raw, count: state.items.length });
+        if (!raw) {
+            if (!raw) dbg.warn('board.load.noStorage', { count: state.items.length });
         }
 
         dbg.log('board.load.ok', { hasRaw: !!raw, count: state.items.length });
@@ -160,10 +157,6 @@ function setItems(nextItems: BoardWheel[], reason: string) {
         let items = normalizeOrder(nextItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
-
-        items = ensureCompass(items, reason);
-        items = normalizeOrder(items);
-
         const next: BoardState = { items, updatedAt: now() };
         dbg.log('board.setItems', { reason, count: next.items.length, updatedAt: next.updatedAt });
         return next;

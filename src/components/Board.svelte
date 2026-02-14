@@ -14,6 +14,7 @@
 
     // TODO - legacy wheel cycles
     import { cycles } from '../lib/stores/cycle';
+    import WheelPicker from "./WheelPicker.svelte";
 
     export let lat: number;
     export let lon: number;
@@ -56,14 +57,15 @@
                 selectedTs={selectedTs}
         />
     {/each}
+    <WheelPicker/>
 </section>
 
 <style>
     .grid {
         display: grid;
         gap: 13px;
-        grid-template-columns: 1fr;
-        align-items: start;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: stretch; /* важно */
     }
     @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
     @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }

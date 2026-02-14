@@ -22,7 +22,7 @@
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
 
-    import { boardApi, boardItems } from '../lib/board/store';
+    import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
     import { solveWheel } from '../lib/board/dispatcher';
     import type { WheelSolveResult } from '../lib/board/runtime';
@@ -69,12 +69,7 @@
     $: wheelLat = wheelLoc?.lat;
     $: wheelLon = wheelLoc?.lon;
 
-    // close button logic (still based on boardItems store)
-    $: compassCount = ($boardItems ?? []).filter((x) => x.wheelType === 'compass').length;
-    $: canClose = compassCount > 1;
-
     function closeCompass() {
-        if (!canClose) return;
         onUserActivity();
         boardApi.removeWheelById(wheelId, 'Compass.close');
     }
@@ -414,9 +409,8 @@
             <button
                     type="button"
                     class="navBtn danger"
-                    title={canClose ? 'Close compass' : 'Can’t close the last compass'}
+                    title="Close compass"
                     aria-label="Close compass"
-                    disabled={!canClose}
                     on:click|stopPropagation={closeCompass}
             >×</button>
         </div>

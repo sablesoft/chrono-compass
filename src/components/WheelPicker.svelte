@@ -7,6 +7,8 @@
     import { makeWheelId } from '../lib/wheel/id';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { defaultTitle, typeLabel } from '../lib/wheel/control';
+    import {debug} from "../lib/debug";
+    const dbg = debug('wheel', '?');
 
     const DEFAULT_LOCATION_ID = 'loc:system';
     const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
@@ -22,7 +24,7 @@
     let required: readonly RoleName[] = [];
 
     // 1) type изначально пустой
-    let type: WheelType | '' = '';
+    let type: WheelType | null = null;
 
     let spec: WheelSpec | null = null;
 
@@ -66,7 +68,7 @@
     }
 
     function resetAll() {
-        type = '';
+        type = null;
         spec = null;
         values = { looker: null, focus: null, target: [] };
         selects = { looker: [], focus: [], target: [] };
@@ -126,27 +128,8 @@
         rebuild();
     }
 
-    function canAdd(): boolean {
-        if (!spec || !type) return false;
-
-        // все requiredRoles должны быть заполнены
-        for (const r of required) {
-            const v = (values as any)[r];
-            if (r === 'target' && multiTarget) {
-                if (!Array.isArray(v) || v.length === 0) return false;
-            } else {
-                if (!v) return false;
-            }
-        }
-
-        // защита от дубля на доске
-        const cfgId = makeWheelId(type as any, values as any, DEFAULT_OBSERVER, DEFAULT_TIME);
-        return !boardApi.hasWheelId(cfgId);
-    }
-
     function addWheel() {
         if (!spec || !type) return;
-        if (!canAdd()) return;
 
         onUserActivity();
 
@@ -171,6 +154,23 @@
     function isWheelType(x: string): x is WheelType {
         return x in wheels;
     }
+
+    $: hasAll =
+        required.every((r) => r === 'target'
+            ? values.target.length > 0
+            : !!values[r]
+        );
+
+    $: rolesForId = {
+        looker: values.looker,
+        focus: values.focus,
+        target: multiTarget ? values.target : (values.target[0] ?? null),
+    };
+
+    $: cfgId = hasAll && type ? makeWheelId(type, rolesForId, DEFAULT_OBSERVER, DEFAULT_TIME) : '';
+    $: existsOnBoard = !!cfgId && boardApi.hasWheelId(cfgId);
+
+    $: canAddNow = !!type && hasAll && !existsOnBoard;
 
     let titlePlaceholder = '';
     $: titlePlaceholder = type && spec
@@ -307,7 +307,7 @@
 
                 <footer class="bottom">
                     <button type="button" class="btn ghost" on:click={closeForm}>Cancel</button>
-                    <button type="button" class="btn primary" on:click={addWheel} disabled={!canAdd()}>Add</button>
+                    <button type="button" class="btn primary" on:click={addWheel} disabled={!canAddNow}>Add</button>
                 </footer>
             {/if}
         </div>
