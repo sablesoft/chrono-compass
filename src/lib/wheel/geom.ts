@@ -1,5 +1,7 @@
 // src/lib/wheel/geom.ts
-export const SPOKE_LABELS = [
+import type {SpokeKey} from "./types";
+
+export const SPOKE_LABELS : SpokeKey[] = [
     'E','ENE','NE','NNE','N','NNW','NW','WNW','W','WSW','SW','SSW','S','SSE','SE','ESE'
 ] as const;
 

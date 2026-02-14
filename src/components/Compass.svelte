@@ -10,14 +10,14 @@
     import CompassTooltip from './CompassTooltip.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
-    import WheelPicker from './WheelPicker.svelte';
+    import WheelControl from './WheelControl.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
     import { ms } from '../lib/format';
 
-    import { bodies, wheels } from '../lib/catalog';
-    import type { BodyId, WheelSpec } from '../lib/catalog';
+    import { bodies } from '../lib/catalog';
+    import type { BodyId } from '../lib/catalog';
 
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
@@ -53,9 +53,6 @@
         tag: () => 'compass'
     });
     const docsState = docs.state;
-
-    // catalog spec (kept for WheelPicker + defaults if needed)
-    const spec: Extract<WheelSpec, { type: 'compass' }> = wheels.compass;
 
     // ------------------------------------------------------------
     // Local derived state from wheel
@@ -402,8 +399,7 @@
 
 <section class="panel">
     <header class="top">
-        <WheelPicker
-                type="compass"
+        <WheelControl type="compass"
                 roles={wheel.roles}
                 title={wheel.title}
                 baseObserver={wheel.observer}

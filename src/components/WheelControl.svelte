@@ -1,4 +1,4 @@
-<!-- src/components/WheelPicker.svelte -->
+<!-- src/components/WheelControl.svelte -->
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import type { BodyId, WheelType, WheelSpec, RoleName } from '../lib/catalog';
