@@ -12,6 +12,7 @@ import type { BodyId } from './catalog';
 import type { MarkerItem } from './wheel/wheel'; // если путь у тебя другой — скажи, поправлю
 
 import type { WheelInput, CompassSolveResult } from './board/runtime';
+import {clamp, norm360, toSigned180} from "./math/helpers";
 
 export type CompassTargetState = {
     id: BodyId;
@@ -36,15 +37,6 @@ function bodyNameEn(id: BodyId): string {
 
 function toEngineBody(id: BodyId): EngineBody {
     return EngineBody[id as keyof typeof EngineBody];
-}
-
-function norm360(deg: number): number {
-    const x = deg % 360;
-    return x < 0 ? x + 360 : x;
-}
-
-function clamp(min: number, x: number, max: number): number {
-    return Math.max(min, Math.min(max, x));
 }
 
 type RefractionMode = 'normal' | 'jplhor' | undefined;
@@ -108,7 +100,7 @@ export function solveCompassWheel(input: WheelInput): CompassSolveResult<Compass
             const hor = Horizon(time, obs, eq.ra, eq.dec, refractionMode(false));
 
             const az = norm360(hor.azimuth);
-            const alt = clamp(-90, hor.altitude, 90);
+            const alt = clamp(hor.altitude, -90, 90);
 
             out.push({
                 id,
@@ -127,12 +119,6 @@ export function solveCompassWheel(input: WheelInput): CompassSolveResult<Compass
     dbg?.log?.('solveCompassWheel.out', { count: out.length, ids: out.map(x => x.id) });
 
     return { ok: true, kind: 'compass', ts, bodies: out };
-}
-
-function toSigned180(deg0_360: number): number {
-    let a = norm360(deg0_360);
-    if (a > 180) a -= 360;
-    return a;
 }
 
 /**
@@ -155,7 +141,7 @@ export function compassTargetsToMarkerItems(
     const collectionId = `compass:${String(looker)}`;
 
     return targets.map((t) => {
-        const alt = clamp(-90, t.altitudeDeg, 90);
+        const alt = clamp(t.altitudeDeg, -90,90);
 
         const orbit = alt >= 0
             ? (90 - alt) / 90

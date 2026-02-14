@@ -3,7 +3,8 @@ import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import {ms} from "../format";
-import {isFiniteNumber, safeDateFromTs, utcYearFromTs} from '../wheel/wheel';
+import { safeDateFromTs, utcYearFromTs} from '../wheel/wheel';
+import { isFiniteNumber } from '../math/helpers';
 
 import { debug } from '../debug';
 

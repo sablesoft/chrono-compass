@@ -1,6 +1,7 @@
 // src/lib/board/runtime.ts
 import type { BodyId } from '../catalog';
 import type { Location } from '../location/types';
+import type {SpokeKey} from "../wheel/types";
 
 // Входные роли (target обязателен всегда)
 export type WheelRolesInput = {
@@ -23,6 +24,8 @@ export type WheelInput = WheelRolesInput & WheelRuntimeContext;
 
 export type CycleSpoke<TMeta = any> = {
     ts: number;
+    code: SpokeKey;
+    index: number;
     meta: TMeta;
 };
 

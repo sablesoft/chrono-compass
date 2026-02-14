@@ -3,6 +3,7 @@
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
     import { formatDateTime } from '../lib/format';
+    import {clamp} from "../lib/math/helpers";
 
     export let x = 0;
     export let y = 0;
@@ -29,10 +30,6 @@
     // computed position
     let left = 0;
     let top = 0;
-
-    function clamp(n: number, a: number, b: number) {
-        return Math.max(a, Math.min(b, n));
-    }
 
     function updatePosition() {
         // DEBUG_SOLAR_ANOMALISTIClog('Tooltip.updatePosition');

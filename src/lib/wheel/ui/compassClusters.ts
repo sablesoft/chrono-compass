@@ -1,11 +1,6 @@
 // src/lib/wheel/compassClusters.ts
 import type { MarkerItem, MarkerCluster } from '../wheel';
-
-function norm360(deg: number): number {
-    let x = deg % 360;
-    if (x < 0) x += 360;
-    return x;
-}
+import {norm360} from "../../math/helpers";
 
 function toSignedAngle(deg0_360: number): number {
     let a = norm360(deg0_360);

@@ -22,7 +22,7 @@ import * as Astronomy from 'astronomy-engine';
 import { type Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';
-import { isFiniteNumber } from '../wheel/wheel';
+import { isFiniteNumber } from '../math/helpers';
 import { debug } from '../debug';
 
 import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './coreApsis';
@@ -51,9 +51,6 @@ const MAX_CYCLE_ADVANCE = 12;
 
 // Guard against millisecond jitter / boundary equality
 const STRICT_GUARD_MS = 1500;
-
-// Cycle boundary guard to avoid edge oscillations (keep modest; doesn’t hide real errors)
-const CYCLE_EDGE_GUARD_MS = 2_000;
 
 // Root-solving
 const SOLVE_MAX_ITERS = 70;
@@ -346,11 +343,6 @@ export function getLunarAnomalisticAnchors(ts: number): Anchors {
             warn('Apogee not found → approx', fmt(M));
             return approxAnchors(M);
         }
-
-        // Anti-bounce: if we ever revisit the same Apogee timestamp, we’re ping-ponging.
-        const seenApogeeTs = new Set<number>();
-
-// Replace the whole for(hop...) loop in getLunarAnomalisticAnchors with this:
 
         const COVER_GUARD_MS = 5 * 60_000; // 5 minutes: absorbs tiny gaps without hiding real mistakes
 

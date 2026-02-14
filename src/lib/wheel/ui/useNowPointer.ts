@@ -6,16 +6,13 @@ import { ms } from '../../format';
 import { computeAngle } from '../wheel';
 import type { CycleKind } from '../../cycles/types';
 import type { Anchors } from '../spokes';
+import {isFiniteNumber} from "../../math/helpers";
 
 export type NowPointerDbg = {
     log?: (...args: any[]) => void;
     warn?: (...args: any[]) => void;
     error?: (...args: any[]) => void;
 };
-
-function isFiniteNumber(x: unknown): x is number {
-    return typeof x === 'number' && Number.isFinite(x);
-}
 
 function pickWindow(a: any): { start: number; end: number; reason: string } | null {
     if (isFiniteNumber(a?.start) && isFiniteNumber(a?.end)) {

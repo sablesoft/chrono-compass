@@ -34,6 +34,7 @@
 
     import { compassTargetsToMarkerItems } from '../lib/compass';
     import type { CompassTargetState } from '../lib/compass';
+    import {norm360} from "../lib/math/helpers";
 
     // ------------------------------------------------------------
     // Props (NEW contract: Board passes wheel + location)
@@ -254,11 +255,6 @@
     // ------------------------------------------------------------
     // House mapping helpers
     // ------------------------------------------------------------
-    function norm360(deg: number): number {
-        let x = deg % 360;
-        if (x < 0) x += 360;
-        return x;
-    }
 
     function angDistDeg(a: number, b: number): number {
         const d = Math.abs(norm360(a) - norm360(b));

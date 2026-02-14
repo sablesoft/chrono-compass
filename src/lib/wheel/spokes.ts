@@ -11,6 +11,7 @@
 // E, ENE, NE, NNE, N, NNW, NW, WNW, W, WSW, SW, SSW, S, SSE, SE, ESE, E_next
 
 import type {SpokeKey} from "./types";
+import {isFiniteNumber} from "../math/helpers";
 
 export type Anchors = {
     start: number;
@@ -42,10 +43,6 @@ export const SPOKES_ORDER: SpokeKey[] = [
     'S', 'SSE', 'SE', 'ESE',
     'E_next',
 ];
-
-function isFiniteNumber(x: any): x is number {
-    return typeof x === 'number' && Number.isFinite(x);
-}
 
 function fillSegment(times: number[], startIndex: number, startTs: number, endTs: number) {
     const seg = endTs - startTs;
@@ -95,7 +92,6 @@ export function buildSpokeTimes(a: Anchors) {
     // If user provided a FULL set, we require monotonic sanity.
     let full = true;
     for (let i = 0; i < SPOKES_ORDER.length; i++) {
-        const key = SPOKES_ORDER[i];
         if (!isFiniteNumber(s[SPOKES_ORDER[i]])) {
             full = false;
             break;
@@ -176,8 +172,4 @@ export function nearestSpokeByTime(ts: number, times: number[]) {
         }
     }
     return bestI;
-}
-
-export function clamp01(x: number) {
-    return Math.max(0, Math.min(1, x));
 }

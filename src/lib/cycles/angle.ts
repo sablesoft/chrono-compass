@@ -2,11 +2,12 @@
 
 import type { Anchors } from '../wheel/spokes';
 import type { SpokeKey } from '../wheel/types';
-import { clamp01, SPOKES_ORDER } from '../wheel/spokes';
+import { SPOKES_ORDER } from '../wheel/spokes';
+import {clamp} from "../math/helpers";
 
 function segProgress(ts: number, a0: number, a1: number) {
     if (a1 === a0) return 0;
-    return clamp01((ts - a0) / (a1 - a0));
+    return clamp((ts - a0) / (a1 - a0), 0, 1);
 }
 
 // Base angles for each spoke in clockwise-negative degrees:

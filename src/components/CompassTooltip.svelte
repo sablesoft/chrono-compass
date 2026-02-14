@@ -4,6 +4,7 @@
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/wheel';
     import type { BodyId } from '../lib/catalog';
     import { formatDateTime } from '../lib/format';
+    import {clamp, norm360} from "../lib/math/helpers";
 
     export let x = 0;
     export let y = 0;
@@ -36,10 +37,6 @@
     let el: HTMLDivElement | null = null;
     let left = 0;
     let top = 0;
-
-    function clamp(n: number, a: number, b: number) {
-        return Math.max(a, Math.min(b, n));
-    }
 
     function updatePosition() {
         const vw = window.innerWidth || 1000;
@@ -77,19 +74,11 @@
         return `${x.toFixed(1)}°`;
     }
 
-    function norm360(deg: number): number {
-        let x = deg % 360;
-        if (x < 0) x += 360;
-        return x;
-    }
-
     // Compass spokes: E, ENE, ..., ESE (16)
     const HOUSE_LABELS = ['E','ENE','NE','NNE','N','NNW','NW','WNW','W','WSW','SW','SSW','S','SSE','SE','ESE'] as const;
     const STEP_DEG = 360 / 16;
 
     function houseFromWheelAngle(angleDeg: number): string {
-        // geom: spokeAngleDeg(i) = -STEP*i
-        // nearest i => round(norm360(-angle)/STEP)
         const i = Math.round(norm360(-angleDeg) / STEP_DEG) % 16;
         return HOUSE_LABELS[i] ?? '—';
     }

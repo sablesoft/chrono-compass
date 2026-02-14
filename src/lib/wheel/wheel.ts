@@ -13,6 +13,7 @@ import {angleFromTropicalAnchors, getTropicalAnchors} from '../cycles/solarTropi
 import {angleFromSolarAnomalisticAnchors, getSolarAnomalisticAnchors} from '../cycles/solarAnomalistic';
 import {angleFromPlatoAnchors, getPlatoAnchors} from '../cycles/plato';
 import {debug} from '../debug';
+import {clamp, isFiniteNumber} from "../math/helpers";
 
 const dbg = debug('wheel', '☸️️');
 const { warn } = dbg;
@@ -80,11 +81,6 @@ export type MarkerCluster = {
 
 
 const NUDGE_MS = 5 * 60_000; // 5 минут (можно 1 мин, но 5 устойчивее)
-
-function clamp(x: number, a: number, b: number) {
-    return Math.max(a, Math.min(b, x));
-}
-
 
 export function sameCycle(a: Anchors, b: Anchors) {
     // сравнение с допуском, чтобы не плясало из-за миллисекунд
@@ -433,10 +429,6 @@ export type WheelMarkersInput = {
     visibleCollectionIds: string[];
     collectionById: Map<string, CollectionStyle>;
 };
-
-export function isFiniteNumber(x: number) {
-    return Number.isFinite(x) && !Number.isNaN(x);
-}
 
 export function safeDateFromTs(ts: number): Date | null {
     if (!isFiniteNumber(ts)) return null;
