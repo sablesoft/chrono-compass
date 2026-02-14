@@ -376,7 +376,7 @@
                 on:click|stopPropagation
         >
             <header class="modalTop">
-                <div class="modalTitle">Wheel Picker</div>
+                <div class="modalTitle">Wheel Control</div>
                 <button class="x" type="button" aria-label="Close" on:click={() => closeModal('cancel')}>×</button>
             </header>
 

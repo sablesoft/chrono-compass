@@ -66,13 +66,11 @@ export function filteredRoles(
         const arr = selects[role];
 
         if (arr.length === 1) {
-            if (role === 'target' && multiTarget) {
-                nextValues.target = [arr[0]];
-            } else if (role === 'looker') {
-                nextValues.looker = arr[0];
-            } else if (role === 'focus') {
-                nextValues.focus = arr[0];
-            }
+            if (role === 'target') {
+                if (multiTarget) nextValues.target = [arr[0]];
+                else nextValues.target = [arr[0]]; // если у тебя target всегда массив по RoleValues
+            } else if (role === 'looker') nextValues.looker = arr[0];
+            else if (role === 'focus') nextValues.focus = arr[0];
         }
     }
 

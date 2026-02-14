@@ -100,16 +100,10 @@
 
     function rebuild() {
         if (!spec) return;
-
         const out = filteredRoles(spec, values);
+        dbg.log('rebuild', {out, spec, values});
         selects = out.selects;
         values = out.values;
-
-        // ещё раз: если после автоподстановки открылись новые "единственные" варианты,
-        // можно прогнать второй раз. Обычно одного хватает, но это делает поведение устойчивым.
-        const out2 = filteredRoles(spec, values);
-        selects = out2.selects;
-        values = out2.values;
     }
 
     function setSingle(role: 'looker' | 'focus', vRaw: string) {

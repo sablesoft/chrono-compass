@@ -335,9 +335,6 @@
 <section class="panel">
     <header class="top">
         <div class="left">
-            <div class="title">{title || '(untitled)'}</div>
-
-            <!-- you said you'll swap WheelControl call yourself; keeping structure same as Compass -->
             <WheelControl
                     type={wheel.wheelType}
                     roles={wheel.roles}

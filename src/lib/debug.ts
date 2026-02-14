@@ -36,6 +36,7 @@ const KNOWN_CHANNELS: Record<string, () => any> = {
     PROFILE: () => import.meta.env.VITE_DEBUG_PROFILE,
     BOARD: () => import.meta.env.VITE_DEBUG_BOARD,
     WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
+    CYCLE: () => import.meta.env.VITE_DEBUG_CYCLE,
     DIURNAL: () => import.meta.env.VITE_DEBUG_DIURNAL,
 
     // lunar
