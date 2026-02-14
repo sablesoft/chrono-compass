@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const bind = {
     type: 'bind',
+    requiredRoles: ['focus', 'target'],
     roles: [
         // Sun Bind: Earth
         {

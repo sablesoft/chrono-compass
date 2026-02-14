@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const synod = {
     type: 'synod',
+    requiredRoles: ['looker', 'focus', 'target'],
     roles: [
         // Earth Synod: Sun - Moon (classic synodic relation as seen from Earth)
         {

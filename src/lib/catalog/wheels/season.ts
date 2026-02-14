@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const season = {
     type: 'season',
+    requiredRoles: ['focus', 'target'],
     roles: [
         // Sun Season: Earth
         {

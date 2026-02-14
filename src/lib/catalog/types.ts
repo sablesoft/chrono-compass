@@ -35,6 +35,26 @@ export type WheelType =
 
 export type RoleName = 'looker' | 'focus' | 'target';
 
+export type RequiredRoles<RS> = readonly (keyof RS & RoleName)[];
+
+type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
+    type: TType;
+    roles: RS[];
+    requiredRoles: RequiredRoles<RS>;
+} & (MT extends true ? { multiTarget: true } : {});
+
+export type RoleValues = {
+    looker: BodyId | null;
+    focus: BodyId | null;
+    target: BodyId[];   // всегда массив, даже если multiTarget=false
+};
+
+export type RoleSelects = {
+    looker: BodyId[];
+    focus: BodyId[];
+    target: BodyId[];
+};
+
 /** Utility: object with only allowed role keys */
 type RoleSetOf<Allowed extends RoleName> = Partial<Record<Allowed, BodyId[]>>;
 
@@ -89,14 +109,13 @@ export type PlatoRoleSet = RequireRoles<
 >;
 
 /* ===== WheelSpec as discriminated union ===== */
-
 export type WheelSpec =
-    | { type: 'compass'; roles: CompassRoleSet[]; multiTarget: true }
-    | { type: 'horizon'; roles: HorizonRoleSet[] }
-    | { type: 'synod'; roles: SynodRoleSet[] }
-    | { type: 'channel'; roles: ChannelRoleSet[] }
-    | { type: 'bind'; roles: BindRoleSet[] }
-    | { type: 'range'; roles: RangeRoleSet[] }
-    | { type: 'season'; roles: SeasonRoleSet[] }
-    | { type: 'nodal'; roles: NodalRoleSet[] }
-    | { type: 'plato'; roles: PlatoRoleSet[] };
+    | WheelSpecBase<'compass', CompassRoleSet, true>
+    | WheelSpecBase<'horizon', HorizonRoleSet>
+    | WheelSpecBase<'synod', SynodRoleSet>
+    | WheelSpecBase<'channel', ChannelRoleSet>
+    | WheelSpecBase<'bind', BindRoleSet>
+    | WheelSpecBase<'range', RangeRoleSet>
+    | WheelSpecBase<'season', SeasonRoleSet>
+    | WheelSpecBase<'nodal', NodalRoleSet>
+    | WheelSpecBase<'plato', PlatoRoleSet>;

@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const horizon = {
     type: 'horizon',
+    requiredRoles: ['looker', 'target'],
     roles: [
         // Earth Horizon: Sun / Moon
         // (For a typical Earth surface observer both cross the horizon; polar edge cases exist,

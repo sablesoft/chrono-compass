@@ -3,6 +3,7 @@ import type { WheelSpec } from '../types';
 export const compass = {
     type: 'compass',
     multiTarget: true,
+    requiredRoles: ['looker', 'target'],
     roles: [
         // Earth Compass: Sky (targets are selectable)
         {

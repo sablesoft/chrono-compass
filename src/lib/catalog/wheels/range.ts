@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const range = {
     type: 'range',
+    requiredRoles: ['looker', 'target'],
     roles: [
         // Sun Range: Moon
         // Distance between Sun and Moon varies cyclically,
