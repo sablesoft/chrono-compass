@@ -8,7 +8,7 @@
     import DropdownButton from './DropdownButton.svelte';
     import { cycles, setCycles } from '../lib/stores/cycle';
     import {getCycleOptions} from "../lib/cycles/meta";
-    import type {CycleKind} from "../lib/cycles/types";
+    import type {CycleKind} from "../lib/stores/cycle";
     import CollectionControl from "./CollectionControl.svelte";
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
 

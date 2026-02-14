@@ -3,7 +3,7 @@
     import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store';
 
-    import type { CycleKind } from '../lib/cycles/types';
+    import type { CycleKind } from '../lib/stores/cycle';
     import { formatDateTime, ms } from '../lib/format';
 
     import { setSelectedTs } from '../lib/time/store';

@@ -11,7 +11,7 @@
     import type { RepeatRule, RepeatUnit, OnDayMode, RepeatEnd } from '../lib/stores/moment';
     import DropdownButton from './DropdownButton.svelte';
     import { getCycleOptions } from '../lib/cycles/meta';
-    import type { CycleKind } from '../lib/cycles/types';
+    import type { CycleKind } from '../lib/stores/cycle';
     import Portal from "svelte-portal";
 
     export let buttonClass = '';

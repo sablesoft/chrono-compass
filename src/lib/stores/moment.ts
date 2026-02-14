@@ -1,5 +1,5 @@
 import { writable, derived, get } from 'svelte/store';
-import type {CycleKind} from "../cycles/types";
+import type {CycleKind} from "./cycle";
 import { getCycleOptions } from '../cycles/meta';
 
 export type Collection = {

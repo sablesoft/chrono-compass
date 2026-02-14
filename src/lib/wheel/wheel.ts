@@ -1,6 +1,6 @@
 // src/lib/cycles/wheel.ts
 import type {Anchors} from './spokes';
-import type {CycleKind} from '../cycles/types';
+import type {CycleKind} from '../stores/cycle';
 import type {Moment, OnDayMode, RepeatEnd, RepeatRule, RepeatUnit} from '../stores/moment';
 import {normalizeTsMinute} from '../stores/moment';
 import {getCycleOptions, SPOKE_DESC} from '../cycles/meta';

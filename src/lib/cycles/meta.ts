@@ -1,5 +1,5 @@
 // src/lib/cycles/meta.ts
-import type { CycleKind } from './types';
+import type { CycleKind } from '../stores/cycle';
 import type {SpokeKey} from "../wheel/types";
 
 export type CycleMeta = {

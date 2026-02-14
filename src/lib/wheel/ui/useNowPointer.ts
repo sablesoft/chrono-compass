@@ -4,7 +4,7 @@ import { get, writable } from 'svelte/store';
 import { isLive, startLive } from '../../time/store';
 import { ms } from '../../format';
 import { computeAngle } from '../wheel';
-import type { CycleKind } from '../../cycles/types';
+import type { CycleKind } from '../../stores/cycle';
 import type { Anchors } from '../spokes';
 import {isFiniteNumber} from "../../math/helpers";
 
