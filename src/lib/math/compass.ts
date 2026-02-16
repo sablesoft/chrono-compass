@@ -7,12 +7,12 @@ import {
     Observer
 } from 'astronomy-engine';
 
-import { bodies } from './catalog';
-import type { BodyId } from './catalog';
-import type { MarkerItem } from './wheel/wheel'; // если путь у тебя другой — скажи, поправлю
+import { bodies } from '../catalog';
+import type { BodyId } from '../catalog';
+import type { MarkerItem } from '../wheel/wheel'; // если путь у тебя другой — скажи, поправлю
 
-import type { WheelInput, CompassSolveResult } from './board/runtime';
-import {clamp, norm360, toSigned180} from "./math/helpers";
+import type { WheelInput, CompassSolveResult } from '../board/runtime';
+import {clamp, norm360, toSigned180} from "./helpers";
 
 export type CompassTargetState = {
     id: BodyId;

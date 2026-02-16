@@ -1,4 +1,4 @@
-// src/lib/cycles/plato.ts
+// src/lib/cycle/plato.ts
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';

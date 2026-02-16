@@ -7,7 +7,7 @@
     import ThemeSwitcher from './ThemeSwitcher.svelte';
     import DropdownButton from './DropdownButton.svelte';
     import { cycles, setCycles } from '../lib/stores/cycle';
-    import {getCycleOptions} from "../lib/cycles/meta";
+    import {getCycleOptions} from "../lib/cycle/meta";
     import type {CycleKind} from "../lib/stores/cycle";
     import CollectionControl from "./CollectionControl.svelte";
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";

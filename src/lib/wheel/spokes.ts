@@ -1,4 +1,4 @@
-// src/lib/cycles/spokes.ts
+// src/lib/cycle/spokes.ts
 //
 // Spokes + anchors utilities.
 //

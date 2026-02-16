@@ -1,4 +1,4 @@
-// src/lib/cycles/lunarSynodic.ts
+// src/lib/cycle/lunarSynodic.ts
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';

@@ -18,7 +18,3 @@ export type BoardWheel = {
     size?: number;
 };
 
-export type BoardState = {
-    wheels: BoardWheel[];
-    updatedAt: number;
-};

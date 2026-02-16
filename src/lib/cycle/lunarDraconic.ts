@@ -1,4 +1,4 @@
-// src/lib/cycles/lunarDraconic.ts
+// src/lib/cycle/lunarDraconic.ts
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';

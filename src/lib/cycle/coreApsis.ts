@@ -1,4 +1,4 @@
-// src/lib/cycles/apsisCore.ts
+// src/lib/cycle/coreApsis.ts
 import { ms } from '../format';
 import { safeDateFromTs, utcYearFromTs } from '../wheel/wheel';
 

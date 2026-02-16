@@ -1,17 +1,17 @@
-// src/lib/cycles/wheel.ts
+// src/lib/cycle/wheel.ts
 import type {Anchors} from './spokes';
 import type {CycleKind} from '../stores/cycle';
 import type {Moment, OnDayMode, RepeatEnd, RepeatRule, RepeatUnit} from '../stores/moment';
 import {normalizeTsMinute} from '../stores/moment';
-import {getCycleOptions, SPOKE_DESC} from '../cycles/meta';
+import {getCycleOptions, SPOKE_DESC} from '../cycle/meta';
 
-import {angleFromDayAnchors, getDayAnchors} from '../cycles/diurnal';
-import {angleFromSynodicAnchors, getSynodicAnchors} from '../cycles/lunarSynodic';
-import {angleFromDraconicAnchors, getDraconicAnchors} from "../cycles/lunarDraconic";
-import {angleFromLunarAnomalisticAnchors, getLunarAnomalisticAnchors} from "../cycles/lunarAnomalistic";
-import {angleFromTropicalAnchors, getTropicalAnchors} from '../cycles/solarTropical';
-import {angleFromSolarAnomalisticAnchors, getSolarAnomalisticAnchors} from '../cycles/solarAnomalistic';
-import {angleFromPlatoAnchors, getPlatoAnchors} from '../cycles/plato';
+import {angleFromDayAnchors, getDayAnchors} from '../cycle/diurnal';
+import {angleFromSynodicAnchors, getSynodicAnchors} from '../cycle/lunarSynodic';
+import {angleFromDraconicAnchors, getDraconicAnchors} from "../cycle/lunarDraconic";
+import {angleFromLunarAnomalisticAnchors, getLunarAnomalisticAnchors} from "../cycle/lunarAnomalistic";
+import {angleFromTropicalAnchors, getTropicalAnchors} from '../cycle/solarTropical';
+import {angleFromSolarAnomalisticAnchors, getSolarAnomalisticAnchors} from '../cycle/solarAnomalistic';
+import {angleFromPlatoAnchors, getPlatoAnchors} from '../cycle/plato';
 import {debug} from '../debug';
 import {clamp, isFiniteNumber} from "../math/helpers";
 

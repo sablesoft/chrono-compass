@@ -2,7 +2,7 @@
 <script lang="ts">
     import { boardItems } from '../lib/board/store';
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
-    import { CYCLE_META } from '../lib/cycles/meta';
+    import { CYCLE_META } from '../lib/cycle/meta';
     import { getWheelEntry } from '../lib/board/registry';
 
     import Compass from './Compass.svelte';

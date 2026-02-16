@@ -1,4 +1,4 @@
-// src/lib/cycles/diurnal.ts
+// src/lib/cycle/diurnal.ts
 import * as Astronomy from 'astronomy-engine';
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';

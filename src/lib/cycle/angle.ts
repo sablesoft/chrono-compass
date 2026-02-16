@@ -1,4 +1,4 @@
-// src/lib/cycles/angle.ts
+// src/lib/cycle/angle.ts
 
 import type { Anchors } from '../wheel/spokes';
 import type { SpokeKey } from '../wheel/types';

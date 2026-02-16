@@ -5,6 +5,7 @@
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
+    import { PointerAnimator } from '../lib/wheel/pointerAnimator';
 
     import DocsModal from './DocsModal.svelte';
     import Tooltip from './Tooltip.svelte';
@@ -28,6 +29,18 @@
     import { selectedTs as globalSelectedTs, isLive as globalIsLive, setSelectedTs } from '../lib/time/store';
 
     import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
+
+    // NEW: cycle cache (local + IndexedDB)
+    import type { CycleData, CycleKey } from '../lib/cycle/types';
+    import {
+        makeCycleKey,
+        buildCycleDataFromSolve,
+        getLocalCycle,
+        setLocalCycle,
+        clearLocalCycle,
+        getPersistentCycle,
+        putPersistentCycle
+    } from '../lib/cycle/store';
 
     // ------------------------------------------------------------
     // Props (NEW contract: Board passes wheel + location)
@@ -128,6 +141,9 @@
         unsubGTs();
         unsubGLive();
         clearLocalLiveTimers();
+
+        // NEW: prevent local cache leaks for destroyed wheel instance
+        if (wheelId) clearLocalCycle(wheelId);
     });
 
     // If wheel time isn't locked -> keep it synced to global time
@@ -198,40 +214,161 @@
     const tipState = tip.state;
 
     // ------------------------------------------------------------
-    // Solve via runtime dispatcher (CycleSolveResult)
+    // Cycle caching (local + IndexedDB)
     // ------------------------------------------------------------
+    $: cycleKey = (wheel ? makeCycleKey(wheel) : null) as CycleKey | null;
+
+    let cycle: CycleData<any> | null = null;
+
     let solveOk = false;
     let solveReason = '';
     let spokes: CycleSpoke<any>[] = [];
 
-    $: {
+    // guard against async races
+    let ensureRunId = 0;
+
+    function sortSpokes(xs: CycleSpoke<any>[]) {
+        return (xs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    }
+
+    async function ensureCycleForTs(ts: number) {
+        const myRun = ++ensureRunId;
+
         solveOk = false;
         solveReason = '';
         spokes = [];
+        cycle = null;
 
-        if (!wheel || !wheelLoc || !wheelId) {
+        if (!wheel || !wheelId) {
             solveReason = 'No wheel';
-        } else {
+            return;
+        }
+
+        // We only persist cycles if cycleKey exists (compass/horizon => null)
+        const key = cycleKey;
+
+        // If excluded from persistent cache, we still can do a simple compute each time
+        // (or you can decide to add a volatile key for local caching later).
+        if (!key) {
             const ctx = {
-                ts: effTs,
+                ts,
                 location: isHorizon ? wheelLoc : undefined,
                 dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
             };
 
             const res: WheelSolveResult = solveWheel(wheel as any, ctx);
-
-            if (!res || res.kind !== 'cycle') {
+            if (!res || (res as any).kind !== 'cycle') {
                 solveReason = 'Not a cycle result';
-            } else {
-                const r = res as CycleSolveResult<any>;
-                solveOk = !!r.ok;
-                solveReason = r.ok ? '' : (r as any).reason ?? 'Solve failed';
-                spokes = (r.spokes ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+                return;
             }
+
+            const r = res as CycleSolveResult<any>;
+            solveOk = !!r.ok;
+            solveReason = r.ok ? '' : (r as any).reason ?? 'Solve failed';
+            spokes = sortSpokes(r.spokes ?? []);
+            return;
+        }
+
+        // 1) local cache
+        const local = getLocalCycle(wheelId, key, ts);
+        if (local) {
+            // (race guard)
+            if (ensureRunId !== myRun) return;
+
+            cycle = local;
+            solveOk = true;
+            solveReason = '';
+            spokes = sortSpokes(local.spokes ?? []);
+            return;
+        }
+
+        // 2) IndexedDB cache
+        try {
+            const fromDb = await getPersistentCycle(key, ts);
+
+            if (ensureRunId !== myRun) return;
+
+            if (fromDb) {
+                setLocalCycle(wheelId, key, fromDb);
+                cycle = fromDb;
+                solveOk = true;
+                solveReason = '';
+                spokes = sortSpokes(fromDb.spokes ?? []);
+                return;
+            }
+        } catch (e) {
+            // DB failure should never block UI; we fallback to solveWheel
+            dbg.log?.('Cycle.cache.idb.get failed', e);
+            if (ensureRunId !== myRun) return;
+        }
+
+        // 3) compute via solver
+        const ctx = {
+            ts,
+            location: isHorizon ? wheelLoc : undefined,
+            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+        };
+
+        const res: WheelSolveResult = solveWheel(wheel as any, ctx);
+
+        if (ensureRunId !== myRun) return;
+
+        if (!res || (res as any).kind !== 'cycle') {
+            solveReason = 'Not a cycle result';
+            return;
+        }
+
+        const r = res as CycleSolveResult<any>;
+        solveOk = !!r.ok;
+        solveReason = r.ok ? '' : (r as any).reason ?? 'Solve failed';
+
+        if (!r.ok) {
+            spokes = sortSpokes(r.spokes ?? []);
+            return;
+        }
+
+        const built = buildCycleDataFromSolve<any>(key, r);
+        if (!built) {
+            // keep spokes anyway for UI hints
+            spokes = sortSpokes(r.spokes ?? []);
+            solveOk = false;
+            solveReason = 'Cycle build failed';
+            return;
+        }
+
+        // set local immediately
+        setLocalCycle(wheelId, key, built);
+        cycle = built;
+        spokes = sortSpokes(built.spokes ?? []);
+
+        // save async (don’t block render)
+        putPersistentCycle(built).catch((e) => dbg.log?.('Cycle.cache.idb.put failed', e));
+    }
+
+    // Recompute ONLY when we must:
+    // - effTs changes
+    // - wheelId/cycleKey changes
+    // - horizon location (because solver depends on it) changes
+    $: {
+        const ts = effTs;
+        const wid = wheelId;
+        const key = cycleKey;
+        const locId = isHorizon ? wheelLoc?.id : 'na';
+
+        if (!wid || !wheel) {
+            solveOk = false;
+            solveReason = 'No wheel';
+            spokes = [];
+            cycle = null;
+        } else {
+            // kick async resolver; race-safe via ensureRunId
+            void ensureCycleForTs(ts);
         }
     }
 
-    // spokeTimes[0..16], boundaryTimes[0..15]
+    // ------------------------------------------------------------
+    // Derived arrays from spokes (UI helpers)
+    // ------------------------------------------------------------
     let spokeTimes: number[] = [];
     let spokeCodes: SpokeKey[] = [];
     let boundaryTimes: number[] = [];
@@ -275,18 +412,73 @@
         return bestI;
     }
 
+    function clamp01(x: number) {
+        return x < 0 ? 0 : (x > 1 ? 1 : x);
+    }
+
     $: activeSpokeIndex = spokeTimes?.length ? nearestSpokeIndexByTime(effTs, spokeTimes) : 0;
     $: activeSpokeCode = spokeCodes?.[activeSpokeIndex] ?? ((activeSpokeIndex === 16) ? 'E_next' : (labels[activeSpokeIndex] as any));
 
-    // Pointer angle: map effTs into [E..E_next] => full turn
+    // Pointer angle: piecewise interpolation between spokes
     $: pointerAngleDeg = (() => {
-        const t0 = spokeTimes?.[0];
-        const t1 = spokeTimes?.[16];
-        if (!Number.isFinite(t0) || !Number.isFinite(t1) || !(t1 > t0)) return 0;
-        const phase = Math.min(1, Math.max(0, (effTs - t0) / (t1 - t0)));
-        const base = spokeAngleDeg(0);
-        return base + phase * 360;
+        const t = spokeTimes;
+        if (!t || t.length < 17) return 0;
+
+        const tE = t[0];
+        const tE2 = t[16];
+        if (!Number.isFinite(tE) || !Number.isFinite(tE2) || !(tE2 > tE)) return 0;
+
+        const ts0 = Math.min(Math.max(effTs, tE), tE2);
+
+        let i = 0;
+        for (let k = 0; k < 16; k++) {
+            const a = t[k];
+            const b = t[k + 1];
+            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+            if (ts0 >= a && ts0 <= b) { i = k; break; }
+            if (ts0 > b) i = k;
+        }
+
+        const aT = t[i];
+        const bT = t[i + 1];
+        const segDen = (Number.isFinite(aT) && Number.isFinite(bT) && bT > aT) ? (bT - aT) : 1;
+        const u = clamp01((ts0 - aT) / segDen);
+
+        const aAng = spokeAngleDeg(i);
+        const bAng = (i === 15) ? (spokeAngleDeg(0) + 360) : spokeAngleDeg(i + 1);
+
+        return aAng + (bAng - aAng) * u;
     })();
+
+    // ------------------------------------------------------------
+    // Pointer animation (Wheel-style)
+    // ------------------------------------------------------------
+    let lastSeenTs = effTs;
+    let timeDir: -1 | 0 | 1 = 0;
+
+    let displayAngle = 0;
+    let noTransition = false;
+
+    const animator = new PointerAnimator((s) => {
+        displayAngle = s.angleDeg;
+        noTransition = s.noTransition;
+    });
+
+    $: {
+        const delta = effTs - lastSeenTs;
+        timeDir = delta === 0 ? 0 : (delta > 0 ? 1 : -1);
+        lastSeenTs = effTs;
+
+        // IMPORTANT: cycleKey must stay stable while we're inside the same cycle window.
+        // We use actual E/E+ to define the window identity for animation logic.
+        const cycleWindowKey = `${spokeTimes?.[0] ?? 'na'}:${spokeTimes?.[16] ?? 'na'}`;
+
+        animator.applyInput({
+            baseAngleDeg: pointerAngleDeg,
+            timeDir,
+            cycleKey: cycleWindowKey
+        });
+    }
 
     function jumpTo(ts0: number, reason = 'jump') {
         if (!Number.isFinite(ts0)) return;
@@ -295,7 +487,7 @@
         setSelectedTs(ms(ts0));
     }
 
-    // Nav: use cycle window edges (no fancy animator yet)
+    // Nav: use cycle window edges
     const SHIFT_EPS_MS = 1500;
 
     function shiftCycle(dir: -1 | 1) {
@@ -388,7 +580,8 @@
                         {@const pB = polarToXY(rOuter * 1.1, a)}
                         {@const pHit = polarToXY(rOuter, a)}
                         {@const tB = boundaryTimes?.[i]}
-                        {@const boundaryTip = buildMomentTip(`boundary:${labels[i]}→${labels[(i + 1) % spokeCount]}`, tB, 'boundary')}
+                        {@const nextLabel = i === spokeCount - 1 ? 'E+' : labels[i + 1]}
+                        {@const boundaryTip = buildMomentTip(`boundary:${labels[i]}→${nextLabel}`, tB, 'boundary')}
                         {@const boundaryKey = `boundary:${i}`}
 
                         <g
@@ -476,6 +669,53 @@
                                 {label}
                             </text>
 
+                            {#if i === 0}
+                                {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
+                                {@const ePlusTs = spokeTimes?.[16]}
+                                {@const ePlusTip = buildMomentTip('E+', ePlusTs, 'spoke')}
+                                {@const ePlusKey = 'spoke:16'}
+                                {@const ePlusActive = activeSpokeIndex === 16}
+
+                                <g
+                                        class="eplus"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-label="Spoke E+"
+                                        on:click|stopPropagation={(e) => tip.openMomentNow(e, ePlusTip)}
+                                        on:dblclick|stopPropagation={() => handleSpokeActivate(16)}
+                                        on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
+                                        on:mouseleave={() => tip.hoverLeave(ePlusKey)}
+                                        on:keydown|stopPropagation={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSpokeActivate(16);
+                    }
+                  }}
+                                >
+                                    <circle
+                                            cx={pt2.x}
+                                            cy={pt2.y}
+                                            r={VB * 0.046}
+                                            fill="transparent"
+                                            stroke="currentColor"
+                                            stroke-opacity={ePlusActive ? 0.55 : 0.25}
+                                            stroke-width={ePlusActive ? 3 : 2}
+                                    />
+
+                                    <text
+                                            class="spokeLabel eplusLabel"
+                                            x={pt2.x} y={pt2.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                            font-size={VB * 0.034}
+                                            fill="currentColor"
+                                            fill-opacity={ePlusActive ? 0.9 : 0.55}
+                                    >
+                                        E+
+                                    </text>
+                                </g>
+                            {/if}
+
                             <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
                         </g>
                     {/each}
@@ -514,7 +754,11 @@
                     {/each}
 
                     <g transform={`translate(${cx} ${cy})`}>
-                        <g class="pointer" style={`transform: rotate(${safeAngle(pointerAngleDeg, 0)}deg);`}>
+                        <g
+                                class="pointer"
+                                class:noTransition={noTransition}
+                                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
+                        >
                             <line
                                     x1="0" y1="0"
                                     x2={rOuter} y2="0"
@@ -539,7 +783,8 @@
                         onPickTs={handleMarkerPick}
                         onMouseEnter={tip.keepOpen}
                         onMouseLeave={tip.scheduleClose}
-                        onClose={tip.closeNow}/>
+                        onClose={tip.closeNow}
+                />
             {/if}
         </section>
     </div>
@@ -552,9 +797,10 @@
                     title={solveOk ? `Go to ${activeSpokeCode}` : solveReason || 'Solve failed'}
                     disabled={!solveOk}
                     on:click={() => {
-                      const t = spokeTimes?.[activeSpokeIndex];
-                      if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
-                    }}>
+          const t = spokeTimes?.[activeSpokeIndex];
+          if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
+        }}
+            >
                 <strong class="k">Spoke:</strong>
                 <span class="dt">{activeSpokeCode}</span>
                 <span class="sep">—</span>
@@ -569,18 +815,19 @@
                             value={wheelLoc}
                             locked={observer.locked}
                             onChange={(loc, meta) => {
-                              onUserActivity();
-                              const patch: Partial<WheelObserverState> = {
-                                locationId: meta.savedId,
-                                locked: meta.lockOnApply ? true : observer.locked
-                              };
-                              dbg.log?.('Cycle.location.apply', { patch });
-                              boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
-                            }}
+              onUserActivity();
+              const patch: Partial<WheelObserverState> = {
+                locationId: meta.savedId,
+                locked: meta.lockOnApply ? true : observer.locked
+              };
+              dbg.log?.('Cycle.location.apply', { patch });
+              boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
+            }}
                             onToggleLock={(next) => {
-                              onUserActivity();
-                              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
-                           }}/>
+              onUserActivity();
+              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
+            }}
+                    />
                 </div>
             </div>
         {/if}
@@ -592,17 +839,18 @@
                         locked={time.locked}
                         liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                         onChange={(next, meta) => {
-                            onUserActivity();
-                            const patch: Partial<WheelTimeState> =
-                              next.live
-                                ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                                : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-                            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
-                        }}
+            onUserActivity();
+            const patch: Partial<WheelTimeState> =
+              next.live
+                ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
+          }}
                         onToggleLock={(next) => {
-                            onUserActivity();
-                            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
-                        }}/>
+            onUserActivity();
+            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
+          }}
+                />
             </div>
         </div>
     </div>

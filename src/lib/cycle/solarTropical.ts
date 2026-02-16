@@ -1,4 +1,4 @@
-// src/lib/cycles/solarTropical.ts
+// src/lib/cycle/solarTropical.ts
 import type { Anchors } from '../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../format';

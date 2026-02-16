@@ -1,4 +1,4 @@
-// src/lib/cycles/lunarAnomalistic.ts
+// src/lib/cycle/lunarAnomalistic.ts
 //
 // Lunar Anomalistic wheel — distance-linear spokes (Earth–Moon distance).
 //

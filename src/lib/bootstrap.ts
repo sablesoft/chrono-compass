@@ -1,8 +1,8 @@
 // src/lib/bootstrap.ts
 import { registerWheel } from './board/registry';
 
-import { solveBindWheel } from './cycles/bind';
-import { solveCompassWheel } from './compass';
+import { solveBindWheel } from './math/bind';
+import { solveCompassWheel } from './math/compass';
 
 import type { WheelRegistryEntry } from './board/registry';
 import {initLocation} from "./location/store";

@@ -29,7 +29,7 @@
     import { nearestSpokeByTime } from '../lib/wheel/spokes';
 
     import Tooltip from './Tooltip.svelte';
-    import { CYCLE_META, SPOKE_DESC } from '../lib/cycles/meta';
+    import { CYCLE_META, SPOKE_DESC } from '../lib/cycle/meta';
 
     import DocsModal from './DocsModal.svelte';
 

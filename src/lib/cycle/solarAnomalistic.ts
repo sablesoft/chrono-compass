@@ -1,4 +1,4 @@
-// src/lib/cycles/solarAnomalistic.ts
+// src/lib/cycle/solarAnomalistic.ts
 //
 // Solar Anomalistic wheel — distance-linear spokes.
 //

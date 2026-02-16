@@ -1,4 +1,4 @@
-// src/lib/cycles/meta.ts
+// src/lib/cycle/meta.ts
 import type { CycleKind } from '../stores/cycle';
 import type {SpokeKey} from "../wheel/types";
 
@@ -249,13 +249,6 @@ export const SPOKE_DESC: Record<CycleKind, Record<SpokeKey, string>> = {
 export function getCycleLabel(kind: CycleKind, _locale?: string) {
     // позже тут можно сделать switch по locale / подключить i18n
     return CYCLE_META[kind].label;
-}
-
-export function getCycleTitle(kind: CycleKind) {
-    const m = CYCLE_META[kind];
-    return m.description
-        ? `${m.label} — ${m.description}`
-        : m.label;
 }
 
 export function getCycleOptions(kinds?: CycleKind[]): CycleOption[] {

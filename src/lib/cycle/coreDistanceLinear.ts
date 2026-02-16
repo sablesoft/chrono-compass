@@ -1,4 +1,4 @@
-// src/lib/cycles/distanceLinearCore.ts
+// src/lib/cycle/coreDistanceLinear.ts
 import { ms } from '../format';
 import { type Anchors, SPOKES_ORDER } from '../wheel/spokes';
 import { type SpokeKey } from '../wheel/types';

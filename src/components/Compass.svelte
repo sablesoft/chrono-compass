@@ -32,8 +32,8 @@
 
     import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
 
-    import { compassTargetsToMarkerItems } from '../lib/compass';
-    import type { CompassTargetState } from '../lib/compass';
+    import { compassTargetsToMarkerItems } from '../lib/math/compass';
+    import type { CompassTargetState } from '../lib/math/compass';
     import {norm360} from "../lib/math/helpers";
 
     // ------------------------------------------------------------

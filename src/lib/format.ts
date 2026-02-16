@@ -30,11 +30,6 @@ export function formatDateTime(ts: number) {
     return `${pad2(day)}.${pad2(m)}.${yStr}, ${pad2(hh)}:${pad2(mm)}`;
 }
 
-export function formatCoords(lat: number, lon: number) {
-    const f = (x: number) => x.toFixed(5);
-    return `${f(lat)}, ${f(lon)}`;
-}
-
 export function ms(x: number) {
     if (!Number.isFinite(x)) return Date.now();
     const t = Math.trunc(x);
