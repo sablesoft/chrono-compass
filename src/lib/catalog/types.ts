@@ -45,6 +45,7 @@ export type BindWheelMeta = {
         epsMs?: number;
         monoEps?: number;
     };
+    sanity?: { maxCycleMs?: number; maxProbeLagMs?: number };
 };
 
 // если потом добавишь другие — допишешь ветки

@@ -98,6 +98,54 @@
     let localLiveTimer: ReturnType<typeof setInterval> | null = null;
     let localAlignTimer: ReturnType<typeof setTimeout> | null = null;
 
+    function fmtOrDash(ts0: number) {
+        return Number.isFinite(ts0) ? formatDateTime(ts0) : '—';
+    }
+
+    // “календарная” длительность: годы/месяцы/дни/часы/минуты
+    // (без секунд; если меньше единицы — пропускаем; если всё ноль — "0 minutes")
+    function formatDurationHuman(ms0: number) {
+        if (!Number.isFinite(ms0) || ms0 <= 0) return '—';
+
+        const totalMinutes = Math.floor(ms0 / 60_000);
+        if (totalMinutes <= 0) return '0 minutes';
+
+        // Разложим в “приближённые” календарные единицы:
+        // 1 month = 30 days (для UI вполне ок), 1 year = 365 days
+        let minutes = totalMinutes;
+
+        const MIN_PER_HOUR = 60;
+        const MIN_PER_DAY = 24 * MIN_PER_HOUR;
+        const MIN_PER_MONTH = 30 * MIN_PER_DAY;
+        const MIN_PER_YEAR = 365 * MIN_PER_DAY;
+
+        const years = Math.floor(minutes / MIN_PER_YEAR); minutes -= years * MIN_PER_YEAR;
+        const months = Math.floor(minutes / MIN_PER_MONTH); minutes -= months * MIN_PER_MONTH;
+        const days = Math.floor(minutes / MIN_PER_DAY); minutes -= days * MIN_PER_DAY;
+        const hours = Math.floor(minutes / MIN_PER_HOUR); minutes -= hours * MIN_PER_HOUR;
+        const mins = minutes;
+
+        const parts: string[] = [];
+        if (years) parts.push(`${years}y`);
+        if (months) parts.push(`${months}mo`);
+        if (days) parts.push(`${days}d`);
+        if (hours) parts.push(`${hours}h`);
+        if (mins) parts.push(`${mins}m`);
+
+        // правило “если меньше года — не выводить годы…” уже соблюдается,
+        // потому что years будет 0 и не попадёт в parts, и т.д.
+        return parts.length ? parts.join(' ') : '0m';
+    }
+
+    $: cycleBeginTs = spokeTimes?.[0];
+    $: cycleEndTs = spokeTimes?.[16];
+    $: cycleDurationMs =
+        Number.isFinite(cycleBeginTs) && Number.isFinite(cycleEndTs) && cycleEndTs > cycleBeginTs
+            ? (cycleEndTs - cycleBeginTs)
+            : NaN;
+
+    $: cycleDurationHuman = formatDurationHuman(cycleDurationMs);
+
     function clearLocalLiveTimers() {
         if (localAlignTimer) { clearTimeout(localAlignTimer); localAlignTimer = null; }
         if (localLiveTimer) { clearInterval(localLiveTimer); localLiveTimer = null; }
@@ -792,20 +840,72 @@
     <div class="info">
         <div class="infoRow">
             <button
-                    class="jump"
+                    class="infoLine"
                     type="button"
                     title={solveOk ? `Go to ${activeSpokeCode}` : solveReason || 'Solve failed'}
                     disabled={!solveOk}
                     on:click={() => {
-          const t = spokeTimes?.[activeSpokeIndex];
-          if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
-        }}
-            >
-                <strong class="k">Spoke:</strong>
-                <span class="dt">{activeSpokeCode}</span>
-                <span class="sep">—</span>
-                <span class="desc">{solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}</span>
+                      const t = spokeTimes?.[activeSpokeIndex];
+                      if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
+                    }}>
+                <div class="infoLabel">
+                    <span class="labelText">Spoke</span>
+                    <span class="chip">{activeSpokeCode}</span>
+                </div>
+                <div class="infoValue">{solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}</div>
             </button>
+        </div>
+        <div class="infoRow">
+            <div
+                    class="infoLine"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Go to Begin (E)"
+                    class:disabledLine={!solveOk}
+                    on:click={() => Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin')}
+                    on:keydown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
+                        e.preventDefault();
+                        Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin');
+                      }
+                    }}>
+                <div class="infoLabel">
+                    <span class="labelText">Begin</span>
+                    <span class="chip">E</span>
+                </div>
+                <div class="infoValue">{solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data')}</div>
+            </div>
+        </div>
+
+        <div class="infoRow">
+            <div
+                    class="infoLine"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Go to End (E+)"
+                    class:disabledLine={!solveOk}
+                    on:click={() => Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd')}
+                    on:keydown={(e) => {
+                      if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
+                        e.preventDefault();
+                        Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd');
+                      }
+                    }}>
+                <div class="infoLabel">
+                    <span class="labelText">End</span>
+                    <span class="chip">E+</span>
+                </div>
+                <div class="infoValue">{solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data')}</div>
+            </div>
+        </div>
+
+        <div class="infoRow">
+            <div class="infoLine staticLine">
+                <div class="infoLabel">
+                    <span class="labelText">Duration</span>
+                </div>
+                <div class="infoValue">{solveOk ? cycleDurationHuman : '—'}</div>
+            </div>
         </div>
 
         {#if isHorizon}
@@ -881,15 +981,6 @@
     }
 
     .left { display: grid; gap: 10px; min-width: 0; }
-    .title {
-        font-size: 24px;
-        font-weight: 650;
-        opacity: 0.95;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
     .right { display: flex; gap: 10px; align-items: center; }
 
     .navBtn {
@@ -1004,44 +1095,6 @@
         background: color-mix(in oklab, var(--panel), var(--fg) 2%);
         box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg), transparent 90%);
     }
-
-    .jump {
-        display: grid;
-        grid-template-columns: 64px auto 18px 1fr;
-        align-items: center;
-        gap: 6px;
-
-        width: 100%;
-        min-width: 0;
-
-        background: transparent;
-        border: 0;
-        padding: 0;
-        border-radius: 8px;
-
-        text-align: left;
-        font: inherit;
-        color: inherit;
-
-        cursor: pointer;
-    }
-    .jump:hover { background: color-mix(in oklab, var(--fg), transparent 92%); }
-    .jump:disabled { opacity: 0.55; cursor: default; }
-    .jump:disabled:hover { background: transparent; }
-
-    .k { text-align: right; opacity: 0.85; }
-    .dt { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: 0.95; font-weight: 900; }
-    .sep { opacity: 0.65; }
-
-    .desc {
-        opacity: 0.6;
-        font-weight: 700;
-        min-width: 0;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
     .rowFill{
         min-width: 0;
         width: 100%;
@@ -1059,5 +1112,57 @@
         background: transparent !important;
         border: 0 !important;
         box-shadow: none !important;
+    }
+    .infoLine{
+        display: grid;
+        grid-template-columns: 130px 1fr; /* ← фиксируешь “левую” колонку */
+        align-items: center;
+        gap: 10px;
+        padding: 4px 8px;
+        background: transparent;
+        border: none;
+    }
+
+    .infoLine:not(.staticLine){
+        cursor: pointer;
+    }
+
+    .infoLine:not(.staticLine):hover{
+        background: rgba(255,255,255,0.05);
+    }
+
+    .disabledLine{
+        opacity: 0.55;
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .infoLabel{
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .labelText{
+        font-weight: 700;
+        opacity: 0.9;
+    }
+
+    .chip{
+        font-weight: 700;
+        font-size: 0.85em;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.08);
+        opacity: 0.85;
+    }
+
+    .infoValue{
+        text-align: right;        /* ← чтобы даты ровно по правому краю */
+        font-variant-numeric: tabular-nums; /* ← ровные цифры, сильный win */
+        opacity: 0.9;
+        min-width: 0;
     }
 </style>

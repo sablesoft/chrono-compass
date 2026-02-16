@@ -7,10 +7,10 @@ import { Mercury } from './mercury';
 import { Venus } from './venus';
 import { Mars } from './mars';
 import { Jupiter } from './jupiter';
-import { Neptune } from './neptune';
-import { Pluto } from './pluto';
 import { Saturn } from './saturn';
 import { Uranus } from './uranus';
+import { Neptune } from './neptune';
+import { Pluto } from './pluto';
 
 export const bodies: Partial<Record<BodyId, Body>> = {
     [Sun.id]: Sun,
