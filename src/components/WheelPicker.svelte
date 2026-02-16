@@ -19,8 +19,8 @@
     const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
     const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 
-    // список типов (как строки)
-    const ALL_TYPES = Object.keys(wheels);
+    const ALL_TYPES = (Object.keys(wheels) as WheelType[])
+        .filter((t) => wheels[t].ready === true);
 
     export let onUserActivity: () => void = () => {};
 
@@ -461,21 +461,22 @@
         transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
 
-    .panel:hover:not(.open) {
-        transform: translateY(-2px);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
+    /* КОГДА ПИКЕР ЗАКРЫТ — делаем его “как карточка”, и центрируем плюс */
+    .panel:not(.open) {
+        min-height: clamp(420px, 40vw, 620px);
+        display: grid;
+        place-items: center;
     }
 
-    .panel:focus-visible {
-        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
-        outline-offset: 4px;
+    /* КОГДА ОТКРЫТ — возвращаем нормальную “формовую” раскладку */
+    .panel.open {
+        display: block;
+        cursor: default;
     }
 
     .plusWrap {
         width: 100%;
         height: 100%;
-        min-height: 220px;
         display: grid;
         place-items: center;
     }
@@ -489,6 +490,17 @@
         place-items: center;
         transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
         background: color-mix(in oklab, var(--btn-bg), transparent 40%);
+    }
+
+    .panel:hover:not(.open) {
+        transform: translateY(-2px);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
+    }
+
+    .panel:focus-visible {
+        outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
+        outline-offset: 4px;
     }
 
     .panel:hover .plusCircle {

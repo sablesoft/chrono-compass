@@ -322,7 +322,7 @@ Channel Wheels могут быть **центральными** или **аце�
 - focus
 - target
 
-→ [bind-wheel.md](bind-wheel.md)
+→ [bind.md](bind.md)
 
 *Примеры:*  
 `Sun Bind: Earth`  

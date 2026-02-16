@@ -41,6 +41,7 @@
         getPersistentCycle,
         putPersistentCycle
     } from '../lib/cycle/store';
+    import {typeLabel} from "../lib/wheel/control";
 
     // ------------------------------------------------------------
     // Props (NEW contract: Board passes wheel + location)
@@ -54,9 +55,9 @@
 
     // docs (per wheel type)
     const docs = useDocs(
-        () => `cycles/${wheel?.wheelType}.md`,
+        () => `concept/${wheel?.wheelType}.md`,
         {
-            getTitle: () => (wheel?.title?.trim?.() ? wheel.title : `Cycle: ${wheel?.wheelType}`),
+            getTitle: () => typeLabel(wheel?.wheelType) + ' Wheel',
             dbg,
             tag: () => String(wheel?.wheelType ?? 'cycle')
         }

@@ -312,7 +312,7 @@ Orbital binding cycles describing the changing distance between a target body an
   - focus
   - target
 
-  → [bind-wheel.md](bind-wheel.md)
+  → [bind.md](bind.md)
 
   *Examples:*  
   `Sun Bind: Earth`  

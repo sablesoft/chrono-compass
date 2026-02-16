@@ -2,6 +2,7 @@ import type { WheelSpec } from '../types';
 
 export const compass = {
     type: 'compass',
+    ready: true,
     multiTarget: true,
     requiredRoles: ['looker', 'target'],
     roles: [

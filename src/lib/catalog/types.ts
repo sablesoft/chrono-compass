@@ -52,6 +52,7 @@ export type RequiredRoles<RS> = readonly (keyof RS & RoleName)[];
 
 type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     type: TType;
+    ready?: boolean;
     roles: RoleCombo<RS, TType>[];
     requiredRoles: RequiredRoles<RS>;
 } & (MT extends true ? { multiTarget: true } : {});
