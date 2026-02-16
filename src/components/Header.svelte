@@ -12,7 +12,15 @@
     import CollectionControl from "./CollectionControl.svelte";
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
 
-    $: cycleItems = getCycleOptions().map(o => ({
+    $: cycleItems = getCycleOptions([
+        'diurnal',
+        'lunarSynodic',
+        // 'lunarAnomalistic',
+        'lunarDraconic',
+        'solarTropical',
+        // 'solarAnomalistic',
+        'plato'
+    ]).map(o => ({
         value: o.kind,
         label: o.label,
         title: o.title,

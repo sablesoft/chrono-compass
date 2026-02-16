@@ -670,22 +670,8 @@
                         {@const spokeKey = `spoke:${i}`}
                         {@const isActive = i === activeSpokeIndex}
 
-                        <g
-                                class="spoke"
-                                role="button"
-                                tabindex="0"
-                                aria-label={`Spoke ${label}`}
-                                on:click={(e) => tip.openMomentNow(e, spokeTip)}
-                                on:dblclick={() => handleSpokeActivate(i)}
-                                on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
-                                on:mouseleave={() => tip.hoverLeave(spokeKey)}
-                                on:keydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleSpokeActivate(i);
-                }
-              }}
-                        >
+                        <!-- теперь это просто контейнер/рисунок, НЕ кнопка -->
+                        <g class="spoke" style="pointer-events: none;">
                             <line
                                     x1={p1.x} y1={p1.y}
                                     x2={p2.x} y2={p2.y}
@@ -695,27 +681,45 @@
                                     stroke-linecap="round"
                             />
 
-                            <circle
-                                    cx={pt.x}
-                                    cy={pt.y}
-                                    r={VB * 0.046}
-                                    fill="transparent"
-                                    stroke="currentColor"
-                                    class="spokeHalo"
-                                    class:activeHalo={isActive}
-                            />
+                            <!-- интерактив только тут -->
+                            <g
+                                    class="spokeHit"
+                                    style="pointer-events: all;"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label={`Spoke ${label}`}
+                                    on:click={(e) => tip.openMomentNow(e, spokeTip)}
+                                    on:dblclick={() => handleSpokeActivate(i)}
+                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
+                                    on:mouseleave={() => tip.hoverLeave(spokeKey)}
+                                    on:keydown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          handleSpokeActivate(i);
+                                        }
+                                      }}>
+                                <circle
+                                        cx={pt.x}
+                                        cy={pt.y}
+                                        r={VB * 0.046}
+                                        fill="transparent"
+                                        stroke="currentColor"
+                                        class="spokeHalo"
+                                        class:activeHalo={isActive}
+                                />
 
-                            <text
-                                    class="spokeLabel"
-                                    x={pt.x} y={pt.y}
-                                    text-anchor="middle"
-                                    dominant-baseline="middle"
-                                    font-size={VB * 0.035}
-                                    fill="currentColor"
-                                    fill-opacity={isActive ? 1 : 0.65}
-                            >
-                                {label}
-                            </text>
+                                <text
+                                        class="spokeLabel"
+                                        x={pt.x} y={pt.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                        font-size={VB * 0.035}
+                                        fill="currentColor"
+                                        fill-opacity={isActive ? 1 : 0.65}
+                                >
+                                    {label}
+                                </text>
+                            </g>
 
                             {#if i === 0}
                                 {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
@@ -724,32 +728,32 @@
                                 {@const ePlusKey = 'spoke:16'}
                                 {@const ePlusActive = activeSpokeIndex === 16}
 
+                                <!-- E+ отдельная интерактивная зона; родитель не ловит hover, потому что pointer-events:none -->
                                 <g
-                                        class="eplus"
+                                        class="eplus spokeHit"
+                                        style="pointer-events: all;"
                                         role="button"
                                         tabindex="0"
                                         aria-label="Spoke E+"
-                                        on:click|stopPropagation={(e) => tip.openMomentNow(e, ePlusTip)}
-                                        on:dblclick|stopPropagation={() => handleSpokeActivate(16)}
+                                        on:click={(e) => tip.openMomentNow(e, ePlusTip)}
+                                        on:dblclick={() => handleSpokeActivate(16)}
                                         on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
                                         on:mouseleave={() => tip.hoverLeave(ePlusKey)}
-                                        on:keydown|stopPropagation={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleSpokeActivate(16);
-                    }
-                  }}
-                                >
-                                    <circle
+                                        on:keydown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleSpokeActivate(16);
+                                          }
+                                        }}>
+                                    <circle class="spokeHalo"
                                             cx={pt2.x}
                                             cy={pt2.y}
-                                            r={VB * 0.046}
+                                            r={VB * 0.034}
                                             fill="transparent"
                                             stroke="currentColor"
                                             stroke-opacity={ePlusActive ? 0.55 : 0.25}
                                             stroke-width={ePlusActive ? 3 : 2}
                                     />
-
                                     <text
                                             class="spokeLabel eplusLabel"
                                             x={pt2.x} y={pt2.y}
@@ -764,6 +768,7 @@
                                 </g>
                             {/if}
 
+                            <!-- это тоже теперь не интерактивно -->
                             <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
                         </g>
                     {/each}
@@ -1035,16 +1040,10 @@
     }
     .tick:hover .tickLine { stroke-opacity: 0.75; }
 
-    .spoke { cursor: pointer; user-select: none; }
-
     .spokeLabel {
         pointer-events: auto;
         cursor: pointer;
         transition: fill-opacity 120ms ease, font-weight 120ms ease;
-    }
-    .spoke:hover .spokeLabel {
-        fill-opacity: 1;
-        font-weight: 800;
     }
 
     /* Compass-like halos */
@@ -1059,10 +1058,18 @@
         stroke-width: 4.5;
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }
-    .spoke:hover .spokeHalo {
+    .spoke { user-select: none; cursor: default; }
+
+    /* hover только по зоне клика */
+    .spokeHit:hover .spokeLabel { fill-opacity: 1; font-weight: 800; }
+    .spokeHit:hover .spokeHalo  {
         stroke-opacity: 0.9;
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }
+
+    /* Курсор должен быть на элементе, который реально "ховерится" */
+    .spokeHit .spokeHalo { cursor: pointer; pointer-events: all; }
+    .spokeHit .spokeLabel { cursor: pointer; pointer-events: none; } /* чтобы текст не перехватывал */
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
