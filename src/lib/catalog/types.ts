@@ -34,18 +34,7 @@ export type WheelType =
     | 'plato';
 
 export type BindWheelMeta = {
-    extrema?: {
-        windowMs?: number;
-        stepMs?: number;
-        maxWindowMs?: number;
-        refineIters?: number;
-    };
-    solve?: {
-        maxIters?: number;
-        epsMs?: number;
-        monoEps?: number;
-    };
-    sanity?: { maxCycleMs?: number; maxProbeLagMs?: number };
+    cycleDuration?: number;
 };
 
 // если потом добавишь другие — допишешь ветки
