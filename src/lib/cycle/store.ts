@@ -5,6 +5,9 @@ import type { CycleSolveResult, CycleSpoke, WheelSolveResult } from '../board/ru
 import { ms } from '../format';
 import { CYCLE_PERSIST_EXCLUDED_TYPES, type CycleData, type CycleKey } from './types';
 
+// TEMP: global switch for persistent IndexedDB cache
+export const ENABLE_CYCLE_IDB = false;
+
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
 
@@ -338,10 +341,12 @@ export function clearLocalCycle(wheelId: string): void {
    ============================================================ */
 
 export async function getPersistentCycle(key: CycleKey, ts: number): Promise<CycleData | null> {
+    if (!ENABLE_CYCLE_IDB) return null;
     return await idbGetCycleForTs(key, ts);
 }
 
 export async function putPersistentCycle(cycle: CycleData): Promise<void> {
+    if (!ENABLE_CYCLE_IDB) return;
     await idbPutCycle(cycle);
 }
 

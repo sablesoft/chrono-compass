@@ -6,7 +6,7 @@
     import { boardApi } from '../lib/board/store';
     import { makeWheelId } from '../lib/wheel/id';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
-    import { defaultTitle, typeLabel } from '../lib/wheel/control';
+    import { formatWheelSpec, typeLabel } from '../lib/wheel/control';
     import {debug} from "../lib/debug";
     const dbg = debug('wheel', '?');
 
@@ -98,6 +98,20 @@
         rebuild();
     }
 
+    function resetRolesOnly() {
+        onUserActivity();
+        if (!spec || !type) return;
+
+        // сброс значений ролей, но type/spec оставляем
+        values = { looker: null, focus: null, target: [] };
+        draftTitle = '';
+
+        // важно: сначала очистить selects (опционально), потом rebuild()
+        selects = { looker: [], focus: [], target: [] };
+
+        rebuild();
+    }
+
     function rebuild() {
         if (!spec) return;
         const out = filteredRoles(spec, values);
@@ -127,7 +141,7 @@
 
         onUserActivity();
 
-        const nextTitle = (draftTitle ?? '').trim() || defaultTitle(type as any, values as any);
+        const nextTitle = (draftTitle ?? '').trim() || formatWheelSpec(type as any, values as any);
 
         boardApi.upsertWheel(
             { mode: 'upsertByKey' },
@@ -168,7 +182,7 @@
 
     let titlePlaceholder = '';
     $: titlePlaceholder = type && spec
-        ? defaultTitle(type, values as any)
+        ? formatWheelSpec(type, values as any)
         : '';
 
     // optional: если нужно закрывать по Escape глобально
@@ -301,6 +315,15 @@
 
                 <footer class="bottom">
                     <button type="button" class="btn ghost" on:click={closeForm}>Cancel</button>
+                    <button
+                            type="button"
+                            class="btn ghost"
+                            on:click={resetRolesOnly}
+                            disabled={!type}
+                            title="Reset roles (keep type)"
+                    >
+                        Reset
+                    </button>
                     <button type="button" class="btn primary" on:click={addWheel} disabled={!canAddNow}>Add</button>
                 </footer>
             {/if}

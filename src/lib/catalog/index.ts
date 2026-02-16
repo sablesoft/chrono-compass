@@ -11,7 +11,9 @@ export function filteredRoles(
     values: RoleValues
 ): { selects: RoleSelects; values: RoleValues } {
 
-    const used = spec.requiredRoles;
+    // роли, которые хотим показывать/строить всегда
+    const rolesToBuild: RoleName[] = ['looker', 'focus', 'target'];
+
     const multiTarget = (spec as any).multiTarget === true;
 
     const selects: RoleSelects = {
@@ -20,57 +22,67 @@ export function filteredRoles(
         target: []
     };
 
-    for (const rs of spec.roles) {
+    // helper: проверить совпадение одного roleSpec с текущими values
+    function matchesRoleSpec(rs: any): boolean {
+        for (const role of rolesToBuild) {
+            const v = (values as any)[role];
 
-        let match = true;
+            // пустое значение не ограничивает
+            if (role === 'target') {
+                const arr = Array.isArray(v) ? (v as BodyId[]) : (v ? [v as BodyId] : []);
+                if (arr.length === 0) continue;
 
-        for (const role of used) {
-            const v = values[role];
+                const allowed = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
 
-            if (!v || (Array.isArray(v) && v.length === 0)) continue;
-
-            const allowed =
-                (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
-
-            if (role === 'target' && multiTarget) {
-                const arr = v as BodyId[];
-                if (!arr.every(id => allowed.includes(id))) {
-                    match = false;
-                    break;
+                if (multiTarget) {
+                    // все выбранные должны быть разрешены
+                    if (!arr.every(id => allowed.includes(id))) return false;
+                } else {
+                    // single-target: берём первый
+                    if (!allowed.includes(arr[0])) return false;
                 }
             } else {
-                if (!allowed.includes(v as BodyId)) {
-                    match = false;
-                    break;
-                }
+                if (!v) continue;
+                const allowed = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
+                if (!allowed.includes(v as BodyId)) return false;
             }
         }
+        return true;
+    }
 
-        if (!match) continue;
+    // 1) отбираем подходящие roleSpecs
+    const matched = spec.roles.filter(matchesRoleSpec);
 
-        for (const role of used) {
-            const arr =
-                (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
+    // Если вдруг получилось 0 матчей (несовместимая комбинация) —
+    // не роняем UI: показываем полный набор опций по спеке.
+    const rows = matched.length ? matched : spec.roles;
 
+    // 2) строим selects как union всех allowed значений по rows
+    for (const rs of rows) {
+        for (const role of rolesToBuild) {
+            const arr = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
             for (const id of arr) {
-                if (!selects[role].includes(id)) {
-                    selects[role].push(id);
-                }
+                if (!selects[role].includes(id)) selects[role].push(id);
             }
         }
     }
 
+    // 3) авто-выбор когда ровно один вариант (опционально)
     const nextValues: RoleValues = { ...values };
 
-    for (const role of used) {
+    // looker/focus
+    for (const role of ['looker', 'focus'] as const) {
         const arr = selects[role];
+        // автосет только если роль не задана и доступен один вариант
+        if (!nextValues[role] && arr.length === 1) {
+            nextValues[role] = arr[0] as any;
+        }
+    }
 
-        if (arr.length === 1) {
-            if (role === 'target') {
-                if (multiTarget) nextValues.target = [arr[0]];
-                else nextValues.target = [arr[0]]; // если у тебя target всегда массив по RoleValues
-            } else if (role === 'looker') nextValues.looker = arr[0];
-            else if (role === 'focus') nextValues.focus = arr[0];
+    // target
+    if (Array.isArray(nextValues.target)) {
+        if (nextValues.target.length === 0 && selects.target.length === 1) {
+            nextValues.target = [selects.target[0]] as any;
         }
     }
 

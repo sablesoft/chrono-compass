@@ -13,7 +13,6 @@
         normalizeRolesForType,
         isCompatible,
         formatWheelSpec,
-        defaultTitle,
         shallowEqualRoles
     } from '../lib/wheel/control';
 
@@ -54,7 +53,7 @@
     let specText = '';
     let titleText = '';
     $: specText = formatWheelSpec(type, roles);
-    $: titleText = title?.trim()?.length ? title.trim() : defaultTitle(type, roles);
+    $: titleText = title?.trim()?.length ? title.trim() : formatWheelSpec(type, roles);
 
     let modalEl: HTMLDivElement | null = null;
     let open = false;
@@ -260,7 +259,7 @@
     function createNew() {
         if (!canNew) return;
 
-        const nextTitle = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
+        const nextTitle = (draftTitle ?? '').trim() || formatWheelSpec(type, effectiveDraftRoles);
         const nextRoles = effectiveDraftRoles;
 
         dbg.log('WheelPicker.new', { type, roles: nextRoles, title: nextTitle });
@@ -333,7 +332,7 @@
             return;
         }
 
-        const t = (draftTitle ?? '').trim() || defaultTitle(type, effectiveDraftRoles);
+        const t = (draftTitle ?? '').trim() || formatWheelSpec(type, effectiveDraftRoles);
         const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles, observer: baseObserver, time: baseTime});
 
         dbg.log('WheelPicker.saved', { id: savedId, title: t });
@@ -426,7 +425,7 @@
                             id={idName}
                             class="inp"
                             type="text"
-                            placeholder={defaultTitle(type, effectiveDraftRoles)}
+                            placeholder={formatWheelSpec(type, effectiveDraftRoles)}
                             bind:value={draftTitle}
                     />
                 </div>
@@ -502,8 +501,6 @@
     }
 
     .wheelCodeBtn {
-        margin-top: 7px;
-        border-top: 1px solid var(--btn-border);
         border-radius: 0;
         background: transparent;
         border-left: 0;
@@ -516,6 +513,8 @@
         cursor: pointer;
         opacity: 0.9;
         transition: opacity 120ms ease, transform 120ms ease;
+        font-size: 16px;
+        border-top: 1px solid var(--btn-border);
     }
     .wheelCodeBtn:hover {
         opacity: 1;

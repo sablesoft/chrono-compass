@@ -1,5 +1,5 @@
 // src/lib/wheel/control.ts
-import type { BodyId, RoleName, WheelSpec } from '../catalog';
+import type {BodyId, RoleName, WheelSpec} from '../catalog';
 
 export type WheelRolesState = Partial<Record<RoleName, BodyId | null | BodyId[]>>;
 
@@ -157,8 +157,7 @@ export function normalizeRolesForType(spec: WheelSpec, roles: WheelRolesState): 
 
         if (r === 'target' && isMultiTarget(spec)) {
             const arr = Array.isArray(v) ? (v as BodyId[]) : [];
-            const filtered = arr.filter(id => opts.includes(id));
-            next[r] = filtered; // может стать []
+            next[r] = arr.filter(id => opts.includes(id)); // может стать []
             continue;
         }
 
@@ -210,27 +209,26 @@ export function formatWheelSpec(type: string, roles: WheelRolesState): string {
     const focus = roles.focus ?? null;
     const target = roles.target ?? null;
 
-    const prefix = looker || focus || null;
+    const L = looker ? formatRoleValue(looker) : null;
+    const F = focus ? formatRoleValue(focus) : null;
+    const T = target ? formatTargetValue(target) : null;
 
-    const rhs = focus
-        ? `${formatRoleValue(focus)}${target ? ` - ${formatTargetValue(target)}` : ''}`
-        : `${formatTargetValue(target)}`;
-
-    return `${formatRoleValue(prefix)} ${t}: ${rhs}`;
-}
-
-export function defaultTitle(type: string, roles: WheelRolesState): string {
-    const t = typeLabel(type);
-    const prefix = roles.looker ?? roles.focus ?? null;
-    return prefix ? `${formatRoleValue(prefix)} ${t}` : t;
-}
-
-export function rolesFingerprint(type: string, roles: WheelRolesState): string {
-    const keys: RoleName[] = ['looker', 'focus', 'target'];
-    const parts = keys
-        .filter(k => roles[k])
-        .map(k => `${k}=${formatRoleValue(roles[k] as any)}`);
-    return `${type}|${parts.join('|')}`;
+    // 1) looker + focus + target
+    if (L && F && T) {
+        return `${L} ${t}: ${F} - ${T}`;
+    }
+    // 2) looker + target
+    if (L && T) {
+        return `${L} ${t}: ${T}`;
+    }
+    // 3) focus + target
+    if (F && T) {
+        return `${F} ${t}: ${T}`;
+    }
+    // fallback (на случай неполной конфигурации)
+    if (L) return `${L} ${t}`;
+    if (F) return `${F} ${t}`;
+    return t;
 }
 
 function equalBodyIdArrays(a: BodyId[] | null, b: BodyId[] | null): boolean {
