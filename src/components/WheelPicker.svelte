@@ -7,7 +7,12 @@
     import { makeWheelId } from '../lib/wheel/id';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { formatWheelSpec, typeLabel } from '../lib/wheel/control';
-    import {debug} from "../lib/debug";
+    import { debug } from '../lib/debug';
+
+    // profiles (saved wheels)
+    import { activeProfile } from '../lib/profile/store';
+    import type { SavedWheel } from '../lib/profile/types';
+
     const dbg = debug('wheel', '?');
 
     const DEFAULT_LOCATION_ID = 'loc:system';
@@ -23,21 +28,52 @@
 
     let required: readonly RoleName[] = [];
 
-    // 1) type изначально пустой
+    // type изначально пустой
     let type: WheelType | null = null;
-
     let spec: WheelSpec | null = null;
 
-    // 3) values
+    // values
     let values: RoleValues = { looker: null, focus: null, target: [] };
 
-    // 4) selects
+    // selects
     let selects: RoleSelects = { looker: [], focus: [], target: [] };
 
     let multiTarget = false;
 
     // title
     let draftTitle = '';
+
+    // -------------------------
+    // Saved wheels (from profile)
+    // -------------------------
+    let savedList: SavedWheel[] = [];
+    $: {
+        const p = $activeProfile;
+        const list = (p?.data?.wheels ?? []).slice();
+
+        list.sort((a, b) => {
+            const af = !!a.favorite;
+            const bf = !!b.favorite;
+            if (af !== bf) return af ? -1 : 1;
+            return (b.updatedAt - a.updatedAt);
+        });
+
+        savedList = list;
+    }
+
+    let pickedSavedId = '';
+
+    function savedLabel(w: SavedWheel): string {
+        const t = (w.type ?? '') as string;
+        const title = (w.title ?? '').trim();
+        const specText = (() => {
+            try { return formatWheelSpec(w.type as any, w.roles as any); }
+            catch { return t ? typeLabel(t) : '(unknown)'; }
+        })();
+
+        const head = w.favorite ? '★ ' : '';
+        return head + (title.length ? title : specText);
+    }
 
     function bodyLabel(id: BodyId): string {
         const b = (bodies as any)[id];
@@ -58,7 +94,7 @@
     function openForm() {
         onUserActivity();
         open = true;
-        // ничего не выбираем за пользователя: пусть сперва выберет type
+        // ничего не выбираем за пользователя: может выбрать Saved сразу
     }
 
     function closeForm() {
@@ -68,6 +104,7 @@
     }
 
     function resetAll() {
+        pickedSavedId = '';
         type = null;
         spec = null;
         values = { looker: null, focus: null, target: [] };
@@ -77,16 +114,30 @@
         draftTitle = '';
     }
 
+    function isWheelType(x: string): x is WheelType {
+        return x in wheels;
+    }
+
+    function rebuild() {
+        if (!spec) return;
+        const out = filteredRoles(spec, values);
+        dbg.log('rebuild', { out, spec, values });
+        selects = out.selects;
+        values = out.values;
+    }
+
     function initForType(nextTypeRaw: string) {
         onUserActivity();
 
         const nextType = nextTypeRaw.trim();
         if (!nextType) return;
+        if (!isWheelType(nextType)) return;
 
-        if (!isWheelType(nextType)) return; // защита, если вдруг прилетело не то
+        // manual type change clears "picked saved"
+        pickedSavedId = '';
 
         type = nextType;
-        spec = wheels[type]; // ✅ больше нет "any индексирует WheelsCatalog"
+        spec = wheels[type];
 
         values = { looker: null, focus: null, target: [] };
         selects = { looker: [], focus: [], target: [] };
@@ -98,6 +149,63 @@
         rebuild();
     }
 
+    function applySavedWheel(w: SavedWheel) {
+        onUserActivity();
+
+        const t = String(w.type ?? '');
+        if (!t || !isWheelType(t)) {
+            dbg.warn('WheelPicker.saved: unknown type', { t, w });
+            return;
+        }
+
+        // set type/spec first (but do NOT wipe everything like initForType)
+        type = t;
+        spec = wheels[type];
+        required = spec.requiredRoles ?? [];
+        multiTarget = (spec as any).multiTarget === true;
+
+        // title
+        draftTitle = (w.title ?? '').trim();
+
+        // roles -> RoleValues
+        const r: any = w.roles ?? {};
+        const looker = (r.looker ?? null) as BodyId | null;
+        const focus = (r.focus ?? null) as BodyId | null;
+
+        let targetArr: BodyId[] = [];
+        const rt = r.target;
+
+        if (multiTarget) {
+            targetArr = Array.isArray(rt) ? (rt as BodyId[]).filter(Boolean) : (rt ? [rt as BodyId] : []);
+        } else {
+            // single target wheels: allow both array and scalar in saved data
+            const one = Array.isArray(rt) ? (rt[0] ?? null) : (rt ?? null);
+            targetArr = one ? [one as BodyId] : [];
+        }
+
+        values = { looker, focus, target: targetArr };
+        selects = { looker: [], focus: [], target: [] };
+
+        rebuild();
+    }
+
+    function handlePickSaved(e: Event) {
+        const el = e.currentTarget as HTMLSelectElement | null;
+        const id = el?.value ?? '';
+        pickedSavedId = id;
+
+        if (!id) return;
+
+        const w = savedList.find(x => x.id === id) ?? null;
+        dbg.group('WheelPicker.pickSaved', () => {
+            dbg.log('picked', { profileId: $activeProfile?.id, id, type: w?.type, title: w?.title });
+        });
+
+        if (!w) return;
+
+        applySavedWheel(w);
+    }
+
     function resetRolesOnly() {
         onUserActivity();
         if (!spec || !type) return;
@@ -106,22 +214,17 @@
         values = { looker: null, focus: null, target: [] };
         draftTitle = '';
 
-        // важно: сначала очистить selects (опционально), потом rebuild()
+        // clear saved pick because now it's not the same config anymore
+        pickedSavedId = '';
+
         selects = { looker: [], focus: [], target: [] };
-
         rebuild();
-    }
-
-    function rebuild() {
-        if (!spec) return;
-        const out = filteredRoles(spec, values);
-        dbg.log('rebuild', {out, spec, values});
-        selects = out.selects;
-        values = out.values;
     }
 
     function setSingle(role: 'looker' | 'focus', vRaw: string) {
         onUserActivity();
+
+        pickedSavedId = '';
 
         const v = vRaw || '';
         values = { ...values, [role]: v ? (v as any) : null };
@@ -130,6 +233,8 @@
 
     function setTargets(list: string[]) {
         onUserActivity();
+
+        pickedSavedId = '';
 
         const next = list.filter(Boolean) as any;
         values = { ...values, target: next };
@@ -159,10 +264,6 @@
         resetAll();
     }
 
-    function isWheelType(x: string): x is WheelType {
-        return x in wheels;
-    }
-
     $: hasAll =
         required.every((r) => r === 'target'
             ? values.target.length > 0
@@ -184,9 +285,6 @@
     $: titlePlaceholder = type && spec
         ? formatWheelSpec(type, values as any)
         : '';
-
-    // optional: если нужно закрывать по Escape глобально
-    // onMount note: ты не просил, но оставляю как в других местах
 </script>
 
 <section
@@ -226,7 +324,20 @@
         </header>
 
         <div class="form" on:click|stopPropagation>
-            <!-- 2) пока type не выбран — показываем только селект типов -->
+            <!-- NEW: Saved selector (before Type) -->
+            <div class="row">
+                <label class="lbl">Saved</label>
+                <select class="sel" bind:value={pickedSavedId} on:change={handlePickSaved} disabled={savedList.length === 0}>
+                    <option value="">{savedList.length === 0 ? '— (empty)' : '—'}</option>
+                    {#each savedList as w (w.id)}
+                        <option value={w.id}>
+                            {savedLabel(w)}
+                        </option>
+                    {/each}
+                </select>
+            </div>
+
+            <!-- Type selector -->
             <div class="row">
                 <label class="lbl">Type</label>
                 <select class="sel" bind:value={type} on:change={(e) => initForType(selectValue(e))}>
@@ -240,10 +351,12 @@
             {#if type && spec}
                 <div class="row">
                     <label class="lbl">Name</label>
-                    <input class="inp"
+                    <input
+                            class="inp"
                             type="text"
                             placeholder={titlePlaceholder}
                             bind:value={draftTitle}
+                            on:input={() => { pickedSavedId = ''; }}
                     />
                 </div>
 
@@ -313,6 +426,10 @@
                     </div>
                 {/if}
 
+                {#if existsOnBoard}
+                    <div class="existsNote">⚠ This wheel already exists on board.</div>
+                {/if}
+
                 <footer class="bottom">
                     <button type="button" class="btn ghost" on:click={closeForm}>Cancel</button>
                     <button
@@ -339,7 +456,7 @@
         border-radius: 18px;
         padding: 14px;
         overflow: hidden;
-        min-height: 220px; /* helps it look like a real card even when empty */
+        min-height: 220px;
         cursor: pointer;
         transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
@@ -388,7 +505,6 @@
         transform: translateY(-2px);
     }
 
-    /* Expanded state layout */
     .top {
         display: flex;
         align-items: flex-start;
@@ -478,15 +594,6 @@
     .selMulti {
         min-height: 120px;
         padding: 8px 10px;
-    }
-
-    .warn {
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 55%);
-        background: color-mix(in oklab, var(--accent-gold), transparent 88%);
-        font-weight: 700;
-        opacity: 0.9;
     }
 
     .existsNote {

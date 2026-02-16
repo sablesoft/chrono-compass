@@ -190,7 +190,11 @@
     /* button internals (buttonClass controls the outer look) */
     .db-label { opacity: .92; }
     .db-summary { opacity: .7; font-weight: 650; margin-left: 8px; }
-    .db-caret { opacity: .65; margin-left: 10px; font-size: 12px; }
+    .db-caret {
+        opacity: .65;
+        margin-left: 10px;
+        font-size: 28px;
+    }
 
     /* dropdown itself — always component-owned */
     .db-menu{

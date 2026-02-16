@@ -71,7 +71,7 @@
     </div>
     <div class="slot cycles">
         <DropdownButton
-                label="Cycles:"
+                label="Legacy Cycles"
                 items={cycleItems}
                 value={$cycles}
                 onChange={handleCyclesChange}
@@ -132,8 +132,14 @@
         font-weight: 850;
         opacity: .95;
     }
-    .slot.cycles { display:flex; align-items:center; }
-    .slot.cycles { display:flex; align-items:stretch; }
+    .slot.cycles {
+        display:flex;
+        align-items:stretch;
+    }
+    .slot.cycles :global(button) {
+        border-radius: 18px;
+        padding: 0 12px 6px;
+    }
 
     .actions{ margin-left:auto; display:flex; gap:10px; align-items:center; }
 </style>
