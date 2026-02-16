@@ -1,4 +1,7 @@
 // src/lib/math/helpers.ts
+
+export const DAY_MS = 86_400_000;
+
 export function isFiniteNumber(x: unknown): x is number {
     return typeof x === 'number' && Number.isFinite(x);
 }

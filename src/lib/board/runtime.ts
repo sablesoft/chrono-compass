@@ -1,7 +1,8 @@
 // src/lib/board/runtime.ts
 import type { BodyId } from '../catalog';
 import type { Location } from '../location/types';
-import type {SpokeKey} from "../wheel/types";
+import type { SpokeKey } from "../wheel/types";
+import type { WheelType, WheelMeta } from '../catalog';
 
 // Входные роли (target обязателен всегда)
 export type WheelRolesInput = {
@@ -17,11 +18,18 @@ export type WheelRuntimeContext = {
     dbg?: { log?: (...a:any[])=>void; warn?: (...a:any[])=>void; error?: (...a:any[])=>void };
 };
 
-// Унифицированный “input в алгоритм”
-export type WheelInput = WheelRolesInput & WheelRuntimeContext;
+// Вариант “слабый” (быстро): meta:any
+// export type WheelInput = WheelRolesInput & WheelRuntimeContext & { meta?: any };
 
-// ====== Выходы ======
+// Вариант “нормальный”: meta типизирован по wheelType (но wheelType должен быть в input)
+export type WheelInput<TType extends WheelType = WheelType> =
+    WheelRolesInput &
+    WheelRuntimeContext & {
+    wheelType: TType;
+    meta?: WheelMeta<TType>;
+};
 
+// ====== outputs (без изменений) ======
 export type CycleSpoke<TMeta = any> = {
     ts: number;
     code: SpokeKey;

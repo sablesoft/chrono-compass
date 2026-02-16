@@ -2,31 +2,26 @@
 //
 // Unified Bind wheel solver (distance-linear) for focus ∈ {Sun, Earth}.
 // - Uses a generic extrema finder (no target-specific switches).
-// - Builds a cycle window around input.ts using the “boundary probe” algorithm:
-//   1) NProbe = ближайший MAX после ts
-//   2) SProbe = ближайший MIN перед NProbe
-//   3) boundary = момент mid-distance на дуге SProbe -> NProbe (increasing)
-//   4) if ts < boundary: boundary is E_next (end of current cycle) => S=SProbe, N_next=NProbe, then find N (prev max before S) and S_before (prev min before N)
-//      else: boundary is E (start of current cycle) => N=NProbe, S_before=SProbe, then find S (next min after N) and N_next (next max after S)
-//   5) Build 17 spokes (0..16): E..E_next with anchors:
-//      0(E), 4(N), 8(W), 12(S), 16(E_next)
+// - Builds a cycle window around input.ts using the “boundary probe” algorithm.
 //
 // Distances are computed in AU (meta.distanceAu) and also km (meta.distanceKm) for convenience.
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
-import type { BodyId } from '../catalog';
+import type { BodyId, BindWheelMeta } from '../catalog';
 import { SPOKES_ORDER } from '../wheel/spokes';
 
 import { findExtremumInDirection, type FindExtremaOpts } from './extrema';
 import { vectorLengthSafe } from './vector';
-import { isFiniteNumber } from './helpers';
+import {DAY_MS, isFiniteNumber} from './helpers';
 
-const DAY_MS = 86_400_000;
 const AU_KM = 149_597_870.7;
 
+// A hard guard so we don't accidentally build "cycles" lasting months for fast systems.
+// For Earth–Moon, anything > ~60 days is almost certainly a wrong extremum pick.
+const DEFAULT_MAX_CYCLE_SPAN_MS = 120 * DAY_MS;
+
 export type BindMeta = {
-    // distance focus-target at this spoke
     distanceAu: number;
     distanceKm: number;
 };
@@ -41,7 +36,7 @@ function fmt(ts: number) {
     return Number.isFinite(ts) ? new Date(ts).toISOString() : String(ts);
 }
 
-// --- Position / distance providers (the only "branch" we allow, by focus model) ---
+// --- Position / distance providers ---
 
 function distanceAu_SunFocus(target: BodyId, ts: number): number {
     const A: any = Astronomy as any;
@@ -101,7 +96,6 @@ function distanceAu_EarthFocus(target: BodyId, ts: number): number {
 type SolveOpts = {
     maxIters?: number;
     epsMs?: number;
-    // tiny slack so we don't fail on floating noise
     monoEps?: number;
     dbg?: { log?: (...a: any[]) => void; warn?: (...a: any[]) => void };
 };
@@ -155,21 +149,11 @@ function solveTimeForDistance(
         if (Math.abs(b - a) <= epsMs) return mid;
 
         if (increasing) {
-            if (rm < targetR) {
-                a = mid;
-                ra = rm;
-            } else {
-                b = mid;
-                rb = rm;
-            }
+            if (rm < targetR) { a = mid; ra = rm; }
+            else { b = mid; rb = rm; }
         } else {
-            if (rm > targetR) {
-                a = mid;
-                ra = rm;
-            } else {
-                b = mid;
-                rb = rm;
-            }
+            if (rm > targetR) { a = mid; ra = rm; }
+            else { b = mid; rb = rm; }
         }
     }
 
@@ -178,7 +162,7 @@ function solveTimeForDistance(
 
 // --- Main wheel solver ---
 
-export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
+export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<BindMeta> {
     const dbg = input.dbg;
 
     const fail = (reason: string): CycleSolveResult<BindMeta> => ({
@@ -216,20 +200,30 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
         return fail(`Bind wheel: cannot compute distance for focus=${String(focus)} target=${String(target)}`);
     }
 
+    // ---- Meta overrides (per role-combo) ----
+    const meta = (input.meta ?? {}) as BindWheelMeta;
+
+    const extremaMeta = meta.extrema ?? {};
+    const solveMeta = meta.solve ?? {};
+
     const extremaOpts: FindExtremaOpts = {
-        windowMs: 180 * DAY_MS,
-        stepMs: 12 * 3_600_000, // 12h
-        maxWindowMs: 6000 * DAY_MS,
-        refineIters: 30,
+        windowMs: extremaMeta.windowMs ?? 180 * DAY_MS,
+        stepMs: extremaMeta.stepMs ?? 12 * 3_600_000,
+        maxWindowMs: extremaMeta.maxWindowMs ?? 6000 * DAY_MS,
+        refineIters: extremaMeta.refineIters ?? 30,
         dbg: { log: dbg?.log, warn: dbg?.warn ?? dbg?.log },
     };
 
     const SOLVE: SolveOpts = {
-        maxIters: 70,
-        epsMs: 500,
-        monoEps: 1e-12,
+        maxIters: solveMeta.maxIters ?? 70,
+        epsMs: solveMeta.epsMs ?? 500,
+        monoEps: solveMeta.monoEps ?? 1e-12,
         dbg: { log: dbg?.log, warn: dbg?.warn ?? dbg?.log },
     };
+
+    const maxCycleSpanMs =
+        (meta as any)?.maxCycleSpanMs ??
+        (focus === 'Earth' && target === 'Moon' ? 60 * DAY_MS : DEFAULT_MAX_CYCLE_SPAN_MS);
 
     function solveOn(t0: number, t1: number, increasing: boolean, targetR: number): number {
         const solved = solveTimeForDistance(distanceAtAu, t0, t1, targetR, increasing, SOLVE);
@@ -249,20 +243,55 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
             meta: {
                 distanceAu: rAu,
                 distanceKm: rAu * AU_KM,
-            } satisfies BindMeta,
+            },
         };
     }
 
     // ------------------------------------------------------------
-    // Boundary-probe algorithm (your steps)
+    // Boundary-probe algorithm
     // ------------------------------------------------------------
 
+    // A small helper to avoid "jumping seasons" for fast systems:
+    // if the found extremum is absurdly far, retry with a tighter window centered closer.
+    function guardedExtremum(
+        tStart: number,
+        kind: 'max' | 'min',
+        dir: 1 | -1,
+        label: string,
+    ): Ext | null {
+        const e0 = findExtremumInDirection(distanceAtAu, tStart, kind, dir, extremaOpts) as Ext | null;
+        if (!e0) return null;
+
+        const dt = Math.abs(e0.t - tStart);
+        if (dt <= maxCycleSpanMs) return e0;
+
+        dbg?.warn?.('bind: extremum too far, retry tighter', {
+            label, kind, dir, tStart: fmt(tStart), got: fmt(e0.t), dtDays: (dt / DAY_MS).toFixed(1),
+            maxDays: (maxCycleSpanMs / DAY_MS).toFixed(1),
+            extremaOpts,
+            meta,
+        });
+
+        const tighter: FindExtremaOpts = {
+            ...extremaOpts,
+            windowMs: Math.min(extremaOpts.windowMs ?? 180 * DAY_MS, maxCycleSpanMs),
+            maxWindowMs: Math.min(extremaOpts.maxWindowMs ?? 6000 * DAY_MS, maxCycleSpanMs * 2),
+            // stepMs оставим как есть (он уже может быть плотный из meta)
+        };
+
+        const e1 = findExtremumInDirection(distanceAtAu, tStart, kind, dir, tighter) as Ext | null;
+        if (!e1) return e0;
+
+        const dt1 = Math.abs(e1.t - tStart);
+        return dt1 <= dt ? e1 : e0;
+    }
+
     // 1) NProbe = ближайший MAX после ts
-    const NProbe = findExtremumInDirection(distanceAtAu, ts, 'max', 1, extremaOpts) as Ext | null;
+    const NProbe = guardedExtremum(ts, 'max', 1, 'NProbe') as Ext | null;
     if (!NProbe) return fail('Bind wheel: failed to locate NProbe (next max)');
 
     // 2) SProbe = ближайший MIN перед NProbe
-    const SProbe = findExtremumInDirection(distanceAtAu, NProbe.t, 'min', -1, extremaOpts) as Ext | null;
+    const SProbe = guardedExtremum(NProbe.t, 'min', -1, 'SProbe') as Ext | null;
     if (!SProbe) return fail('Bind wheel: failed to locate SProbe (prev min)');
 
     if (!isFiniteNumber(NProbe.v) || !isFiniteNumber(SProbe.v) || !(NProbe.v > SProbe.v)) {
@@ -280,32 +309,32 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
     let S: Ext;
     let N_next: Ext;
 
-    let boundaryIsE = false; // else boundary is E_next
+    let boundaryIsE = false;
 
     if (ts < boundary) {
         // boundary is E_next (end of current cycle)
         S = SProbe;
         N_next = NProbe;
 
-        const NPrev = findExtremumInDirection(distanceAtAu, S.t, 'max', -1, extremaOpts) as Ext | null;
+        const NPrev = guardedExtremum(S.t, 'max', -1, 'N(prev max)') as Ext | null;
         if (!NPrev) return fail('Bind wheel: failed to locate N (prev max)');
         N = NPrev;
 
-        const SPrev = findExtremumInDirection(distanceAtAu, N.t, 'min', -1, extremaOpts) as Ext | null;
+        const SPrev = guardedExtremum(N.t, 'min', -1, 'S_before(prev min)') as Ext | null;
         if (!SPrev) return fail('Bind wheel: failed to locate S_before (prev min)');
         S_before = SPrev;
 
         boundaryIsE = false;
     } else {
-        // boundary is E (start of current cycle)
+        // boundary is E
         N = NProbe;
         S_before = SProbe;
 
-        const SNext = findExtremumInDirection(distanceAtAu, N.t, 'min', 1, extremaOpts) as Ext | null;
+        const SNext = guardedExtremum(N.t, 'min', 1, 'S(next min)') as Ext | null;
         if (!SNext) return fail('Bind wheel: failed to locate S (next min)');
         S = SNext;
 
-        const NNext = findExtremumInDirection(distanceAtAu, S.t, 'max', 1, extremaOpts) as Ext | null;
+        const NNext = guardedExtremum(S.t, 'max', 1, 'N_next(next max)') as Ext | null;
         if (!NNext) return fail('Bind wheel: failed to locate N_next (next max)');
         N_next = NNext;
 
@@ -321,6 +350,19 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
             N_next: fmt(N_next.t),
             boundary: fmt(boundary),
             boundaryIsE,
+        });
+    }
+
+    // Additional sanity: cycle span must be plausible (especially for Earth–Moon)
+    const span = Math.abs(N_next.t - S_before.t);
+    if (span > maxCycleSpanMs * 2) {
+        dbg?.warn?.('bind: suspicious huge window span', {
+            spanDays: (span / DAY_MS).toFixed(1),
+            maxDays: (maxCycleSpanMs / DAY_MS).toFixed(1),
+            S_before: fmt(S_before.t),
+            N_next: fmt(N_next.t),
+            focus,
+            target,
         });
     }
 
@@ -345,17 +387,13 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
         rMin,
         rMid,
         rMax,
+        meta,
+        extremaOpts,
+        SOLVE,
     });
 
     // ------------------------------------------------------------
     // Build 17 spokes (0..16)
-    //   0..4  : rMid -> rMax on [S_before..N] increasing
-    //   4..8  : rMax -> rMid on [N..S]       decreasing
-    //   8..12 : rMid -> rMin on [N..S]       decreasing
-    //   12..16: rMin -> rMid on [S..N_next]  increasing
-    //
-    // Anchors: 0(E), 4(N), 8(W), 12(S), 16(E_next)
-    // And we reuse the probed boundary as either E or E_next.
     // ------------------------------------------------------------
 
     const spokes: CycleSpoke<BindMeta>[] = [];
@@ -425,6 +463,24 @@ export function solveBindWheel(input: WheelInput): CycleSolveResult<BindMeta> {
                 boundaryIsE,
             });
             break;
+        }
+    }
+
+    // Final sanity: E..E_next span should not be ridiculous
+    const E = spokes[0]?.ts;
+    const E2 = spokes[16]?.ts;
+    if (isFiniteNumber(E) && isFiniteNumber(E2)) {
+        const spanE = E2 - E;
+        if (spanE <= 0 || spanE > maxCycleSpanMs) {
+            dbg?.warn?.('bind: suspicious E..E_next span', {
+                E: fmt(E),
+                E_next: fmt(E2),
+                spanDays: (spanE / DAY_MS).toFixed(2),
+                maxDays: (maxCycleSpanMs / DAY_MS).toFixed(2),
+                focus,
+                target,
+            });
+            // не фейлим, но ты это увидишь сразу
         }
     }
 

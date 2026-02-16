@@ -1,14 +1,13 @@
 // src/lib/board/dispatcher.ts
 import type { WheelSolveResult } from './runtime';
-import type {BoardWheel} from "./types";
+import type { BoardWheel } from './types';
 import { getWheelEntry } from './registry';
 
-// одна функция на всё
 export function solveWheel(
     wheel: BoardWheel,
     ctx: { ts: number; location?: any; dbg?: any }
 ): WheelSolveResult {
     const entry = getWheelEntry(wheel.wheelType);
     const input = entry.makeInput(wheel, ctx);
-    return entry.solve(input);
+    return entry.solve(input as any);
 }

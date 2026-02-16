@@ -33,13 +33,36 @@ export type WheelType =
     | 'nodal'
     | 'plato';
 
+export type BindWheelMeta = {
+    extrema?: {
+        windowMs?: number;
+        stepMs?: number;
+        maxWindowMs?: number;
+        refineIters?: number;
+    };
+    solve?: {
+        maxIters?: number;
+        epsMs?: number;
+        monoEps?: number;
+    };
+};
+
+// если потом добавишь другие — допишешь ветки
+export type WheelMeta<T extends WheelType> =
+    T extends 'bind' ? BindWheelMeta :
+        never;
+
+type RoleCombo<RS, TType extends WheelType> = RS & {
+    meta?: WheelMeta<TType>;
+};
+
 export type RoleName = 'looker' | 'focus' | 'target';
 
 export type RequiredRoles<RS> = readonly (keyof RS & RoleName)[];
 
 type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     type: TType;
-    roles: RS[];
+    roles: RoleCombo<RS, TType>[];
     requiredRoles: RequiredRoles<RS>;
 } & (MT extends true ? { multiTarget: true } : {});
 
