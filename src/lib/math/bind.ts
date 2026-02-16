@@ -264,77 +264,109 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
 
     // Find bracketing (“обнимашки”): one extremum before ts, one after ts, and they must be opposite kinds.
     function findHugs(): { before: Ext; after: Ext } | null {
-        console.log('Hugging search');
-        const centers = [
-            ts - thirdStep,
-            ts,
-            ts + thirdStep,
-        ];
+        dbg?.log?.('bind.hug.start', { ts: fmt(ts) });
 
+        const centers = [ts - thirdStep, ts, ts + thirdStep];
         const found: Ext[] = [];
 
-        function pushUniqueExt(e: Ext) {
+        function pushUniqueExt(e: Ext | null) {
+            if (!e) return;
             if (!isFiniteNumber(e.t) || !isFiniteNumber(e.v)) return;
             if (found.some(x => Math.abs(x.t - e.t) < 1)) return; // ~1ms tolerance
             found.push(e);
         }
 
         // --- main 3 windows ---
-        for (const c of centers) {
-            const ext = findExtremum(c);
-            if (ext) pushUniqueExt(ext);
-        }
+        for (const c of centers) pushUniqueExt(findExtremum(c));
 
-        // --- safety fallback (редко понадобится, но harmless) ---
-        if (found.length < 2) {
-            dbg?.warn?.('bind.hug.fallback!')
-            const extraCenters = [
-                ts - 2 * thirdStep,
-                ts + 2 * thirdStep,
-            ];
+        // helper: choose best before/after from current set
+        function pickBeforeAfter(): { before: Ext | null; after: Ext | null } {
+            if (found.length === 0) return { before: null, after: null };
 
-            for (const c of extraCenters) {
-                const ext = findExtremum(c);
-                if (ext) pushUniqueExt(ext);
+            found.sort((a, b) => a.t - b.t);
+
+            let before: Ext | null = null;
+            let after: Ext | null = null;
+
+            for (const e of found) {
+                if (e.t <= ts) {
+                    if (!before || e.t > before.t) before = e;
+                } else {
+                    if (!after || e.t < after.t) after = e;
+                }
             }
+            return { before, after };
         }
 
-        if (found.length < 2) {
-            dbg?.warn?.('bind.hug.fail', {
-                reason: 'less than 2 extrema found',
-                ts: fmt(ts),
-                thirdStepDays: (thirdStep / DAY_MS).toFixed(2),
+        let { before, after } = pickBeforeAfter();
+
+        // --- fallback: if not properly bracketed, try half-period shifts ---
+        if (!before || !after) {
+            dbg?.warn?.('bind.hug.fallback.halfPeriod', {
+                reason: !before && !after ? 'no extrema' : (!before ? 'missing before' : 'missing after'),
+                found: found.map(e => fmt(e.t)),
             });
-            return null;
+
+            // pick a reference extremum to generate the opposite-side candidate
+            // prefer the closest known extremum to ts (if any)
+            let ref: Ext | null = null;
+            if (found.length > 0) {
+                ref = found.reduce((best, e) => {
+                    const db = Math.abs(best.t - ts);
+                    const de = Math.abs(e.t - ts);
+                    return de < db ? e : best;
+                }, found[0]);
+            }
+
+            // If nothing found at all, do one more attempt: centered exactly at ts but wider.
+            // (rare; helps if an extremum sat right on the border and got rejected)
+            if (!ref) {
+                pushUniqueExt(findExtremum(ts)); // same window params
+                ({ before, after } = pickBeforeAfter());
+                ref = found.length ? found.reduce((best, e) => (Math.abs(e.t - ts) < Math.abs(best.t - ts) ? e : best), found[0]) : null;
+            }
+
+            if (ref) {
+                // try both sides at half period
+                const halfPeriod = cycleDuration / 2;
+
+                // We *do not* know which side we need, so just try both, then pick bracket.
+                pushUniqueExt(findExtremum(ref.t - halfPeriod));
+                pushUniqueExt(findExtremum(ref.t + halfPeriod));
+
+                // Re-pick after adding candidates
+                ({ before, after } = pickBeforeAfter());
+            }
         }
 
-        // сортируем по времени
-        found.sort((a, b) => a.t - b.t);
+        // Still not bracketed? Last-ditch: try moving the missing side by one full thirdStep
+        // (kept minimal; you can remove if you want “pure halfPeriod only”)
+        if (!before || !after) {
+            dbg?.warn?.('bind.hug.fallback.last', {
+                reason: !before && !after ? 'no extrema even after halfPeriod' : (!before ? 'still missing before' : 'still missing after'),
+                found: found.map(e => fmt(e.t)),
+            });
 
-        let before: Ext | null = null;
-        let after: Ext | null = null;
+            if (!before) pushUniqueExt(findExtremum(ts - 2 * thirdStep));
+            if (!after)  pushUniqueExt(findExtremum(ts + 2 * thirdStep));
 
-        for (const e of found) {
-            if (e.t <= ts) {
-                if (!before || e.t > before.t) before = e;
-            } else {
-                if (!after || e.t < after.t) after = e;
-            }
+            ({ before, after } = pickBeforeAfter());
         }
 
         if (!before || !after) {
             dbg?.warn?.('bind.hug.fail', {
-                reason: 'missing before/after after sort',
                 ts: fmt(ts),
-                found: found.map(e => fmt(e.t)),
+                found: found.map(e => ({ t: fmt(e.t), v: e.v })),
+                thirdStepDays: (thirdStep / DAY_MS).toFixed(4),
+                halfWindowDays: (halfWindow / DAY_MS).toFixed(4),
             });
             return null;
         }
 
         dbg?.log?.('bind.hug.success', {
             ts: fmt(ts),
-            before: fmt(before.t),
-            after: fmt(after.t),
+            before: { t: fmt(before.t), v: before.v },
+            after: { t: fmt(after.t), v: after.v },
         });
 
         return { before, after };
