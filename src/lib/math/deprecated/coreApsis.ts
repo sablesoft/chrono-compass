@@ -1,6 +1,6 @@
 // src/lib/cycle/coreApsis.ts
-import { ms } from '../format';
-import { safeDateFromTs, utcYearFromTs } from '../wheel/wheel';
+import { ms } from '../../format';
+import { safeDateFromTs, utcYearFromTs } from '../../wheel/wheel';
 
 export const DAY_MS = 86400_000;
 
@@ -146,8 +146,6 @@ export function makeApsisWalker<TApsis extends { time: { date: Date } }, TKind e
     }
 
     return {
-        findAnyApsisAtOrBefore,
-        prevImmediateApsis,
         searchPrevApsisOfKind,
         nextApsisOfKind,
         searchApsisNear,

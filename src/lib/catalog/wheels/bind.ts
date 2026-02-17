@@ -5,6 +5,10 @@ import { DAY_MS } from '../../math/helpers';
 export const bind = {
     type: 'bind',
     ready: true,
+    ui: {
+        focus: 'center',
+        target: 'pointer',
+    },
     requiredRoles: ['focus', 'target'],
     roles: [
         // Sun Bind: Mercury (sidereal ≈ 87.9691 d)

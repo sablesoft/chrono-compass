@@ -1,5 +1,6 @@
 // src/lib/catalog/types.ts
 import { Body as EngineBody } from 'astronomy-engine';
+import { SPOKES_ORDER } from '../wheel/spokes';
 
 /**
  * BodyId полностью совпадает с id из astronomy-engine
@@ -12,13 +13,8 @@ export type LocalizedString = {
 };
 
 export interface Body {
-    /** Must match astronomy-engine Body id */
     id: BodyId;
-
-    /** Localized display name */
     name: LocalizedString;
-
-    /** Default emoji/icon for UI */
     emoji: string;
 }
 
@@ -37,7 +33,6 @@ export type BindWheelMeta = {
     cycleDuration?: number;
 };
 
-// если потом добавишь другие — допишешь ветки
 export type WheelMeta<T extends WheelType> =
     T extends 'bind' ? BindWheelMeta :
         never;
@@ -50,17 +45,37 @@ export type RoleName = 'looker' | 'focus' | 'target';
 
 export type RequiredRoles<RS> = readonly (keyof RS & RoleName)[];
 
+/* =========================
+   UI placement typing
+   ========================= */
+
+// "E", "ENE", ..., "E_next" (whatever you have in SPOKES_ORDER)
+export type SpokeCode = typeof SPOKES_ORDER[number];
+
+// allowed placements for a body emoji in a cycle wheel UI
+export type EmojiPlacement =
+    | 'center'
+    | 'pointer'
+    | SpokeCode
+    | `${SpokeCode}-spoke`;
+
+// UI map: only roles that exist in RS are allowed as keys
+export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacement>>;
+
 type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     type: TType;
     ready?: boolean;
+    ui?: WheelUI<RS>;              // <-- add here
     roles: RoleCombo<RS, TType>[];
     requiredRoles: RequiredRoles<RS>;
 } & (MT extends true ? { multiTarget: true } : {});
 
+/* ===== RoleValues / RoleSelects etc (как было) ===== */
+
 export type RoleValues = {
     looker: BodyId | null;
     focus: BodyId | null;
-    target: BodyId[];   // всегда массив, даже если multiTarget=false
+    target: BodyId[];
 };
 
 export type RoleSelects = {
@@ -69,58 +84,20 @@ export type RoleSelects = {
     target: BodyId[];
 };
 
-/** Utility: object with only allowed role keys */
 type RoleSetOf<Allowed extends RoleName> = Partial<Record<Allowed, BodyId[]>>;
-
-/** Utility: force some roles to exist (but still arrays) */
 type RequireRoles<T, K extends keyof T> = T & { [P in K]-?: NonNullable<T[P]> };
 
-/* ===== Role sets per wheel type ===== */
+/* ===== Role sets per wheel type (как было) ===== */
 
-export type CompassRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'target'>,
-    'looker' | 'target'
->;
-
-export type HorizonRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'target'>,
-    'looker' | 'target'
->;
-
-export type SynodRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'focus' | 'target'>,
-    'looker' | 'focus' | 'target'
->;
-
-export type ChannelRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'focus' | 'target'>,
-    'looker' | 'focus' | 'target'
->;
-
-export type NodalRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'focus' | 'target'>,
-    'looker' | 'focus' | 'target'
->;
-
-export type BindRoleSet = RequireRoles<
-    RoleSetOf<'focus' | 'target'>,
-    'focus' | 'target'
->;
-
-export type RangeRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'target'>,
-    'looker' | 'target'
->;
-
-export type SeasonRoleSet = RequireRoles<
-    RoleSetOf<'focus' | 'target'>,
-    'focus' | 'target'
->;
-
-export type PlatoRoleSet = RequireRoles<
-    RoleSetOf<'looker' | 'target'>,
-    'looker' | 'target'
->;
+export type CompassRoleSet = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
+export type HorizonRoleSet = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
+export type SynodRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
+export type ChannelRoleSet = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
+export type NodalRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
+export type BindRoleSet    = RequireRoles<RoleSetOf<'focus' | 'target'>, 'focus' | 'target'>;
+export type RangeRoleSet   = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
+export type SeasonRoleSet  = RequireRoles<RoleSetOf<'focus' | 'target'>, 'focus' | 'target'>;
+export type PlatoRoleSet   = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
 
 /* ===== WheelSpec as discriminated union ===== */
 export type WheelSpec =
