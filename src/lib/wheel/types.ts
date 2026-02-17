@@ -14,3 +14,11 @@ export type SpokeKey =
     | 'W' | 'WSW' | 'SW' | 'SSW'
     | 'S' | 'SSE' | 'SE' | 'ESE'
     | 'E_next';
+
+export const SPOKES_ORDER: SpokeKey[] = [
+    'E', 'ENE', 'NE', 'NNE',
+    'N', 'NNW', 'NW', 'WNW',
+    'W', 'WSW', 'SW', 'SSW',
+    'S', 'SSE', 'SE', 'ESE',
+    'E_next',
+];

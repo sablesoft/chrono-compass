@@ -3,6 +3,7 @@ import { registerWheel, resolveWheelMeta } from './board/registry';
 
 import { solveBindWheel } from './math/bind';
 import { solveCompassWheel } from './math/compass';
+import { solveHorizonWheel } from './math/horizon';
 
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
@@ -50,6 +51,24 @@ function registerWheels() {
         }),
         solve: (input) => solveCompassWheel(input as any),
     } satisfies WheelRegistryEntry<'compass'>);
+
+    // horizon...
+    registerWheel({
+        type: 'horizon',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'horizon',
+            ts: ctx.ts,
+            location: ctx.location, // ОБЯЗАТЕЛЬНО для horizon
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker ?? 'Earth',
+            focus: (wheel.roles as any)?.focus ?? undefined, // не нужен
+            target: (wheel.roles as any)?.target, // у horizon всегда один
+            // meta пока не обязательна; можно не прокидывать
+        }),
+        solve: (input) => solveHorizonWheel(input as any),
+    } satisfies WheelRegistryEntry<'horizon'>);
 
     // TODO остальные...
 }

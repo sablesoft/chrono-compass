@@ -5,7 +5,7 @@ import type {Moment, OnDayMode, RepeatEnd, RepeatRule, RepeatUnit} from '../stor
 import {normalizeTsMinute} from '../stores/moment';
 import {getCycleOptions, SPOKE_DESC} from '../cycle/meta';
 
-import {angleFromDayAnchors, getDayAnchors} from '../cycle/diurnal';
+import {angleFromDayAnchors, getDayAnchors} from '../math/deprecated/diurnal';
 import {angleFromSynodicAnchors, getSynodicAnchors} from '../cycle/lunarSynodic';
 import {angleFromDraconicAnchors, getDraconicAnchors} from "../cycle/lunarDraconic";
 import {angleFromLunarAnomalisticAnchors, getLunarAnomalisticAnchors} from "../math/deprecated/lunarAnomalistic";

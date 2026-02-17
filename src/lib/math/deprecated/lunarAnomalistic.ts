@@ -22,7 +22,7 @@ import * as Astronomy from 'astronomy-engine';
 import { type Anchors } from '../../wheel/spokes';
 import { angleFromAnchors } from '../../cycle/angle';
 import { ms } from '../../format';
-import { isFiniteNumber } from '../helpers';
+import {AU_KM, isFiniteNumber} from '../helpers';
 import { debug } from '../../debug';
 
 import { inExactRange, insideCycle, makeApsisWalker, toAstroTime, tsOf } from './coreApsis';
@@ -56,9 +56,6 @@ const STRICT_GUARD_MS = 1500;
 const SOLVE_MAX_ITERS = 70;
 const SOLVE_EPS_MS = 500; // sub-second is enough for “minute-level” outputs
 const MONO_EPS_KM = 1e-6; // tiny slack for bracketing (km)
-
-// Astronomy constants
-const AU_KM = 149_597_870.7;
 
 function fmt(ts: number) {
     return Number.isFinite(ts) ? new Date(ts).toISOString() : String(ts);

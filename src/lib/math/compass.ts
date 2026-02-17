@@ -1,4 +1,4 @@
-// src/lib/compass.ts
+// src/lib/math/compass.ts
 import {
     AstroTime,
     Body as EngineBody,

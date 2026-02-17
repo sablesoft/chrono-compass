@@ -10,7 +10,7 @@
 // Order (indices 0..16):
 // E, ENE, NE, NNE, N, NNW, NW, WNW, W, WSW, SW, SSW, S, SSE, SE, ESE, E_next
 
-import type {SpokeKey} from "./types";
+import {type SpokeKey, SPOKES_ORDER} from "./types";
 import {isFiniteNumber} from "../math/helpers";
 
 export type Anchors = {
@@ -35,14 +35,6 @@ export type Anchors = {
      */
     spokes?: Partial<Record<SpokeKey, number>>;
 };
-
-export const SPOKES_ORDER: SpokeKey[] = [
-    'E', 'ENE', 'NE', 'NNE',
-    'N', 'NNW', 'NW', 'WNW',
-    'W', 'WSW', 'SW', 'SSW',
-    'S', 'SSE', 'SE', 'ESE',
-    'E_next',
-];
 
 function fillSegment(times: number[], startIndex: number, startTs: number, endTs: number) {
     const seg = endTs - startTs;

@@ -1,6 +1,6 @@
 // src/lib/catalog/types.ts
 import { Body as EngineBody } from 'astronomy-engine';
-import { SPOKES_ORDER } from '../wheel/spokes';
+import { SPOKES_ORDER } from '../wheel/types';
 
 /**
  * BodyId полностью совпадает с id из astronomy-engine

@@ -18,9 +18,6 @@ export type WheelRuntimeContext = {
     dbg?: { log?: (...a:any[])=>void; warn?: (...a:any[])=>void; error?: (...a:any[])=>void };
 };
 
-// Вариант “слабый” (быстро): meta:any
-// export type WheelInput = WheelRolesInput & WheelRuntimeContext & { meta?: any };
-
 // Вариант “нормальный”: meta типизирован по wheelType (но wheelType должен быть в input)
 export type WheelInput<TType extends WheelType = WheelType> =
     WheelRolesInput &
@@ -29,7 +26,7 @@ export type WheelInput<TType extends WheelType = WheelType> =
     meta?: WheelMeta<TType>;
 };
 
-// ====== outputs (без изменений) ======
+// ====== outputs ======
 export type CycleSpoke<TMeta = any> = {
     ts: number;
     code: SpokeKey;
@@ -42,7 +39,7 @@ export type CycleSolveResult<TMeta = any> =
     | { ok: true; kind: 'cycle'; ts: number; spokes: CycleSpoke<TMeta>[] }
     | { ok: false; kind: 'cycle'; ts: number; reason: string; spokes: CycleSpoke<TMeta>[] };
 
-// Compass остаётся отдельным видом результата (не пытаемся “скрестить ежа с компасом”)
+// Compass - отдельный вид результата
 export type CompassSolveResult<TBody = any> =
     | { ok: true; kind: 'compass'; ts: number; bodies: TBody[] }
     | { ok: false; kind: 'compass'; ts: number; reason: string; bodies: TBody[] };

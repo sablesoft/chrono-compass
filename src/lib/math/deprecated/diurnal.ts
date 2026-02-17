@@ -1,9 +1,9 @@
 // src/lib/cycle/diurnal.ts
 import * as Astronomy from 'astronomy-engine';
-import type { Anchors } from '../wheel/spokes';
-import { angleFromAnchors } from './angle';
-import { ms } from '../format';
-import { debug } from '../debug';
+import type { Anchors } from '../../wheel/spokes';
+import { angleFromAnchors } from '../../cycle/angle';
+import { ms } from '../../format';
+import { debug } from '../../debug';
 
 const dbg = debug('diurnal', '🌎');
 const { group, log, warn } = dbg;

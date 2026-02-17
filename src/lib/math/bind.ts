@@ -15,13 +15,11 @@
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import type { BodyId } from '../catalog';
-import { SPOKES_ORDER } from '../wheel/spokes';
+import { SPOKES_ORDER } from '../wheel/types';
 
 import { findExtremumInWindowGold, fmt} from './extrema';
 import { vectorLengthSafe } from './vector';
-import { DAY_MS, isFiniteNumber } from './helpers';
-
-const AU_KM = 149_597_870.7;
+import {AU_KM, DAY_MS, isFiniteNumber} from './helpers';
 
 export type BindMeta = {
     distanceAu: number;
