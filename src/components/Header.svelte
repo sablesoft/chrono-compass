@@ -13,7 +13,7 @@
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
 
     $: cycleItems = getCycleOptions([
-        'diurnal',
+        // 'diurnal',
         'lunarSynodic',
         // 'lunarAnomalistic',
         'lunarDraconic',
