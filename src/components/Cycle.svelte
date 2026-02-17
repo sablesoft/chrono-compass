@@ -6,6 +6,10 @@
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
     import { PointerAnimator } from '../lib/wheel/pointerAnimator';
+    import { useCycleNowPointer } from '../lib/wheel/ui/useCycleNowPointer';
+
+    import { bodies, wheels } from '../lib/catalog';
+    import type { BodyId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
 
     import DocsModal from './DocsModal.svelte';
     import Tooltip from './Tooltip.svelte';
@@ -85,6 +89,61 @@
     // close button logic (same idea as Compass)
     $: sameTypeCount = ($boardItems ?? []).filter((x) => x.wheelType === wheel?.wheelType).length;
     $: canClose = sameTypeCount > 1;
+
+    function cycleWindowFromSpokes() {
+        const a = spokeTimes?.[0];
+        const b = spokeTimes?.[16];
+        return (Number.isFinite(a) && Number.isFinite(b) && b > a) ? { start: a, end: b } : null;
+    }
+
+    function angleDegAtTs(ts0: number): number | null {
+        const t = spokeTimes;
+        if (!t || t.length < 17) return null;
+
+        const tE = t[0];
+        const tE2 = t[16];
+        if (!Number.isFinite(tE) || !Number.isFinite(tE2) || !(tE2 > tE)) return null;
+
+        const ts = Math.min(Math.max(ts0, tE), tE2);
+
+        let i = 0;
+        for (let k = 0; k < 16; k++) {
+            const a = t[k];
+            const b = t[k + 1];
+            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+            if (ts >= a && ts <= b) { i = k; break; }
+            if (ts > b) i = k;
+        }
+
+        const aT = t[i];
+        const bT = t[i + 1];
+        const den = (Number.isFinite(aT) && Number.isFinite(bT) && bT > aT) ? (bT - aT) : 1;
+        const u = clamp01((ts - aT) / den);
+
+        const aAng = spokeAngleDeg(i);
+        const bAng = (i === 15) ? (spokeAngleDeg(0) + 360) : spokeAngleDeg(i + 1);
+
+        return aAng + (bAng - aAng) * u;
+    }
+
+    const now = useCycleNowPointer(
+        () => cycleWindowFromSpokes(),
+        (ts0) => angleDegAtTs(ts0),
+        dbg
+    );
+    const nowState = now.state;
+
+    let showNowPointer = false;
+    let nowDisplayAngle = 0;
+
+    $: showNowPointer = $nowState.show;
+    $: nowDisplayAngle = $nowState.displayAngle;
+
+    // чтобы now пересчитывался сразу, когда сменилось окно цикла
+    $: {
+        const w = cycleWindowFromSpokes();
+        now.refresh?.(`deps:${w?.start ?? 'na'}:${w?.end ?? 'na'}`);
+    }
 
     function closeCycle() {
         if (!canClose) return;
@@ -415,6 +474,103 @@
         }
     }
 
+    function bodyEmoji(id: BodyId | null | undefined): string | null {
+        if (!id) return null;
+        const b = (bodies as any)[id] as { emoji?: string } | undefined;
+        return b?.emoji ?? null;
+    }
+
+    type UiAnchor =
+        | { kind: 'center' }
+        | { kind: 'pointer' }
+        | { kind: 'label'; spoke: SpokeCode }
+        | { kind: 'spoke'; spoke: SpokeCode };
+
+    function anchorKey(a: UiAnchor) {
+        if (a.kind === 'center') return 'center';
+        if (a.kind === 'pointer') return 'pointer';
+        return `${a.kind}:${a.spoke}`;
+    }
+
+    function parsePlacement(p: EmojiPlacement): UiAnchor {
+        if (p === 'center') return { kind: 'center' };
+        if (p === 'pointer') return { kind: 'pointer' };
+        if (p.endsWith('-spoke')) return { kind: 'spoke', spoke: p.slice(0, -'-spoke'.length) as SpokeCode };
+        return { kind: 'label', spoke: p as SpokeCode };
+    }
+
+    type EmojiAt = { anchor: UiAnchor; text: string };
+
+    /**
+     * Собираем рендер-план:
+     * - spec = wheels[wheelType]
+     * - ui = spec.ui
+     * - roles = wheel.roles (focus/target/looker)
+     * - для target берём первый элемент (как ты делаешь в bind)
+     */
+    let spec: WheelSpec | null = null;
+    let emojiAt: EmojiAt[] = [];
+
+    $: {
+        spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
+
+        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
+        const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
+
+        const focusId = (wheel?.roles as any)?.focus as BodyId | null;
+        const targetRaw = (wheel?.roles as any)?.target as BodyId[] | BodyId | null;
+        const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
+
+        if (ui?.focus && focusId) {
+            const e = bodyEmoji(focusId);
+            if (e) draws.push({ anchor: parsePlacement(ui.focus), emoji: e });
+        }
+
+        if (ui?.target && targetId) {
+            const e = bodyEmoji(targetId);
+            if (e) draws.push({ anchor: parsePlacement(ui.target), emoji: e });
+        }
+
+        if (ui?.looker) {
+            const lookerId = (wheel?.roles as any)?.looker as BodyId | null;
+            const e = bodyEmoji(lookerId);
+            if (e) draws.push({ anchor: parsePlacement(ui.looker), emoji: e });
+        }
+
+        // merge if several emojis land in same anchor
+        const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
+        for (const d of draws) {
+            const k = anchorKey(d.anchor);
+            const cur = m.get(k) ?? { anchor: d.anchor, parts: [] };
+            cur.parts.push(d.emoji);
+            m.set(k, cur);
+        }
+
+        emojiAt = Array.from(m.values()).map(x => ({ anchor: x.anchor, text: x.parts.join('') }));
+    }
+
+    // helpers for SVG queries
+    function emojiAtPointer(): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'pointer')?.text ?? null;
+    }
+    function emojiAtCenter(): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'center')?.text ?? null;
+    }
+    function emojiAtLabel(spoke: SpokeCode): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'label' && x.anchor.spoke === spoke)?.text ?? null;
+    }
+    function emojiAtSpoke(spoke: SpokeCode): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke)?.text ?? null;
+    }
+
+    let pointerEmoji: string | null = null;
+    let centerEmoji: string | null = null;
+
+    $: {
+        pointerEmoji = emojiAtPointer();
+        centerEmoji = emojiAtCenter();
+    }
+
     // ------------------------------------------------------------
     // Derived arrays from spokes (UI helpers)
     // ------------------------------------------------------------
@@ -447,6 +603,21 @@
             bt[i] = (Number.isFinite(a) && Number.isFinite(b)) ? ms((a + b) / 2) : NaN;
         }
         boundaryTimes = bt;
+    }
+
+    let nowWindowKey = 'na';
+
+    $: {
+        const a = spokeTimes?.[0];
+        const b = spokeTimes?.[16];
+        nowWindowKey = (Number.isFinite(a) && Number.isFinite(b) && b > a)
+            ? `${a}:${b}`
+            : 'na';
+    }
+
+    // дергаем пересчет NOW при любом изменении окна, но только когда оно валидно
+    $: if (nowWindowKey !== 'na') {
+        now.refresh?.(`window:${nowWindowKey}`);
     }
 
     function nearestSpokeIndexByTime(ts0: number, arr: number[]) {
@@ -633,8 +804,7 @@
                         {@const boundaryTip = buildMomentTip(`boundary:${labels[i]}→${nextLabel}`, tB, 'boundary')}
                         {@const boundaryKey = `boundary:${i}`}
 
-                        <g
-                                class="tick"
+                        <g class="tick"
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House boundary ${i + 1}`}
@@ -643,12 +813,11 @@
                                 on:mouseenter={(e) => tip.hoverMomentEnter(e, boundaryTip, boundaryKey)}
                                 on:mouseleave={() => tip.hoverLeave(boundaryKey)}
                                 on:keydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleBoundaryActivate(i);
-                }
-              }}
-                        >
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault();
+                                      handleBoundaryActivate(i);
+                                    }
+                                  }}>
                             <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
                             <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
                         </g>
@@ -671,6 +840,11 @@
                         {@const spokeKey = `spoke:${i}`}
                         {@const isActive = i === activeSpokeIndex}
 
+                        {@const code = (spokeCodes?.[i] ?? (i === 16 ? 'E_next' : labels[i]))}
+                        {@const labelEmoji = emojiAtLabel(code)}
+                        {@const spokeEmoji = emojiAtSpoke(code)}
+                        {@const midPt = polarToXY((rInner + rOuter) * 0.56, a)}
+
                         <!-- теперь это просто контейнер/рисунок, НЕ кнопка -->
                         <g class="spoke" style="pointer-events: none;">
                             <line
@@ -681,6 +855,15 @@
                                     stroke-width={i % 4 === 0 ? 4 : 2}
                                     stroke-linecap="round"
                             />
+
+                            {#if spokeEmoji}
+                                <text class="roleEmoji roleEmojiOnSpoke"
+                                        x={midPt.x} y={midPt.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle">
+                                    {spokeEmoji}
+                                </text>
+                            {/if}
 
                             <!-- интерактив только тут -->
                             <g
@@ -709,17 +892,24 @@
                                         class:activeHalo={isActive}
                                 />
 
-                                <text
-                                        class="spokeLabel"
-                                        x={pt.x} y={pt.y}
-                                        text-anchor="middle"
-                                        dominant-baseline="middle"
-                                        font-size={VB * 0.035}
-                                        fill="currentColor"
-                                        fill-opacity={isActive ? 1 : 0.65}
-                                >
-                                    {label}
-                                </text>
+                                {#if labelEmoji}
+                                    <text class="roleEmoji roleEmojiOnLabel"
+                                            x={pt.x} y={pt.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle">
+                                        {labelEmoji}
+                                    </text>
+                                {:else}
+                                    <text class="spokeLabel"
+                                            x={pt.x} y={pt.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                            font-size={VB * 0.035}
+                                            fill="currentColor"
+                                            fill-opacity={isActive ? 1 : 0.65}>
+                                        {label}
+                                    </text>
+                                {/if}
                             </g>
 
                             {#if i === 0}
@@ -807,24 +997,74 @@
                         </g>
                     {/each}
 
+                    {#if showNowPointer}
+                        <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
+                            <line x1={cx} y1={cy}
+                                    x2={cx + rOuter} y2={cy}
+                                    stroke="var(--accent-live)"
+                                    stroke-width="10"
+                                    stroke-linecap="round"
+                                    stroke-opacity="0.35"/>
+                            <circle cx={cx + rOuter}
+                                    cy={cy}
+                                    r={VB * 0.018}
+                                    fill="var(--accent-live)"
+                                    fill-opacity="0.65"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label="Go LIVE (now)"
+                                    on:click|stopPropagation={now.startLive}
+                                    on:keydown|stopPropagation={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                          e.preventDefault();
+                                          now.startLive();
+                                        }
+                                      }}/>
+                        </g>
+                    {/if}
+
+                    <!-- Pointer -->
                     <g transform={`translate(${cx} ${cy})`}>
-                        <g
-                                class="pointer"
+                        <g class="pointer"
                                 class:noTransition={noTransition}
-                                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}
-                        >
-                            <line
-                                    x1="0" y1="0"
+                                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
+                            <line x1="0" y1="0"
                                     x2={rOuter} y2="0"
                                     stroke="currentColor"
                                     stroke-width="9"
-                                    stroke-linecap="round"
-                            />
-                            <circle cx={rOuter} cy="0" r={VB * 0.02} fill="currentColor" />
+                                    stroke-linecap="round"/>
+                            <!-- белый кружок указателя -->
+                            <circle cx={rOuter} cy="0"
+                                    r={VB * 0.028}
+                                    fill="var(--bg)"
+                                    stroke="currentColor"
+                                    stroke-opacity="0.55"
+                                    stroke-width="3"/>
+
+                            {#if pointerEmoji}
+                                <text class="roleEmoji roleEmojiPointer"
+                                        x={rOuter} y="0"
+                                        text-anchor="middle"
+                                        dominant-baseline="middle">
+                                    {pointerEmoji}
+                                </text>
+                            {/if}
                         </g>
                     </g>
 
-                    <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
+                    {#if centerEmoji}
+                        <text
+                                class="roleEmoji roleEmojiCenter"
+                                x={cx} y={cy}
+                                text-anchor="middle"
+                                dominant-baseline="middle"
+                        >
+                            {centerEmoji}
+                        </text>
+                    {:else}
+                        <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
+                    {/if}
+
                 </svg>
             </div>
 
@@ -1172,5 +1412,48 @@
         font-variant-numeric: tabular-nums; /* ← ровные цифры, сильный win */
         opacity: 0.9;
         min-width: 0;
+    }
+
+    .roleEmoji{
+        user-select: none;
+        pointer-events: none; /* чтобы эмодзи не перехватывало hover/click */
+        font-variant-emoji: emoji;
+        fill: currentColor;
+        opacity: 0.95;
+    }
+
+    .roleEmojiCenter{
+        font-size: 82px;
+        font-weight: 900;
+    }
+
+    .roleEmojiPointer{
+        font-size: 54px;
+        font-weight: 900;
+        filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
+
+    }
+
+    .roleEmojiOnLabel{
+        font-size: 30px;
+        font-weight: 900;
+    }
+
+    .roleEmojiOnSpoke{
+        font-size: 26px;
+        font-weight: 900;
+    }
+
+    .spokeHit:hover .roleEmojiOnLabel,
+    .spokeHit:hover .roleEmojiOnSpoke{
+        opacity: 1;
+        filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
+    }
+    .nowPointer { transition: transform 420ms ease; }
+    .nowPointer circle { cursor: pointer; }
+    .nowPointer:hover line,
+    .nowPointer:hover circle {
+        stroke-opacity: 0.85;
+        fill-opacity: 0.9;
     }
 </style>
