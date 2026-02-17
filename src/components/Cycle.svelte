@@ -4,7 +4,8 @@
 
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
-    import { useTooltip } from '../lib/wheel/ui/useTooltip';
+    import CycleTooltip from './CycleTooltip.svelte';
+    import { useCycleTooltip, type CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { PointerAnimator } from '../lib/wheel/pointerAnimator';
     import { useCycleNowPointer } from '../lib/wheel/ui/useCycleNowPointer';
 
@@ -12,7 +13,6 @@
     import type { BodyId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
 
     import DocsModal from './DocsModal.svelte';
-    import Tooltip from './Tooltip.svelte';
     import WheelControl from './WheelControl.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
@@ -32,7 +32,7 @@
 
     import { selectedTs as globalSelectedTs, isLive as globalIsLive, setSelectedTs } from '../lib/time/store';
 
-    import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
+    import type { MarkerCluster } from '../lib/wheel/wheel';
 
     // NEW: cycle cache (local + IndexedDB)
     import type { CycleData, CycleKey } from '../lib/cycle/types';
@@ -85,10 +85,6 @@
     $: wheelLoc = location;
     $: wheelLat = wheelLoc?.lat;
     $: wheelLon = wheelLoc?.lon;
-
-    // close button logic (same idea as Compass)
-    $: sameTypeCount = ($boardItems ?? []).filter((x) => x.wheelType === wheel?.wheelType).length;
-    $: canClose = sameTypeCount > 1;
 
     function cycleWindowFromSpokes() {
         const a = spokeTimes?.[0];
@@ -146,7 +142,6 @@
     }
 
     function closeCycle() {
-        if (!canClose) return;
         onUserActivity();
         boardApi.removeWheelById(wheelId, 'Cycle.close');
     }
@@ -308,13 +303,9 @@
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
 
-    function buildMomentTip(label: string, ts0: number, desc = ''): MomentTip {
-        return { label, ts: ts0, desc };
-    }
-
-    const tip = useTooltip({
+    const tip = useCycleTooltip({
         isCoarsePointer: () => isCoarsePointer,
-        onActivateCluster: (_c: MarkerCluster) => {},
+        onActivateMarker: (_m) => {},
         hoverDelayMs: 600,
         closeDelayMs: 120,
         ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
@@ -453,6 +444,28 @@
         putPersistentCycle(built).catch((e) => dbg.log?.('Cycle.cache.idb.put failed', e));
     }
 
+    function spokePayload(i: number): CycleTipPayload {
+        const s = spokes.find(x => x.index === i);
+        const code = (spokeCodes?.[i] ?? (i === 16 ? 'E_next' : labels[i])) as any;
+        return {
+            kind: 'spoke',
+            code: String(code),
+            ts: ms(spokeTimes?.[i]),
+            meta: (s as any)?.meta
+        };
+    }
+
+    function boundaryPayload(i: number): CycleTipPayload {
+        const from = String(labels[i]);
+        const to = String(i === 15 ? 'E+' : labels[i + 1]);
+        return {
+            kind: 'boundary',
+            from,
+            to,
+            ts: ms(boundaryTimes?.[i]),
+        };
+    }
+
     // Recompute ONLY when we must:
     // - effTs changes
     // - wheelId/cycleKey changes
@@ -460,9 +473,6 @@
     $: {
         const ts = effTs;
         const wid = wheelId;
-        const key = cycleKey;
-        const locId = isHorizon ? wheelLoc?.id : 'na';
-
         if (!wid || !wheel) {
             solveOk = false;
             solveReason = 'No wheel';
@@ -705,6 +715,7 @@
         onUserActivity();
         dbg.log(`${wheel?.wheelType} ${reason}`, { from: new Date(selectedTs).toISOString(), to: new Date(ms(ts0)).toISOString() });
         setSelectedTs(ms(ts0));
+        now.refresh?.(`user:${reason}`);
     }
 
     // Nav: use cycle window edges
@@ -779,9 +790,8 @@
             <button
                     type="button"
                     class="navBtn danger"
-                    title={canClose ? 'Close wheel' : 'Can’t close the last wheel of this type'}
+                    title='Close wheel'
                     aria-label="Close wheel"
-                    disabled={!canClose}
                     on:click|stopPropagation={closeCycle}
             >×</button>
         </div>
@@ -799,19 +809,17 @@
                         {@const pA = polarToXY(rOuter * 0.96, a)}
                         {@const pB = polarToXY(rOuter * 1.1, a)}
                         {@const pHit = polarToXY(rOuter, a)}
-                        {@const tB = boundaryTimes?.[i]}
-                        {@const nextLabel = i === spokeCount - 1 ? 'E+' : labels[i + 1]}
-                        {@const boundaryTip = buildMomentTip(`boundary:${labels[i]}→${nextLabel}`, tB, 'boundary')}
-                        {@const boundaryKey = `boundary:${i}`}
+                        {@const payload = boundaryPayload(i)}
+                        {@const key = `boundary:${i}`}
 
                         <g class="tick"
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House boundary ${i + 1}`}
-                                on:click={(e) => tip.openMomentNow(e, boundaryTip)}
+                                on:click={(e) => tip.openNow(e, payload)}
                                 on:dblclick={() => handleBoundaryActivate(i)}
-                                on:mouseenter={(e) => tip.hoverMomentEnter(e, boundaryTip, boundaryKey)}
-                                on:mouseleave={() => tip.hoverLeave(boundaryKey)}
+                                on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                on:mouseleave={() => tip.hoverLeave(key)}
                                 on:keydown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
                                       e.preventDefault();
@@ -835,9 +843,8 @@
                         {@const p1 = polarToXY(rInner, a)}
                         {@const p2 = polarToXY(rOuter, a)}
                         {@const pt = polarToXY(rLabel, a)}
-                        {@const tS = spokeTimes?.[i]}
-                        {@const spokeTip = buildMomentTip(String(label), tS, 'spoke')}
-                        {@const spokeKey = `spoke:${i}`}
+                        {@const payload = spokePayload(i)}
+                        {@const key = `spoke:${i}`}
                         {@const isActive = i === activeSpokeIndex}
 
                         {@const code = (spokeCodes?.[i] ?? (i === 16 ? 'E_next' : labels[i]))}
@@ -866,16 +873,15 @@
                             {/if}
 
                             <!-- интерактив только тут -->
-                            <g
-                                    class="spokeHit"
+                            <g class="spokeHit"
                                     style="pointer-events: all;"
                                     role="button"
                                     tabindex="0"
                                     aria-label={`Spoke ${label}`}
-                                    on:click={(e) => tip.openMomentNow(e, spokeTip)}
+                                    on:click={(e) => tip.openNow(e, payload)}
                                     on:dblclick={() => handleSpokeActivate(i)}
-                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, spokeTip, spokeKey)}
-                                    on:mouseleave={() => tip.hoverLeave(spokeKey)}
+                                    on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                    on:mouseleave={() => tip.hoverLeave(key)}
                                     on:keydown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                           e.preventDefault();
@@ -889,8 +895,7 @@
                                         fill="transparent"
                                         stroke="currentColor"
                                         class="spokeHalo"
-                                        class:activeHalo={isActive}
-                                />
+                                        class:activeHalo={isActive}/>
 
                                 {#if labelEmoji}
                                     <text class="roleEmoji roleEmojiOnLabel"
@@ -914,22 +919,20 @@
 
                             {#if i === 0}
                                 {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
-                                {@const ePlusTs = spokeTimes?.[16]}
-                                {@const ePlusTip = buildMomentTip('E+', ePlusTs, 'spoke')}
-                                {@const ePlusKey = 'spoke:16'}
+                                {@const payload = spokePayload(16)}
+                                {@const key = `spoke:${i}`}
                                 {@const ePlusActive = activeSpokeIndex === 16}
 
                                 <!-- E+ отдельная интерактивная зона; родитель не ловит hover, потому что pointer-events:none -->
-                                <g
-                                        class="eplus spokeHit"
+                                <g class="eplus spokeHit"
                                         style="pointer-events: all;"
                                         role="button"
                                         tabindex="0"
                                         aria-label="Spoke E+"
-                                        on:click={(e) => tip.openMomentNow(e, ePlusTip)}
+                                        on:click={(e) => tip.openNow(e, payload)}
                                         on:dblclick={() => handleSpokeActivate(16)}
-                                        on:mouseenter={(e) => tip.hoverMomentEnter(e, ePlusTip, ePlusKey)}
-                                        on:mouseleave={() => tip.hoverLeave(ePlusKey)}
+                                        on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                        on:mouseleave={() => tip.hoverLeave(key)}
                                         on:keydown={(e) => {
                                           if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
@@ -943,17 +946,14 @@
                                             fill="transparent"
                                             stroke="currentColor"
                                             stroke-opacity={ePlusActive ? 0.55 : 0.25}
-                                            stroke-width={ePlusActive ? 3 : 2}
-                                    />
-                                    <text
-                                            class="spokeLabel eplusLabel"
+                                            stroke-width={ePlusActive ? 3 : 2}/>
+                                    <text class="spokeLabel eplusLabel"
                                             x={pt2.x} y={pt2.y}
                                             text-anchor="middle"
                                             dominant-baseline="middle"
                                             font-size={VB * 0.034}
                                             fill="currentColor"
-                                            fill-opacity={ePlusActive ? 0.9 : 0.55}
-                                    >
+                                            fill-opacity={ePlusActive ? 0.9 : 0.55}>
                                         E+
                                     </text>
                                 </g>
@@ -970,15 +970,11 @@
                         {@const p = polarToXY(rMark, a)}
                         {@const markerKey = `marker:${c.id}`}
 
-                        <g
-                                class="marker"
+                        <g class="marker"
                                 data-marker="1"
                                 transform={`translate(${p.x} ${p.y})`}
-                                on:click={(e) => tip.handleClusterClick(e, c)}
-                                on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
                                 on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
-                                on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
-                        >
+                                on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}>
                             <circle r={VB * 0.035} fill="transparent" />
                             <circle r={VB * 0.02} fill={c.bg} stroke="currentColor" stroke-opacity="0.45" stroke-width="3" />
                             <circle r={VB * 0.018} fill="none" stroke="var(--bg)" stroke-opacity="0.5" stroke-width="2" />
@@ -990,8 +986,7 @@
                                     letter-spacing={c.count === 1 ? 0 : 0.5}
                                     fill="currentColor"
                                     fill-opacity="0.95"
-                                    style="pointer-events:none"
-                            >
+                                    style="pointer-events:none">
                                 {c.count === 1 ? c.emoji : c.label}
                             </text>
                         </g>
@@ -1068,15 +1063,12 @@
                 </svg>
             </div>
 
-            {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
-                <Tooltip
+            {#if $tipState.open && $tipState.payload}
+                <CycleTooltip
                         x={$tipState.x}
                         y={$tipState.y}
-                        cluster={$tipState.cluster}
-                        moment={$tipState.moment}
+                        payload={$tipState.payload}
                         onPickTs={handleMarkerPick}
-                        onMouseEnter={tip.keepOpen}
-                        onMouseLeave={tip.scheduleClose}
                         onClose={tip.closeNow}
                 />
             {/if}
