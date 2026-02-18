@@ -520,6 +520,11 @@
                 </div>
 
                 <div class="row">
+                    <label class="lbl" for={idSpec}>Spec</label>
+                    <div id={idSpec} class="specPreview">{draftSpec}</div>
+                </div>
+
+                <div class="row">
                     <label class="lbl" for={idName}>Name</label>
                     <input
                             id={idName}
@@ -528,11 +533,6 @@
                             placeholder={formatWheelSpec(type, effectiveDraftRoles)}
                             bind:value={draftTitle}
                     />
-                </div>
-
-                <div class="row">
-                    <label class="lbl" for={idSpec}>Spec</label>
-                    <div id={idSpec} class="specPreview">{draftSpec}</div>
                 </div>
 
                 {#each usedRoles as r (r)}
@@ -702,7 +702,7 @@
         letter-spacing: 0.04em;
     }
 
-    .inp, .sel, .specPreview { width: 100%; box-sizing: border-box; }
+    .inp, .sel { width: 100%; box-sizing: border-box; }
 
     .inp, .sel {
         border-radius: 12px;
@@ -763,14 +763,13 @@
 
     .specPreview {
         font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         opacity: 0.9;
-        padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid var(--btn-border);
-        background: color-mix(in oklab, var(--btn-bg), transparent 14%);
-        min-height: 44px;
-        display: flex;
-        align-items: center;
+
+        padding: 8px 0;
+        min-height: 22px;
+
+        color: color-mix(in oklab, var(--fg), transparent 15%);
     }
 
     .warn {
