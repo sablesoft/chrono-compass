@@ -27,7 +27,7 @@
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { makeWheelId } from '../lib/wheel/id';
 
-    const dbg = debug('profile', '🧩');
+    const dbg = debug('control', '🧩');
 
     export let type: WheelType;
     // applied values
@@ -140,21 +140,91 @@
     function openModal() {
         dbg.log('WheelPicker.open', { type });
 
+        dbg.group('WheelControl.openModal.snapshot', () => {
+            const rolesTarget = (roles as any)?.target;
+            const savedIds = savedList.map(w => w.id);
+            dbg.log('props', {
+                type,
+                title,
+                roles,
+                rolesTarget,
+                rolesTargetType: Array.isArray(rolesTarget) ? 'array' : typeof rolesTarget,
+                baseWheelId,
+                baseObserver,
+                baseTime,
+                savedListLen: savedList.length,
+                savedHasBaseWheelId: savedIds.includes(baseWheelId),
+            });
+
+            // ВАЖНО: сравним id, который считаем от props.roles, и тот, который база
+            let computedFromProps = '';
+            try {
+                computedFromProps = makeWheelId(type, roles, baseObserver, baseTime);
+            } catch (e) {
+                dbg.warn('makeWheelId(props.roles) threw', { e });
+            }
+            dbg.log('ids', {
+                baseWheelId,
+                computedFromProps,
+                equal: computedFromProps === baseWheelId,
+                savedHasComputedFromProps: savedIds.includes(computedFromProps),
+            });
+        });
+
         initialRoles = { ...roles };
         initialTitle = title ?? '';
 
-        draftRoles = { ...roles };
         draftTitle = title ?? '';
-
         if (multiTarget) {
             const t = roles.target;
             draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+            draftRoles = { ...roles, target: draftTargets };
         } else {
+            // SINGLE TARGET WHEELS:
+            const t = roles.target;
+            const one = Array.isArray(t) ? (t[0] ?? null) : (t ?? null);
+
             draftTargets = [];
+            draftRoles = { ...roles, target: one };
         }
 
         const appliedId = makeWheelId(type, roles, baseObserver, baseTime);
         pickedSavedId = savedList.some(w => w.id === appliedId) ? appliedId : '';
+
+        dbg.group('WheelControl.openModal.afterDraftSet', () => {
+            dbg.log('derived', {
+                multiTarget,
+                usedRoles,
+                draftRoles,
+                draftTargets,
+                effectiveDraftRoles,
+            });
+
+            // Проверяем валидаторы на этом же снапшоте
+            let compat = false;
+            let allOk = false;
+            try { compat = isCompatible(spec, effectiveDraftRoles); } catch (e) { dbg.warn('isCompatible threw', { e }); }
+            try { allOk = usedRoles.every(r => hasRoleValue(spec, r, (effectiveDraftRoles as any)[r])); } catch (e) { dbg.warn('hasRoleValue threw', { e }); }
+
+            dbg.log('validity', { compat, allOk });
+
+            // Что дают optionsForRole — ключевое для твоего "пусто в focus/target"
+            const opts: Record<string, any> = {};
+            for (const r of usedRoles) {
+                try {
+                    opts[r] = optionsForRole(spec, r, effectiveDraftRoles);
+                } catch (e) {
+                    opts[r] = { error: true };
+                    dbg.warn('optionsForRole threw', { role: r, e });
+                }
+            }
+            dbg.log('options', opts);
+
+            // Идентификатор от draft (именно он участвует в currentCfgId)
+            let computedFromDraft = '';
+            try { computedFromDraft = makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime); } catch {}
+            dbg.log('draftId', { computedFromDraft });
+        });
 
         open = true;
         queueMicrotask(() => modalEl?.focus());
@@ -182,14 +252,17 @@
     function resetDraft() {
         dbg.log('WheelPicker.resetDraft', { type });
 
-        draftRoles = { ...initialRoles };
         draftTitle = initialTitle;
-
         if (multiTarget) {
             const t = initialRoles.target;
             draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+            draftRoles = { ...initialRoles, target: draftTargets };
         } else {
+            const t = initialRoles.target;
+            const one = Array.isArray(t) ? (t[0] ?? null) : (t ?? null);
+
             draftTargets = [];
+            draftRoles = { ...initialRoles, target: one };
         }
 
         const id = makeWheelId(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles, baseObserver, baseTime);
@@ -352,6 +425,33 @@
         if (!currentSaved) return;
         profilesApi.setWheelFavorite(currentSaved.id, !currentSaved.favorite);
         dbg.log('WheelPicker.favorite', { id: currentSaved.id, value: !currentSaved.favorite });
+    }
+
+    let __lastSig = '';
+    $: if (open) {
+        const sigObj = {
+            type,
+            multiTarget,
+            roles,
+            draftRoles,
+            draftTargets,
+            effectiveDraftRoles,
+            usedRoles,
+            draftCompatible,
+            hasAllRolesOk,
+            currentCfgId,
+            baseWheelId,
+            pickedSavedId,
+            savedMatch: savedList.some(w => w.id === currentCfgId),
+            existsOnBoard,
+            canUpdate,
+            canNew,
+        };
+        const sig = JSON.stringify(sigObj);
+        if (sig !== __lastSig) {
+            __lastSig = sig;
+            dbg.log('WheelControl.open.reactive', sigObj);
+        }
     }
 </script>
 

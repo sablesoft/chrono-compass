@@ -34,6 +34,7 @@ const KNOWN_CHANNELS: Record<string, () => any> = {
     LOCATION: () => import.meta.env.VITE_DEBUG_LOCATION,
     COMPASS: () => import.meta.env.VITE_DEBUG_COMPASS,
     PROFILE: () => import.meta.env.VITE_DEBUG_PROFILE,
+    CONTROL: () => import.meta.env.VITE_DEBUG_CONTROL,
     BOARD: () => import.meta.env.VITE_DEBUG_BOARD,
     WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
     CYCLE: () => import.meta.env.VITE_DEBUG_CYCLE,

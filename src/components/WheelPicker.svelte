@@ -264,6 +264,41 @@
         resetAll();
     }
 
+    function isTypingInControl(e: KeyboardEvent): boolean {
+        const path = (typeof e.composedPath === 'function' ? e.composedPath() : []) as unknown[];
+
+        const isControlEl = (x: unknown) =>
+            x instanceof HTMLInputElement ||
+            x instanceof HTMLTextAreaElement ||
+            x instanceof HTMLSelectElement ||
+            x instanceof HTMLButtonElement ||
+            (x instanceof HTMLElement && x.isContentEditable);
+
+        if (isControlEl(e.target)) return true;
+
+        // If the event originated inside a control, it will be in the composedPath
+        for (const node of path) {
+            if (isControlEl(node)) return true;
+        }
+
+        return false;
+    }
+
+    function handlePanelKeydown(e: KeyboardEvent) {
+        if (isTypingInControl(e)) return;
+
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (!open) openForm();
+            return;
+        }
+
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            if (open) closeForm();
+        }
+    }
+
     $: hasAll =
         required.every((r) => r === 'target'
             ? values.target.length > 0
@@ -287,24 +322,13 @@
         : '';
 </script>
 
-<section
-        class="panel addWheel"
+<section class="panel addWheel"
         class:open={open}
         role="button"
         tabindex="0"
         aria-label="Add wheel"
         on:click={() => { if (!open) openForm(); }}
-        on:keydown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (!open) openForm();
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            if (open) closeForm();
-        }
-    }}
->
+        on:keydown={handlePanelKeydown}>
     {#if !open}
         <div class="plusWrap" aria-hidden="true">
             <div class="plusCircle">
@@ -313,7 +337,7 @@
         </div>
     {:else}
         <header class="top" on:click|stopPropagation>
-            <div class="left">
+                <div class="left">
                 <div class="title">Add Wheel</div>
                 <div class="sub">Build a wheel and drop it onto the board</div>
             </div>
