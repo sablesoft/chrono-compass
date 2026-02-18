@@ -1461,8 +1461,8 @@
 
     .cycleNav {
         position: absolute;
-        top: 8px;
-        right: 0px;
+        top: 4px;
+        right: 0;
         display: flex;
         flex-direction: column;
         gap: 8px;
