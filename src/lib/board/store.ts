@@ -427,38 +427,55 @@ export const boardApi = {
         );
     },
 
-    removeWheelType(type: WheelType, reason = 'removeWheelType') {
-        dbg.group('boardApi.removeWheelType', () => {
-            const cur = get(boardState).items;
-            const next = cur.filter((x) => x.wheelType !== type);
-            dbg.log('remove', { type, before: cur.length, after: next.length, reason });
+    moveWheelById(
+        wheelId: string,
+        dir: -1 | 1,
+        opts?: { carouselWrap?: boolean },
+        reason = 'moveWheelById'
+    ) {
+        dbg.group('boardApi.moveWheelById', () => {
+            const carouselWrap = opts?.carouselWrap === true;
+
+            const cur = get(boardState).items
+                .slice()
+                .sort((a, b) => a.order - b.order);
+
+            const n = cur.length;
+            if (n < 2) return;
+
+            const from = cur.findIndex(x => x.wheelId === wheelId);
+            if (from < 0) {
+                dbg.warn('moveWheelById.notFound', { wheelId, reason });
+                return;
+            }
+
+            let to = from + dir;
+
+            // wrap logic
+            if (to < 0) {
+                // moving left from first
+                to = carouselWrap ? Math.max(0, n - 2) : (n - 1);
+            } else if (to >= n) {
+                // moving right from last
+                to = carouselWrap ? Math.min(n - 1, 1) : 0;
+            }
+
+            if (to === from) {
+                dbg.log('moveWheelById.noop', { wheelId, from, to, dir, carouselWrap, reason });
+                return;
+            }
+
+            const a = cur[from];
+            const b = cur[to];
+
+            // swap orders
+            const next = cur.slice();
+            next[from] = { ...a, order: b.order };
+            next[to] = { ...b, order: a.order };
+
+            dbg.log('moveWheelById.move', { wheelId, from, to, dir, carouselWrap, reason });
+
             setItems(next, reason);
         });
     },
-
-    reorder(nextWheelIds: string[], reason = 'reorder') {
-        dbg.group('boardApi.reorder', () => {
-            const cur = get(boardState).items.slice();
-            const byId = new Map<string, BoardWheel>(cur.map((x) => [x.wheelId, x]));
-            const next: BoardWheel[] = [];
-
-            for (const id of nextWheelIds) {
-                const it = byId.get(id);
-                if (it) next.push(it);
-            }
-            for (const it of cur) {
-                if (!next.some((x) => x.wheelId === it.wheelId)) next.push(it);
-            }
-
-            dbg.log('reorder', { reason, count: next.length, order: next.map((x) => x.wheelId) });
-            setItems(next, reason);
-        });
-    },
-
-    clear(reason = 'clear') {
-        dbg.group('boardApi.clear', () => {
-            dbg.warn('boardApi.clear', { reason });
-            setItems([], reason);
-        });
-    }
 };

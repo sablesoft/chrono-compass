@@ -92,6 +92,12 @@
         return (Number.isFinite(a) && Number.isFinite(b) && b > a) ? { start: a, end: b } : null;
     }
 
+    function moveWheelOpts() {
+
+        // todo - check is mobile
+        return { carouselWrap: false };
+    }
+
     function angleDegAtTs(ts0: number): number | null {
         const t = spokeTimes;
         if (!t || t.length < 17) return null;
@@ -772,19 +778,16 @@
             <button
                     type="button"
                     class="navBtn"
-                    title="Previous"
-                    on:click={() => shiftCycle(-1)}
-                    disabled={!solveOk}
-            >←</button>
+                    title="Move left"
+                    on:click={() => boardApi.moveWheelById(wheelId, -1, moveWheelOpts(), 'Cycle.moveLeft')}
+            >⇤</button>
 
             <button
                     type="button"
                     class="navBtn"
-                    title="Next"
-                    on:click={() => shiftCycle(1)}
-                    disabled={!solveOk}
-            >→</button>
-
+                    title="Move right"
+                    on:click={() => boardApi.moveWheelById(wheelId,  1, moveWheelOpts(), 'Cycle.moveRight')}
+            >⇥</button>
             <button type="button" class="navBtn" title="Docs" on:click={docs.openDocs}>i</button>
 
             <button
@@ -1061,6 +1064,10 @@
                     {/if}
 
                 </svg>
+                <div class="cycleNav">
+                    <button class="cycleUp navBtn" title="Next Cycle" on:click={() => shiftCycle(1)}>▲</button>
+                    <button class="cycleDown navBtn" title="Previous Cycle" on:click={() => shiftCycle(-1)}>▼</button>
+                </div>
             </div>
 
             {#if $tipState.open && $tipState.payload}
@@ -1447,5 +1454,23 @@
     .nowPointer:hover circle {
         stroke-opacity: 0.85;
         fill-opacity: 0.9;
+    }
+    .wheelBox {
+        position: relative;
+    }
+
+    .cycleNav {
+        position: absolute;
+        top: 8px;
+        right: 0px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cycleUp,
+    .cycleDown {
+        width: 34px;
+        height: 34px;
     }
 </style>

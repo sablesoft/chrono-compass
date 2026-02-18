@@ -69,6 +69,12 @@
     $: wheelLat = wheelLoc?.lat;
     $: wheelLon = wheelLoc?.lon;
 
+    function moveWheelOpts() {
+
+        // todo - check is mobile
+        return { carouselWrap: false };
+    }
+
     function closeCompass() {
         onUserActivity();
         boardApi.removeWheelById(wheelId, 'Compass.close');
@@ -403,8 +409,15 @@
         />
 
         <div class="right">
-            <button type="button" class="navBtn" title="Previous" disabled>←</button>
-            <button type="button" class="navBtn" title="Next" disabled>→</button>
+            <button type="button"
+                    class="navBtn"
+                    title="Move left"
+                    on:click={() => boardApi.moveWheelById(wheelId, -1, moveWheelOpts(), 'Cycle.moveLeft')}>⇤</button>
+
+            <button type="button"
+                    class="navBtn"
+                    title="Move right"
+                    on:click={() => boardApi.moveWheelById(wheelId,  1, moveWheelOpts(), 'Cycle.moveRight')}>⇥</button>
             <button type="button" class="navBtn" title="Docs" on:click={docs.openDocs}>i</button>
             <button
                     type="button"
