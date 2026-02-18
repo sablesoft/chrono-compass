@@ -1,6 +1,7 @@
 <!--src/component/Board.svelte -->
 <script lang="ts">
     import { boardItems } from '../lib/board/store';
+    import { flip } from 'svelte/animate';
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
     import { CYCLE_META } from '../lib/cycle/meta';
     import { getWheelEntry } from '../lib/board/registry';
@@ -41,21 +42,23 @@
     $: cyclesOrdered = ($cycles ?? [])
         .slice()
         .sort((a, b) => CYCLE_META[a].order - CYCLE_META[b].order);
+
+    $: itemsViewWithComp = itemsView.map((row) => ({
+        ...row,
+        Comp: pickComponent(row.w)
+    }));
 </script>
 
 <section class="grid">
-    {#each itemsView as row (row.w.wheelId)}
-        {@const C = pickComponent(row.w)}
-        <svelte:component this={C} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
+    {#each itemsViewWithComp as row (row.w.wheelId)}
+        <div animate:flip={{ duration: 500 }}>
+            <svelte:component this={row.Comp} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
+        </div>
     {/each}
+
     <!-- TODO - старый список cycles — временно оставляем -->
     {#each cyclesOrdered as kind (kind)}
-        <Wheel
-                kind={kind}
-                lat={lat}
-                lon={lon}
-                selectedTs={selectedTs}
-        />
+        <Wheel kind={kind} lat={lat} lon={lon} selectedTs={selectedTs}/>
     {/each}
     <WheelPicker/>
 </section>
