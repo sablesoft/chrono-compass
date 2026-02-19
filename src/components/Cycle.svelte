@@ -13,7 +13,6 @@
     import type { BodyId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
 
     import DocsModal from './DocsModal.svelte';
-    import WheelControl from './WheelControl.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
 
@@ -21,7 +20,7 @@
     import { debug } from '../lib/debug';
     import { ms, formatDateTime } from '../lib/format';
 
-    import { boardApi, boardItems } from '../lib/board/store';
+    import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
 
     import { solveWheel } from '../lib/board/dispatcher';
@@ -46,6 +45,7 @@
         putPersistentCycle
     } from '../lib/cycle/store';
     import {typeLabel} from "../lib/wheel/control";
+    import WheelHeader from "./WheelHeader.svelte";
 
     // ------------------------------------------------------------
     // Props (NEW contract: Board passes wheel + location)
@@ -72,8 +72,6 @@
     // Local derived state from wheel
     // ------------------------------------------------------------
     $: wheelId = wheel?.wheelId;
-    $: roles = (wheel?.roles ?? {}) as any;
-    $: title = wheel?.title ?? '';
 
     $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
@@ -83,19 +81,11 @@
 
     // prefer passed-in location (already resolved in Board)
     $: wheelLoc = location;
-    $: wheelLat = wheelLoc?.lat;
-    $: wheelLon = wheelLoc?.lon;
 
     function cycleWindowFromSpokes() {
         const a = spokeTimes?.[0];
         const b = spokeTimes?.[16];
         return (Number.isFinite(a) && Number.isFinite(b) && b > a) ? { start: a, end: b } : null;
-    }
-
-    function moveWheelOpts() {
-
-        // todo - check is mobile
-        return { carouselWrap: false };
     }
 
     function angleDegAtTs(ts0: number): number | null {
@@ -762,43 +752,7 @@
 </script>
 
 <section class="panel">
-    <header class="top">
-        <div class="left">
-            <WheelControl
-                    type={wheel.wheelType}
-                    roles={wheel.roles}
-                    title={wheel.title}
-                    baseObserver={wheel.observer}
-                    baseTime={wheel.time}
-                    baseWheelId={wheel.wheelId}
-            />
-        </div>
-
-        <div class="right">
-            <button
-                    type="button"
-                    class="navBtn"
-                    title="Move left"
-                    on:click={() => boardApi.moveWheelById(wheelId, -1, moveWheelOpts(), 'Cycle.moveLeft')}
-            >⇤</button>
-
-            <button
-                    type="button"
-                    class="navBtn"
-                    title="Move right"
-                    on:click={() => boardApi.moveWheelById(wheelId,  1, moveWheelOpts(), 'Cycle.moveRight')}
-            >⇥</button>
-            <button type="button" class="navBtn" title="Docs" on:click={docs.openDocs}>i</button>
-
-            <button
-                    type="button"
-                    class="navBtn danger"
-                    title='Close wheel'
-                    aria-label="Close wheel"
-                    on:click|stopPropagation={closeCycle}
-            >×</button>
-        </div>
-    </header>
+    <WheelHeader wheel={wheel} onDocs={docs.openDocs} onClose={closeCycle}/>
 
     <div class="wrap" bind:this={wrapEl}>
         <section class="wheelPanel">
@@ -1220,17 +1174,6 @@
         flex-direction: column;
         min-height: 0;
     }
-
-    .top {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        gap: 12px;
-    }
-
-    .left { display: grid; gap: 10px; min-width: 0; }
-    .right { display: flex; gap: 10px; align-items: center; }
-
     .navBtn {
         padding: 8px 10px;
         border-radius: 10px;
@@ -1247,11 +1190,6 @@
     }
     .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
 
-    .navBtn.danger:hover:not(:disabled) {
-        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
-        background: color-mix(in oklab, var(--accent-red), transparent 86%);
-    }
-
     .wrap {
         width: 100%;
         max-width: 100%;
@@ -1267,6 +1205,7 @@
         display: grid;
         place-items: stretch;
         overflow: hidden;
+        position: relative;
     }
 
     .wheelBox svg { width: 100%; height: 100%; display: block; }
@@ -1464,9 +1403,6 @@
     .nowPointer:hover circle {
         stroke-opacity: 0.85;
         fill-opacity: 0.9;
-    }
-    .wheelBox {
-        position: relative;
     }
 
     .cycleNav {

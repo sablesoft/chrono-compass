@@ -414,22 +414,6 @@
             <button
                     type="button"
                     class="navBtn"
-                    title={`Previous ${CYCLE_META[kind].label}`}
-                    on:click={() => shiftCycle(-1)}
-                    disabled={isCycling}
-            >←</button>
-
-            <button
-                    type="button"
-                    class="navBtn"
-                    title={`Next ${CYCLE_META[kind].label}`}
-                    on:click={() => shiftCycle(1)}
-                    disabled={isCycling}
-            >→</button>
-
-            <button
-                    type="button"
-                    class="navBtn"
                     title="Docs"
                     on:click={docs.openDocs}
             >i</button>
@@ -695,6 +679,11 @@
 
                     <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
                 </svg>
+
+                <div class="cycleNav">
+                    <button class="cycleUp navBtn" title="Next Cycle" on:click={() => shiftCycle(1)}>▲</button>
+                    <button class="cycleDown navBtn" title="Previous Cycle" on:click={() => shiftCycle(-1)}>▼</button>
+                </div>
             </div>
 
             {#if currentSpokeTip}
@@ -828,6 +817,7 @@
         display: grid;
         place-items: stretch;
         overflow: hidden;
+        position: relative;
     }
 
     .wheelBox svg {
@@ -1011,5 +1001,20 @@
         font-size: 16px;
         margin-top: 7px;
         border-top: 1px solid var(--btn-border);
+    }
+
+    .cycleNav {
+        position: absolute;
+        top: 4px;
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .cycleUp,
+    .cycleDown {
+        width: 34px;
+        height: 34px;
     }
 </style>

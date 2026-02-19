@@ -10,7 +10,6 @@
     import CompassTooltip from './CompassTooltip.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
-    import WheelControl from './WheelControl.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
@@ -35,6 +34,7 @@
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
     import {norm360} from "../lib/math/helpers";
+    import WheelHeader from "./WheelHeader.svelte";
 
     // ------------------------------------------------------------
     // Props (NEW contract: Board passes wheel + location)
@@ -68,12 +68,6 @@
     $: wheelLoc = location;
     $: wheelLat = wheelLoc?.lat;
     $: wheelLon = wheelLoc?.lon;
-
-    function moveWheelOpts() {
-
-        // todo - check is mobile
-        return { carouselWrap: false };
-    }
 
     function closeCompass() {
         onUserActivity();
@@ -399,36 +393,9 @@
 </script>
 
 <section class="panel">
-    <header class="top">
-        <WheelControl type="compass"
-                roles={wheel.roles}
-                title={wheel.title}
-                baseObserver={wheel.observer}
-                baseTime={wheel.time}
-                baseWheelId={wheel.wheelId}
-        />
+    <WheelHeader wheel={wheel} onDocs={docs.openDocs} onClose={closeCompass}/>
 
-        <div class="right">
-            <button type="button"
-                    class="navBtn"
-                    title="Move left"
-                    on:click={() => boardApi.moveWheelById(wheelId, -1, moveWheelOpts(), 'Cycle.moveLeft')}>⇤</button>
-
-            <button type="button"
-                    class="navBtn"
-                    title="Move right"
-                    on:click={() => boardApi.moveWheelById(wheelId,  1, moveWheelOpts(), 'Cycle.moveRight')}>⇥</button>
-            <button type="button" class="navBtn" title="Docs" on:click={docs.openDocs}>i</button>
-            <button
-                    type="button"
-                    class="navBtn danger"
-                    title="Close compass"
-                    aria-label="Close compass"
-                    on:click|stopPropagation={closeCompass}
-            >×</button>
-        </div>
-    </header>
-
+    <!-- WHEEL SVG -->
     <div class="wrap" bind:this={wrapEl}>
         <section class="wheelPanel">
             <div class="wheelBox">
@@ -592,6 +559,7 @@
         </section>
     </div>
 
+    <!-- INFO -->
     <div class="info">
         <div class="infoRow">
             <div class="rowFill">
@@ -687,26 +655,6 @@
         flex-direction: column;
         min-height: 0;
     }
-
-    .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .right { display: flex; gap: 10px; }
-
-    .navBtn {
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-    }
-    .navBtn:hover:not(:disabled) {
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        transform: translateY(-1px);
-    }
-    .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
-
     .wrap {
         width: 100%;
         max-width: 100%;
