@@ -13,6 +13,8 @@ import {
     dedupeWheelItemsById
 } from '../wheel/id';
 import type {BoardWheel} from "./types";
+import {DEFAULT_LOCATION_ID} from "../location/types";
+import {DEFAULT_TIME} from "../time/types";
 
 export type BoardState = {
     items: BoardWheel[];
@@ -23,9 +25,7 @@ const dbg = debug('board', '👤');
 
 const KEY = 'chrono:board';
 
-const DEFAULT_LOCATION_ID = 'loc:system';
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
-const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 
 function now(): number {
     return Date.now();

@@ -66,11 +66,12 @@
                 locked={false}
                 onChange={handleGlobalLocationChange}/>
     </div>
-    <div class="slot">
-        <CollectionControl />
-    </div>
+<!--    <div class="slot">-->
+<!--        <CollectionControl />-->
+<!--    </div>-->
     <div class="slot cycles">
         <DropdownButton
+                showSummary={false}
                 label="Legacy Cycles"
                 items={cycleItems}
                 value={$cycles}

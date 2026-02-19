@@ -37,7 +37,7 @@
         if (!showSummary) {
             summary = '';
         } else if (!v.length) {
-            summary = '—';
+            summary = '';
         } else {
             const enabled = items.filter(i => i.disabled !== true).map(i => i.value);
             const enabledSelectedCount = v.filter(x => enabled.includes(x)).length;
@@ -142,8 +142,7 @@
         class={buttonClass}
         aria-haspopup="dialog"
         aria-expanded={open}
-        on:click={toggleOpen}
->
+        on:click={toggleOpen}>
     <span class="db-label">{label}</span>
     {#if showSummary}
         <span class="db-summary">{summary}</span>

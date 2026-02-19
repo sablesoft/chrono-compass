@@ -1,23 +1,26 @@
 <!-- src/components/WheelPicker.svelte -->
 <script lang="ts">
-    import { bodies, wheels, filteredRoles } from '../lib/catalog';
-    import type { BodyId, WheelType, RoleName, WheelSpec, RoleSelects, RoleValues } from '../lib/catalog';
+    import type {BodyId, RoleName, RoleSelects, RoleValues, WheelSpec, WheelType} from '../lib/catalog';
+    import {bodies, filteredRoles, wheels} from '../lib/catalog';
+    import {currentLocationId, resolveLocationById} from '../lib/location/store';
 
-    import { boardApi } from '../lib/board/store';
-    import { makeWheelId } from '../lib/wheel/id';
-    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
-    import { formatWheelSpec, typeLabel } from '../lib/wheel/control';
-    import { debug } from '../lib/debug';
+    import {boardApi} from '../lib/board/store';
+    import {makeWheelId} from '../lib/wheel/id';
+    import {formatWheelSpec, typeLabel} from '../lib/wheel/control';
+    import {debug} from '../lib/debug';
 
     // profiles (saved wheels)
-    import { activeProfile } from '../lib/profile/store';
-    import type { SavedWheel } from '../lib/profile/types';
+    import {activeProfile} from '../lib/profile/store';
+    import type {SavedWheel} from '../lib/profile/types';
+    import {DEFAULT_LOCATION_ID} from "../lib/location/types";
+    import {DEFAULT_TIME} from "../lib/time/types";
+
+    import LocationPicker from './LocationPicker.svelte';
+    import type { WheelObserverState } from '../lib/wheel/types';
+    import type { Location } from '../lib/location/types';
+    import { currentLocation } from '../lib/location/store';
 
     const dbg = debug('wheel', '?');
-
-    const DEFAULT_LOCATION_ID = 'loc:system';
-    const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
-    const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 
     const ALL_TYPES = (Object.keys(wheels) as WheelType[])
         .filter((t) => wheels[t].ready === true);
@@ -48,8 +51,7 @@
     // -------------------------
     let savedList: SavedWheel[] = [];
     $: {
-        const p = $activeProfile;
-        const list = (p?.data?.wheels ?? []).slice();
+        const list = ($activeProfile?.data?.wheels ?? []).slice();
 
         list.sort((a, b) => {
             const af = !!a.favorite;
@@ -112,6 +114,8 @@
         required = [];
         multiTarget = false;
         draftTitle = '';
+        observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
+        lastGlobalLocId = '';
     }
 
     function isWheelType(x: string): x is WheelType {
@@ -137,6 +141,7 @@
         pickedSavedId = '';
 
         type = nextType;
+        resetObserverDraftForType(type);
         spec = wheels[type];
 
         values = { looker: null, focus: null, target: [] };
@@ -161,6 +166,7 @@
         // set type/spec first (but do NOT wipe everything like initForType)
         type = t;
         spec = wheels[type];
+        resetObserverDraftForType(type);
         required = spec.requiredRoles ?? [];
         multiTarget = (spec as any).multiTarget === true;
 
@@ -254,7 +260,7 @@
                 wheelType: type as any,
                 roles: values as any,
                 title: nextTitle,
-                observer: DEFAULT_OBSERVER,
+                observer: observerDraft,
                 time: DEFAULT_TIME
             },
             'WheelPicker.add'
@@ -311,7 +317,49 @@
         target: multiTarget ? values.target : (values.target[0] ?? null),
     };
 
-    $: cfgId = hasAll && type ? makeWheelId(type, rolesForId, DEFAULT_OBSERVER, DEFAULT_TIME) : '';
+    function resetObserverDraftForType(t: WheelType | null) {
+        if (t === 'compass' || t === 'horizon') {
+            observerDraft = { locationId: $currentLocationId || DEFAULT_LOCATION_ID, locked: false };
+        } else {
+            observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
+        }
+    }
+
+    let observerDraft: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
+    let observerLoc: Location | null = null;
+    let lastGlobalLocId = '';
+
+    $: observerLoc = $currentLocation;
+
+    $: {
+        const g = ($currentLocationId || DEFAULT_LOCATION_ID);
+
+        // обновим lastGlobalLocId при первом проходе
+        if (!lastGlobalLocId) lastGlobalLocId = g;
+
+        const needsObserverUi = type === 'compass' || type === 'horizon';
+
+        if (needsObserverUi) {
+            // если пользователь НЕ залочил — следуем за глобальной
+            if (!observerDraft.locked) {
+                observerDraft = { ...observerDraft, locationId: g };
+            }
+        } else {
+            // для всех циклов/прочих типов всегда loc:system (и не держим “старую” локацию)
+            observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
+        }
+
+        lastGlobalLocId = g;
+    }
+
+    $: observerLoc =
+        (type === 'compass' || type === 'horizon')
+            ? resolveLocationById(observerDraft.locationId)
+            : null;
+
+    $: cfgId = hasAll && type
+        ? makeWheelId(type, rolesForId, observerDraft, DEFAULT_TIME)
+        : '';
     $: existsOnBoard = !!cfgId && boardApi.hasWheelId(cfgId);
 
     $: canAddNow = !!type && hasAll && !existsOnBoard;
@@ -373,6 +421,26 @@
             </div>
 
             {#if type && spec}
+                {#if type === 'compass' || type === 'horizon'}
+                    <LocationPicker value={observerLoc}
+                            locked={observerDraft.locked}
+                            onChange={(loc, meta) => {
+                              onUserActivity();
+
+                              const globalId = ($currentLocationId || DEFAULT_LOCATION_ID);
+                              const isDifferentFromGlobal = loc.id !== globalId;
+                              const shouldLock = meta.lockOnApply === true || isDifferentFromGlobal;
+
+                              observerDraft = { locationId: meta.savedId, locked: shouldLock };
+                              pickedSavedId = '';
+                            }}
+                            onToggleLock={(next) => {
+                              onUserActivity();
+                              observerDraft = { ...observerDraft, locked: next };
+                              pickedSavedId = '';
+                            }}/>
+                {/if}
+
                 <div class="row">
                     <label class="lbl">Name</label>
                     <input

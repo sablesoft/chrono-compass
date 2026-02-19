@@ -11,6 +11,7 @@ import {boardApi} from '../board/store';
 import {makeWheelId as makeWheelIdImpl, normalizeRoleValue} from '../wheel/id';
 import type {WheelObserverState, WheelTimeState} from '../wheel/types';
 import type {BoardWheel} from "../board/types";
+import {DEFAULT_LOCATION_ID} from "../location/types";
 
 export const makeWheelId = makeWheelIdImpl;
 
@@ -23,7 +24,6 @@ function now(): number {
     return Date.now();
 }
 
-const DEFAULT_LOCATION_ID = 'loc:system'; // “глобальная” локация по умолчанию (пока без связки с location store)
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
 const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 

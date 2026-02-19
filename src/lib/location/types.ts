@@ -21,3 +21,6 @@ export type LocationData = {
     currentId: string;   // ALWAYS points to saved[].id (after init)
     saved: Location[];
 };
+
+export const DEFAULT_LOCATION_ID = 'loc:system';
+

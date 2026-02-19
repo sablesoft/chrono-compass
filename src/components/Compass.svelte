@@ -27,7 +27,7 @@
     import { solveWheel } from '../lib/board/dispatcher';
     import type { WheelSolveResult } from '../lib/board/runtime';
 
-    import type { Location } from '../lib/location/types';
+    import {DEFAULT_LOCATION_ID, type Location} from '../lib/location/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
 
     import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
@@ -61,7 +61,7 @@
     $: roles = (wheel?.roles ?? {}) as any;
     $: title = wheel?.title ?? '';
 
-    $: observer = (wheel?.observer ?? { locationId: 'loc:system', locked: false }) as WheelObserverState;
+    $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
 
     // prefer passed-in location (already resolved in Board)

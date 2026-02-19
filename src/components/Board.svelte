@@ -16,6 +16,7 @@
     // TODO - legacy wheel cycles
     import { cycles } from '../lib/stores/cycle';
     import WheelPicker from "./WheelPicker.svelte";
+    import {DEFAULT_LOCATION_ID} from "../lib/location/types";
 
     export let lat: number;
     export let lon: number;
@@ -31,7 +32,7 @@
     $: items = ($boardItems ?? []).slice().sort((a, b) => a.order - b.order);
 
     $: itemsView = items.map((w) => {
-        const obs = (w.observer as WheelObserverState) ?? { locationId: 'loc:system', locked: false };
+        const obs = (w.observer as WheelObserverState) ?? { locationId: DEFAULT_LOCATION_ID, locked: false };
         const id = obs.locked ? obs.locationId : globalLocId;
         return { w, loc: resolveLocationById(id) };
     });
