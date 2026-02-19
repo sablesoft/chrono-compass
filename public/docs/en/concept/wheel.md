@@ -424,6 +424,238 @@ Cycles describing axial precession of a target body relative to an external refe
 
 ---
 
+### System Wheels
+
+System Wheels describe the spatial structure of a planetary system around its central star.
+
+Unlike cyclic Wheels (Bind, Synod, Season), a System Wheel is not primarily about phase transitions.
+It is a **structural spatial model** of a gravitational system.
+
+A System Wheel answers the question:
+
+> *How are bodies arranged within a stellar system relative to a higher external reference?*
+
+---
+
+#### Conceptual Principle
+
+A System Wheel models a **stellar system as a coherent gravitational unit**.
+
+The star (focus) acts as the structural center.
+Targets are bodies gravitationally bound to the focus.
+
+The Wheel defines:
+
+* orbital radii (scaled or normalized),
+* angular positions,
+* orientation of the system relative to an external reference.
+
+It is a structural map, not a cyclic phase model.
+
+---
+
+#### Required Attributes
+
+##### General
+
+* **type**: `system`
+
+##### Body Roles
+
+* **looker** — external reference body (e.g., Galactic Center)
+* **focus** — central star of the system (e.g., Sun)
+* **target** — one or many bodies orbiting the focus
+
+##### Additional Attributes
+
+* **projection** — projection mode
+
+  * `polar` — view from system north pole
+  * `equatorial` — view perpendicular to system north pole
+
+* **plane** — reference plane of projection
+
+  * `ecliptic` (default)
+  * `galactic`
+
+---
+
+#### Geometric Structure
+
+The System Wheel is a 3D structure represented through 2D projection.
+
+##### Projection: `polar`
+
+* Viewpoint: above the system north pole.
+* Focus is at the center of the wheel.
+* Orbital radii are projected radially.
+* Angular positions are true orbital longitudes in the chosen plane.
+
+Orientation:
+
+* **S axis** points toward the looker.
+* **N axis** points opposite the looker.
+* **W/E** are perpendicular to S–N.
+
+This projection preserves angular geometry within the orbital plane.
+
+---
+
+##### Projection: `equatorial`
+
+* Viewpoint: perpendicular to the system north pole.
+* Looker becomes the observer of the disk.
+* N–S axis represents the system’s rotational axis.
+* W–E axis represents the projection of the orbital plane.
+
+In this mode:
+
+* W–E distance from center reflects in-plane displacement.
+* N–S displacement reflects height relative to chosen plane.
+
+This projection reveals orbital inclination structure.
+
+---
+
+#### Semantics
+
+System Wheels represent:
+
+* gravitational hierarchy,
+* spatial order,
+* structural embedding of a planetary system inside a larger structure.
+
+They do not define cyclic spokes.
+They define **spatial configuration states**.
+
+---
+
+#### Examples
+
+`Solar System (GC reference)`
+(looker: Galactic Center, focus: Sun, targets: planets)
+
+`Alpha Centauri System`
+(looker: Galactic Center, focus: Alpha Centauri A, targets: bound bodies)
+
+---
+
+### Galaxy Wheels
+
+Galaxy Wheels describe the spatial structure of a galaxy relative to a **cosmological external reference**.
+
+They model the galaxy as a coherent rotating disk embedded in large-scale cosmic flow.
+
+A Galaxy Wheel answers the question:
+
+> *How is a galaxy oriented and structured relative to the cosmic environment?*
+
+---
+
+#### Conceptual Principle
+
+A Galaxy Wheel models a galaxy as a gravitational system embedded within the cosmic web.
+
+The galactic center acts as structural focus.
+Targets are bodies or structures within the galaxy.
+The looker is an external cosmological reference.
+
+This Wheel establishes orientation of the galactic disk relative to:
+
+* cosmic flow,
+* supercluster structure,
+* large-scale gravitational fields.
+
+---
+
+#### Required Attributes
+
+##### General
+
+* **type**: `galaxy`
+
+##### Body Roles
+
+* **looker** — cosmological reference (e.g., CMB dipole direction or Great Attractor)
+* **focus** — galactic center (GC)
+* **target** — bodies or structures within the galaxy
+
+##### Additional Attributes
+
+* **projection** — projection mode
+
+  * `polar` — view from galactic north pole
+  * `equatorial` — view perpendicular to galactic north pole
+
+* **plane** — projection plane
+
+  * `galactic` (default)
+  * `cosmic-sheet`
+
+---
+
+#### Geometric Structure
+
+Galaxy Wheel is a 3D disk projected into 2D.
+
+##### Projection: `polar`
+
+* Viewpoint: above galactic north pole.
+* Focus (GC) at wheel center.
+* Disk structure projected radially.
+
+Orientation:
+
+* **S axis** points toward the looker (e.g., CMB dipole direction).
+* **N axis** opposite the looker.
+* **W/E** are perpendicular within galactic plane.
+
+This reveals spiral geometry and cosmic orientation simultaneously.
+
+---
+
+##### Projection: `equatorial`
+
+* Viewpoint: perpendicular to galactic north pole.
+* Looker becomes observer of the galactic disk.
+* N–S axis represents galactic rotational axis.
+* W–E axis represents projection of galactic plane.
+
+In this mode:
+
+* W–E displacement reflects radial galactic position.
+* N–S displacement reflects height above or below galactic plane.
+
+---
+
+#### Semantics
+
+Galaxy Wheels represent:
+
+* galactic embedding in cosmic structure,
+* orientation relative to universal motion,
+* structural relationship between galaxy and supercluster dynamics.
+
+They are not cyclic wheels.
+They are **cosmic structural orientation models**.
+
+---
+
+#### Examples
+
+`Milky Way (CMB reference)`
+(looker: CMB dipole, focus: Galactic Center, targets: stellar populations)
+
+`Andromeda Galaxy`
+(looker: CMB dipole, focus: Andromeda GC, targets: galactic structures)
+
+---
+
+These two Wheel types extend Chrono Compass beyond orbital cycles
+into hierarchical spatial architecture:
+
+Planet → Star → Galaxy → Cosmic Flow.
+
 ## Overlapping Wheels
 
 A single physical relation may be described by multiple Wheel types.
