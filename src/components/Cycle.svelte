@@ -1216,6 +1216,9 @@
         border-radius: 18px;
         padding: 14px;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
 
     .top {
@@ -1249,7 +1252,12 @@
         background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 
-    .wrap { width: 100%; max-width: 100%; }
+    .wrap {
+        width: 100%;
+        max-width: 100%;
+        flex: 0 0 auto;
+        min-height: 0;
+    }
 
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
 
@@ -1328,7 +1336,9 @@
         opacity: 0.82;
         display: grid;
         gap: 2px;
-        margin-top: 12px;
+        margin-top: auto;   /* вот это магия “прилипни вниз” */
+        min-height: 0;
+        overflow: auto;
     }
 
     .infoRow {

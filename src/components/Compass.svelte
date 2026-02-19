@@ -683,6 +683,9 @@
         border-radius: 18px;
         padding: 14px;
         overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
     }
 
     .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -704,7 +707,12 @@
     }
     .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
 
-    .wrap { width: 100%; max-width: 100%; }
+    .wrap {
+        width: 100%;
+        max-width: 100%;
+        flex: 0 0 auto;
+        min-height: 0;
+    }
 
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
     .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: hidden; }
@@ -734,7 +742,18 @@
     .spoke:focus-visible {
         outline: none;
     }
-    .info { width: 100%; max-width: 100%; font-size: 18px; line-height: 1.75; opacity: 0.82; display: grid; gap: 2px; margin-top: 100px; }
+    .info {
+        width: 100%;
+        max-width: 100%;
+        font-size: 18px;
+        line-height: 1.75;
+        opacity: 0.82;
+        display: grid;
+        gap: 2px;
+        margin-top: auto;   /* вот это магия “прилипни вниз” */
+        min-height: 0;
+        overflow: auto;
+    }
     .infoRow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 10px; }
 
     .infoRow{

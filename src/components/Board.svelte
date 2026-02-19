@@ -52,7 +52,7 @@
 
 <section class="grid">
     {#each itemsViewWithComp as row (row.w.wheelId)}
-        <div animate:flip={{ duration: 500 }}>
+        <div class="cell" animate:flip={{ duration: 500 }}>
             <svelte:component this={row.Comp} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
         </div>
     {/each}
@@ -70,6 +70,16 @@
         gap: 13px;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         align-items: stretch; /* важно */
+    }
+    .grid > .cell {
+        display: flex;
+        align-items: stretch;
+        min-width: 0;
+    }
+
+    .grid > .cell > :global(*) {
+        flex: 1 1 auto;
+        min-height: 0;
     }
     @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
     @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
