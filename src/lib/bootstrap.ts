@@ -4,6 +4,7 @@ import { registerWheel, resolveWheelMeta } from './board/registry';
 import { solveBindWheel } from './math/bind';
 import { solveCompassWheel } from './math/compass';
 import { solveHorizonWheel } from './math/horizon';
+import { solveSynodWheel } from "./math/synod";
 
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
@@ -69,6 +70,23 @@ function registerWheels() {
         }),
         solve: (input) => solveHorizonWheel(input as any),
     } satisfies WheelRegistryEntry<'horizon'>);
+
+    registerWheel({
+        type: 'synod',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'synod',
+            ts: ctx.ts,
+            location: ctx.location, // не нужен для synod
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker,
+            focus: (wheel.roles as any)?.focus,
+            target: (wheel.roles as any)?.target, // у synod всегда один
+            // meta пока не обязательна; можно не прокидывать
+        }),
+        solve: (input) => solveSynodWheel(input as any),
+    } satisfies WheelRegistryEntry<'synod'>);
 
     // TODO остальные...
 }

@@ -1,5 +1,5 @@
 // src/lib/wheel/control.ts
-import type {ObjId, RoleName, WheelSpec} from '../catalog';
+import {formatRoleValue, formatTargetValue, type ObjId, type RoleName, type WheelSpec} from '../catalog';
 
 export type WheelRolesState = Partial<Record<RoleName, ObjId | null | ObjId[]>>;
 
@@ -183,23 +183,6 @@ export function typeLabel(type: string): string {
         .filter(Boolean)
         .map(ucFirst)
         .join(' ');
-}
-
-function formatRoleValue(v: ObjId | null | ObjId[] | undefined): string {
-    if (!v) return '—';
-    if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
-    return String(v);
-}
-
-function formatTargetValue(v: ObjId | null | ObjId[] | undefined): string {
-    if (!v) return '—';
-    if (Array.isArray(v)) {
-        const n = v.length;
-        if (n === 0) return '—';
-        if (n === 1) return String(v[0]);
-        return `${n} Targets`;
-    }
-    return String(v);
 }
 
 export function formatWheelSpec(type: string, roles: WheelRolesState): string {

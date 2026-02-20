@@ -1,6 +1,7 @@
 // src/lib/catalog/types.ts
 import { Body as EngineBody } from 'astronomy-engine';
 import { SPOKES_ORDER } from '../wheel/types';
+import {objects} from "./objects";
 
 /* =============================================================================
    Core scalar types
@@ -230,3 +231,41 @@ export type WheelSpec =
     | WheelSpecBase<'plato', PlatoRoleSet>
     | WheelSpecBase<'system', SystemRoleSet, true>
     | WheelSpecBase<'galaxy', GalaxyRoleSet, true>;
+
+
+export function hmsToDeg(h: number, m: number, s: number): number {
+    return (h + m / 60 + s / 3600) * 15;
+}
+
+export function dmsToDeg(sign: 1 | -1, d: number, m: number, s: number): number {
+    return sign * (d + m / 60 + s / 3600);
+}
+
+export function objectLabel(id: ObjId): string {
+    const b = (objects as any)[id];
+    return b?.name?.en ?? String(id);
+}
+
+export function formatRoleValue(v: ObjId | null | ObjId[] | undefined): string {
+    if (!v) return '—';
+
+    if (Array.isArray(v)) {
+        if (v.length === 0) return '—';
+        return v.map(id => objectLabel(id)).join(', ');
+    }
+
+    return objectLabel(v);
+}
+
+export function formatTargetValue(v: ObjId | null | ObjId[] | undefined): string {
+    if (!v) return '—';
+
+    if (Array.isArray(v)) {
+        const n = v.length;
+        if (n === 0) return '—';
+        if (n === 1) return objectLabel(v[0]);
+        return `${n} Targets`;
+    }
+
+    return objectLabel(v);
+}

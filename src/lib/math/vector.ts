@@ -3,6 +3,11 @@
 import {deg2rad, isFiniteNumber, norm360} from "./helpers";
 import type {ReferenceMeta, Vec3} from "../catalog";
 
+// Obliquity of the ecliptic (J2000), degrees
+export const EPS_DEG_J2000 = 23.439291;
+export const EPS = deg2rad(EPS_DEG_J2000);
+
+export type Vec = { x: number; y: number; z: number };
 
 export function vectorLengthSafe(v: any): number {
     if (!v) return NaN;
@@ -121,4 +126,24 @@ export function refUnit(meta: ReferenceMeta): Vec3 | null {
 
     // exhaustiveness (на всякий)
     return null;
+}
+
+// Rotate vector from equatorial J2000 to ecliptic J2000.
+// This is a rotation about +X axis by +ε.
+export function eqToEcl(v: Vec): Vec {
+    const ce = Math.cos(EPS);
+    const se = Math.sin(EPS);
+
+    const x = v.x;
+    const y = v.y * ce + v.z * se;
+    const z = -v.y * se + v.z * ce;
+
+    return { x, y, z };
+}
+
+// Ecliptic longitude (J2000) from a direction vector (in equatorial J2000 input).
+export function lonDegEcliptic(uEq: Vec): number {
+    const u = eqToEcl(uEq);
+    const a = (Math.atan2(u.y, u.x) * 180) / Math.PI;
+    return norm360(a);
 }

@@ -26,4 +26,4 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Saturn.id]: Saturn,
     [Uranus.id]: Uranus,
     [GalacticCenter.id]: GalacticCenter,
-};
+} satisfies Partial<Record<ObjId, Obj>>;

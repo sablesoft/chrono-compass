@@ -1,6 +1,7 @@
 <!-- src/components/WheelPicker.svelte -->
 <script lang="ts">
     import {
+        objectLabel,
         type ObjId,
         requiredRoles,
         type RoleName,
@@ -9,7 +10,7 @@
         type WheelSpec,
         type WheelType
     } from '../lib/catalog';
-    import {objects, filteredRoles, wheels} from '../lib/catalog';
+    import {filteredRoles, wheels} from '../lib/catalog';
     import {currentLocationId, resolveLocationById} from '../lib/location/store';
 
     import {boardApi} from '../lib/board/store';
@@ -83,11 +84,6 @@
 
         const head = w.favorite ? '★ ' : '';
         return head + (title.length ? title : specText);
-    }
-
-    function bodyLabel(id: ObjId): string {
-        const b = (objects as any)[id];
-        return b?.name?.en ?? String(id);
     }
 
     function selectValue(e: Event): string {
@@ -471,7 +467,7 @@
                         >
                             <option value="">—</option>
                             {#each selects.looker as id (id)}
-                                <option value={id}>{bodyLabel(id)}</option>
+                                <option value={id}>{objectLabel(id)}</option>
                             {/each}
                         </select>
                     </div>
@@ -488,7 +484,7 @@
                         >
                             <option value="">—</option>
                             {#each selects.focus as id (id)}
-                                <option value={id}>{bodyLabel(id)}</option>
+                                <option value={id}>{objectLabel(id)}</option>
                             {/each}
                         </select>
                     </div>
@@ -506,7 +502,7 @@
                             >
                                 {#each selects.target as id (id)}
                                     <option value={id} selected={values.target.includes(id)}>
-                                        {bodyLabel(id)}
+                                        {objectLabel(id)}
                                     </option>
                                 {/each}
                             </select>
@@ -519,7 +515,7 @@
                             >
                                 <option value="">—</option>
                                 {#each selects.target as id (id)}
-                                    <option value={id}>{bodyLabel(id)}</option>
+                                    <option value={id}>{objectLabel(id)}</option>
                                 {/each}
                             </select>
                         {/if}
