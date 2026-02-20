@@ -32,7 +32,6 @@
     let live = false;
 
     let timeState: TimeState = 'PAST';
-    let prevLive = false;
 
     // FUTURE watcher (как было)
     let futureTimer: ReturnType<typeof setInterval> | null = null;
@@ -185,7 +184,7 @@
         </button>
 
         <button
-                class="seg lockBtn ui-lock"
+                class="navBtn ui-lock"
                 class:locked={locked}
                 type="button"
                 on:click={toggleLock}>
@@ -218,7 +217,6 @@
         min-width: 0;             /* ✅ чтобы дети могли сжиматься */
         border-radius: 12px;
         border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
         overflow: hidden;
     }
 

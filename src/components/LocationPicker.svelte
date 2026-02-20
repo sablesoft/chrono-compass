@@ -246,7 +246,7 @@
             </span>
 
             <button
-                    class="lockBtn seg ui-lock"
+                    class="navBtn ui-lock"
                     class:locked={locked}
                     type="button"
                     aria-label={locked ? 'Unlock location' : 'Lock location'}
@@ -358,7 +358,6 @@
         align-items: stretch;
         border-radius: 12px;
         border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
         overflow: hidden;
         min-width: 0;
         cursor: pointer;
@@ -569,7 +568,6 @@
         .label { font-size: 14px; }
         .tz { font-size: 12px; }
         .tzSeg { width: 52px; padding: 6px 6px; }
-        .lockBtn { width: 36px; min-width: 36px; }
     }
 
     @media (max-width: 720px) {

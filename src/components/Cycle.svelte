@@ -1108,7 +1108,7 @@
         </div>
 
         {#if isHorizon}
-            <div class="infoRow">
+            <div class="padding-right">
                 <div class="rowFill">
                     <LocationPicker
                             value={wheelLoc}
@@ -1131,7 +1131,7 @@
             </div>
         {/if}
 
-        <div class="infoRow">
+        <div class="padding-right">
             <div class="rowFill">
                 <TimePicker
                         value={time}
@@ -1174,31 +1174,13 @@
         flex-direction: column;
         min-height: 0;
     }
-    .navBtn {
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-    }
-    .navBtn:hover:not(:disabled) {
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        transform: translateY(-1px);
-    }
-    .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
-
     .wrap {
         width: 100%;
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
     }
-
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
-
     .wheelBox {
         width: 100%;
         aspect-ratio: 1 / 1;
@@ -1418,5 +1400,8 @@
     .cycleDown {
         width: 34px;
         height: 34px;
+    }
+    .padding-right {
+        padding-right: 2px;
     }
 </style>

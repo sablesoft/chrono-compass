@@ -561,7 +561,7 @@
 
     <!-- INFO -->
     <div class="info">
-        <div class="infoRow">
+        <div class="padding-right">
             <div class="rowFill">
                 <LocationPicker
                         value={wheelLoc}
@@ -584,7 +584,7 @@
             </div>
         </div>
 
-        <div class="infoRow">
+        <div class="padding-right">
             <div class="rowFill">
                 <TimePicker
                         value={time}
@@ -630,7 +630,7 @@
                         <span class="pAlt">Alt —</span>
                     </div>
                 </div>
-                <button class="hb" type="button" disabled title="Pin a body to see details">×</button>
+                <button class="navBtn" type="button" disabled title="Pin a body to see details">×</button>
             {/if}
         </div>
     </div>
@@ -807,5 +807,8 @@
         filter:
                 drop-shadow(0 0 2px color-mix(in oklab, var(--bg), transparent 0%))
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));
+    }
+    .padding-right {
+        padding-right: 2px;
     }
 </style>

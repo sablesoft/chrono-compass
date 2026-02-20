@@ -635,28 +635,6 @@
     }
 
     .right { display: flex; gap: 10px; align-items: center; }
-
-    .navBtn {
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
-    }
-    .navBtn:hover:not(:disabled) {
-        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
-        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        transform: translateY(-1px);
-    }
-    .navBtn:disabled { opacity: 0.45; cursor: default; transform: none; }
-
-    .navBtn.danger:hover:not(:disabled) {
-        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
-        background: color-mix(in oklab, var(--accent-red), transparent 86%);
-    }
-
     .form {
         display: grid;
         gap: 10px;

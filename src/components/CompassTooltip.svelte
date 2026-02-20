@@ -229,10 +229,10 @@
 
             <div class="headRight">
                 {#if pinnedBodyId}
-                    <button class="miniBtn" type="button" disabled title="Soon: jump to this spoke in the future">↻</button>
-                    <button class="miniBtn" type="button" disabled title="Soon: jump to this spoke in the past">↺</button>
+                    <button class="navBtn miniBtn" type="button" disabled title="Soon: jump to this spoke in the future">↻</button>
+                    <button class="navBtn miniBtn" type="button" disabled title="Soon: jump to this spoke in the past">↺</button>
                 {/if}
-                <button class="close" type="button" aria-label="Close" on:click={onClose}>×</button>
+                <button class="navBtn close" type="button" aria-label="Close" on:click={onClose}>×</button>
             </div>
         </header>
 
@@ -371,7 +371,7 @@
 
     .head {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
         padding: 10px 12px;
@@ -387,39 +387,10 @@
     }
     .sub { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .headRight { display: inline-flex; gap: 8px; align-items: center; }
-
-    .close {
-        width: 28px;
-        height: 28px;
-        border-radius: 10px;
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-        line-height: 1;
-        font-size: 18px;
-        opacity: 0.85;
-        transition: opacity 120ms ease, transform 120ms ease, background 120ms ease;
+    .headRight {
+        display: flex;
+        gap: 10px;
     }
-    .close:hover {
-        opacity: 1;
-        transform: scale(1.03);
-        background: color-mix(in oklab, var(--fg), transparent 92%);
-    }
-
-    .miniBtn {
-        width: 28px;
-        height: 28px;
-        border-radius: 10px;
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        background: transparent;
-        color: var(--fg);
-        cursor: pointer;
-        opacity: 0.9;
-        line-height: 1;
-    }
-    .miniBtn:disabled { opacity: 0.35; cursor: default; }
 
     .muted { opacity: 0.75; }
 
