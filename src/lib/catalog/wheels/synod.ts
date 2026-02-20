@@ -2,7 +2,11 @@ import type { WheelSpec } from '../types';
 
 export const synod = {
     type: 'synod',
-    requiredRoles: ['looker', 'focus', 'target'],
+    requiredRoles: {
+        'looker' : ['engine_body'],
+        'focus' : ['engine_body'],
+        'target' : ['engine_body']
+    },
     roles: [
         // Earth Synod: Sun - Moon (classic synodic relation as seen from Earth)
         {
@@ -19,3 +23,4 @@ export const synod = {
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'synod' }>;
+

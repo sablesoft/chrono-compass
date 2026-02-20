@@ -1,10 +1,10 @@
 // src/catalog/index.ts
-export { bodies } from './bodies';
+export { objects } from './objects';
 export { wheels } from './wheels';
 
 export * from './types';
 
-import type {BodyId, RoleName, RoleSelects, RoleValues, WheelSpec} from "./types";
+import {ROLE_NAMES, type ObjId, type RoleName, type RoleSelects, type RoleValues, type WheelSpec} from "./types";
 
 export function filteredRoles(
     spec: WheelSpec,
@@ -29,10 +29,10 @@ export function filteredRoles(
 
             // пустое значение не ограничивает
             if (role === 'target') {
-                const arr = Array.isArray(v) ? (v as BodyId[]) : (v ? [v as BodyId] : []);
+                const arr = Array.isArray(v) ? (v as ObjId[]) : (v ? [v as ObjId] : []);
                 if (arr.length === 0) continue;
 
-                const allowed = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
+                const allowed = (rs as Record<RoleName, ObjId[] | undefined>)[role] ?? [];
 
                 if (multiTarget) {
                     // все выбранные должны быть разрешены
@@ -43,8 +43,8 @@ export function filteredRoles(
                 }
             } else {
                 if (!v) continue;
-                const allowed = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
-                if (!allowed.includes(v as BodyId)) return false;
+                const allowed = (rs as Record<RoleName, ObjId[] | undefined>)[role] ?? [];
+                if (!allowed.includes(v as ObjId)) return false;
             }
         }
         return true;
@@ -60,7 +60,7 @@ export function filteredRoles(
     // 2) строим selects как union всех allowed значений по rows
     for (const rs of rows) {
         for (const role of rolesToBuild) {
-            const arr = (rs as Record<RoleName, BodyId[] | undefined>)[role] ?? [];
+            const arr = (rs as Record<RoleName, ObjId[] | undefined>)[role] ?? [];
             for (const id of arr) {
                 if (!selects[role].includes(id)) selects[role].push(id);
             }
@@ -87,4 +87,11 @@ export function filteredRoles(
     }
 
     return { selects, values: nextValues };
+}
+
+export function requiredRoles(spec: WheelSpec): RoleName[] {
+    const rr = spec.requiredRoles;
+    if (!rr) return [];
+
+    return ROLE_NAMES.filter(r => r in rr);
 }

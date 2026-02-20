@@ -46,7 +46,7 @@ function registerWheels() {
 
             looker: (wheel.roles as any)?.looker ?? 'Earth',
             focus: (wheel.roles as any)?.focus ?? undefined, // не нужен, но пусть будет
-            target: (wheel.roles as any)?.target, // у компаса может быть BodyId[]
+            target: (wheel.roles as any)?.target, // у компаса может быть ObjId[]
             // meta не обязателен; можно не прокидывать
         }),
         solve: (input) => solveCompassWheel(input as any),

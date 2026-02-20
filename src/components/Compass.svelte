@@ -15,8 +15,8 @@
     import { debug } from '../lib/debug';
     import { ms } from '../lib/format';
 
-    import { bodies } from '../lib/catalog';
-    import type { BodyId } from '../lib/catalog';
+    import { objects } from '../lib/catalog';
+    import type { ObjId } from '../lib/catalog';
 
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
@@ -199,13 +199,13 @@
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
 
-    let pinnedBodyId: BodyId | null = null;
+    let pinnedBodyId: ObjId | null = null;
 
     function clearPinned() {
         pinnedBodyId = null;
     }
 
-    function togglePin(id: BodyId) {
+    function togglePin(id: ObjId) {
         pinnedBodyId = (pinnedBodyId === id) ? null : id;
     }
 
@@ -217,11 +217,11 @@
         }) ?? false;
     }
 
-    function clusterSingleBodyId(c: MarkerCluster): BodyId | null {
+    function clusterSingleBodyId(c: MarkerCluster): ObjId | null {
         if (!c || c.count !== 1) return null;
         const it = c.items?.[0];
         const body = String(it?.baseId ?? '').replace('body:', '');
-        return (body ? (body as BodyId) : null);
+        return (body ? (body as ObjId) : null);
     }
 
     function handleMarkerPick(ts0: number) {
@@ -232,15 +232,15 @@
     // ------------------------------------------------------------
     // Helpers: roles parsing
     // ------------------------------------------------------------
-    function asBodyIdArray(v: unknown): BodyId[] {
-        if (Array.isArray(v)) return v.filter(Boolean) as BodyId[];
-        if (typeof v === 'string' && v) return [v as BodyId];
+    function asBodyIdArray(v: unknown): ObjId[] {
+        if (Array.isArray(v)) return v.filter(Boolean) as ObjId[];
+        if (typeof v === 'string' && v) return [v as ObjId];
         return [];
     }
 
-    function asBodyIdOrNull(v: unknown): BodyId | null {
-        if (typeof v === 'string' && v) return v as BodyId;
-        if (Array.isArray(v) && typeof v[0] === 'string') return (v[0] as BodyId) ?? null;
+    function asBodyIdOrNull(v: unknown): ObjId | null {
+        if (typeof v === 'string' && v) return v as ObjId;
+        if (Array.isArray(v) && typeof v[0] === 'string') return (v[0] as ObjId) ?? null;
         return null;
     }
 
@@ -314,7 +314,7 @@
 
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
-        const b = (bodies as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
+        const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
         const name = b?.name?.en ?? String(t.id);
         const emoji = b?.emoji ?? '•';
         const house = houseLabelForAzimuth(t.azimuthDeg);
@@ -347,8 +347,8 @@
         const t = lastTargets?.find((x) => x.id === pinnedBodyId);
         if (!t) return null;
 
-        const emoji = (bodies as any)?.[pinnedBodyId]?.emoji ?? '•';
-        const name = (bodies as any)?.[pinnedBodyId]?.name?.en ?? String(pinnedBodyId);
+        const emoji = (objects as any)?.[pinnedBodyId]?.emoji ?? '•';
+        const name = (objects as any)?.[pinnedBodyId]?.name?.en ?? String(pinnedBodyId);
 
         return {
             id: pinnedBodyId,

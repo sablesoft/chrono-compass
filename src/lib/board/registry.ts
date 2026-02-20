@@ -40,7 +40,7 @@ function pickTargetRoleValue(raw: any): string | null {
 }
 
 function matchCombo(combo: any, roles: any): boolean {
-    // combo fields are arrays of allowed BodyId, roles fields are selected BodyId
+    // combo fields are arrays of allowed ObjId, roles fields are selected ObjId
     if (combo.looker) {
         const v = asBodyIdOrNull(roles.looker);
         if (v && !combo.looker.includes(v)) return false;

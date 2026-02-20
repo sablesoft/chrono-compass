@@ -2,7 +2,7 @@
 import {derived, get, writable} from 'svelte/store';
 
 import {debug} from '../debug';
-import type {BodyId, WheelType} from '../catalog';
+import type {ObjId, WheelType} from '../catalog';
 import type {WheelRolesState} from '../wheel/control';
 
 import type {Profile, ProfileId, ProfilesState, SavedWheel} from './types';
@@ -35,7 +35,7 @@ function emptyProfileData() {
     return {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
-        bodies: {} as Partial<Record<BodyId, { name?: { en?: string }; emoji?: string }>>,
+        bodies: {} as Partial<Record<ObjId, { name?: { en?: string }; emoji?: string }>>,
         wheelsOnScreen: [] as BoardWheel[]
     };
 }
@@ -492,8 +492,8 @@ export const profilesApi = {
         });
     },
 
-    // bodies overrides
-    setBodyOverride(bodyId: BodyId, patch: { name?: { en?: string }; emoji?: string }) {
+    // objects overrides
+    setBodyOverride(bodyId: ObjId, patch: { name?: { en?: string }; emoji?: string }) {
         dbg.group('api.setBodyOverride', () => {
             const ap = get(activeProfile);
             const t = now();
@@ -509,7 +509,7 @@ export const profilesApi = {
         });
     },
 
-    clearBodyOverride(bodyId: BodyId) {
+    clearBodyOverride(bodyId: ObjId) {
         dbg.group('api.clearBodyOverride', () => {
             const ap = get(activeProfile);
             const t = now();

@@ -27,3 +27,7 @@ export function toSigned180(deg0_360: number): number {
     if (a > 180) a -= 360;
     return a;
 }
+
+export function deg2rad(d: number): number {
+    return (d * Math.PI) / 180;
+}

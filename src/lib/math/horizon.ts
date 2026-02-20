@@ -33,7 +33,7 @@ import {
     Observer,
 } from 'astronomy-engine';
 
-import type { BodyId } from '../catalog';
+import type { ObjId } from '../catalog';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { SPOKES_ORDER } from '../wheel/types';
 import {AU_KM, clamp, lerp, norm360} from './helpers';
@@ -77,7 +77,7 @@ function isFiniteNumber(x: unknown): x is number {
     return typeof x === 'number' && Number.isFinite(x);
 }
 
-function toEngineBody(id: BodyId): EngineBody {
+function toEngineBody(id: ObjId): EngineBody {
     return EngineBody[id as keyof typeof EngineBody];
 }
 
@@ -89,7 +89,7 @@ function makeObserver(lat: number, lon: number, heightMeters = 0) {
  * Compute (alt, az, eq) for target at time ts for a topocentric observer.
  * Refraction is DISABLED (geometric horizon).
  */
-function targetState(ts: number, obs: Observer, target: BodyId): {
+function targetState(ts: number, obs: Observer, target: ObjId): {
     altDeg: number;
     azDeg: number;
     raHours: number;
@@ -125,7 +125,7 @@ function targetState(ts: number, obs: Observer, target: BodyId): {
     }
 }
 
-function targetAltitudeDeg(ts: number, obs: Observer, target: BodyId): number {
+function targetAltitudeDeg(ts: number, obs: Observer, target: ObjId): number {
     const s = targetState(ts, obs, target);
     return s ? s.altDeg : NaN;
 }
@@ -140,7 +140,7 @@ type AltProvider = {
  * - caches by 1-second buckets (massive win for searches)
  * - enforces a call budget to avoid UI freeze
  */
-function makeAltProvider(obs: Observer, target: BodyId, dbg?: WheelInput['dbg']): AltProvider {
+function makeAltProvider(obs: Observer, target: ObjId, dbg?: WheelInput['dbg']): AltProvider {
     const cache = new Map<number, number>();
     let calls = 0;
 
@@ -420,7 +420,7 @@ function findPrevCrossing(
     return null;
 }
 
-function computeCycleAroundTs(ts: number, obs: Observer, target: BodyId, dbg?: WheelInput['dbg']): RiseSetCycle | null {
+function computeCycleAroundTs(ts: number, obs: Observer, target: ObjId, dbg?: WheelInput['dbg']): RiseSetCycle | null {
     const { altAt, calls } = makeAltProvider(obs, target, dbg);
 
     // 1) E = last rising at/before ts
@@ -492,7 +492,7 @@ function computeCycleAroundTs(ts: number, obs: Observer, target: BodyId, dbg?: W
     return { E, W, E_next, N, S };
 }
 
-function mkSpoke(index: number, ts: number, obs: Observer, target: BodyId): CycleSpoke<HorizonMeta> {
+function mkSpoke(index: number, ts: number, obs: Observer, target: ObjId): CycleSpoke<HorizonMeta> {
     const code = SPOKES_ORDER[index] ?? (index === 16 ? 'E_next' : 'E');
     const st = targetState(ts, obs, target);
 
@@ -595,13 +595,13 @@ export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResul
     const loc = input.location;
     if (!loc) return fail('Horizon wheel requires location (input.location is missing).');
 
-    const looker = (input.looker ?? 'Earth') as BodyId;
+    const looker = (input.looker ?? 'Earth') as ObjId;
     if (looker !== 'Earth') {
         return fail(`Horizon: topocentric horizon supported only for looker=Earth (got ${String(looker)}).`);
     }
 
     const rawTarget = input.target;
-    const target: BodyId | null = Array.isArray(rawTarget) ? (rawTarget[0] ?? null) : (rawTarget ?? null);
+    const target: ObjId | null = Array.isArray(rawTarget) ? (rawTarget[0] ?? null) : (rawTarget ?? null);
     if (!target) return fail('Horizon wheel requires target.');
 
     const obs = makeObserver(loc.lat, loc.lon, 0);

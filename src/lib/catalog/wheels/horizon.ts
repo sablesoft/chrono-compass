@@ -6,7 +6,10 @@ export const horizon = {
     ui: {
       'target': 'pointer',
     },
-    requiredRoles: ['looker', 'target'],
+    requiredRoles: {
+        'looker' : ['engine_body'],
+        'target' : ['engine_body']
+    },
     roles: [
         // Earth Horizon: Sun / Moon
         // (For a typical Earth surface observer both cross the horizon; polar edge cases exist,

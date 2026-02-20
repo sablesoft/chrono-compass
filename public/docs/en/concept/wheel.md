@@ -3,7 +3,7 @@
 In **Chrono Compass**, a *Wheel* is the core abstraction used to describe any meaningful cyclic or structured relation.
 
 A Wheel is **not a calendar**, **not a timeline**, and **not a prediction tool**.  
-It is a **relational model**: a way to represent how bodies and orientations move through significant states or configurations.
+It is a **relational model**: a way to represent how objects move through significant states or configurations.
 
 Time is only an underlying parameter.  
 Meaning is defined by **geometry, orientation, distance, and relation**.
@@ -37,9 +37,9 @@ Defines the class of relation described by the Wheel.
 
 ---
 
-### Body Role Attributes
+### Obj Role Attributes
 
-These attributes always refer to **celestial bodies**.
+These attributes always refer to **celestial objects**.
 
 - **focus** — the structural reference body of the relation
 - **target** — the body whose state is described, required for all wheel types
@@ -147,7 +147,7 @@ This naturally introduces an **upper bound** to the depth of cyclic modeling.
 In the current model, the **Galactic Center** represents the practical upper
 limit of cyclic relations:
 
-- many bodies (stars, including the Sun) orbit the Galactic Center,
+- many objects (stars, including the Sun) orbit the Galactic Center,
 - but the Galactic Center itself does **not** orbit any higher-level focus,
 - therefore it does not possess its own orbital plane.
 
@@ -176,7 +176,7 @@ Each Wheel type is defined in its own concept file.
 
 ### Compass Wheels
 
-Directional orientation structures describing the azimuthal position of one or multiple target bodies around a looker body at a given moment.
+Directional orientation structures describing the azimuthal position of one or multiple target objects around a looker body at a given moment.
 
 Compass Wheels (or Rose Wheels) describe **spatial orientation**, not phase transitions.
 
@@ -188,9 +188,9 @@ They provide a shared spatial frame that connects multiple targets and serve as 
 - target (one or many)
 - observer
 
-Compass Wheels do **not** require horizon crossings and are valid for any celestial bodies, for example:
-- circumpolar bodies,
-- the bodies always above or below the horizon,
+Compass Wheels do **not** require horizon crossings and are valid for any celestial objects, for example:
+- circumpolar objects,
+- the objects always above or below the horizon,
 - stars and planets alike.
 
 → [compass.md](compass.md)
@@ -234,7 +234,7 @@ Horizon Wheel exists for some target body only if this body **actually crosses t
 
 ### Synod Wheels
 
-Angular relation cycles describing the changing angle between focus and target bodies as evaluated from a looker body, where the looker may become centrally positioned between focus and target (true opposition is possible).
+Angular relation cycles describing the changing angle between focus and target objects as evaluated from a looker body, where the looker may become centrally positioned between focus and target (true opposition is possible).
 
 Synod Wheels may be **centrical** or **acentrical**:
 - **centrical** — the focus body is a common orbital focus for both the looker and the target;
@@ -269,7 +269,7 @@ The centrical case is a **special case of the acentrical one**, not a separate W
 
 ### Channel Wheels
 
-Angular alignment cycles describing the changing alignment between focus and target bodies as evaluated from a looker body, where the looker is always terminal and cannot occupy the central position.
+Angular alignment cycles describing the changing alignment between focus and target objects as evaluated from a looker body, where the looker is always terminal and cannot occupy the central position.
 
 In this Wheel type the target acts as a channel (mediator) between looker and focus.
 
@@ -433,7 +433,7 @@ It is a **structural spatial model** of a gravitational system.
 
 A System Wheel answers the question:
 
-> *How are bodies arranged within a stellar system relative to a higher external reference?*
+> *How are objects arranged within a stellar system relative to a higher external reference?*
 
 ---
 
@@ -442,7 +442,7 @@ A System Wheel answers the question:
 A System Wheel models a **stellar system as a coherent gravitational unit**.
 
 The star (focus) acts as the structural center.
-Targets are bodies gravitationally bound to the focus.
+Targets are objects gravitationally bound to the focus.
 
 The Wheel defines:
 
@@ -460,11 +460,11 @@ It is a structural map, not a cyclic phase model.
 
 * **type**: `system`
 
-##### Body Roles
+##### Obj Roles
 
 * **looker** — external reference body (e.g., Galactic Center)
 * **focus** — central star of the system (e.g., Sun)
-* **target** — one or many bodies orbiting the focus
+* **target** — one or many objects orbiting the focus
 
 ##### Additional Attributes
 
@@ -536,7 +536,7 @@ They define **spatial configuration states**.
 (looker: Galactic Center, focus: Sun, targets: planets)
 
 `Alpha Centauri System`
-(looker: Galactic Center, focus: Alpha Centauri A, targets: bound bodies)
+(looker: Galactic Center, focus: Alpha Centauri A, targets: bound objects)
 
 ---
 
@@ -557,7 +557,7 @@ A Galaxy Wheel answers the question:
 A Galaxy Wheel models a galaxy as a gravitational system embedded within the cosmic web.
 
 The galactic center acts as structural focus.
-Targets are bodies or structures within the galaxy.
+Targets are objects or structures within the galaxy.
 The looker is an external cosmological reference.
 
 This Wheel establishes orientation of the galactic disk relative to:
@@ -574,11 +574,11 @@ This Wheel establishes orientation of the galactic disk relative to:
 
 * **type**: `galaxy`
 
-##### Body Roles
+##### Obj Roles
 
 * **looker** — cosmological reference (e.g., CMB dipole direction or Great Attractor)
 * **focus** — galactic center (GC)
-* **target** — bodies or structures within the galaxy
+* **target** — objects or structures within the galaxy
 
 ##### Additional Attributes
 

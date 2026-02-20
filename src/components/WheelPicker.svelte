@@ -1,7 +1,15 @@
 <!-- src/components/WheelPicker.svelte -->
 <script lang="ts">
-    import type {BodyId, RoleName, RoleSelects, RoleValues, WheelSpec, WheelType} from '../lib/catalog';
-    import {bodies, filteredRoles, wheels} from '../lib/catalog';
+    import {
+        type ObjId,
+        requiredRoles,
+        type RoleName,
+        type RoleSelects,
+        type RoleValues,
+        type WheelSpec,
+        type WheelType
+    } from '../lib/catalog';
+    import {objects, filteredRoles, wheels} from '../lib/catalog';
     import {currentLocationId, resolveLocationById} from '../lib/location/store';
 
     import {boardApi} from '../lib/board/store';
@@ -77,8 +85,8 @@
         return head + (title.length ? title : specText);
     }
 
-    function bodyLabel(id: BodyId): string {
-        const b = (bodies as any)[id];
+    function bodyLabel(id: ObjId): string {
+        const b = (objects as any)[id];
         return b?.name?.en ?? String(id);
     }
 
@@ -148,7 +156,7 @@
         selects = { looker: [], focus: [], target: [] };
         draftTitle = '';
 
-        required = spec.requiredRoles ?? [];
+        required = requiredRoles(spec);
         multiTarget = (spec as any).multiTarget === true;
 
         rebuild();
@@ -167,7 +175,7 @@
         type = t;
         spec = wheels[type];
         resetObserverDraftForType(type);
-        required = spec.requiredRoles ?? [];
+        required = requiredRoles(spec);
         multiTarget = (spec as any).multiTarget === true;
 
         // title
@@ -175,18 +183,18 @@
 
         // roles -> RoleValues
         const r: any = w.roles ?? {};
-        const looker = (r.looker ?? null) as BodyId | null;
-        const focus = (r.focus ?? null) as BodyId | null;
+        const looker = (r.looker ?? null) as ObjId | null;
+        const focus = (r.focus ?? null) as ObjId | null;
 
-        let targetArr: BodyId[] = [];
+        let targetArr: ObjId[] = [];
         const rt = r.target;
 
         if (multiTarget) {
-            targetArr = Array.isArray(rt) ? (rt as BodyId[]).filter(Boolean) : (rt ? [rt as BodyId] : []);
+            targetArr = Array.isArray(rt) ? (rt as ObjId[]).filter(Boolean) : (rt ? [rt as ObjId] : []);
         } else {
             // single target wheels: allow both array and scalar in saved data
             const one = Array.isArray(rt) ? (rt[0] ?? null) : (rt ?? null);
-            targetArr = one ? [one as BodyId] : [];
+            targetArr = one ? [one as ObjId] : [];
         }
 
         values = { looker, focus, target: targetArr };

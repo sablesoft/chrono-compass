@@ -9,8 +9,8 @@
     import { PointerAnimator } from '../lib/wheel/pointerAnimator';
     import { useCycleNowPointer } from '../lib/wheel/ui/useCycleNowPointer';
 
-    import { bodies, wheels } from '../lib/catalog';
-    import type { BodyId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
+    import { objects, wheels } from '../lib/catalog';
+    import type { ObjId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
 
     import DocsModal from './DocsModal.svelte';
     import LocationPicker from './LocationPicker.svelte';
@@ -480,9 +480,9 @@
         }
     }
 
-    function bodyEmoji(id: BodyId | null | undefined): string | null {
+    function bodyEmoji(id: ObjId | null | undefined): string | null {
         if (!id) return null;
-        const b = (bodies as any)[id] as { emoji?: string } | undefined;
+        const b = (objects as any)[id] as { emoji?: string } | undefined;
         return b?.emoji ?? null;
     }
 
@@ -523,8 +523,8 @@
         const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
         const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
 
-        const focusId = (wheel?.roles as any)?.focus as BodyId | null;
-        const targetRaw = (wheel?.roles as any)?.target as BodyId[] | BodyId | null;
+        const focusId = (wheel?.roles as any)?.focus as ObjId | null;
+        const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
         const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
 
         if (ui?.focus && focusId) {
@@ -538,7 +538,7 @@
         }
 
         if (ui?.looker) {
-            const lookerId = (wheel?.roles as any)?.looker as BodyId | null;
+            const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
             const e = bodyEmoji(lookerId);
             if (e) draws.push({ anchor: parsePlacement(ui.looker), emoji: e });
         }

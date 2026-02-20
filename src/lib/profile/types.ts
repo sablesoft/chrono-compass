@@ -1,6 +1,6 @@
 // src/lib/profile/types.ts
 import type { WheelType } from '../catalog';
-import type { BodyId } from '../catalog';
+import type { ObjId } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 import type {BoardWheel} from "../board/types";
@@ -29,7 +29,7 @@ export type BodyUserOverride = {
 export type ProfileData = {
     wheels: SavedWheel[];
     favorites: string[];
-    bodies: Partial<Record<BodyId, BodyUserOverride>>;
+    bodies: Partial<Record<ObjId, BodyUserOverride>>;
 
     /** Сохранённая доска в профиле (снапшот) */
     wheelsOnScreen: BoardWheel[];

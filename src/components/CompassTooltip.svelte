@@ -2,7 +2,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/wheel';
-    import type { BodyId } from '../lib/catalog';
+    import type { ObjId } from '../lib/catalog';
     import { formatDateTime } from '../lib/format';
     import {clamp, norm360} from "../lib/math/helpers";
 
@@ -13,7 +13,7 @@
     export let cluster: MarkerCluster | null = null;
 
     export let allBodies: {
-        id: BodyId;
+        id: ObjId;
         emoji: string;
         name: string;
         azimuthDeg: number;
@@ -22,8 +22,8 @@
         visible: boolean;
     }[] = [];
 
-    export let pinnedBodyId: BodyId | null = null;
-    export let onTogglePin: (bodyId: BodyId) => void = () => {};
+    export let pinnedBodyId: ObjId | null = null;
+    export let onTogglePin: (bodyId: ObjId) => void = () => {};
 
     export let onPickTs: (ts: number) => void = () => {};
     export let onMouseEnter: () => void = () => {};
@@ -84,7 +84,7 @@
     }
 
     type BodyRow = {
-        id: BodyId;
+        id: ObjId;
         emoji: string;
         name: string;
         azimuthDeg: number;
@@ -95,7 +95,7 @@
     };
 
     function markerItemToBodyRow(it: MarkerItem): BodyRow {
-        const id = String(it.baseId).startsWith('body:') ? (String(it.baseId).slice(5) as BodyId) : (it.baseId as any);
+        const id = String(it.baseId).startsWith('body:') ? (String(it.baseId).slice(5) as ObjId) : (it.baseId as any);
 
         let az = (it.angleDeg + 90) % 360;
         if (az < 0) az += 360;
@@ -160,7 +160,7 @@
         // 1) if single item -> use that body (most intuitive)
         const head = cluster.items?.[0];
         if (head) {
-            const headId = String(head.baseId).startsWith('body:') ? (String(head.baseId).slice(5) as BodyId) : (head.baseId as any);
+            const headId = String(head.baseId).startsWith('body:') ? (String(head.baseId).slice(5) as ObjId) : (head.baseId as any);
             const found = allBodies.find(b => b.id === headId);
             if (found?.house) return found.house;
         }
@@ -220,7 +220,7 @@
                     {#if isHouseMoment(moment)}
                         <span class="muted">House bodies</span>
                     {:else if cluster}
-                        <span class="muted">{cluster.count} {cluster.count === 1 ? 'body' : 'bodies'}</span>
+                        <span class="muted">{cluster.count} {cluster.count === 1 ? 'body' : 'objects'}</span>
                     {:else if moment?.ts}
                         <span class="muted">{formatDateTime(moment.ts)}</span>
                     {/if}

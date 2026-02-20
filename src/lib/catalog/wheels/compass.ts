@@ -4,7 +4,10 @@ export const compass = {
     type: 'compass',
     ready: true,
     multiTarget: true,
-    requiredRoles: ['looker', 'target'],
+    requiredRoles: {
+        'looker' : ['engine_body'],
+        'target' : ['engine_body']
+    },
     roles: [
         // Earth Compass: Sky (targets are selectable)
         {

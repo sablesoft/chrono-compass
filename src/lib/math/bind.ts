@@ -14,7 +14,7 @@
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
-import type { BodyId } from '../catalog';
+import type { ObjId } from '../catalog';
 import { SPOKES_ORDER } from '../wheel/types';
 
 import { findExtremumInWindowGold, fmt} from './extrema';
@@ -28,7 +28,7 @@ export type BindMeta = {
 
 type Ext = { t: number; v: number };
 
-function toEngineBody(id: BodyId): any {
+function toEngineBody(id: ObjId): any {
     return (Astronomy as any).Body?.[id as any] ?? (Astronomy as any).Body?.Sun;
 }
 
@@ -44,7 +44,7 @@ function nearEq(a: number, b: number, epsAbs: number, epsRel: number) {
 
 // --- Position / distance providers ---
 
-function distanceAu_SunFocus(target: BodyId, ts: number): number {
+function distanceAu_SunFocus(target: ObjId, ts: number): number {
     const A: any = Astronomy as any;
     const t = new A.AstroTime(new Date(ts));
     const body = toEngineBody(target);
@@ -68,7 +68,7 @@ function distanceAu_SunFocus(target: BodyId, ts: number): number {
     return NaN;
 }
 
-function distanceAu_EarthFocus(target: BodyId, ts: number): number {
+function distanceAu_EarthFocus(target: ObjId, ts: number): number {
     const A: any = Astronomy as any;
     const t = new A.AstroTime(new Date(ts));
     const body = toEngineBody(target);
@@ -185,8 +185,8 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     if (!input.focus) return fail('Bind wheel requires focus');
     if (!input.target) return fail('Bind wheel requires target');
 
-    const focus: BodyId = input.focus;
-    const target: BodyId = Array.isArray(input.target) ? input.target[0] : input.target;
+    const focus: ObjId = input.focus;
+    const target: ObjId = Array.isArray(input.target) ? input.target[0] : input.target;
     if (!target) return fail('Bind wheel requires valid target');
 
     const ts = input.ts;

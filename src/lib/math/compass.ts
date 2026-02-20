@@ -7,15 +7,15 @@ import {
     Observer
 } from 'astronomy-engine';
 
-import { bodies } from '../catalog';
-import type { BodyId } from '../catalog';
+import { objects } from '../catalog';
+import type { ObjId } from '../catalog';
 import type { MarkerItem } from '../wheel/wheel'; // если путь у тебя другой — скажи, поправлю
 
 import type { WheelInput, CompassSolveResult } from '../board/runtime';
 import {clamp, norm360, toSigned180} from "./helpers";
 
 export type CompassTargetState = {
-    id: BodyId;
+    id: ObjId;
     azimuthDeg: number;   // [0..360)
     altitudeDeg: number;  // [-90..+90]
     visible: boolean;
@@ -25,17 +25,17 @@ export type CompassTargetState = {
     distanceAu?: number;
 };
 
-function bodyEmoji(id: BodyId): string {
-    const b = (bodies as any)[id] as { emoji?: string } | undefined;
+function bodyEmoji(id: ObjId): string {
+    const b = (objects as any)[id] as { emoji?: string } | undefined;
     return b?.emoji ?? '•';
 }
 
-function bodyNameEn(id: BodyId): string {
-    const b = (bodies as any)[id] as { name?: { en?: string } } | undefined;
+function bodyNameEn(id: ObjId): string {
+    const b = (objects as any)[id] as { name?: { en?: string } } | undefined;
     return b?.name?.en ?? String(id);
 }
 
-function toEngineBody(id: BodyId): EngineBody {
+function toEngineBody(id: ObjId): EngineBody {
     return EngineBody[id as keyof typeof EngineBody];
 }
 
@@ -49,17 +49,17 @@ function refractionMode(enabled: boolean, mode: 'normal' | 'jplhor' = 'normal'):
  * Берёт:
  * - ts из WheelInput
  * - looker из WheelInput (по умолчанию Earth)
- * - targets из WheelInput.target (BodyId или BodyId[])
+ * - targets из WheelInput.target (ObjId или ObjId[])
  * - observer из WheelInput.location (lat/lon)
  *
  * Возвращает:
- * - CompassSolveResult из board/runtime: kind='compass', bodies=[]
+ * - CompassSolveResult из board/runtime: kind='compass', objects=[]
  */
 export function solveCompassWheel(input: WheelInput): CompassSolveResult<CompassTargetState> {
     const dbg = input.dbg;
 
     const ts = input.ts;
-    const looker = (input.looker ?? 'Earth') as BodyId;
+    const looker = (input.looker ?? 'Earth') as ObjId;
 
     const loc = input.location;
     if (!loc) {
@@ -70,7 +70,7 @@ export function solveCompassWheel(input: WheelInput): CompassSolveResult<Compass
 
     // targets из input.target (обязателен по твоему правилу)
     const rawTarget = input.target;
-    const targets: BodyId[] = Array.isArray(rawTarget) ? rawTarget : [rawTarget];
+    const targets: ObjId[] = Array.isArray(rawTarget) ? rawTarget : [rawTarget];
 
     dbg?.log?.('solveCompassWheel.in', { ts, looker, targets, loc });
 
@@ -130,13 +130,13 @@ function azimuthToWheelAngleDeg(azimuthDeg: number): number {
 }
 
 /**
- * UI helper (как и раньше): вычисленные bodies -> MarkerItem[]
+ * UI helper (как и раньше): вычисленные objects -> MarkerItem[]
  * Эту штуку обычно дергает Compass.svelte.
  */
 export function compassTargetsToMarkerItems(
     ts: number,
     targets: CompassTargetState[],
-    looker: BodyId = 'Earth'
+    looker: ObjId = 'Earth'
 ): MarkerItem[] {
     const collectionId = `compass:${String(looker)}`;
 

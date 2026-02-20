@@ -9,7 +9,10 @@ export const bind = {
         focus: 'center',
         target: 'pointer',
     },
-    requiredRoles: ['focus', 'target'],
+    requiredRoles: {
+        'focus' : ['engine_body'],
+        'target': ['engine_body']
+    },
     roles: [
         // Sun Bind: Mercury (sidereal ≈ 87.9691 d)
         {

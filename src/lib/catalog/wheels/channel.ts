@@ -2,7 +2,11 @@ import type { WheelSpec } from '../types';
 
 export const channel = {
     type: 'channel',
-    requiredRoles: ['looker', 'focus', 'target'],
+    requiredRoles: {
+        'looker' : ['engine_body'],
+        'focus' : ['engine_body'],
+        'target' : ['engine_body']
+    },
     roles: [
         // Sun Channel: Earth – Moon
         // The Sun is always a terminal body in this configuration and can never

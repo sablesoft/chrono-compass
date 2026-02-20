@@ -1,8 +1,8 @@
 <!-- src/components/WheelControl.svelte -->
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
-    import type { BodyId, WheelType, WheelSpec, RoleName } from '../lib/catalog';
-    import { bodies, wheels } from '../lib/catalog';
+    import type { ObjId, WheelType, WheelSpec, RoleName } from '../lib/catalog';
+    import { objects, wheels } from '../lib/catalog';
 
     import {
         hasRoleValue,
@@ -66,7 +66,7 @@
 
     let multiTarget = false;
     $: multiTarget = isMultiTarget(spec);
-    let draftTargets: BodyId[] = [];
+    let draftTargets: ObjId[] = [];
 
     let effectiveDraftRoles: WheelRolesState = {};
     $: effectiveDraftRoles = multiTarget ? { ...draftRoles, target: draftTargets } : draftRoles;
@@ -177,7 +177,7 @@
         draftTitle = title ?? '';
         if (multiTarget) {
             const t = roles.target;
-            draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+            draftTargets = Array.isArray(t) ? (t as ObjId[]) : (t ? [t as ObjId] : []);
             draftRoles = { ...roles, target: draftTargets };
         } else {
             // SINGLE TARGET WHEELS:
@@ -255,7 +255,7 @@
         draftTitle = initialTitle;
         if (multiTarget) {
             const t = initialRoles.target;
-            draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+            draftTargets = Array.isArray(t) ? (t as ObjId[]) : (t ? [t as ObjId] : []);
             draftRoles = { ...initialRoles, target: draftTargets };
         } else {
             const t = initialRoles.target;
@@ -270,7 +270,7 @@
     }
 
     function setRole(role: RoleName, value: string) {
-        const v = (value || '') as BodyId;
+        const v = (value || '') as ObjId;
         if (role === 'target' && multiTarget) return;
 
         draftRoles = { ...draftRoles, [role]: (v ? v : null) };
@@ -279,7 +279,7 @@
         if (multiTarget) {
             const normalized = normalizeRolesForType(spec, { ...draftRoles, target: draftTargets });
             const t = normalized.target;
-            draftTargets = Array.isArray(t) ? (t as BodyId[]) : [];
+            draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
             draftRoles = { ...normalized, target: draftRoles.target };
         }
 
@@ -298,11 +298,11 @@
 
         const picked = Array.from(el.selectedOptions)
             .map(o => o.value)
-            .filter(Boolean) as BodyId[];
+            .filter(Boolean) as ObjId[];
 
         const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
         const t = normalized.target;
-        draftTargets = Array.isArray(t) ? (t as BodyId[]) : [];
+        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
         draftRoles = { ...normalized, target: draftRoles.target };
 
         pickedSavedId = '';
@@ -357,8 +357,8 @@
     onMount(() => window.addEventListener('keydown', onKeyDown));
     onDestroy(() => window.removeEventListener('keydown', onKeyDown));
 
-    function bodyLabel(id: BodyId): string {
-        const b = (bodies as any)[id];
+    function bodyLabel(id: ObjId): string {
+        const b = (objects as any)[id];
         return b?.name?.en ?? String(id);
     }
 
@@ -388,11 +388,11 @@
 
         if (multiTarget) {
             const t = (r as any).target;
-            draftTargets = Array.isArray(t) ? (t as BodyId[]) : (t ? [t as BodyId] : []);
+            draftTargets = Array.isArray(t) ? (t as ObjId[]) : (t ? [t as ObjId] : []);
 
             const normalized = normalizeRolesForType(spec, { ...draftRoles, target: draftTargets });
             const nt = normalized.target;
-            draftTargets = Array.isArray(nt) ? (nt as BodyId[]) : [];
+            draftTargets = Array.isArray(nt) ? (nt as ObjId[]) : [];
             draftRoles = { ...normalized, target: draftRoles.target };
         } else {
             draftTargets = [];

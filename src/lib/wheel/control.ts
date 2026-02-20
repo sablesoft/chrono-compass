@@ -1,7 +1,7 @@
 // src/lib/wheel/control.ts
-import type {BodyId, RoleName, WheelSpec} from '../catalog';
+import type {ObjId, RoleName, WheelSpec} from '../catalog';
 
-export type WheelRolesState = Partial<Record<RoleName, BodyId | null | BodyId[]>>;
+export type WheelRolesState = Partial<Record<RoleName, ObjId | null | ObjId[]>>;
 
 const ROLE_ORDER: RoleName[] = ['looker', 'focus', 'target'];
 
@@ -27,15 +27,15 @@ export function rolesUsedBySpec(spec: WheelSpec): RoleName[] {
     return ROLE_ORDER.filter(r => used.has(r));
 }
 
-function roleArray(rs: any, role: RoleName): BodyId[] {
-    const a = rs?.[role] as BodyId[] | undefined;
+function roleArray(rs: any, role: RoleName): ObjId[] {
+    const a = rs?.[role] as ObjId[] | undefined;
     return Array.isArray(a) ? a : [];
 }
 
-function roleValueToArray(spec: WheelSpec, role: RoleName, v: WheelRolesState[RoleName]): BodyId[] {
+function roleValueToArray(spec: WheelSpec, role: RoleName, v: WheelRolesState[RoleName]): ObjId[] {
     if (!v) return [];
-    if (Array.isArray(v)) return v as BodyId[];
-    return [v as BodyId];
+    if (Array.isArray(v)) return v as ObjId[];
+    return [v as ObjId];
 }
 
 /**
@@ -53,9 +53,9 @@ function roleAllowedBySet(spec: WheelSpec, rs: any, role: RoleName, value: Wheel
         return arr.every(id => allowed.includes(id));
     }
 
-    // обычный случай: требуется один BodyId
+    // обычный случай: требуется один ObjId
     if (!value || Array.isArray(value)) return false;
-    return allowed.includes(value as BodyId);
+    return allowed.includes(value as ObjId);
 }
 
 export function isCompatible(spec: WheelSpec, roles: WheelRolesState): boolean {
@@ -80,17 +80,17 @@ export function isCompatible(spec: WheelSpec, roles: WheelRolesState): boolean {
  * - опции для target фильтруются по looker/focus (и т.п.)
  * - но НЕ по текущему target (иначе не сможешь “добавлять/снимать”)
  */
-export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRolesState): BodyId[] {
+export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRolesState): ObjId[] {
     const used = rolesUsedBySpec(spec);
     if (!used.includes(role)) return [];
 
     // все кандидаты по этой роли из всех RoleSet
-    const all = new Set<BodyId>();
+    const all = new Set<ObjId>();
     for (const rs of spec.roles) {
         for (const b of roleArray(rs, role)) all.add(b);
     }
 
-    const filtered: BodyId[] = [];
+    const filtered: ObjId[] = [];
 
     for (const candidate of all) {
         const ok = spec.roles.some(rs => {
@@ -116,11 +116,11 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
                 if (Array.isArray(v)) {
                     // массив возможен только для target; если внезапно массив в другой роли — считаем несовместимым
                     if (!(r === 'target' && isMultiTarget(spec))) return false;
-                    const arr = v as BodyId[];
+                    const arr = v as ObjId[];
                     if (arr.length === 0) return false;
                     if (!arr.every(id => allowed.includes(id))) return false;
                 } else {
-                    if (!allowed.includes(v as BodyId)) return false;
+                    if (!allowed.includes(v as ObjId)) return false;
                 }
             }
 
@@ -131,8 +131,8 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
     }
 
     // стабильный порядок: по первому появлению в spec.roles
-    const order: BodyId[] = [];
-    const seen = new Set<BodyId>();
+    const order: ObjId[] = [];
+    const seen = new Set<ObjId>();
     for (const rs of spec.roles) {
         for (const b of roleArray(rs, role)) {
             if (!seen.has(b) && filtered.includes(b)) {
@@ -156,7 +156,7 @@ export function normalizeRolesForType(spec: WheelSpec, roles: WheelRolesState): 
         const opts = optionsForRole(spec, r, next);
 
         if (r === 'target' && isMultiTarget(spec)) {
-            const arr = Array.isArray(v) ? (v as BodyId[]) : [];
+            const arr = Array.isArray(v) ? (v as ObjId[]) : [];
             next[r] = arr.filter(id => opts.includes(id)); // может стать []
             continue;
         }
@@ -167,7 +167,7 @@ export function normalizeRolesForType(spec: WheelSpec, roles: WheelRolesState): 
             continue;
         }
 
-        if (!opts.includes(v as BodyId)) next[r] = null;
+        if (!opts.includes(v as ObjId)) next[r] = null;
     }
 
     return next;
@@ -185,13 +185,13 @@ export function typeLabel(type: string): string {
         .join(' ');
 }
 
-function formatRoleValue(v: BodyId | null | BodyId[] | undefined): string {
+function formatRoleValue(v: ObjId | null | ObjId[] | undefined): string {
     if (!v) return '—';
     if (Array.isArray(v)) return v.length ? v.join(', ') : '—';
     return String(v);
 }
 
-function formatTargetValue(v: BodyId | null | BodyId[] | undefined): string {
+function formatTargetValue(v: ObjId | null | ObjId[] | undefined): string {
     if (!v) return '—';
     if (Array.isArray(v)) {
         const n = v.length;
@@ -231,7 +231,7 @@ export function formatWheelSpec(type: string, roles: WheelRolesState): string {
     return t;
 }
 
-function equalBodyIdArrays(a: BodyId[] | null, b: BodyId[] | null): boolean {
+function equalBodyIdArrays(a: ObjId[] | null, b: ObjId[] | null): boolean {
     const aa = a ?? [];
     const bb = b ?? [];
     if (aa.length !== bb.length) return false;

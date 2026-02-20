@@ -1,4 +1,4 @@
-import type { Body, BodyId } from '../types';
+import type { Obj, ObjId } from '../types';
 
 import { Sun } from './sun';
 import { Earth } from './earth';
@@ -11,8 +11,9 @@ import { Saturn } from './saturn';
 import { Uranus } from './uranus';
 import { Neptune } from './neptune';
 import { Pluto } from './pluto';
+import {GalacticCenter} from "./galactic-center";
 
-export const bodies: Partial<Record<BodyId, Body>> = {
+export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
     [Earth.id]: Earth,
     [Moon.id]: Moon,
@@ -24,4 +25,5 @@ export const bodies: Partial<Record<BodyId, Body>> = {
     [Pluto.id]: Pluto,
     [Saturn.id]: Saturn,
     [Uranus.id]: Uranus,
+    [GalacticCenter.id]: GalacticCenter,
 };

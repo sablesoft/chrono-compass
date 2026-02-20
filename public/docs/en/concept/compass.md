@@ -35,7 +35,7 @@ Nothing “disappears”. Targets can be visible or invisible at a given time, b
 
 * **looker**: the central reference body whose local sky/horizon frame is used (Earth, Mars, etc.).
 * **observer**: a concrete location tied to the looker that defines the local horizon frame (e.g., a surface point).
-* **targets**: one or many bodies rendered as markers (Moon, planets, satellites, stars, etc.).
+* **targets**: one or many objects rendered as markers (Moon, planets, satellites, stars, etc.).
 
 ---
 
