@@ -71,6 +71,10 @@ Notes:
 
 ---
 
+# Cycle Structure (Bilingual Section)
+
+---
+
 ## Cycle structure in Chrono Compass grammar
 
 Chrono Compass cyclic Wheels use a shared 4-anchor grammar and 17 spokes:
@@ -81,9 +85,15 @@ Chrono Compass cyclic Wheels use a shared 4-anchor grammar and 17 spokes:
 * 12 : **S**      (min altitude while invisible)
 * 16 : **E+**     (next rising boundary)
 
-Other 12 spokes are created by **time-linear interpolation** inside each quarter.
+The remaining 12 spokes are constructed using **altitude-linear interpolation** inside each quarter.
 
-**TODO**: change to alt-linear interpolation inside each quarter.
+For each quarter (E→N, N→W, W→S, S→E_next):
+
+* The altitudes at the endpoints are taken as anchor values.
+* Intermediate spoke altitudes are computed by linear interpolation between these endpoint altitudes.
+* For each interpolated altitude level `h`, the corresponding timestamp is found by solving `altitude(t) = h` within the time bounds of that quarter.
+
+This means the spokes are evenly distributed in terms of **altitude progression**, not time progression.
 
 ---
 
