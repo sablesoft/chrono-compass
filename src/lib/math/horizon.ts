@@ -36,7 +36,7 @@ import {
 import type { BodyId } from '../catalog';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { SPOKES_ORDER } from '../wheel/types';
-import { AU_KM, clamp, norm360 } from './helpers';
+import {AU_KM, clamp, lerp, norm360} from './helpers';
 
 const DAY_MS = 86_400_000;
 
@@ -492,10 +492,6 @@ function computeCycleAroundTs(ts: number, obs: Observer, target: BodyId, dbg?: W
     return { E, W, E_next, N, S };
 }
 
-function lerp(a: number, b: number, u01: number) {
-    return a + (b - a) * u01;
-}
-
 function mkSpoke(index: number, ts: number, obs: Observer, target: BodyId): CycleSpoke<HorizonMeta> {
     const code = SPOKES_ORDER[index] ?? (index === 16 ? 'E_next' : 'E');
     const st = targetState(ts, obs, target);
@@ -519,6 +515,68 @@ function mkSpoke(index: number, ts: number, obs: Observer, target: BodyId): Cycl
             distanceKm: distKm,
         },
     };
+}
+
+/**
+ * Finds t in [t0, t1] such that altitude(t) ~= targetAltDeg.
+ * Requires that targetAltDeg is bracketed by altitude at endpoints (sign change in f).
+ * Uses bisection to refine.
+ *
+ * refineEpsMs: precision of result in milliseconds.
+ * For "minute precision", use 60_000.
+ */
+function findTimeAtAltitudeMs(opts: {
+    t0: number;
+    t1: number;
+    altAt: (t: number) => number;
+    targetAltDeg: number;
+    refineEpsMs?: number;
+}): number | null {
+    const { t0, t1, altAt, targetAltDeg, refineEpsMs = 60_000 } = opts;
+
+    if (!(t1 > t0)) return null;
+
+    const f = (t: number) => altAt(t) - targetAltDeg;
+
+    let lo = t0;
+    let hi = t1;
+
+    let flo = f(lo);
+    let fhi = f(hi);
+
+    if (!Number.isFinite(flo) || !Number.isFinite(fhi)) return null;
+
+    // exact hits
+    if (flo === 0) return lo;
+    if (fhi === 0) return hi;
+
+    // must bracket the root
+    if (Math.sign(flo) === Math.sign(fhi)) return null;
+
+    while (hi - lo > refineEpsMs) {
+        const mid = (lo + hi) / 2;
+        const fmid = f(mid);
+        if (!Number.isFinite(fmid)) return null;
+
+        if (fmid === 0) return mid;
+
+        // keep the bracket
+        if (Math.sign(fmid) === Math.sign(flo)) {
+            lo = mid;
+            flo = fmid;
+        } else {
+            hi = mid;
+            fhi = fmid;
+        }
+    }
+
+    // minute-ish precision: return midpoint, optionally bucket to minute
+    const t = (lo + hi) / 2;
+
+    // If you want strict minute buckets (optional), uncomment:
+    // return Math.round(t / 60_000) * 60_000;
+
+    return t;
 }
 
 export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResult<HorizonMeta> {
@@ -581,16 +639,26 @@ export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResul
         });
     }
 
-    const spokes: CycleSpoke<HorizonMeta>[] = [];
-
     // segment indices:
     // 0..4   : E -> N
     // 4..8   : N -> W
     // 8..12  : W -> S
     // 12..16 : S -> E_next
-    for (let i = 0; i <= 16; i++) {
-        let t: number;
+    const spokes: CycleSpoke<HorizonMeta>[] = [];
 
+    // We need altAt for height-driven spokes (cached, budgeted).
+    const { altAt } = makeAltProvider(obs, target, dbg);
+
+    const altN = altAt(N);
+    const altS = altAt(S);
+
+    if (!Number.isFinite(altN) || !Number.isFinite(altS)) {
+        return fail(`Horizon: failed to sample anchor altitudes (target=${String(target)}).`);
+    }
+
+    // Fallback: old time-linear interpolation (per segment)
+    const fallbackTimeLinear = (i: number) => {
+        let t: number;
         if (i <= 4) {
             const u = i / 4;
             t = lerp(E, N, u);
@@ -604,13 +672,80 @@ export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResul
             const u = (i - 12) / 4;
             t = lerp(S, E_next, u);
         }
-
-        // hard-anchor exact keypoints (avoid float drift)
         if (i === 0) t = E;
         if (i === 4) t = N;
         if (i === 8) t = W;
         if (i === 12) t = S;
         if (i === 16) t = E_next;
+        return t;
+    };
+
+    // Height-driven spoke time solver per quarter.
+    // Each quarter: pick target altitude h by linear interpolation between endpoint altitudes,
+    // then invert altitude(t)=h on that quarter's time interval using bisection (minute precision).
+    const solveQuarter = (t0: number, t1: number, h0: number, h1: number, u01: number) => {
+        const h = lerp(h0, h1, u01);
+
+        // Bracketing check: ensure h lies between endpoint altitudes (inclusive).
+        const a0 = altAt(t0);
+        const a1 = altAt(t1);
+        if (!Number.isFinite(a0) || !Number.isFinite(a1)) return null;
+
+        const loH = Math.min(a0, a1);
+        const hiH = Math.max(a0, a1);
+
+        // allow tiny numerical slack near endpoints
+        const EPS = 1e-6;
+        if (h < loH - EPS || h > hiH + EPS) return null;
+
+        return findTimeAtAltitudeMs({
+            t0,
+            t1,
+            altAt,
+            targetAltDeg: h,
+            refineEpsMs: 60_000, // minute precision
+        });
+    };
+
+    for (let i = 0; i <= 16; i++) {
+        let t: number | null = null;
+
+        // hard anchors (exact)
+        if (i === 0) t = E;
+        else if (i === 4) t = N;
+        else if (i === 8) t = W;
+        else if (i === 12) t = S;
+        else if (i === 16) t = E_next;
+        else {
+            if (i < 4) {
+                // E -> N : 0 .. altN
+                const u = i / 4;
+                t = solveQuarter(E, N, 0, altN, u);
+            } else if (i < 8) {
+                // N -> W : altN .. 0
+                const u = (i - 4) / 4;
+                t = solveQuarter(N, W, altN, 0, u);
+            } else if (i < 12) {
+                // W -> S : 0 .. altS (altS is negative)
+                const u = (i - 8) / 4;
+                t = solveQuarter(W, S, 0, altS, u);
+            } else {
+                // S -> E_next : altS .. 0
+                const u = (i - 12) / 4;
+                t = solveQuarter(S, E_next, altS, 0, u);
+            }
+        }
+
+        // Fallback if numerical bracketing fails (rare but possible in weird regimes).
+        if (!isFiniteTs(t)) {
+            const tfb = fallbackTimeLinear(i);
+            dbg?.warn?.('horizon.spoke.heightSolveFailed.fallbackTimeLinear', {
+                i,
+                target,
+                fallbackTs: fmt(tfb),
+            });
+            t = tfb;
+        }
 
         spokes.push(mkSpoke(i, t, obs, target));
     }

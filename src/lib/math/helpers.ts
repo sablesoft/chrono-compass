@@ -9,6 +9,10 @@ export function isFiniteNumber(x: unknown): x is number {
     return typeof x === 'number' && Number.isFinite(x);
 }
 
+export function lerp(a: number, b: number, u01: number) {
+    return a + (b - a) * u01;
+}
+
 export function clamp(x: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, x));
 }

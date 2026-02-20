@@ -19,7 +19,7 @@ import { SPOKES_ORDER } from '../wheel/types';
 
 import { findExtremumInWindowGold, fmt} from './extrema';
 import { vectorLengthSafe } from './vector';
-import {AU_KM, DAY_MS, isFiniteNumber} from './helpers';
+import {AU_KM, DAY_MS, isFiniteNumber, lerp} from './helpers';
 
 export type BindMeta = {
     distanceAu: number;
@@ -236,10 +236,6 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
         const solved = solveTimeForDistance(distanceAtAu, t0, t1, targetR, increasing, SOLVE);
         if (isFiniteNumber(solved)) return solved;
         return (t0 + t1) / 2;
-    }
-
-    function rLerp(a: number, b: number, t01: number) {
-        return a + (b - a) * t01;
     }
 
     function mkSpoke(i: number, tSolved: number, rAu: number): CycleSpoke<BindMeta> {
@@ -569,7 +565,7 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     // 0..4 : E -> N (increasing, inside S_before..N, anchored at E and N)
     for (let i = 0; i <= 4; i++) {
         const u = i / 4;
-        const targetR = rLerp(rE, rN, u);
+        const targetR = lerp(rE, rN, u);
 
         let tSolved: number;
         if (i === 0) tSolved = E_t;
@@ -583,7 +579,7 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     // 5..12 : N -> S (decreasing, inside N..S, anchored at S)
     for (let i = 5; i <= 12; i++) {
         const u = (i - 4) / 8; // 5..12 => 1..8 / 8
-        const targetR = rLerp(rN, rS, u);
+        const targetR = lerp(rN, rS, u);
 
         let tSolved: number;
         if (i === 12) tSolved = S.t;
@@ -596,7 +592,7 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     // 13..16 : S -> E_next (increasing, inside S..N_next, anchored at E_next)
     for (let i = 13; i <= 16; i++) {
         const u = (i - 12) / 4; // 13..16 => 1..4 / 4
-        const targetR = rLerp(rS, rE2, u);
+        const targetR = lerp(rS, rE2, u);
 
         let tSolved: number;
         if (i === 16) tSolved = E_next_t;
