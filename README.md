@@ -58,19 +58,19 @@ ChronoCompass currently supports multiple independent cycles, including:
   → [`docs/en/cycles/diurnal.md`](public/docs/en/cycles/diurnal.md)
 
 - **Lunar Synodic Cycle** (Moon phases)  
-  → [`docs/en/cycles/lunar-synodic.md`](public/docs/en/cycles/lunar-synodic.md)
+  → [`docs/en/cycles/lunar-synodic.md`](public/docs/en/cycles/lunarSynodic.md)
 
 - **Lunar Anomalistic Cycle** (Moon distance)  
-  → [`docs/en/cycles/lunar-anomalistic.md`](public/docs/en/cycles/lunar-anomalistic.md)
+  → [`docs/en/cycles/lunar-anomalistic.md`](public/docs/en/cycles/lunarAnomalistic.md)
 
 - **Lunar Draconic Cycle** (orbital nodes, eclipses)  
-  → [`docs/en/cycles/lunar-draconic.md`](public/docs/en/cycles/lunar-draconic.md)
+  → [`docs/en/cycles/lunar-draconic.md`](public/docs/en/cycles/lunarDraconic.md)
 
 - **Solar Tropical Cycle** (seasons)  
-  → [`docs/en/cycles/solar-tropical.md`](public/docs/en/cycles/solar-tropical.md)
+  → [`docs/en/cycles/solar-tropical.md`](public/docs/en/cycles/solarTropical.md)
 
 - **Solar Anomalistic Cycle** (Earth–Sun distance)  
-  → [`docs/en/cycles/solar-anomalistic.md`](public/docs/en/cycles/solar-anomalistic.md)
+  → [`docs/en/cycles/solar-anomalistic.md`](public/docs/en/cycles/solarAnomalistic.md)
 
 - **Platonic / Precessional Cycle** (axial precession)  
   → [`docs/en/cycles/plato.md`](public/docs/en/cycles/plato.md)

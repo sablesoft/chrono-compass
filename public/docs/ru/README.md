@@ -35,15 +35,15 @@ ChronoCompass использует **единую компасную модел�
     - суточный (вращение Земли),
       → [`docs/ru/cycles/diurnal.md`](cycles/diurnal.md)
     - лунный синодический (фазы Луны),
-      → [`docs/ru/cycles/lunar-synodic.md`](cycles/lunar-synodic.md)
+      → [`docs/ru/cycles/lunar-synodic.md`](cycles/lunarSynodic.md)
     - лунный драконический (узлы и затмения),
-      → [`docs/ru/cycles/lunar-draconic.md`](cycles/lunar-draconic.md)
+      → [`docs/ru/cycles/lunar-draconic.md`](cycles/lunarDraconic.md)
     - лунный аномалистический (расстояние),
-      → [`docs/ru/cycles/lunar-anomalistic.md`](cycles/lunar-anomalistic.md)
+      → [`docs/ru/cycles/lunar-anomalistic.md`](cycles/lunarAnomalistic.md)
     - солнечный тропический (сезоны года),
-      → [`docs/ru/cycles/solar-tropical.md`](cycles/solar-tropical.md)
+      → [`docs/ru/cycles/solar-tropical.md`](cycles/solarTropical.md)
     - солнечный аномалистический (перигелий / афелий),
-      → [`docs/ru/cycles/solar-anomalistic.md`](cycles/solar-anomalistic.md)
+      → [`docs/ru/cycles/solar-anomalistic.md`](cycles/solarAnomalistic.md)
     - прецессионный (Платонов год).
 
 - Отображает каждый цикл как **колесо с 16 направлениями и домами**
