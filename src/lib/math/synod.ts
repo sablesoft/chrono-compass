@@ -3,31 +3,17 @@
 // Unified Synod wheel solver (phase-angular, 17 spokes) for any (looker, focus, target)
 // where focus may be engine_body OR reference.
 //
-// v5.0 (DIRECTED-CROSSING BOUNDARIES + ANCHORED UNWRAP):
-// - We do NOT “count turns” via unwrapStep during boundary search (this caused Venus double-cycle).
-// - Instead we find E and E_next as the nearest θ=90° directed crossings around ts:
+// v5.1 (DIRECTED-CROSSING BOUNDARIES, ASYMMETRIC SEARCH):
+// - E and E_next are searched separately:
+//     E      = nearest directed θ=90° crossing at/before ts (expand backwards)
+//     E_next = nearest directed θ=90° crossing after ts     (expand forwards)
+// - This fixes ultra-long periods (e.g. Pluto) where a symmetric window around ts
+//   may contain only one crossing (all on one side), making (E,E_next) impossible to pick.
+// - Unwrap remains anchored at E time; spokes solved by bisection on θ_unwrap.
 //
-//   Let θ_mod(t) be the forward phase in [0..360) that always increases with time (mod 360):
-//     θ_mod = φ            if motion=CCW
-//     θ_mod = 360 - φ      if motion=CW
-//
-//   Define signed diff to 90° in [-180..180]:
-//     g(t) = toSigned180(norm360(θ_mod(t) - 90))
-//
-//   For increasing θ_mod, the “correct” crossing is where g goes negative -> non-negative.
-//   We scan in a window around ts, refine with bisection, then pick:
-//     E      = last crossing at/before ts
-//     E_next = first crossing after ts
-//
-// - After we have (E, E_next), we build an UNWRAPPED θ in [90..450) ANCHORED at E time:
-//   this removes the 90/450 ambiguity cleanly.
-// - Spokes are solved by bisection on θ_unwrap(t) - targetU inside [E..E_next].
-// - All solving/validation uses exact timestamps. Only final spoke.ts is rounded to minutes
-//   with monotonic enforcement.
-//
-// Notes:
-// - Works for fast and slow bodies: window expansion handles long cycles,
-//   adaptive step aims ~20° per step but is clamped to avoid absurd steps.
+// Output rounding:
+// - ALL solving/validation uses exact timestamps (no rounding).
+// - Only final spoke.ts is rounded to minutes, with monotonic enforcement.
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
@@ -231,8 +217,7 @@ function forwardPhase(phiRaw: number, motion: 'ccw' | 'cw'): number {
 // ---------------------------
 
 function signedDiffToTarget(thetaMod: number, targetDeg: number): number {
-    // in [-180..180]
-    return toSigned180(norm360(thetaMod - targetDeg));
+    return toSigned180(norm360(thetaMod - targetDeg)); // [-180..180]
 }
 
 function refineCrossingBisection(
@@ -252,7 +237,7 @@ function refineCrossingBisection(
     if (fhi === 0) return hi;
     if (flo * fhi > 0) return null;
 
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 140; i++) {
         const mid = 0.5 * (lo + hi);
         const fmid = gAt(mid);
         if (!isFiniteNumber(fmid)) return null;
@@ -298,6 +283,7 @@ function findDirectedCrossingsInWindow(
     for (let t = a + stepMs; t <= b + 1; t += stepMs) {
         const tt = Math.min(t, b);
         const g = gAt(tt);
+
         if (!isFiniteNumber(g)) {
             tPrev = tt;
             gPrev = g;
@@ -305,7 +291,7 @@ function findDirectedCrossingsInWindow(
             continue;
         }
 
-        // directed for increasing θ_mod: g < 0 -> g >= 0
+        // Directed crossing for increasing θ_mod: g < 0 -> g >= 0
         const crosses = (gPrev < 0 && g >= 0) || g === 0 || gPrev === 0;
 
         if (crosses) {
@@ -330,35 +316,96 @@ function findDirectedCrossingsInWindow(
     return uniq;
 }
 
-function pickEandEnext(ts: number, crossings: Crossing[]): { E: number; E_next: number } | null {
-    if (!crossings.length) return null;
+function lastCrossingAtOrBefore(ts: number, crossings: Crossing[]): number | null {
+    let best: number | null = null;
+    for (const c of crossings) if (c.t <= ts) best = c.t;
+    return isFiniteNumber(best) ? best : null;
+}
 
-    let E: number | null = null;
-    let E_next: number | null = null;
+function firstCrossingAfter(ts: number, crossings: Crossing[]): number | null {
+    for (const c of crossings) if (c.t > ts) return c.t;
+    return null;
+}
 
-    for (const c of crossings) {
-        if (c.t <= ts) E = c.t;
-        else {
-            E_next = c.t;
-            break;
-        }
+// NEW: asymmetrical boundary search (backward/forward independently)
+function findNearestCrossingBackward(
+    thetaModAt: (t: number) => number,
+    ts: number,
+    targetDeg: number,
+    stepMs: number,
+    epsMs: number,
+    estPeriodDays: number,
+    dbg?: SolveOpts['dbg'],
+): number | null {
+    // start with ~0.75*period, but not too small; then expand
+    let windowMs = clamp(estPeriodDays * DAY_MS * 0.75, 10 * stepMs, 200_000 * DAY_MS);
+
+    for (let attempt = 0; attempt < 22; attempt++) {
+        const t0 = ts - windowMs;
+        const t1 = ts;
+
+        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, targetDeg, stepMs, epsMs);
+        const E = lastCrossingAtOrBefore(ts, crossings);
+
+        dbg?.log?.('synod.E.search', {
+            attempt,
+            t0: fmt(t0),
+            t1: fmt(t1),
+            windowDays: Number((windowMs / DAY_MS).toFixed(3)),
+            crossingsCount: crossings.length,
+            picked: E ? fmt(E) : null,
+        });
+
+        if (isFiniteNumber(E)) return E as number;
+
+        windowMs = clamp(windowMs * 1.7, 10 * stepMs, 400_000 * DAY_MS);
     }
 
-    if (!isFiniteNumber(E) || !isFiniteNumber(E_next)) return null;
-    if (!(E < E_next)) return null;
+    return null;
+}
 
-    return { E, E_next };
+function findNearestCrossingForward(
+    thetaModAt: (t: number) => number,
+    ts: number,
+    targetDeg: number,
+    stepMs: number,
+    epsMs: number,
+    estPeriodDays: number,
+    dbg?: SolveOpts['dbg'],
+): number | null {
+    let windowMs = clamp(estPeriodDays * DAY_MS * 0.75, 10 * stepMs, 200_000 * DAY_MS);
+
+    for (let attempt = 0; attempt < 22; attempt++) {
+        const t0 = ts;
+        const t1 = ts + windowMs;
+
+        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, targetDeg, stepMs, epsMs);
+        const E2 = firstCrossingAfter(ts, crossings);
+
+        dbg?.log?.('synod.E_next.search', {
+            attempt,
+            t0: fmt(t0),
+            t1: fmt(t1),
+            windowDays: Number((windowMs / DAY_MS).toFixed(3)),
+            crossingsCount: crossings.length,
+            picked: E2 ? fmt(E2) : null,
+        });
+
+        if (isFiniteNumber(E2)) return E2 as number;
+
+        windowMs = clamp(windowMs * 1.7, 10 * stepMs, 400_000 * DAY_MS);
+    }
+
+    return null;
 }
 
 // ---------------------------
 // Anchored unwrap θ_unwrap(t) in [90..450) for this cycle
 // ---------------------------
-//
-// Key: endpoints E and E_next both have θ_mod≈90, so unwrap must be time-anchored.
-//
+
 function makeThetaUnwrapAt(thetaModAt: (t: number) => number, E_t: number) {
     const EPS_DEG = 1e-4;
-    const EPS_MS = 2; // treat exact E as special
+    const EPS_MS = 2;
 
     return (t: number): number => {
         const th = thetaModAt(t);
@@ -368,13 +415,11 @@ function makeThetaUnwrapAt(thetaModAt: (t: number) => number, E_t: number) {
 
         if (Math.abs(t - E_t) <= EPS_MS) return 90;
 
-        // After E: values near/below 90 are “wrapped” part -> +360
         if (t > E_t) {
             if (p <= 90 + EPS_DEG) return p + 360;
             return p;
         }
 
-        // Before E: keep as-is (rarely used after we bracket E..E_next)
         return p;
     };
 }
@@ -391,7 +436,7 @@ function solveTimeForThetaUnwrap(
     opts: SolveOpts,
 ): number | null {
     const dbg = opts.dbg;
-    const maxIters = opts.maxIters ?? 180;
+    const maxIters = opts.maxIters ?? 200;
     const epsMs = opts.epsMs ?? 1_000;
 
     let a = Math.min(t0, t1);
@@ -401,7 +446,6 @@ function solveTimeForThetaUnwrap(
     let fb = thetaUnwrapAt(b) - targetU;
 
     if (!isFiniteNumber(fa) || !isFiniteNumber(fb)) return null;
-
     if (fa === 0) return a;
     if (fb === 0) return b;
 
@@ -478,7 +522,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         return forwardPhase(p, motion);
     };
 
-    // Adaptive scan step: aim ~20° phase per step; clamp to safe bounds.
+    // Adaptive scan step: aim ~20° phase per step; clamp.
     const desiredDeg = 20;
     const stepDays = desiredDeg / Math.max(1e-12, speedDegPerDayAbs);
     const stepMs = clamp(stepDays * DAY_MS, 10 * 60_000, 30 * DAY_MS);
@@ -486,11 +530,9 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     // Bisection epsilon based on step; clamp.
     const epsMs = clamp(stepMs / 128, 50, 5_000);
 
-    // Estimated period for initial window (just a hint; expansion handles reality).
     const estPeriodDays = 360 / Math.max(1e-12, speedDegPerDayAbs);
-    let halfWindowMs = clamp(estPeriodDays * DAY_MS * 0.75, 4 * stepMs, 25_000 * DAY_MS);
 
-    dbg?.log?.('synod.v5.params', {
+    dbg?.log?.('synod.params', {
         looker,
         focus,
         target,
@@ -502,40 +544,23 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         stepMs,
         epsMs,
         estPeriodDays: Number(estPeriodDays.toFixed(6)),
-        halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(6)),
     });
 
-    // Find E/E_next as directed crossings of θ=90 around ts (expand window until found).
-    let E_t: number | null = null;
-    let E_next_t: number | null = null;
+    // NEW: find E and E_next separately (fixes Pluto)
+    const E_t = findNearestCrossingBackward(thetaModAt, ts, 90, stepMs, epsMs, estPeriodDays, dbg);
+    if (!isFiniteNumber(E_t)) return fail('Synod wheel: failed to locate E (θ=90°) at/before ts');
 
-    for (let attempt = 0; attempt < 18; attempt++) {
-        const t0 = ts - halfWindowMs;
-        const t1 = ts + halfWindowMs;
-
-        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, 90, stepMs, epsMs);
-        const picked = pickEandEnext(ts, crossings);
-
-        dbg?.log?.('synod.v5.crossings', {
-            attempt,
-            t0: fmt(t0),
-            t1: fmt(t1),
-            halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(6)),
-            crossingsCount: crossings.length,
-            picked: picked ? { E: fmt(picked.E), E_next: fmt(picked.E_next) } : null,
+    const epsAfterE = Math.max(2 * epsMs, 60_000); // avoid re-catching same crossing
+    const E_next_t = findNearestCrossingForward(thetaModAt, (E_t as number) + epsAfterE, 90, stepMs, epsMs, estPeriodDays, dbg);
+    if (!isFiniteNumber(E_next_t) || !((E_t as number) < (E_next_t as number))) {
+        dbg?.warn?.('synod.boundary.not-found', {
+            E: isFiniteNumber(E_t) ? fmt(E_t as number) : E_t,
+            E_next: isFiniteNumber(E_next_t) ? fmt(E_next_t as number) : E_next_t,
+            ts: fmt(ts),
+            motion,
+            estPeriodDays: Number(estPeriodDays.toFixed(6)),
         });
-
-        if (picked) {
-            E_t = picked.E;
-            E_next_t = picked.E_next;
-            break;
-        }
-
-        halfWindowMs = clamp(halfWindowMs * 1.7, 4 * stepMs, 60_000 * DAY_MS);
-    }
-
-    if (!isFiniteNumber(E_t) || !isFiniteNumber(E_next_t) || !(E_t! < E_next_t!)) {
-        return fail('Synod wheel: failed to locate E/E_next (θ=90° crossings) around ts');
+        return fail('Synod wheel: failed to locate E+ (next θ=90°) after E');
     }
 
     const tE = E_t as number;
@@ -543,22 +568,15 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
 
     const thetaUnwrapAt = makeThetaUnwrapAt(thetaModAt, tE);
 
-    const thetaE = thetaUnwrapAt(tE);
-    const thetaE2 = thetaUnwrapAt(tE2);
-
-    dbg?.log?.('synod.v5.boundary', {
+    dbg?.log?.('synod.boundary', {
         E: fmt(tE),
         E_next: fmt(tE2),
         thetaModE: thetaModAt(tE),
         thetaModE2: thetaModAt(tE2),
-        thetaUnwrapE: thetaE,
-        thetaUnwrapE2: thetaE2,
+        thetaUnwrapE: thetaUnwrapAt(tE),
+        thetaUnwrapE2: thetaUnwrapAt(tE2),
         spanDays: Number(((tE2 - tE) / DAY_MS).toFixed(9)),
     });
-
-    // Expect E≈90 and E_next≈450 in unwrap space; warn-only.
-    if (isFiniteNumber(thetaE) && Math.abs(thetaE - 90) > 0.2) dbg?.warn?.('synod.v5.boundary.E.off', { thetaE, E: fmt(tE) });
-    if (isFiniteNumber(thetaE2) && Math.abs(thetaE2 - 450) > 0.2) dbg?.warn?.('synod.v5.boundary.E_next.off', { thetaE2, E_next: fmt(tE2) });
 
     const OPT_SOLVE: SolveOpts = {
         maxIters: 220,
@@ -567,8 +585,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     };
 
     function wantThetaUnwrapForIndex(i: number): number {
-        // i=0..16 => 90..450
-        return 90 + (360 * i) / 16;
+        return 90 + (360 * i) / 16; // 0..16 => 90..450
     }
 
     // Solve spokes (exact times)
@@ -581,7 +598,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         const solved = solveTimeForThetaUnwrap(thetaUnwrapAt, tE, tE2, wantU, OPT_SOLVE);
 
         if (!isFiniteNumber(solved)) {
-            dbg?.warn?.('synod.v5.spoke.solve.failed', { i, code: SPOKES_ORDER[i], wantU, fallback: 'lerp' });
+            dbg?.warn?.('synod.spoke.solve.failed', { i, code: SPOKES_ORDER[i], wantU, fallback: 'lerp' });
         }
 
         tExact[i] = isFiniteNumber(solved) ? (solved as number) : lerp(tE, tE2, i / 16);
@@ -590,7 +607,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     // monotonic exact times check (warn-only)
     for (let i = 1; i < tExact.length; i++) {
         if (!(tExact[i] >= tExact[i - 1])) {
-            dbg?.warn?.('synod.v5: non-monotonic exact times', {
+            dbg?.warn?.('synod: non-monotonic exact times', {
                 i,
                 prev: { i: i - 1, t: fmt(tExact[i - 1]), code: SPOKES_ORDER[i - 1] ?? String(i - 1) },
                 cur: { i, t: fmt(tExact[i]), code: SPOKES_ORDER[i] ?? String(i) },
@@ -602,19 +619,19 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         }
     }
 
-    // Angle hit check (exact): compare θ_unwrap(t) to wanted.
+    // Angle hit check (exact)
     for (let i = 0; i < tExact.length; i++) {
         const wantU = wantThetaUnwrapForIndex(i);
         const gotU = thetaUnwrapAt(tExact[i]);
         if (!isFiniteNumber(gotU)) {
-            dbg?.warn?.('synod.v5.angle.NaN', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU });
+            dbg?.warn?.('synod.angle.NaN', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU });
             continue;
         }
         const err = Math.abs(gotU - wantU);
         if (err > 0.25) {
-            dbg?.warn?.('synod.v5.angle.mismatch', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err, motion });
+            dbg?.warn?.('synod.angle.mismatch', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err, motion });
         } else if (i === 0 || i === 4 || i === 8 || i === 12 || i === 16) {
-            dbg?.log?.('synod.v5.angle.ok', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err });
+            dbg?.log?.('synod.angle.ok', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err });
         }
     }
 
@@ -653,18 +670,17 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     const spokes: CycleSpoke<SynodMeta>[] = [];
     for (let i = 0; i < 17; i++) spokes.push(mkSpoke(i));
 
-    // Endpoint sanity (minute-rounded)
     if (spokes[0] && !nearEq(spokes[0].ts, roundToMinuteMs(tE), 60_000, 0)) {
-        dbg?.warn?.('synod.v5: spoke[0] minute-round differs from E (expected sometimes)', { spoke0: fmt(spokes[0].ts), E: fmt(tE) });
+        dbg?.warn?.('synod: spoke[0] minute-round differs from E (expected sometimes)', { spoke0: fmt(spokes[0].ts), E: fmt(tE) });
     }
     if (spokes[16] && !nearEq(spokes[16].ts, roundToMinuteMs(tE2), 60_000, 0)) {
-        dbg?.warn?.('synod.v5: spoke[16] minute-round differs from E_next (expected sometimes)', {
+        dbg?.warn?.('synod: spoke[16] minute-round differs from E_next (expected sometimes)', {
             spoke16: fmt(spokes[16].ts),
             E_next: fmt(tE2),
         });
     }
 
-    dbg?.log?.('synod.v5.done', {
+    dbg?.log?.('synod.done', {
         looker,
         focus,
         target,
