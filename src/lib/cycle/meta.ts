@@ -23,7 +23,7 @@ export const CYCLE_META: Record<CycleKind, CycleMeta> = {
         order: 10
     },
     lunarSynodic:  {
-        label: 'Sun Channel: Earth - Moon',
+        label: 'Sun Synod: Earth - Moon',
         description: 'Moon Phases',
         order: 20
     },

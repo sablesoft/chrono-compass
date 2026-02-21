@@ -8,7 +8,7 @@ const DEC_GC_DEG = dmsToDeg(-1, 29, 0, 28.1);
 export const GalacticCenter = {
     id: 'ref:galactic-center',
     kind: 'reference',
-    name: { en: 'GC' },
+    name: { en: 'Galactic' },
     emoji: '🌀',
     meta: {
         direction: {

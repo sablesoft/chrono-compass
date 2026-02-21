@@ -99,7 +99,6 @@ export type WheelType =
     | 'compass'
     | 'horizon'
     | 'synod'
-    | 'channel'
     | 'bind'
     | 'range'
     | 'season'
@@ -190,7 +189,6 @@ type RequireRoles<T, K extends keyof T> = T & { [P in K]-?: NonNullable<T[P]> };
 export type CompassRoleSet = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
 export type HorizonRoleSet = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
 export type SynodRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
-export type ChannelRoleSet = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
 export type NodalRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
 export type BindRoleSet    = RequireRoles<RoleSetOf<'focus' | 'target'>, 'focus' | 'target'>;
 export type RangeRoleSet   = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
@@ -223,7 +221,6 @@ export type WheelSpec =
     | WheelSpecBase<'compass', CompassRoleSet, true>
     | WheelSpecBase<'horizon', HorizonRoleSet>
     | WheelSpecBase<'synod', SynodRoleSet>
-    | WheelSpecBase<'channel', ChannelRoleSet>
     | WheelSpecBase<'bind', BindRoleSet>
     | WheelSpecBase<'range', RangeRoleSet>
     | WheelSpecBase<'season', SeasonRoleSet>

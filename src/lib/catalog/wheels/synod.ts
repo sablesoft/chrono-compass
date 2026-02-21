@@ -4,13 +4,13 @@ export const synod = {
     type: 'synod',
     ready: true,
     requiredRoles: {
-        looker: ['engine_body'],
-        focus: ['engine_body', 'reference'],
+        looker: ['engine_body', 'reference'],
+        focus: ['engine_body'],
         target: ['engine_body'],
     },
     ui: {
-        looker: 'center',
-        focus: 'S',
+        looker: 'S',
+        focus: 'center',
         target: 'pointer',
     },
     roles: [
@@ -18,358 +18,259 @@ export const synod = {
         // Baseline classics
         // ------------------------------------------------------------
 
-        // Sun Looker
+        // Sun Focus
         {
-            looker: ['Sun'],
-            focus: ['ref:galactic-center'],
+            looker: ['ref:galactic-center'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Pluto'],
+            looker: ['Pluto'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Neptune'],
+            looker: ['Neptune'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Uranus'],
+            looker: ['Uranus'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Saturn'],
+            looker: ['Saturn'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Jupiter'],
+            looker: ['Jupiter'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Mars'],
+            looker: ['Mars'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Earth'],
+            looker: ['Earth'],
+            focus: ['Sun'],
             target: ['Mercury', 'Venus'],
         },
         {
-            looker: ['Sun'],
-            focus: ['Venus'],
+            looker: ['Venus'],
+            focus: ['Sun'],
             target: ['Mercury'],
         },
 
-        // Mercury Looker
+        // Mercury Focus
         {
-            looker: ['Mercury'],
-            focus: ['ref:galactic-center'],
-            target: ['Venus', 'Earth', 'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune','Pluto'
-            ],
-        },
-        {
-            looker: ['Mercury'],
-            focus: ['Pluto'],
-            target: ['Venus', 'Earth', 'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune'
-            ],
-        },
-        {
-            looker: ['Mercury'],
-            focus: ['Neptune'],
-            target: ['Venus', 'Earth', 'Mars',
-                // 'Jupiter', 'Saturn','Uranus'
-            ],
-        },
-        {
-            looker: ['Mercury'],
-            focus: ['Uranus'],
-            target: ['Venus', 'Earth', 'Mars',
-                // 'Jupiter', 'Saturn'
-            ],
-        },
-        {
-            looker: ['Mercury'],
-            focus: ['Saturn'],
-            target: ['Venus', 'Earth', 'Mars',
-                // 'Jupiter'
-            ],
-        },
-        {
-            looker: ['Mercury'],
-            focus: ['Jupiter'],
+            looker: ['ref:galactic-center'],
+            focus: ['Mercury'],
             target: ['Venus', 'Earth', 'Mars'],
         },
         {
-            looker: ['Mercury'],
-            focus: ['Mars'],
-            target: ['Venus',
-                // 'Earth'
-            ],
+            looker: ['Pluto'],
+            focus: ['Mercury'],
+            target: ['Venus', 'Earth', 'Mars'],
         },
-        // {
-        //     looker: ['Mercury'],
-        //     focus: ['Earth'],
-        //     target: ['Venus'],
-        // },
+        {
+            looker: ['Neptune'],
+            focus: ['Mercury'],
+            target: ['Venus', 'Earth', 'Mars'],
+        },
+        {
+            looker: ['Uranus'],
+            focus: ['Mercury'],
+            target: ['Venus', 'Earth', 'Mars'],
+        },
+        {
+            looker: ['Saturn'],
+            focus: ['Mercury'],
+            target: ['Venus', 'Earth', 'Mars'],
+        },
+        {
+            looker: ['Jupiter'],
+            focus: ['Mercury'],
+            target: ['Venus', 'Earth', 'Mars'],
+        },
+        {
+            looker: ['Mars'],
+            focus: ['Mercury'],
+            target: ['Venus'],
+        },
 
-        // Venus Looker
+        // Venus Focus
         {
-            looker: ['Venus'],
-            focus: ['ref:galactic-center'],
-            target: ['Earth', 'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune','Pluto'
-            ],
+            looker: ['ref:galactic-center'],
+            focus: ['Venus'],
+            target: ['Earth', 'Mars'],
         },
         {
-            looker: ['Venus'],
-            focus: ['Pluto'],
-            target: ['Earth', 'Mars', 'Jupiter',
-                // 'Saturn','Uranus','Neptune'
-            ],
-        },
-        {
-            looker: ['Venus'],
-            focus: ['Neptune'],
-            target: ['Earth', 'Mars',
-                // 'Jupiter','Saturn','Uranus'
-            ],
-        },
-        {
-            looker: ['Venus'],
-            focus: ['Uranus'],
-            target: ['Earth', 'Mars',
-                // 'Jupiter','Saturn'
-            ],
-        },
-        {
-            looker: ['Venus'],
-            focus: ['Saturn'],
+            looker: ['Pluto'],
+            focus: ['Venus'],
             target: ['Earth', 'Mars', 'Jupiter'],
         },
         {
-            looker: ['Venus'],
-            focus: ['Jupiter'],
+            looker: ['Neptune'],
+            focus: ['Venus'],
             target: ['Earth', 'Mars'],
         },
-        // {
-        //     looker: ['Venus'],
-        //     focus: ['Mars'],
-        //     target: ['Earth'],
-        // },
-
-        // Earth Looker
         {
-            looker: ['Earth'],
-            focus: ['Sun'],
+            looker: ['Uranus'],
+            focus: ['Venus'],
+            target: ['Earth', 'Mars'],
+        },
+        {
+            looker: ['Saturn'],
+            focus: ['Venus'],
+            target: ['Earth', 'Mars', 'Jupiter'],
+        },
+        {
+            looker: ['Jupiter'],
+            focus: ['Venus'],
+            target: ['Earth', 'Mars'],
+        },
+
+        // Earth Focus
+        {
+            looker: ['Sun'],
+            focus: ['Earth'],
             target: ['Moon'],
         },
         {
-            looker: ['Earth'],
-            focus: ['ref:galactic-center'],
-            target: [ 'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune','Pluto'
-            ],
+            looker: ['ref:galactic-center'],
+            focus: ['Earth'],
+            target: ['Mars'],
         },
         {
-            looker: ['Earth'],
-            focus: ['Pluto'],
-            target: ['Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune'
-            ],
+            looker: ['Pluto'],
+            focus: ['Earth'],
+            target: ['Mars'],
         },
         {
-            looker: ['Earth'],
-            focus: ['Neptune'],
-            target: ['Mars',
-                // 'Jupiter','Saturn','Uranus'
-            ],
+            looker: ['Neptune'],
+            focus: ['Earth'],
+            target: ['Mars'],
         },
         {
-            looker: ['Earth'],
-            focus: ['Uranus'],
-            target: ['Mars',
-                // 'Jupiter','Saturn'
-            ],
+            looker: ['Uranus'],
+            focus: ['Earth'],
+            target: ['Mars'],
         },
         {
-            looker: ['Earth'],
-            focus: ['Saturn'],
-            target: ['Mars',
-                // 'Jupiter'
-            ],
+            looker: ['Saturn'],
+            focus: ['Earth'],
+            target: ['Mars'],
         },
         {
-            looker: ['Earth'],
-            focus: ['Jupiter'],
+            looker: ['Jupiter'],
+            focus: ['Earth'],
             target: ['Mars'],
         },
 
-        // Mars Looker
+        // Mars Focus
         {
-            looker: ['Mars'],
-            focus: ['ref:galactic-center'],
-            target: ['Jupiter',
-                // 'Saturn','Uranus','Neptune','Pluto'
-            ],
+            looker: ['ref:galactic-center'],
+            focus: ['Mars'],
+            target: ['Jupiter'],
         },
         {
-            looker: ['Mars'],
-            focus: ['Pluto'],
-            target: ['Jupiter',
-                // 'Saturn','Uranus','Neptune'
-            ],
+            looker: ['Pluto'],
+            focus: ['Mars'],
+            target: ['Jupiter'],
         },
         {
-            looker: ['Mars'],
-            focus: ['Neptune'],
-            target: ['Jupiter',
-                // 'Saturn',// 'Uranus'
-            ],
+            looker: ['Neptune'],
+            focus: ['Mars'],
+            target: ['Jupiter'],
         },
         {
-            looker: ['Mars'],
-            focus: ['Uranus'],
-            target: ['Jupiter',
-                // 'Saturn'
-            ],
+            looker: ['Uranus'],
+            focus: ['Mars'],
+            target: ['Jupiter'],
         },
-        // {
-        //     looker: ['Mars'],
-        //     focus: ['Saturn'],
-        //     target: ['Jupiter'],
-        // },
 
-        // Jupiter Looker
+        // Jupiter Focus
         {
-            looker: ['Jupiter'],
-            focus: ['ref:galactic-center'],
-            target: ['Saturn',
-                // 'Uranus','Neptune','Pluto'
-            ],
+            looker: ['ref:galactic-center'],
+            focus: ['Jupiter'],
+            target: ['Saturn'],
         },
         {
-            looker: ['Jupiter'],
-            focus: ['Pluto'],
-            target: ['Saturn',
-                // 'Uranus','Neptune'
-            ],
+            looker: ['Pluto'],
+            focus: ['Jupiter'],
+            target: ['Saturn'],
         },
         {
-            looker: ['Jupiter'],
-            focus: ['Neptune'],
-            target: ['Saturn',
-                // 'Uranus'
-            ],
+            looker: ['Neptune'],
+            focus: ['Jupiter'],
+            target: ['Saturn'],
         },
-        // {
-        //     looker: ['Jupiter'],
-        //     focus: ['Uranus'],
-        //     target: ['Saturn'],
-        // },
 
-        // Saturn Looker
+        // Saturn Focus
         {
-            looker: ['Saturn'],
-            focus: ['ref:galactic-center'],
-            target: ['Uranus',
-                // 'Neptune',
-                'Pluto'],
+            looker: ['ref:galactic-center'],
+            focus: ['Saturn'],
+            target: ['Uranus', 'Pluto'],
         },
-        // {
-        //     looker: ['Saturn'],
-        //     focus: ['Pluto'],
-        //     target: ['Uranus','Neptune'],
-        // },
         {
-            looker: ['Saturn'],
-            focus: ['Neptune'],
+            looker: ['Neptune'],
+            focus: ['Saturn'],
             target: ['Uranus'],
         },
 
-        // Uranus Looker
+        // Uranus Focus
         {
-            looker: ['Uranus'],
-            focus: ['ref:galactic-center'],
+            looker: ['ref:galactic-center'],
+            focus: ['Uranus'],
             target: ['Neptune', 'Pluto'],
         },
-        // {
-        //     looker: ['Uranus'],
-        //     focus: ['Pluto'],
-        //     target: ['Neptune'],
-        // },
 
-        // Neptune Looker
+        // Neptune Focus
         {
-            looker: ['Neptune'],
-            focus: ['ref:galactic-center'],
+            looker: ['ref:galactic-center'],
+            focus: ['Neptune'],
             target: ['Pluto'],
         },
 
-        // Moon Looker
-        // {
-        //     looker: ['Moon'],
-        //     focus: ['Sun'],
-        //     target: ['Earth'],
-        // },
+        // Moon Focus
         {
-            looker: ['Moon'],
-            focus: ['ref:galactic-center'],
-            target: ['Sun','Mercury', 'Venus', 'Earth', 'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune','Pluto'
-            ],
+            looker: ['ref:galactic-center'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Earth','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Pluto'],
-            target: ['Sun','Mercury', 'Venus',
-                // 'Earth',
-                'Mars',
-                // 'Jupiter','Saturn','Uranus','Neptune'
-            ],
+            looker: ['Pluto'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Neptune'],
-            target: ['Sun','Mercury', 'Venus',
-                // 'Earth',
-                'Mars',
-                // 'Jupiter','Saturn','Uranus'
-            ],
+            looker: ['Neptune'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Uranus'],
-            target: ['Sun','Mercury', 'Venus', 'Earth', 'Mars',
-                // 'Jupiter','Saturn'
-            ],
+            looker: ['Uranus'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Earth','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Saturn'],
-            target: ['Sun','Mercury', 'Venus', 'Earth', 'Mars',
-                // 'Jupiter'
-            ],
+            looker: ['Saturn'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Earth','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Jupiter'],
-            target: ['Sun','Mercury', 'Venus',
-                // 'Earth',
-                'Mars'],
+            looker: ['Jupiter'],
+            focus: ['Moon'],
+            target: ['Sun','Mercury','Venus','Mars'],
         },
         {
-            looker: ['Moon'],
-            focus: ['Mars'],
-            target: ['Sun',
-                // 'Mercury',
-                'Venus', 'Earth'],
+            looker: ['Mars'],
+            focus: ['Moon'],
+            target: ['Sun','Venus','Earth'],
         },
     ],
 } satisfies Extract<WheelSpec, { type: 'synod' }>;

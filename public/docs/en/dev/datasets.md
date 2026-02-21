@@ -139,7 +139,7 @@ Examples:
 
 * Compass: azimuth, altitude, visibility flags
 * Horizon: altitude, rise/set flags
-* Synod / Channel: angular separation
+* Synod: angular separation
 * Bind / Range: distance
 * Season / Plato: axis orientation parameters
 * Nodal: node longitude or plane orientation

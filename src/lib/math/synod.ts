@@ -1,14 +1,24 @@
 // src/lib/math/synod.ts
 //
 // Unified Synod wheel solver (phase-angular, 17 spokes) for any (looker, focus, target)
-// where focus may be engine_body OR reference.
+// where focus is the VERTEX of the angle.
 //
-// v5.1 (DIRECTED-CROSSING BOUNDARIES, ASYMMETRIC SEARCH):
+// v5.1 (DIRECTED-CROSSING BOUNDARIES, ASYMMETRIC SEARCH) — UPDATED ONTOLOGY:
+// - looker = external observer direction (defines S direction)
+// - focus  = vertex of the angle (center of wheel geometry)
+// - target = rotates around focus relative to looker
+//
+// Geometry:
+//   uL = dir(focus -> looker)
+//   uT = dir(focus -> target)
+//   φ  = lon(uT) - lon(uL)   in [0..360)
+//   S = focus - target - looker  => φ ~ 0
+//   N = target - focus - looker  => φ ~ 180
+//
+// Boundaries/spokes:
 // - E and E_next are searched separately:
 //     E      = nearest directed θ=90° crossing at/before ts (expand backwards)
 //     E_next = nearest directed θ=90° crossing after ts     (expand forwards)
-// - This fixes ultra-long periods (e.g. Pluto) where a symmetric window around ts
-//   may contain only one crossing (all on one side), making (E,E_next) impossible to pick.
 // - Unwrap remains anchored at E time; spokes solved by bisection on θ_unwrap.
 //
 // Output rounding:
@@ -30,6 +40,8 @@ export type SynodMeta = {
     phaseForwardDeg: number; // θ_mod target (static) in [0..360)
     phaseUnwrapDeg: number; // θ_unwrap target (static) in [90..450)
     motion: 'ccw' | 'cw';
+
+    // distances (AU) from focus -> target / focus -> looker (lookerDistAu = NaN for reference looker)
     distanceAu: number;
     distanceKm: number;
     focusDistAu: number;
@@ -122,15 +134,15 @@ function normalize(a: Vec): Vec | null {
 }
 
 // ---------------------------
-// Direction from looker to obj
+// Direction from ORIGIN (focus) to obj
 // ---------------------------
 
-function dirFromLookerToEngine(looker: ObjId, obj: ObjId, ts: number): { u: Vec; distAu: number } | null {
-    const pL = helioVec(looker, ts);
+function dirFromOriginToEngine(origin: ObjId, obj: ObjId, ts: number): { u: Vec; distAu: number } | null {
+    const pO = helioVec(origin, ts);
     const pB = helioVec(obj, ts);
-    if (!pL || !pB) return null;
+    if (!pO || !pB) return null;
 
-    const v = sub(pB, pL);
+    const v = sub(pB, pO);
     const d = norm(v);
     const u = normalize(v);
     if (!u) return null;
@@ -138,7 +150,9 @@ function dirFromLookerToEngine(looker: ObjId, obj: ObjId, ts: number): { u: Vec;
     return { u, distAu: d };
 }
 
-function dirFromLookerToReference(objId: ObjId): { u: Vec; distAu: number } | null {
+// For far references we treat direction as fixed inertial unit vector.
+// This ignores parallax from different origins, which is fine at this scale.
+function dirFromOriginToReference(objId: ObjId): { u: Vec; distAu: number } | null {
     const o = getObj(objId);
     const meta = o?.meta as ReferenceMeta | undefined;
     if (!meta) return null;
@@ -149,14 +163,19 @@ function dirFromLookerToReference(objId: ObjId): { u: Vec; distAu: number } | nu
     return { u: { x: u3[0], y: u3[1], z: u3[2] }, distAu: NaN };
 }
 
-function dirFromLooker(looker: ObjId, obj: ObjId, ts: number): { u: Vec; distAu: number } | null {
+function dirFromOrigin(origin: ObjId, obj: ObjId, ts: number): { u: Vec; distAu: number } | null {
+    // IMPORTANT: focus/origin must be an engine body to define a real vertex position.
+    // If origin is a reference, we cannot compute vectors reliably.
+    const orec = getObj(origin);
+    if (orec?.kind === 'reference') return null;
+
     const rec = getObj(obj);
-    if (rec?.kind === 'reference') return dirFromLookerToReference(obj);
-    return dirFromLookerToEngine(looker, obj, ts);
+    if (rec?.kind === 'reference') return dirFromOriginToReference(obj);
+    return dirFromOriginToEngine(origin, obj, ts);
 }
 
 // ---------------------------
-// Phase definition (plane longitudes; default ecliptic)
+// Phase definition (vertex at focus; default ecliptic plane)
 // ---------------------------
 
 function phaseDeg(
@@ -164,16 +183,19 @@ function phaseDeg(
     focus: ObjId,
     target: ObjId,
     ts: number,
-): { phi: number; dT: number; dF: number } | null {
-    const dF = dirFromLooker(looker, focus, ts);
-    const dT = dirFromLooker(looker, target, ts);
-    if (!dF || !dT) return null;
+): { phi: number; dT: number; dL: number } | null {
+    // vectors are from focus -> looker/target (vertex at focus)
+    const dL = dirFromOrigin(focus, looker, ts);
+    const dT = dirFromOrigin(focus, target, ts);
+    if (!dL || !dT) return null;
 
-    const lonF = lonDegEcliptic(dF.u);
+    const lonL = lonDegEcliptic(dL.u);
     const lonT = lonDegEcliptic(dT.u);
-    const phi = norm360(lonT - lonF);
 
-    return { phi, dT: dT.distAu, dF: dF.distAu };
+    // φ measures target relative to looker direction in the vertex frame
+    const phi = norm360(lonT - lonL);
+
+    return { phi, dT: dT.distAu, dL: dL.distAu };
 }
 
 // ---------------------------
@@ -327,7 +349,6 @@ function firstCrossingAfter(ts: number, crossings: Crossing[]): number | null {
     return null;
 }
 
-// NEW: asymmetrical boundary search (backward/forward independently)
 function findNearestCrossingBackward(
     thetaModAt: (t: number) => number,
     ts: number,
@@ -337,7 +358,6 @@ function findNearestCrossingBackward(
     estPeriodDays: number,
     dbg?: SolveOpts['dbg'],
 ): number | null {
-    // start with ~0.75*period, but not too small; then expand
     let windowMs = clamp(estPeriodDays * DAY_MS * 0.75, 10 * stepMs, 200_000 * DAY_MS);
 
     for (let attempt = 0; attempt < 22; attempt++) {
@@ -500,6 +520,12 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
 
     if (!target) return fail('Synod wheel requires a single target');
 
+    // IMPORTANT: focus must be an engine_body to define the vertex position.
+    const focusRec = getObj(focus);
+    if (focusRec?.kind === 'reference') {
+        return fail(`Synod wheel: focus (vertex) cannot be a reference: ${String(focus)}`);
+    }
+
     const phiRawAt = (t: number) => {
         const r = phaseDeg(looker, focus, target, t);
         return r ? r.phi : NaN;
@@ -546,7 +572,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         estPeriodDays: Number(estPeriodDays.toFixed(6)),
     });
 
-    // NEW: find E and E_next separately (fixes Pluto)
+    // Find E and E_next separately (fixes ultra-long periods)
     const E_t = findNearestCrossingBackward(thetaModAt, ts, 90, stepMs, epsMs, estPeriodDays, dbg);
     if (!isFiniteNumber(E_t)) return fail('Synod wheel: failed to locate E (θ=90°) at/before ts');
 
@@ -662,7 +688,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
                 motion,
                 distanceAu: rAu,
                 distanceKm: rKm,
-                focusDistAu: isFiniteNumber(r?.dF) ? r!.dF : NaN,
+                focusDistAu: isFiniteNumber(r?.dL) ? r!.dL : NaN,
             },
         };
     }

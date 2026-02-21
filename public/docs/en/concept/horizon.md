@@ -167,7 +167,7 @@ Would be conceptually valid (looker = Mars), but actual implementation may restr
 Horizon Wheel is not:
 
 * a distance cycle (Bind)
-* an alignment cycle (Synod / Channel)
+* an alignment cycle (Synod)
 * a directional snapshot (Compass)
 
 It is a **visibility and vertical-motion cycle** anchored in horizon crossings for a concrete observer.

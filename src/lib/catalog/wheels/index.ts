@@ -4,12 +4,13 @@ import type { WheelSpec, WheelType } from '../types';
 import { compass } from './compass';
 import { horizon } from './horizon';
 import { synod } from './synod';
-import { channel } from './channel';
 import { bind } from './bind';
 import { range } from './range';
 import { season } from './season';
 import { nodal } from './nodal';
 import { plato } from './plato';
+import { system } from './system';
+import { galaxy } from './galaxy';
 
 // тип: для каждого ключа — свой конкретный кусок WheelSpec
 export type WheelsCatalog = {
@@ -20,10 +21,11 @@ export const wheels: WheelsCatalog = {
     compass,
     horizon,
     synod,
-    channel,
     bind,
     range,
     season,
     nodal,
-    plato
+    plato,
+    system,
+    galaxy
 };

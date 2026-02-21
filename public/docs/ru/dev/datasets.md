@@ -139,7 +139,7 @@ public/datasets/range/earth_mars/1900-1950.json
 
 * Compass: азимут, высота, флаги видимости
 * Horizon: высота, флаги восхода/захода
-* Synod / Channel: угловое расстояние
+* Synod: угловое расстояние
 * Bind / Range: расстояние
 * Season / Plato: параметры ориентации оси
 * Nodal: долгота узлов или ориентация плоскости

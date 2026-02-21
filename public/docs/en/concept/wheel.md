@@ -234,73 +234,38 @@ Horizon Wheel exists for some target body only if this body **actually crosses t
 
 ### Synod Wheels
 
-Angular relation cycles describing the changing angle between focus and target objects as evaluated from a looker body, where the looker may become centrally positioned between focus and target (true opposition is possible).
+Angular relation cycles describing the changing angle at a **focus** body (the vertex of the angle) between the directions toward a **looker** and a **target**.
 
-Synod Wheels may be **centrical** or **acentrical**:
-- **centrical** — the focus body is a common orbital focus for both the looker and the target;
-- **acentrical** — all other cases, where the focus is not shared by looker and target.
+Geometry:
 
-The centrical case is a **special case of the acentrical one**, not a separate Wheel type.
+* The **focus** is the vertex of the angle and the geometric center of the Wheel.
+* The **looker** defines the reference direction (S).
+* The **target** rotates around the focus relative to the looker.
 
-**Required attributes:**
-- looker
-- focus
-- target
+Configurations:
 
-  → [synod-wheel.md](synod-wheel.md)
+* **S** — focus–target–looker (angle ≈ 0°)
+* **N** — target–focus–looker (angle ≈ 180°)
 
-  *Examples:*  
-  `Earth Synod: Sun - Moon`  
-  (looker: Earth, focus: Sun, target: Moon, acentrical case)
-
-  `Earth Synod: Sun - Mars`  
-  (looker: Earth, focus: Sun, target: Mars, centrical case)
-
-  `Jupiter Synod: Sun - Saturn`  
-  (looker: Jupiter, focus: Sun, target: Saturn, centrical case)
-
-  **TODO:**
-  - Implement a **single, general computation method** for Synod Wheels
-    that correctly handles both centrical and acentrical cases.
-  - Treat centrical configurations as an optimization case,
-    not as a separate computational model.
-
----
-
-### Channel Wheels
-
-Angular alignment cycles describing the changing alignment between focus and target objects as evaluated from a looker body, where the looker is always terminal and cannot occupy the central position.
-
-In this Wheel type the target acts as a channel (mediator) between looker and focus.
-
-Channel Wheels may be **centrical** or **acentrical**:
-- **centrical** — the focus body is a common orbital focus for both the looker and the target;
-- **acentrical** — all other configurations.
-
-The centrical case is a **special case of the acentrical one**, not a separate Wheel type.
+The **looker** may be either a physical Solar System body (engine_body) or an inertial reference direction (reference), such as the Galactic Center. In both cases the geometry remains the same: the angle is always defined at the focus between the directions toward the looker and the target.
 
 **Required attributes:**
-- looker
-- focus
-- target
 
-  → [channel-wheel.md](channel-wheel.md)
+* looker
+* focus
+* target
 
-  *Examples:*  
-  `Earth Channel: Sun - Mercury`  
-  (looker: Earth, focus: Sun, target: Mercury, centrical case)
+→ [synod.md](synod.md)
 
-  `Earth Channel: Jupiter - Io`  
-  (looker: Earth, focus: Jupiter, target: Io, acentrical case)
+*Examples:*
+`Earth Synod: Sun - Moon`
+(looker: Earth, focus: Sun, target: Moon, acentrical case)
 
-  `Mars Channel: Sun - Earth`  
-  (looker: Mars, focus: Sun, target: Earth, centrical case)
+`Earth Synod: Sun - Mars`
+(looker: Earth, focus: Sun, target: Mars, centrical case)
 
-  **TODO:**
-  - Implement a **single, general computation method** for Channel Wheels
-    that does not rely on a shared orbital focus.
-  - Ensure correct handling of both centrical and acentrical cases
-    using a unified geometric approach.
+`Galactic Synod: Sun - Saturn`
+(looker: ref:galactic-center, focus: Sun, target: Saturn, centrical case)
 
 ---
 

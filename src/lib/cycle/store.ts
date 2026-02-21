@@ -6,7 +6,7 @@ import { ms } from '../format';
 import { CYCLE_PERSIST_EXCLUDED_TYPES, type CycleData, type CycleKey } from './types';
 
 // TEMP: global switch for persistent IndexedDB cache
-export const ENABLE_CYCLE_IDB = true;
+export const ENABLE_CYCLE_IDB = false;
 
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
