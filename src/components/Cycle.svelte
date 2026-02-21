@@ -1365,7 +1365,7 @@
     }
 
     .roleEmojiOnLabel{
-        font-size: 30px;
+        font-size: 70px;
         font-weight: 900;
     }
 
