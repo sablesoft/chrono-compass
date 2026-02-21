@@ -3,28 +3,31 @@
 // Unified Synod wheel solver (phase-angular, 17 spokes) for any (looker, focus, target)
 // where focus may be engine_body OR reference.
 //
-// NEW v2 (NO cycleDuration):
-// - We do NOT assume a stable synodic period.
-// - We find the current cycle boundaries dynamically:
-//     E      = nearest θ=90° crossing at/before ts
-//     E_next = nearest θ=90° crossing after ts   (this is "E+")
-// - Then we solve 17 spokes by exact phase angles between E..E_next.
+// v5.0 (DIRECTED-CROSSING BOUNDARIES + ANCHORED UNWRAP):
+// - We do NOT “count turns” via unwrapStep during boundary search (this caused Venus double-cycle).
+// - Instead we find E and E_next as the nearest θ=90° directed crossings around ts:
 //
-// Direction:
-// - We detect if raw phase φ increases CCW or decreases CW near ts.
-// - We build a "forward phase" θ that ALWAYS increases with time:
-//     θ = φ                if motion=CCW
-//     θ = 360 - φ          if motion=CW
-// - All spoke phase targets are expressed in θ-space: 90..450.
+//   Let θ_mod(t) be the forward phase in [0..360) that always increases with time (mod 360):
+//     θ_mod = φ            if motion=CCW
+//     θ_mod = 360 - φ      if motion=CW
 //
-// Primary quantity: phase angle around a fixed plane (ecliptic).
+//   Define signed diff to 90° in [-180..180]:
+//     g(t) = toSigned180(norm360(θ_mod(t) - 90))
 //
-// reference focus uses catalog meta.direction -> refUnit (fixed inertial unit vector).
-// engine bodies use helioVec with a Moon fallback.
+//   For increasing θ_mod, the “correct” crossing is where g goes negative -> non-negative.
+//   We scan in a window around ts, refine with bisection, then pick:
+//     E      = last crossing at/before ts
+//     E_next = first crossing after ts
 //
-// Output rounding:
-// - spoke.ts is rounded to minutes (ms).
-// - spoke.meta phase angles are set to the static target angles of spokes (not measured).
+// - After we have (E, E_next), we build an UNWRAPPED θ in [90..450) ANCHORED at E time:
+//   this removes the 90/450 ambiguity cleanly.
+// - Spokes are solved by bisection on θ_unwrap(t) - targetU inside [E..E_next].
+// - All solving/validation uses exact timestamps. Only final spoke.ts is rounded to minutes
+//   with monotonic enforcement.
+//
+// Notes:
+// - Works for fast and slow bodies: window expansion handles long cycles,
+//   adaptive step aims ~20° per step but is clamped to avoid absurd steps.
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
@@ -37,19 +40,10 @@ import { refUnit, lonDegEcliptic, type Vec } from './vector';
 import { fmt } from './extrema';
 
 export type SynodMeta = {
-    // raw φ in [0..360) (still useful for debugging / tooltip)
-    phaseDeg: number;
-
-    // forward θ in [0..360) (θ grows with time)
-    phaseForwardDeg: number;
-
-    // unwrapped forward θ in [90..450) for this cycle
-    phaseUnwrapDeg: number;
-
-    // motion of raw φ with time near ts
+    phaseDeg: number; // raw φ in [0..360)
+    phaseForwardDeg: number; // θ_mod target (static) in [0..360)
+    phaseUnwrapDeg: number; // θ_unwrap target (static) in [90..450)
     motion: 'ccw' | 'cw';
-
-    // distances (AU) from looker -> target / focus (focusDistAu = NaN for reference focus)
     distanceAu: number;
     distanceKm: number;
     focusDistAu: number;
@@ -82,6 +76,14 @@ function roundToMinuteMs(ts: number): number {
     return Math.round(ts / 60_000) * 60_000;
 }
 
+function roundToMinuteMonotonic(t: number[]): number[] {
+    const out = t.map(roundToMinuteMs);
+    for (let i = 1; i < out.length; i++) {
+        if (out[i] < out[i - 1]) out[i] = out[i - 1];
+    }
+    return out;
+}
+
 // ---------------------------
 // Engine position providers
 // ---------------------------
@@ -107,8 +109,8 @@ function helioVec(id: ObjId, ts: number): Vec | null {
             const vE = helioVec('Earth' as ObjId, ts);
             if (!vE) return null;
 
-            if (typeof A.GeoVector === 'function') {
-                const vM = A.GeoVector(toEngineBody('Moon'), t, false);
+            if (typeof (Astronomy as any).GeoVector === 'function') {
+                const vM = (Astronomy as any).GeoVector(toEngineBody('Moon'), t, false);
                 if (vM && isFiniteNumber(vM.x) && isFiniteNumber(vM.y) && isFiniteNumber(vM.z)) {
                     return { x: vE.x + vM.x, y: vE.y + vM.y, z: vE.z + vM.z };
                 }
@@ -168,7 +170,7 @@ function dirFromLooker(looker: ObjId, obj: ObjId, ts: number): { u: Vec; distAu:
 }
 
 // ---------------------------
-// Phase definition (ecliptic longitudes)
+// Phase definition (plane longitudes; default ecliptic)
 // ---------------------------
 
 function phaseDeg(
@@ -188,10 +190,6 @@ function phaseDeg(
     return { phi, dT: dT.distAu, dF: dF.distAu };
 }
 
-function signedPhaseDiff(phi: number, targetDeg: number): number {
-    return toSigned180(norm360(phi - targetDeg));
-}
-
 // ---------------------------
 // Direction detection + forward phase
 // ---------------------------
@@ -200,14 +198,14 @@ function detectMotionDir(
     phiAt: (t: number) => number,
     ts: number,
 ): { motion: 'ccw' | 'cw'; speedDegPerDayAbs: number } | null {
-    const dts = [30 * 60_000, 3 * 60 * 60_000, 24 * 60 * 60_000]; // 30m, 3h, 1d
+    const dts = [30 * 60_000, 3 * 60 * 60_000, 24 * 60 * 60_000];
 
     for (const dt of dts) {
         const a = phiAt(ts - dt);
         const b = phiAt(ts + dt);
         if (!isFiniteNumber(a) || !isFiniteNumber(b)) continue;
 
-        const d = toSigned180(norm360(b - a)); // [-180..180]
+        const d = toSigned180(norm360(b - a));
         if (!isFiniteNumber(d) || Math.abs(d) < 1e-9) continue;
 
         const motion: 'ccw' | 'cw' = d > 0 ? 'ccw' : 'cw';
@@ -229,13 +227,16 @@ function forwardPhase(phiRaw: number, motion: 'ccw' | 'cw'): number {
 }
 
 // ---------------------------
-// Root solve on signed diff (bisection)
+// Directed crossing (scan + bisection) on g(t)=signedDiff(θ_mod, targetDeg)
 // ---------------------------
 
-type Crossing = { t: number };
+function signedDiffToTarget(thetaMod: number, targetDeg: number): number {
+    // in [-180..180]
+    return toSigned180(norm360(thetaMod - targetDeg));
+}
 
 function refineCrossingBisection(
-    gAt: (t: number) => number, // signed diff to target angle in [-180..180]
+    gAt: (t: number) => number,
     tA: number,
     tB: number,
     epsMs: number,
@@ -247,18 +248,16 @@ function refineCrossingBisection(
     let fhi = gAt(hi);
 
     if (!isFiniteNumber(flo) || !isFiniteNumber(fhi)) return null;
-
     if (flo === 0) return lo;
     if (fhi === 0) return hi;
-
     if (flo * fhi > 0) return null;
 
-    for (let i = 0; i < 90; i++) {
-        const mid = (lo + hi) / 2;
+    for (let i = 0; i < 120; i++) {
+        const mid = 0.5 * (lo + hi);
         const fmid = gAt(mid);
         if (!isFiniteNumber(fmid)) return null;
 
-        if (Math.abs(hi - lo) <= epsMs) return mid;
+        if (hi - lo <= epsMs) return mid;
 
         if (flo * fmid <= 0) {
             hi = mid;
@@ -269,11 +268,13 @@ function refineCrossingBisection(
         }
     }
 
-    return (lo + hi) / 2;
+    return 0.5 * (lo + hi);
 }
 
-function findCrossingsInWindowDirectional(
-    thetaForwardAt: (t: number) => number, // θ in [0..360)
+type Crossing = { t: number };
+
+function findDirectedCrossingsInWindow(
+    thetaModAt: (t: number) => number,
     t0: number,
     t1: number,
     targetDeg: number,
@@ -285,9 +286,9 @@ function findCrossingsInWindowDirectional(
     const b = Math.max(t0, t1);
 
     const gAt = (t: number) => {
-        const p = thetaForwardAt(t);
-        if (!isFiniteNumber(p)) return NaN;
-        return signedPhaseDiff(p, targetDeg); // [-180..180]
+        const th = thetaModAt(t);
+        if (!isFiniteNumber(th)) return NaN;
+        return signedDiffToTarget(th, targetDeg);
     };
 
     let tPrev = a;
@@ -304,7 +305,7 @@ function findCrossingsInWindowDirectional(
             continue;
         }
 
-        // For monotonic-increasing θ, prefer crossing where g goes negative -> non-negative.
+        // directed for increasing θ_mod: g < 0 -> g >= 0
         const crosses = (gPrev < 0 && g >= 0) || g === 0 || gPrev === 0;
 
         if (crosses) {
@@ -320,6 +321,7 @@ function findCrossingsInWindowDirectional(
 
     out.sort((x, y) => x.t - y.t);
 
+    // de-dupe
     const uniq: Crossing[] = [];
     for (const c of out) {
         if (!uniq.length || Math.abs(uniq[uniq.length - 1].t - c.t) > epsMs * 2) uniq.push(c);
@@ -349,85 +351,71 @@ function pickEandEnext(ts: number, crossings: Crossing[]): { E: number; E_next: 
 }
 
 // ---------------------------
-// Unwrap θ into [90..450) WITH cycle anchor time E_t
+// Anchored unwrap θ_unwrap(t) in [90..450) for this cycle
 // ---------------------------
 //
-// Key fix vs your current version:
+// Key: endpoints E and E_next both have θ_mod≈90, so unwrap must be time-anchored.
 //
-// unwrap can't be "value-only" (p < 90 ? p+360 : p) because both E and E_next
-// have θ≈90 and you'd get 90/90, killing bracketing.
-//
-// We anchor at the actual cycle start time E_t:
-// - at E_t => 90
-// - for t > E_t, if θ is near/below 90, it belongs to the "after wrap" branch => θ+360
-//
-function makeThetaUnwrapAt(
-    thetaForwardAt: (t: number) => number,
-    E_t: number,
-) {
-    const EPS_DEG = 1e-4; // tiny to avoid numerical chatter
-    const EPS_MS = 1;     // treat exact E time specially
+function makeThetaUnwrapAt(thetaModAt: (t: number) => number, E_t: number) {
+    const EPS_DEG = 1e-4;
+    const EPS_MS = 2; // treat exact E as special
 
     return (t: number): number => {
-        const th = thetaForwardAt(t);
+        const th = thetaModAt(t);
         if (!isFiniteNumber(th)) return NaN;
 
         const p = norm360(th);
 
-        // force exact start to be 90 (not 450)
         if (Math.abs(t - E_t) <= EPS_MS) return 90;
 
-        // after start: values near/below 90 belong to the unwrapped branch
+        // After E: values near/below 90 are “wrapped” part -> +360
         if (t > E_t) {
             if (p <= 90 + EPS_DEG) return p + 360;
             return p;
         }
 
-        // before start: normal branch (shouldn't be used much inside [E..E_next])
+        // Before E: keep as-is (rarely used after we bracket E..E_next)
         return p;
     };
 }
 
 // ---------------------------
-// Solve time for target unwrapped θ in [90..450) (bisection)
+// Solve time for target θ_unwrap by bisection in [E..E_next]
 // ---------------------------
 
-function solveTimeForForwardPhaseUnwrapped(
+function solveTimeForThetaUnwrap(
     thetaUnwrapAt: (t: number) => number,
     t0: number,
     t1: number,
-    targetThetaUnwrap: number,
+    targetU: number,
     opts: SolveOpts,
 ): number | null {
     const dbg = opts.dbg;
-    const maxIters = opts.maxIters ?? 120;
-    const epsMs = opts.epsMs ?? 200;
+    const maxIters = opts.maxIters ?? 180;
+    const epsMs = opts.epsMs ?? 1_000;
 
     let a = Math.min(t0, t1);
     let b = Math.max(t0, t1);
 
-    let fa = thetaUnwrapAt(a) - targetThetaUnwrap;
-    let fb = thetaUnwrapAt(b) - targetThetaUnwrap;
+    let fa = thetaUnwrapAt(a) - targetU;
+    let fb = thetaUnwrapAt(b) - targetU;
 
-    if (!isFiniteNumber(fa) || !isFiniteNumber(fb)) {
-        dbg?.warn?.('synod.v2.solve: NaN endpoints', { a: fmt(a), b: fmt(b), fa, fb, targetThetaUnwrap });
-        return null;
-    }
+    if (!isFiniteNumber(fa) || !isFiniteNumber(fb)) return null;
 
     if (fa === 0) return a;
     if (fb === 0) return b;
 
     if (fa * fb > 0) {
-        dbg?.warn?.('synod.v2.solve: not bracketed', { a: fmt(a), b: fmt(b), fa, fb, targetThetaUnwrap });
+        dbg?.warn?.('synod.solve.unwrap.not-bracketed', { a: fmt(a), b: fmt(b), fa, fb, targetU });
         return null;
     }
 
     for (let i = 0; i < maxIters; i++) {
-        const mid = (a + b) / 2;
-        const fm = thetaUnwrapAt(mid) - targetThetaUnwrap;
+        const mid = 0.5 * (a + b);
+        const fm = thetaUnwrapAt(mid) - targetU;
         if (!isFiniteNumber(fm)) return null;
 
-        if (Math.abs(b - a) <= epsMs) return mid;
+        if (b - a <= epsMs) return mid;
 
         if (fa * fm <= 0) {
             b = mid;
@@ -438,7 +426,7 @@ function solveTimeForForwardPhaseUnwrapped(
         }
     }
 
-    return (a + b) / 2;
+    return 0.5 * (a + b);
 }
 
 // ---------------------------
@@ -468,7 +456,6 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
 
     if (!target) return fail('Synod wheel requires a single target');
 
-    // raw φ(t) in [0..360)
     const phiRawAt = (t: number) => {
         const r = phaseDeg(looker, focus, target, t);
         return r ? r.phi : NaN;
@@ -479,61 +466,61 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         return fail(`Synod wheel: cannot compute phase for looker=${String(looker)} focus=${String(focus)} target=${String(target)}`);
     }
 
-    // detect motion of raw φ
     const dirInfo = detectMotionDir(phiRawAt, ts);
     if (!dirInfo) return fail('Synod wheel: failed to detect phase motion direction near ts');
 
     const motion: 'ccw' | 'cw' = dirInfo.motion;
     const speedDegPerDayAbs = dirInfo.speedDegPerDayAbs;
 
-    // θ(t) forward, always increasing with time (mod 360)
-    const thetaForwardAt = (t: number) => {
+    const thetaModAt = (t: number) => {
         const p = phiRawAt(t);
         if (!isFiniteNumber(p)) return NaN;
         return forwardPhase(p, motion);
     };
 
-    // adaptive scan step based on speed: aim ~10° per step
-    const desiredDeg = 10;
-    const stepDays = desiredDeg / Math.max(1e-6, speedDegPerDayAbs);
-    const stepMs = clamp(stepDays * DAY_MS, 5 * 60_000, 5 * DAY_MS);
+    // Adaptive scan step: aim ~20° phase per step; clamp to safe bounds.
+    const desiredDeg = 20;
+    const stepDays = desiredDeg / Math.max(1e-12, speedDegPerDayAbs);
+    const stepMs = clamp(stepDays * DAY_MS, 10 * 60_000, 30 * DAY_MS);
 
-    // bisection accuracy
-    const epsMs = clamp(stepMs / 64, 50, 5_000);
+    // Bisection epsilon based on step; clamp.
+    const epsMs = clamp(stepMs / 128, 50, 5_000);
 
-    // initial window from speed-estimated period
-    const estPeriodDays = 360 / Math.max(1e-6, speedDegPerDayAbs);
-    let halfWindowMs = clamp(estPeriodDays * DAY_MS * 0.8, 2 * stepMs, 4000 * DAY_MS);
+    // Estimated period for initial window (just a hint; expansion handles reality).
+    const estPeriodDays = 360 / Math.max(1e-12, speedDegPerDayAbs);
+    let halfWindowMs = clamp(estPeriodDays * DAY_MS * 0.75, 4 * stepMs, 25_000 * DAY_MS);
 
-    dbg?.log?.('synod.v2.params', {
+    dbg?.log?.('synod.v5.params', {
         looker,
         focus,
         target,
         ts: fmt(ts),
         motion,
-        speedDegPerDayAbs: Number(speedDegPerDayAbs.toFixed(6)),
+        phi0,
+        theta0: thetaModAt(ts),
+        speedDegPerDayAbs: Number(speedDegPerDayAbs.toFixed(9)),
         stepMs,
         epsMs,
-        estPeriodDays: Number(estPeriodDays.toFixed(4)),
-        halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(4)),
+        estPeriodDays: Number(estPeriodDays.toFixed(6)),
+        halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(6)),
     });
 
-    // Find E/E_next as θ=90° crossings around ts (expand until found)
+    // Find E/E_next as directed crossings of θ=90 around ts (expand window until found).
     let E_t: number | null = null;
     let E_next_t: number | null = null;
 
-    for (let attempt = 0; attempt < 14; attempt++) {
+    for (let attempt = 0; attempt < 18; attempt++) {
         const t0 = ts - halfWindowMs;
         const t1 = ts + halfWindowMs;
 
-        const crossings = findCrossingsInWindowDirectional(thetaForwardAt, t0, t1, 90, stepMs, epsMs);
+        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, 90, stepMs, epsMs);
         const picked = pickEandEnext(ts, crossings);
 
-        dbg?.log?.('synod.v2.crossings', {
+        dbg?.log?.('synod.v5.crossings', {
             attempt,
             t0: fmt(t0),
             t1: fmt(t1),
-            halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(4)),
+            halfWindowDays: Number((halfWindowMs / DAY_MS).toFixed(6)),
             crossingsCount: crossings.length,
             picked: picked ? { E: fmt(picked.E), E_next: fmt(picked.E_next) } : null,
         });
@@ -544,65 +531,114 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
             break;
         }
 
-        halfWindowMs = clamp(halfWindowMs * 1.65, 2 * stepMs, 8000 * DAY_MS);
+        halfWindowMs = clamp(halfWindowMs * 1.7, 4 * stepMs, 60_000 * DAY_MS);
     }
 
     if (!isFiniteNumber(E_t) || !isFiniteNumber(E_next_t) || !(E_t! < E_next_t!)) {
-        return fail('Synod wheel: failed to locate E/E_next phase crossings around ts');
+        return fail('Synod wheel: failed to locate E/E_next (θ=90° crossings) around ts');
     }
 
-    // θ_unwrap(t) in [90..450) for this cycle (ANCHOR FIX)
-    const thetaUnwrapAt = makeThetaUnwrapAt(thetaForwardAt, E_t!);
+    const tE = E_t as number;
+    const tE2 = E_next_t as number;
 
-    const thetaE = thetaUnwrapAt(E_t!);
-    const thetaE2 = thetaUnwrapAt(E_next_t!);
+    const thetaUnwrapAt = makeThetaUnwrapAt(thetaModAt, tE);
 
-    dbg?.log?.('synod.v2.boundary', {
-        E: fmt(E_t!),
-        E_next: fmt(E_next_t!),
-        thetaE,
-        thetaE2,
-        spanDays: Number(((E_next_t! - E_t!) / DAY_MS).toFixed(6)),
+    const thetaE = thetaUnwrapAt(tE);
+    const thetaE2 = thetaUnwrapAt(tE2);
+
+    dbg?.log?.('synod.v5.boundary', {
+        E: fmt(tE),
+        E_next: fmt(tE2),
+        thetaModE: thetaModAt(tE),
+        thetaModE2: thetaModAt(tE2),
+        thetaUnwrapE: thetaE,
+        thetaUnwrapE2: thetaE2,
+        spanDays: Number(((tE2 - tE) / DAY_MS).toFixed(9)),
     });
 
-    // sanity: we expect E ~ 90 and E_next ~ 450 (in unwrapped θ)
-    if (!isFiniteNumber(thetaE) || !isFiniteNumber(thetaE2) || thetaE2 <= thetaE) {
-        dbg?.warn?.('synod.v2.boundary.suspicious', { thetaE, thetaE2, E: fmt(E_t!), E_next: fmt(E_next_t!), motion });
-    } else {
-        const okE = Math.abs(thetaE - 90) < 0.05;
-        const okE2 = Math.abs(thetaE2 - 450) < 0.05;
-        if (!okE || !okE2) dbg?.warn?.('synod.v2.boundary.off', { thetaE, thetaE2, okE, okE2, motion });
-    }
+    // Expect E≈90 and E_next≈450 in unwrap space; warn-only.
+    if (isFiniteNumber(thetaE) && Math.abs(thetaE - 90) > 0.2) dbg?.warn?.('synod.v5.boundary.E.off', { thetaE, E: fmt(tE) });
+    if (isFiniteNumber(thetaE2) && Math.abs(thetaE2 - 450) > 0.2) dbg?.warn?.('synod.v5.boundary.E_next.off', { thetaE2, E_next: fmt(tE2) });
 
-    const SOLVE: SolveOpts = {
-        maxIters: 140,
+    const OPT_SOLVE: SolveOpts = {
+        maxIters: 220,
         epsMs,
         dbg: { log: dbg?.log, warn: dbg?.warn ?? dbg?.log },
     };
 
     function wantThetaUnwrapForIndex(i: number): number {
-        // 0..16 => 90..450
+        // i=0..16 => 90..450
         return 90 + (360 * i) / 16;
     }
 
-    function mkSpoke(i: number, tSolvedRaw: number): CycleSpoke<SynodMeta> {
+    // Solve spokes (exact times)
+    const tExact: number[] = new Array(17);
+    tExact[0] = tE;
+    tExact[16] = tE2;
+
+    for (let i = 1; i < 16; i++) {
+        const wantU = wantThetaUnwrapForIndex(i);
+        const solved = solveTimeForThetaUnwrap(thetaUnwrapAt, tE, tE2, wantU, OPT_SOLVE);
+
+        if (!isFiniteNumber(solved)) {
+            dbg?.warn?.('synod.v5.spoke.solve.failed', { i, code: SPOKES_ORDER[i], wantU, fallback: 'lerp' });
+        }
+
+        tExact[i] = isFiniteNumber(solved) ? (solved as number) : lerp(tE, tE2, i / 16);
+    }
+
+    // monotonic exact times check (warn-only)
+    for (let i = 1; i < tExact.length; i++) {
+        if (!(tExact[i] >= tExact[i - 1])) {
+            dbg?.warn?.('synod.v5: non-monotonic exact times', {
+                i,
+                prev: { i: i - 1, t: fmt(tExact[i - 1]), code: SPOKES_ORDER[i - 1] ?? String(i - 1) },
+                cur: { i, t: fmt(tExact[i]), code: SPOKES_ORDER[i] ?? String(i) },
+                E: fmt(tE),
+                E_next: fmt(tE2),
+                motion,
+            });
+            break;
+        }
+    }
+
+    // Angle hit check (exact): compare θ_unwrap(t) to wanted.
+    for (let i = 0; i < tExact.length; i++) {
+        const wantU = wantThetaUnwrapForIndex(i);
+        const gotU = thetaUnwrapAt(tExact[i]);
+        if (!isFiniteNumber(gotU)) {
+            dbg?.warn?.('synod.v5.angle.NaN', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU });
+            continue;
+        }
+        const err = Math.abs(gotU - wantU);
+        if (err > 0.25) {
+            dbg?.warn?.('synod.v5.angle.mismatch', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err, motion });
+        } else if (i === 0 || i === 4 || i === 8 || i === 12 || i === 16) {
+            dbg?.log?.('synod.v5.angle.ok', { i, code: SPOKES_ORDER[i], t: fmt(tExact[i]), wantU, gotU, err });
+        }
+    }
+
+    // Final output times (rounded)
+    const tOut = roundToMinuteMonotonic(tExact);
+
+    function mkSpoke(i: number): CycleSpoke<SynodMeta> {
         const wantUn = wantThetaUnwrapForIndex(i);
-        const wantFwd = norm360(wantUn); // 90..360..0..90
+        const wantFwd = norm360(wantUn);
 
-        const tSolved = roundToMinuteMs(tSolvedRaw);
+        const tSolve = tExact[i];
+        const tDisplay = tOut[i];
 
-        const r = phaseDeg(looker, focus, target, tSolved);
+        const r = phaseDeg(looker, focus, target, tSolve);
         const raw = r?.phi ?? NaN;
 
         const rAu = isFiniteNumber(r?.dT) ? r!.dT : NaN;
         const rKm = isFiniteNumber(rAu) ? rAu * AU_KM : NaN;
 
         return {
-            ts: tSolved,
+            ts: tDisplay,
             code: SPOKES_ORDER[i] ?? (i === 16 ? 'E+' : 'E'),
             index: i,
             meta: {
-                // IMPORTANT: spoke angles are static targets (by design)
                 phaseDeg: isFiniteNumber(raw) ? raw : NaN,
                 phaseForwardDeg: wantFwd,
                 phaseUnwrapDeg: wantUn,
@@ -615,79 +651,28 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     }
 
     const spokes: CycleSpoke<SynodMeta>[] = [];
+    for (let i = 0; i < 17; i++) spokes.push(mkSpoke(i));
 
-    // Endpoints exact
-    spokes.push(mkSpoke(0, E_t!));
-
-    // Inner spokes: solve by θ_unwrap target
-    for (let i = 1; i < 16; i++) {
-        const wantTheta = wantThetaUnwrapForIndex(i);
-
-        const solved = solveTimeForForwardPhaseUnwrapped(thetaUnwrapAt, E_t!, E_next_t!, wantTheta, SOLVE);
-        const tSolved = isFiniteNumber(solved) ? (solved as number) : lerp(E_t!, E_next_t!, i / 16);
-
-        spokes.push(mkSpoke(i, tSolved));
+    // Endpoint sanity (minute-rounded)
+    if (spokes[0] && !nearEq(spokes[0].ts, roundToMinuteMs(tE), 60_000, 0)) {
+        dbg?.warn?.('synod.v5: spoke[0] minute-round differs from E (expected sometimes)', { spoke0: fmt(spokes[0].ts), E: fmt(tE) });
+    }
+    if (spokes[16] && !nearEq(spokes[16].ts, roundToMinuteMs(tE2), 60_000, 0)) {
+        dbg?.warn?.('synod.v5: spoke[16] minute-round differs from E_next (expected sometimes)', {
+            spoke16: fmt(spokes[16].ts),
+            E_next: fmt(tE2),
+        });
     }
 
-    spokes.push(mkSpoke(16, E_next_t!));
-
-    // ---------------------------
-    // Validation: times order + angles hit
-    // ---------------------------
-
-    // 1) Monotonic time check (warn-only). Allow equality because of minute rounding.
-    for (let i = 1; i < spokes.length; i++) {
-        if (!(spokes[i].ts >= spokes[i - 1].ts)) {
-            dbg?.warn?.('synod.v2: non-monotonic spoke times', {
-                i,
-                prev: { i: i - 1, ts: fmt(spokes[i - 1].ts), code: spokes[i - 1].code },
-                cur: { i, ts: fmt(spokes[i].ts), code: spokes[i].code },
-                E: fmt(E_t!),
-                E_next: fmt(E_next_t!),
-                motion,
-            });
-            break;
-        }
-    }
-
-    // 2) Angle hit check: compare actual θ_unwrap(t) to wanted.
-    for (let i = 0; i < spokes.length; i++) {
-        const want = wantThetaUnwrapForIndex(i);
-        const got = thetaUnwrapAt(spokes[i].ts);
-        if (!isFiniteNumber(got)) {
-            dbg?.warn?.('synod.v2.angle: NaN', { i, code: spokes[i].code, ts: fmt(spokes[i].ts), want });
-            continue;
-        }
-        const err = Math.abs(got - want);
-        if (err > 0.2) {
-            dbg?.warn?.('synod.v2.angle: mismatch', {
-                i,
-                code: spokes[i].code,
-                ts: fmt(spokes[i].ts),
-                want,
-                got,
-                err,
-                motion,
-            });
-        }
-    }
-
-    // Endpoint sanity (time)
-    if (spokes[0] && !nearEq(spokes[0].ts, roundToMinuteMs(E_t!), 60_000, 0)) {
-        dbg?.warn?.('synod.v2: spoke[0] not at E (minute-rounded)', { spoke0: fmt(spokes[0].ts), E: fmt(E_t!) });
-    }
-    if (spokes[16] && !nearEq(spokes[16].ts, roundToMinuteMs(E_next_t!), 60_000, 0)) {
-        dbg?.warn?.('synod.v2: spoke[16] not at E_next (minute-rounded)', { spoke16: fmt(spokes[16].ts), E_next: fmt(E_next_t!) });
-    }
-
-    dbg?.log?.('synod.v2.done', {
+    dbg?.log?.('synod.v5.done', {
         looker,
         focus,
         target,
         ts: fmt(ts),
         motion,
-        E: fmt(E_t!),
-        E_next: fmt(E_next_t!),
+        E: fmt(tE),
+        E_next: fmt(tE2),
+        durationDays: Number(((tE2 - tE) / DAY_MS).toFixed(9)),
         spokeTs0: fmt(spokes[0]?.ts),
         spokeTs16: fmt(spokes[16]?.ts),
     });

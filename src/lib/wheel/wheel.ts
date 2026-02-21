@@ -6,7 +6,7 @@ import {normalizeTsMinute} from '../stores/moment';
 import {getCycleOptions, SPOKE_DESC} from '../cycle/meta';
 
 import {angleFromDayAnchors, getDayAnchors} from '../math/deprecated/diurnal';
-import {angleFromSynodicAnchors, getSynodicAnchors} from '../cycle/lunarSynodic';
+import {angleFromSynodicAnchors, getSynodicAnchors} from '../math/deprecated/lunarSynodic';
 import {angleFromDraconicAnchors, getDraconicAnchors} from "../cycle/lunarDraconic";
 import {angleFromLunarAnomalisticAnchors, getLunarAnomalisticAnchors} from "../math/deprecated/lunarAnomalistic";
 import {angleFromTropicalAnchors, getTropicalAnchors} from '../cycle/solarTropical';

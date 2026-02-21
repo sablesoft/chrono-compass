@@ -1,12 +1,12 @@
 // src/lib/cycle/lunarSynodic.ts
 import * as Astronomy from 'astronomy-engine';
-import type { Anchors } from '../wheel/spokes';
-import { angleFromAnchors } from './angle';
-import {ms} from "../format";
-import { safeDateFromTs, utcYearFromTs} from '../wheel/wheel';
-import { isFiniteNumber } from '../math/helpers';
+import type { Anchors } from '../../wheel/spokes';
+import { angleFromAnchors } from '../../cycle/angle';
+import {ms} from "../../format";
+import { safeDateFromTs, utcYearFromTs} from '../../wheel/wheel';
+import { isFiniteNumber } from '../helpers';
 
-import { debug } from '../debug';
+import { debug } from '../../debug';
 
 const dbg = debug('lunarSynodic', '🌓');
 const { group, log, warn } = dbg;

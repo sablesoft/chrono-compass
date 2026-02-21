@@ -175,7 +175,7 @@
         multiTarget = (spec as any).multiTarget === true;
 
         // title
-        draftTitle = (w.title ?? '').trim();
+        draftTitle = (w.title ?? '').trim() || '-';
 
         // roles -> RoleValues
         const r: any = w.roles ?? {};
@@ -256,7 +256,8 @@
 
         onUserActivity();
 
-        const nextTitle = (draftTitle ?? '').trim() || formatWheelSpec(type as any, values as any);
+        const nextTitle = (draftTitle ?? '').trim() || '-';
+        console.log('ADD WHEEL', { type, values, nextTitle });
 
         boardApi.upsertWheel(
             { mode: 'upsertByKey' },
@@ -450,7 +451,7 @@
                     <input
                             class="inp"
                             type="text"
-                            placeholder={titlePlaceholder}
+                            placeholder="-"
                             bind:value={draftTitle}
                             on:input={() => { pickedSavedId = ''; }}
                     />

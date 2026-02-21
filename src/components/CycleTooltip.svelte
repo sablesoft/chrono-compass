@@ -29,7 +29,6 @@
 
     // “общий” рендер меты: сначала known-кейсы, потом fallback
     function renderMetaLines(meta: any): Array<{ k: string; v: string }> {
-        console.log('renderMetaLines', meta);
         if (!meta) return [];
 
         // BindMeta
