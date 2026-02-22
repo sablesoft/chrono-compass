@@ -1,30 +1,19 @@
 // src/lib/env.ts
 
-export type EnvGetter = () => any;
+type EnvGetter = () => unknown;
 
-function truthy(v: any): boolean {
-    if (v == null) return false;
-    const s = String(v).trim().toLowerCase();
-    return s === 'true' || s === '1' || s === 'yes' || s === 'on';
-}
-
-function toNumber(v: any): number | null {
-    if (v == null) return null;
-    const n = Number(String(v).trim());
-    return Number.isFinite(n) ? n : null;
-}
-
-function toString(v: any): string | null {
-    if (v == null) return null;
-    const s = String(v);
-    return s.length ? s : null;
-}
-
-// Реестр всех env, которые реально используешь.
-// Да, это “явный список”. Это цена Vite.
-const ENV: Record<string, EnvGetter> = {
-    // debug
+/**
+ * ⚠️ Vite-специфика:
+ * import.meta.env.VITE_FOO — работает
+ * import.meta.env[name]    — НЕ работает
+ *
+ * Поэтому делаем белый список геттеров.
+ */
+export const ENV = {
+    // global
     DEBUG: () => import.meta.env.VITE_DEBUG,
+
+    // debug channels
     DEBUG_APP: () => import.meta.env.VITE_DEBUG_APP,
     DEBUG_LOCATION: () => import.meta.env.VITE_DEBUG_LOCATION,
     DEBUG_COMPASS: () => import.meta.env.VITE_DEBUG_COMPASS,
@@ -34,50 +23,56 @@ const ENV: Record<string, EnvGetter> = {
     DEBUG_WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
     DEBUG_CYCLE: () => import.meta.env.VITE_DEBUG_CYCLE,
     DEBUG_DIURNAL: () => import.meta.env.VITE_DEBUG_DIURNAL,
+
     DEBUG_LUNAR_SYNODIC: () => import.meta.env.VITE_DEBUG_LUNAR_SYNODIC,
     DEBUG_LUNAR_DRACONIC: () => import.meta.env.VITE_DEBUG_LUNAR_DRACONIC,
     DEBUG_LUNAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_LUNAR_ANOMALISTIC,
+
     DEBUG_SOLAR_TROPICAL: () => import.meta.env.VITE_DEBUG_SOLAR_TROPICAL,
     DEBUG_SOLAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_SOLAR_ANOMALISTIC,
+
     DEBUG_PLATO: () => import.meta.env.VITE_DEBUG_PLATO,
 
     // features
-    CYCLE_IDB: () => import.meta.env.VITE_CYCLE_IDB, // <- добавим в .env
-};
+    CYCLE_IDB: () => import.meta.env.VITE_CYCLE_IDB,
+} as const satisfies Record<string, EnvGetter>;
 
-function getRaw(key: string): any {
-    const g = ENV[key];
-    return g ? g() : undefined;
+export type EnvKey = keyof typeof ENV;
+
+function getRaw(key: EnvKey): unknown {
+    return ENV[key]();
 }
 
-// Публичные хелперы
-export function envBool(key: string, fallback: boolean): boolean {
-    const raw = getRaw(key);
-
-    // переменной вообще нет
-    if (raw === undefined) return fallback;
-
-    // есть, но пустая/нулевая
-    if (raw == null) return false;
-
-    const s = String(raw).trim().toLowerCase();
-
-    if (!s.length) return false;
-
+function truthy(v: unknown): boolean {
+    if (v == null) return false;
+    const s = String(v).trim().toLowerCase();
     return s === 'true' || s === '1' || s === 'yes' || s === 'on';
 }
 
-export function envNum(key: string, fallback: number): number {
-    const v = toNumber(getRaw(key));
-    return v == null ? fallback : v;
+/**
+ * Если переменной нет (undefined) — возвращаем fallback.
+ * Если есть, но пустая строка — false.
+ */
+export function envBool(key: EnvKey, fallback: boolean): boolean {
+    const raw = getRaw(key);
+    if (raw === undefined) return fallback;
+
+    const s = String(raw).trim();
+    if (!s.length) return false;
+
+    return truthy(s);
 }
 
-export function envStr(key: string, fallback: string): string {
-    const v = toString(getRaw(key));
-    return v == null ? fallback : v;
+export function envStr(key: EnvKey, fallback: string): string {
+    const raw = getRaw(key);
+    if (raw === undefined) return fallback;
+    const s = String(raw);
+    return s.length ? s : fallback;
 }
 
-// Иногда удобно для логов/диагностики
-export function envHas(key: string): boolean {
-    return getRaw(key) !== undefined;
+export function envNum(key: EnvKey, fallback: number): number {
+    const raw = getRaw(key);
+    if (raw === undefined) return fallback;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : fallback;
 }
