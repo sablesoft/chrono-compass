@@ -4,9 +4,10 @@ import type { BoardWheel } from '../board/types';
 import type { CycleSolveResult, CycleSpoke, WheelSolveResult } from '../board/runtime';
 import { ms } from '../format';
 import { CYCLE_PERSIST_EXCLUDED_TYPES, type CycleData, type CycleKey } from './types';
+import {envBool} from "../env";
 
-// TEMP: global switch for persistent IndexedDB cache
-export const ENABLE_CYCLE_IDB = false;
+// если VITE_CYCLE_IDB не определён → true
+export const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
 
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;

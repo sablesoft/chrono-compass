@@ -23,8 +23,8 @@
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
 
-    import { solveWheel } from '../lib/board/dispatcher';
-    import type { WheelSolveResult, CycleSolveResult, CycleSpoke } from '../lib/board/runtime';
+    import {resolveWheel} from '../lib/board/dispatcher';
+    import type {CycleSpoke } from '../lib/board/runtime';
 
     import {DEFAULT_LOCATION_ID, type Location} from '../lib/location/types';
     import type { WheelObserverState, WheelTimeState, SpokeKey } from '../lib/wheel/types';
@@ -37,12 +37,7 @@
     import type { CycleData, CycleKey } from '../lib/cycle/types';
     import {
         makeCycleKey,
-        buildCycleDataFromSolve,
-        getLocalCycle,
-        setLocalCycle,
         clearLocalCycle,
-        getPersistentCycle,
-        putPersistentCycle
     } from '../lib/cycle/store';
     import {typeLabel} from "../lib/wheel/control";
     import WheelHeader from "./WheelHeader.svelte";
@@ -339,72 +334,19 @@
             return;
         }
 
-        // We only persist cycles if cycleKey exists (compass/horizon => null)
-        const key = cycleKey;
-
-        // If excluded from persistent cache, we still can do a simple compute each time
-        // (or you can decide to add a volatile key for local caching later).
-        if (!key) {
-            const ctx = {
-                ts,
-                location: isHorizon ? wheelLoc : undefined,
-                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
-            };
-
-            const res: WheelSolveResult = solveWheel(wheel as any, ctx);
-            if (!res || (res as any).kind !== 'cycle') {
-                solveReason = 'Not a cycle result';
-                return;
-            }
-
-            const r = res as CycleSolveResult<any>;
-            solveOk = !!r.ok;
-            solveReason = r.ok ? '' : (r as any).reason ?? 'Solve failed';
-            spokes = sortSpokes(r.spokes ?? []);
-            return;
-        }
-
-        // 1) local cache
-        const local = getLocalCycle(wheelId, key, ts);
-        if (local) {
-            // (race guard)
-            if (ensureRunId !== myRun) return;
-
-            cycle = local;
-            solveOk = true;
-            solveReason = '';
-            spokes = sortSpokes(local.spokes ?? []);
-            return;
-        }
-
-        // 2) IndexedDB cache
-        try {
-            const fromDb = await getPersistentCycle(key, ts);
-
-            if (ensureRunId !== myRun) return;
-
-            if (fromDb) {
-                setLocalCycle(wheelId, key, fromDb);
-                cycle = fromDb;
-                solveOk = true;
-                solveReason = '';
-                spokes = sortSpokes(fromDb.spokes ?? []);
-                return;
-            }
-        } catch (e) {
-            // DB failure should never block UI; we fallback to solveWheel
-            dbg.log?.('Cycle.cache.idb.get failed', e);
-            if (ensureRunId !== myRun) return;
-        }
-
-        // 3) compute via solver
         const ctx = {
             ts,
             location: isHorizon ? wheelLoc : undefined,
-            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log },
         };
 
-        const res: WheelSolveResult = solveWheel(wheel as any, ctx);
+        const res = await resolveWheel(wheel as any, ctx, {
+            wheelId,
+            cycleKey,       // если он у тебя уже вычислен
+            useLocal: true,
+            useIdb: true,
+            persist: true,
+        });
 
         if (ensureRunId !== myRun) return;
 
@@ -413,31 +355,10 @@
             return;
         }
 
-        const r = res as CycleSolveResult<any>;
+        const r: any = res;
         solveOk = !!r.ok;
-        solveReason = r.ok ? '' : (r as any).reason ?? 'Solve failed';
-
-        if (!r.ok) {
-            spokes = sortSpokes(r.spokes ?? []);
-            return;
-        }
-
-        const built = buildCycleDataFromSolve<any>(key, r);
-        if (!built) {
-            // keep spokes anyway for UI hints
-            spokes = sortSpokes(r.spokes ?? []);
-            solveOk = false;
-            solveReason = 'Cycle build failed';
-            return;
-        }
-
-        // set local immediately
-        setLocalCycle(wheelId, key, built);
-        cycle = built;
-        spokes = sortSpokes(built.spokes ?? []);
-
-        // save async (don’t block render)
-        putPersistentCycle(built).catch((e) => dbg.log?.('Cycle.cache.idb.put failed', e));
+        solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
+        spokes = sortSpokes(r.spokes ?? []);
     }
 
     function spokePayload(i: number): CycleTipPayload {

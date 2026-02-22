@@ -1,4 +1,6 @@
 // src/lib/debug.ts
+import { envBool } from './env';
+
 export type DebugApi = {
     enabled: boolean;
     group<T>(title: string, fn: () => T): T;
@@ -13,60 +15,35 @@ function camelToSnakeUpper(s: string): string {
         .toUpperCase();
 }
 
-function truthy(v: any): boolean {
-    if (v == null) return false;
-    const s = String(v).trim().toLowerCase();
-    return s === 'true' || s === '1' || s === 'yes' || s === 'on';
-}
-
-/**
- * ⚠️ Vite-специфика:
- * import.meta.env.VITE_FOO — работает
- * import.meta.env[name]    — НЕ работает
- *
- * Поэтому все каналы объявляем явно.
- */
-const KNOWN_CHANNELS: Record<string, () => any> = {
-    // app / layout
-    APP: () => import.meta.env.VITE_DEBUG_APP,
-
-    // wheel / ui
-    LOCATION: () => import.meta.env.VITE_DEBUG_LOCATION,
-    COMPASS: () => import.meta.env.VITE_DEBUG_COMPASS,
-    PROFILE: () => import.meta.env.VITE_DEBUG_PROFILE,
-    CONTROL: () => import.meta.env.VITE_DEBUG_CONTROL,
-    BOARD: () => import.meta.env.VITE_DEBUG_BOARD,
-    WHEEL: () => import.meta.env.VITE_DEBUG_WHEEL,
-    CYCLE: () => import.meta.env.VITE_DEBUG_CYCLE,
-    DIURNAL: () => import.meta.env.VITE_DEBUG_DIURNAL,
-
-    // lunar
-    LUNAR_SYNODIC: () => import.meta.env.VITE_DEBUG_LUNAR_SYNODIC,
-    LUNAR_DRACONIC: () => import.meta.env.VITE_DEBUG_LUNAR_DRACONIC,
-    LUNAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_LUNAR_ANOMALISTIC,
-
-    // solar
-    SOLAR_TROPICAL: () => import.meta.env.VITE_DEBUG_SOLAR_TROPICAL,
-    SOLAR_ANOMALISTIC: () => import.meta.env.VITE_DEBUG_SOLAR_ANOMALISTIC,
-
-    // long cycles
-    PLATO: () => import.meta.env.VITE_DEBUG_PLATO,
+const KNOWN_CHANNELS: Record<string, string> = {
+    APP: 'DEBUG_APP',
+    LOCATION: 'DEBUG_LOCATION',
+    COMPASS: 'DEBUG_COMPASS',
+    PROFILE: 'DEBUG_PROFILE',
+    CONTROL: 'DEBUG_CONTROL',
+    BOARD: 'DEBUG_BOARD',
+    WHEEL: 'DEBUG_WHEEL',
+    CYCLE: 'DEBUG_CYCLE',
+    DIURNAL: 'DEBUG_DIURNAL',
+    LUNAR_SYNODIC: 'DEBUG_LUNAR_SYNODIC',
+    LUNAR_DRACONIC: 'DEBUG_LUNAR_DRACONIC',
+    LUNAR_ANOMALISTIC: 'DEBUG_LUNAR_ANOMALISTIC',
+    SOLAR_TROPICAL: 'DEBUG_SOLAR_TROPICAL',
+    SOLAR_ANOMALISTIC: 'DEBUG_SOLAR_ANOMALISTIC',
+    PLATO: 'DEBUG_PLATO',
 };
 
 function isEnabled(channel: string): boolean {
-    // глобальный флаг
-    const all = truthy(import.meta.env.VITE_DEBUG);
+    const all = envBool('DEBUG', false);
 
-    // канальный флаг
     const key = camelToSnakeUpper(channel);
-    const getter = KNOWN_CHANNELS[key];
-    const per = getter ? truthy(getter()) : false;
+    const mapped = KNOWN_CHANNELS[key];
+    const per = mapped ? envBool(mapped, false) : false;
 
     return all || per;
 }
 
 export function debug(channel: string, icon = '🐞'): DebugApi {
-    // вычисляется один раз при загрузке модуля
     const enabled = isEnabled(channel);
     const prefix = `[${channel}]`;
 
