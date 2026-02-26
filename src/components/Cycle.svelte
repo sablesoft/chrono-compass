@@ -24,8 +24,9 @@
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
 
-    import {resolveWheel} from '../lib/board/dispatcher';
-    import type {CycleSpoke } from '../lib/board/runtime';
+    // unified resolver (runtime+idb+compute)
+    import { resolveWheel } from '../lib/board/dispatcher';
+    import type { CycleSpoke, WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
     import { type WheelObserverState, type WheelTimeState, type SpokeKey } from '../lib/wheel/types';
@@ -187,7 +188,7 @@
     const tipState = tip.state;
 
     // ------------------------------------------------------------
-    // Solve (unified dispatcher, no UI cycleKey)
+    // Solve (unified dispatcher, no UI cacheKey)
     // ------------------------------------------------------------
     let solveOk = false;
     let solveReason = '';
@@ -216,13 +217,7 @@
             dbg: { log: dbg.log, warn: dbg.log, error: dbg.log },
         };
 
-        const res = await resolveWheel(wheel as any, ctx, {
-            wheelId,
-            cycleKey,       // если он у тебя уже вычислен
-            useLocal: true,
-            useIdb: true,
-            persist: true,
-        });
+        const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
 
         if (ensureRunId !== myRun) return;
 

@@ -1,37 +1,103 @@
 // src/lib/cycle/store.ts
 
-import type { BoardWheel } from '../board/types';
-import type { CycleSolveResult, CycleSpoke, WheelSolveResult } from '../board/runtime';
+import type { CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { ms } from '../format';
-import { CYCLE_PERSIST_EXCLUDED_TYPES, type CycleData, type CycleKey } from './types';
-import {envBool} from "../env";
+import { envBool } from '../env';
 
-// если VITE_CYCLE_IDB не определён → true
-export const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
+import type { CycleData, CacheWheelLike, CacheKey} from './types';
 
+/* ============================================================
+   Public persistent API (wheelLike -> key inside)
+   ============================================================ */
+
+export async function getCycle(wheel: CacheWheelLike, ts: number): Promise<CycleData | null> {
+    if (!isCacheEnabledForWheel(wheel)) return null;
+
+    // 1) runtime
+    const r = runtimeGet(wheel, ts);
+    if (r) return r;
+
+    // 2) persistent
+    const p = await persistentGet(wheel, ts);
+    if (p) {
+        // обновляем runtime "последним" найденным циклом
+        runtimePut(p);
+        return p;
+    }
+
+    return null;
+}
+
+export async function putCycleSolved<Meta = any>(
+    wheel: CacheWheelLike,
+    solve: CycleSolveResult<Meta>,
+    opts?: { persist?: boolean }
+): Promise<CycleData<Meta> | null> {
+    if (!isCacheEnabledForWheel(wheel)) return null;
+
+    const cycle = buildCycleDataFromSolve(wheel, solve);
+    if (!cycle) return null;
+
+    runtimePut(cycle);
+
+    if (opts?.persist !== false) {
+        await persistentPut(cycle);
+    }
+
+    return cycle;
+}
+
+// -----------
+
+const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
+const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'horizon', 'system']);
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
-
 const STORE_CYCLES = 'cycles';
-
 const MAX_CYCLES_PER_KEY = 256;
 const MAX_CYCLES_TOTAL = 5000;
 
+const runtime = new Map<CacheKey, CycleData<any>>();
+
 type CycleRecord = {
-    cycleKey: string;
+    cacheKey: string;
     startTs: number;
     endTs: number;
     spokes: CycleSpoke<any>[];
     createdAt: number;
     updatedAt: number;
-
-    // NOTE: older records may still contain extra fields (spokeTimes, etc.).
-    // We intentionally ignore them for forward compatibility during dev.
     [k: string]: any;
 };
 
-function isFiniteNum(x: any): x is number {
-    return typeof x === 'number' && Number.isFinite(x);
+function buildCycleDataFromSolve<Meta = any>(
+    wheel: CacheWheelLike,
+    solve: CycleSolveResult<Meta>,
+): CycleData<Meta> | null {
+    if (!solve?.ok) return null;
+
+    const cacheKey = makeCacheKey(wheel);
+
+    const spokes = (solve.spokes ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    if (!spokes.length) return null;
+
+    const s0 = spokes.find((s) => s.index === 0);
+    const s16 = spokes.find((s) => s.index === 16);
+
+    const startTs = s0?.ts;
+    const endTs = s16?.ts;
+
+    if (!isFiniteNum(startTs) || !isFiniteNum(endTs) || !(endTs > startTs)) return null;
+
+    const t = nowMs();
+
+    return {
+        cacheKey,
+        startTs: ms(startTs),
+        endTs: ms(endTs),
+        spokes,
+        createdAt: t,
+        updatedAt: t,
+    };
 }
 
 function roleToKeyPart(v: any): string {
@@ -41,73 +107,60 @@ function roleToKeyPart(v: any): string {
 }
 
 function targetToKeyPart(target: any): string {
+    // контракт: target влияет только “первым” значением
     if (Array.isArray(target)) return roleToKeyPart(target[0]);
     return roleToKeyPart(target);
 }
 
+function observerToKeyPart(observer?: { locationId?: string }): string {
+    return observer?.locationId ? String(observer.locationId) : '';
+}
+
 /**
- * Return CycleKey or null if this wheel type is excluded from persistent cache.
- * Key order is strict: wheelType, looker, focus, target.
+ * Universal cache key for cycle computations.
+ * Contract: wheelType + roles(looker/focus/target[0]) + observer.locationId
  */
-export function makeCycleKey(wheel: BoardWheel): CycleKey | null {
-    const wt = String((wheel as any)?.wheelType ?? '');
-    if (!wt) return null;
-
-    if (CYCLE_PERSIST_EXCLUDED_TYPES.has(wt)) return null;
-
-    const roles = (wheel as any)?.roles ?? {};
+function makeCacheKey(w: CacheWheelLike): CacheKey {
+    const wt = String(w?.wheelType ?? '');
+    const roles = (w as any)?.roles ?? {};
     const looker = roleToKeyPart(roles.looker);
     const focus = roleToKeyPart(roles.focus);
     const target = targetToKeyPart(roles.target);
+    const loc = observerToKeyPart(w?.observer);
 
-    const key = `${wt}:${looker}:${focus}:${target}`;
-    return key as CycleKey;
+    return `${wt}:${looker}:${focus}:${target}:@${loc}` as CacheKey;
 }
 
-/* ============================================================
-   CycleData builders
-   ============================================================ */
-
-export function buildCycleDataFromSolve<Meta = any>(
-    key: CycleKey,
-    solve: CycleSolveResult<Meta>,
-): CycleData<Meta> | null {
-    if (!solve?.ok) return null;
-
-    const spokes = (solve.spokes ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
-    if (!spokes.length) return null;
-
-    const s0 = spokes.find(s => s.index === 0);
-    const s16 = spokes.find(s => s.index === 16);
-
-    const startTs = s0?.ts;
-    const endTs = s16?.ts;
-
-    if (!isFiniteNum(startTs) || !isFiniteNum(endTs) || !(endTs > startTs)) return null;
-
-    const now = ms(Date.now());
-
-    return {
-        key,
-        startTs: ms(startTs),
-        endTs: ms(endTs),
-        spokes,
-        createdAt: now,
-        updatedAt: now,
-    };
+function isCacheEnabledForWheel(w: CacheWheelLike): boolean {
+    const t = String(w?.wheelType ?? '');
+    return !!t && !CYCLE_CACHE_EXCLUDED_TYPES.has(t);
 }
 
-export function cycleContainsTs(c: CycleData | null | undefined, ts: number): boolean {
-    if (!c) return false;
-    if (!isFiniteNum(c.startTs) || !isFiniteNum(c.endTs)) return false;
-    return ts >= c.startTs && ts <= c.endTs;
+function isFiniteNum(x: any): x is number {
+    return typeof x === 'number' && Number.isFinite(x);
+}
+
+function nowMs(): number {
+    return ms(Date.now());
+}
+
+function coversTs(c: CycleData, ts: number): boolean {
+    return isFiniteNum(ts) && ts >= c.startTs && ts <= c.endTs;
+}
+
+function runtimeGet(wheel: CacheWheelLike, ts: number): CycleData | null {
+    const key = makeCacheKey(wheel);
+    const hit = runtime.get(key);
+    if (!hit) return null;
+    return coversTs(hit, ts) ? hit : null;
+}
+
+function runtimePut(cycle: CycleData): void {
+    runtime.set(cycle.cacheKey, { ...cycle, updatedAt: nowMs() });
 }
 
 /* ============================================================
    IndexedDB (persistent cache)
-   - Store: "cycles"
-   - Primary key: [cycleKey, startTs]
-   - Index: "by_cycle_start" on [cycleKey, startTs]
    ============================================================ */
 
 let _dbPromise: Promise<IDBDatabase> | null = null;
@@ -122,9 +175,9 @@ function openDb(): Promise<IDBDatabase> {
             const db = req.result;
 
             if (!db.objectStoreNames.contains(STORE_CYCLES)) {
-                const store = db.createObjectStore(STORE_CYCLES, { keyPath: ['cycleKey', 'startTs'] });
-                store.createIndex('by_cycle_start', ['cycleKey', 'startTs'], { unique: true });
-                store.createIndex('by_cycleKey', 'cycleKey', { unique: false });
+                const store = db.createObjectStore(STORE_CYCLES, { keyPath: ['cacheKey', 'startTs'] });
+                store.createIndex('by_cycle_start', ['cacheKey', 'startTs'], { unique: true });
+                store.createIndex('by_cycleKey', 'cacheKey', { unique: false });
                 store.createIndex('by_updatedAt', 'updatedAt', { unique: false });
             }
         };
@@ -151,22 +204,17 @@ function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
     });
 }
 
-async function idbGetCycleForTs(cycleKey: CycleKey, ts: number): Promise<CycleData | null> {
+async function idbGetForTs(cycleKey: CacheKey, ts: number): Promise<CycleData | null> {
     const db = await openDb();
     const tx = db.transaction(STORE_CYCLES, 'readonly');
     const store = tx.objectStore(STORE_CYCLES);
     const index = store.index('by_cycle_start');
 
-    // Find record with greatest startTs <= ts for this cycleKey.
     const range = IDBKeyRange.bound([cycleKey as any, Number.NEGATIVE_INFINITY], [cycleKey as any, ts]);
     const cursorReq = index.openCursor(range, 'prev');
 
     const rec = await new Promise<CycleRecord | null>((resolve, reject) => {
-        cursorReq.onsuccess = () => {
-            const cur = cursorReq.result;
-            if (!cur) return resolve(null);
-            resolve(cur.value as any);
-        };
+        cursorReq.onsuccess = () => resolve(cursorReq.result ? (cursorReq.result.value as any) : null);
         cursorReq.onerror = () => reject(cursorReq.error ?? new Error('IndexedDB cursor failed'));
     });
 
@@ -174,42 +222,42 @@ async function idbGetCycleForTs(cycleKey: CycleKey, ts: number): Promise<CycleDa
 
     if (!rec) return null;
     if (!isFiniteNum(rec.startTs) || !isFiniteNum(rec.endTs)) return null;
-    if (ts < rec.startTs || ts > rec.endTs) return null; // hole case
+    if (ts < rec.startTs || ts > rec.endTs) return null;
 
     return {
-        key: rec.cycleKey as any,
+        cacheKey: rec.cacheKey as any,
         startTs: rec.startTs,
         endTs: rec.endTs,
         spokes: (rec.spokes ?? []) as any,
-        createdAt: rec.createdAt ?? rec.updatedAt ?? ms(Date.now()),
-        updatedAt: rec.updatedAt ?? ms(Date.now()),
+        createdAt: rec.createdAt ?? rec.updatedAt ?? nowMs(),
+        updatedAt: rec.updatedAt ?? nowMs(),
     };
 }
 
-async function idbPutCycle(cycle: CycleData): Promise<void> {
+async function idbPut(cycle: CycleData): Promise<void> {
     const db = await openDb();
     const tx = db.transaction(STORE_CYCLES, 'readwrite');
     const store = tx.objectStore(STORE_CYCLES);
 
-    const now = ms(Date.now());
+    const t = nowMs();
 
     const rec: CycleRecord = {
-        cycleKey: cycle.key as any,
+        cacheKey: cycle.cacheKey as any,
         startTs: cycle.startTs,
         endTs: cycle.endTs,
         spokes: cycle.spokes,
-        createdAt: cycle.createdAt ?? now,
-        updatedAt: now,
+        createdAt: cycle.createdAt ?? t,
+        updatedAt: t,
     };
 
     store.put(rec as any);
     await txDone(tx);
 
-    await trimKey(cycle.key, now);
-    await trimTotal(now);
+    await trimKey(cycle.cacheKey, t);
+    await trimTotal(t);
 }
 
-async function listCyclesForKey(cycleKey: CycleKey): Promise<CycleRecord[]> {
+async function listRecordsForKey(cycleKey: CacheKey): Promise<CycleRecord[]> {
     const db = await openDb();
     const tx = db.transaction(STORE_CYCLES, 'readonly');
     const store = tx.objectStore(STORE_CYCLES);
@@ -233,15 +281,15 @@ async function listCyclesForKey(cycleKey: CycleKey): Promise<CycleRecord[]> {
     return rows;
 }
 
-async function trimKey(cycleKey: CycleKey, nowTs: number): Promise<void> {
-    const rows = await listCyclesForKey(cycleKey);
+async function trimKey(cycleKey: CacheKey, nowTs: number): Promise<void> {
+    const rows = await listRecordsForKey(cycleKey);
     if (rows.length <= MAX_CYCLES_PER_KEY) return;
 
     rows.sort((a, b) => {
         const da = Math.min(Math.abs(a.startTs - nowTs), Math.abs(a.endTs - nowTs));
         const db = Math.min(Math.abs(b.startTs - nowTs), Math.abs(b.endTs - nowTs));
-        if (da !== db) return db - da; // farthest first
-        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0); // older first
+        if (da !== db) return db - da;
+        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0);
     });
 
     const toDelete = rows.slice(0, rows.length - MAX_CYCLES_PER_KEY);
@@ -250,10 +298,7 @@ async function trimKey(cycleKey: CycleKey, nowTs: number): Promise<void> {
     const tx = db.transaction(STORE_CYCLES, 'readwrite');
     const store = tx.objectStore(STORE_CYCLES);
 
-    for (const r of toDelete) {
-        store.delete([r.cycleKey as any, r.startTs] as any);
-    }
-
+    for (const r of toDelete) store.delete([r.cacheKey as any, r.startTs] as any);
     await txDone(tx);
 }
 
@@ -272,7 +317,7 @@ async function listAllByUpdatedAt(): Promise<CycleRecord[]> {
     const store = tx.objectStore(STORE_CYCLES);
     const idx = store.index('by_updatedAt');
 
-    const req = idx.openCursor(); // ascending updatedAt
+    const req = idx.openCursor();
     const rows: CycleRecord[] = await new Promise((resolve, reject) => {
         const out: CycleRecord[] = [];
         req.onsuccess = () => {
@@ -288,6 +333,17 @@ async function listAllByUpdatedAt(): Promise<CycleRecord[]> {
     return rows;
 }
 
+async function persistentGet(wheel: CacheWheelLike, ts: number): Promise<CycleData | null> {
+    if (!ENABLE_CYCLE_IDB) return null;
+    const key = makeCacheKey(wheel);
+    return await idbGetForTs(key, ts);
+}
+
+async function persistentPut(cycle: CycleData): Promise<void> {
+    if (!ENABLE_CYCLE_IDB) return;
+    await idbPut(cycle);
+}
+
 async function trimTotal(nowTs: number): Promise<void> {
     const total = await countAll();
     if (total <= MAX_CYCLES_TOTAL) return;
@@ -297,8 +353,8 @@ async function trimTotal(nowTs: number): Promise<void> {
     rows.sort((a, b) => {
         const da = Math.min(Math.abs(a.startTs - nowTs), Math.abs(a.endTs - nowTs));
         const db = Math.min(Math.abs(b.startTs - nowTs), Math.abs(b.endTs - nowTs));
-        if (da !== db) return db - da; // farthest first
-        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0); // older first
+        if (da !== db) return db - da;
+        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0);
     });
 
     const toDelete = rows.slice(0, total - MAX_CYCLES_TOTAL);
@@ -307,59 +363,6 @@ async function trimTotal(nowTs: number): Promise<void> {
     const tx = db.transaction(STORE_CYCLES, 'readwrite');
     const store = tx.objectStore(STORE_CYCLES);
 
-    for (const r of toDelete) {
-        store.delete([r.cycleKey as any, r.startTs] as any);
-    }
-
+    for (const r of toDelete) store.delete([r.cacheKey as any, r.startTs] as any);
     await txDone(tx);
-}
-
-/* ============================================================
-   In-memory local cache (per wheel instance)
-   ============================================================ */
-
-type LocalEntry = { key: CycleKey; cycle: CycleData };
-
-const localByWheelId = new Map<string, LocalEntry>();
-
-export function getLocalCycle(wheelId: string, key: CycleKey, ts: number): CycleData | null {
-    const e = localByWheelId.get(wheelId);
-    if (!e) return null;
-    if (e.key !== key) return null;
-    return cycleContainsTs(e.cycle, ts) ? e.cycle : null;
-}
-
-export function setLocalCycle(wheelId: string, key: CycleKey, cycle: CycleData): void {
-    localByWheelId.set(wheelId, { key, cycle });
-}
-
-export function clearLocalCycle(wheelId: string): void {
-    localByWheelId.delete(wheelId);
-}
-
-/* ============================================================
-   High-level helpers (to be used by Cycle.svelte later)
-   ============================================================ */
-
-export async function getPersistentCycle(key: CycleKey, ts: number): Promise<CycleData | null> {
-    if (!ENABLE_CYCLE_IDB) return null;
-    return await idbGetCycleForTs(key, ts);
-}
-
-export async function putPersistentCycle(cycle: CycleData): Promise<void> {
-    if (!ENABLE_CYCLE_IDB) return;
-    await idbPutCycle(cycle);
-}
-
-/**
- * Convenience: accept a WheelSolveResult, extract CycleSolveResult and build CycleData.
- * Returns null if not ok / not a cycle.
- */
-export function tryBuildCycleDataFromWheelSolve<Meta = any>(
-    key: CycleKey,
-    res: WheelSolveResult,
-): CycleData<Meta> | null {
-    if (!res || (res as any).kind !== 'cycle') return null;
-    const r = res as any as CycleSolveResult<Meta>;
-    return buildCycleDataFromSolve<Meta>(key, r);
 }

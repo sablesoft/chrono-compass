@@ -1,26 +1,25 @@
 // src/lib/board/runtime.ts
 import type { ObjId } from '../catalog';
 import type { Location } from '../location/types';
-import type { SpokeKey } from "../wheel/types";
+import type { SpokeKey } from '../wheel/types';
 import type { WheelType, WheelMeta } from '../catalog';
 
 // Входные роли (target обязателен всегда)
 export type WheelRolesInput = {
-    looker?: ObjId;     // optional в целом, но конкретное колесо может требовать
-    focus?: ObjId;      // optional
-    target: ObjId | ObjId[]; // у compass может быть массив, у циклов — 1 элемент (мы проверим)
+    looker?: ObjId; // optional в целом, но конкретное колесо может требовать
+    focus?: ObjId; // optional
+    target: ObjId | ObjId[]; // у compass может быть массив, у циклов — 1 элемент
 };
 
 // Контекст времени/локации, который даст host (Board/Cycle/Compass)
 export type WheelRuntimeContext = {
     ts: number; // уже effTs (после live/lock логики)
     location?: Location; // если нужно observer
-    dbg?: { log?: (...a:any[])=>void; warn?: (...a:any[])=>void; error?: (...a:any[])=>void };
+    dbg?: { log?: (...a: any[]) => void; warn?: (...a: any[]) => void; error?: (...a: any[]) => void };
 };
 
 // Вариант “нормальный”: meta типизирован по wheelType (но wheelType должен быть в input)
-export type WheelInput<TType extends WheelType = WheelType> =
-    WheelRolesInput &
+export type WheelInput<TType extends WheelType = WheelType> = WheelRolesInput &
     WheelRuntimeContext & {
     wheelType: TType;
     meta?: WheelMeta<TType>;

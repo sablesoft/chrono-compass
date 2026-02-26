@@ -22,7 +22,9 @@
 
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
-    import { solveWheel } from '../lib/board/dispatcher';
+
+    // unified resolver (runtime+idb, and if wheel type is excluded -> compute)
+    import { resolveWheel } from '../lib/board/dispatcher';
     import type { WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
@@ -256,7 +258,9 @@
             dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
         };
 
-            const res: WheelSolveResult = solveWheel(wheel as any, ctx);
+        const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
+
+        if (ensureRunId !== myRun) return;
 
         if (!res || res.kind !== 'compass' || !res.ok) {
             markerClusters = [];

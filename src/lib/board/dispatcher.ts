@@ -1,162 +1,89 @@
 // src/lib/board/dispatcher.ts
-import type { WheelSolveResult } from './runtime';
+import type { WheelSolveResult, CycleSolveResult } from './runtime';
 import type { BoardWheel } from './types';
-import { getWheelEntry } from './registry';
 
-// Эти импорты возьми из того места, где они сейчас живут (Cycle.svelte -> lib?)
-// И лучше вынести их из UI в отдельный модуль: src/lib/board/cache/cycles.ts
-import {
-    getLocalCycle,
-    setLocalCycle,
-    getPersistentCycle,
-    putPersistentCycle,
-    buildCycleDataFromSolve,
-} from '../cycle/store';
+import { getCycle, putCycleSolved } from '../cycle/store';
+
+import { getWheelEntry, resolveWheelMeta } from './registry';
+import type {CacheWheelLike} from "../cycle/types";
 
 type SolveCtx = { ts: number; location?: any; dbg?: any };
 
-// Вариант: wheelId можно прокинуть снаружи (UI знает), либо хранить в wheel.instanceId
-type ResolveOpts = {
-    wheelId?: string;     // для local cache (per wheel instance)
-    cycleKey?: string | null; // если уже есть готовый key; иначе попробуем взять из entry
-    persist?: boolean;    // default true
-    useIdb?: boolean;     // default true
-    useLocal?: boolean;   // default true
-};
-
-const inflight = new Map<string, Promise<WheelSolveResult>>();
-
-export function solveWheel(wheel: BoardWheel, ctx: SolveCtx): WheelSolveResult {
-    const entry = getWheelEntry(wheel.wheelType);
-    const input = entry.makeInput(wheel, ctx);
-    return entry.solve(input as any);
-}
-
-// Нормализация времени для in-flight key (не для результата!)
-// Иначе при скролле на миллисекунды будет бесконечный inflight-map.
-function tsBucket(ts: number, bucketMs = 60_000): number {
-    return Math.floor(ts / bucketMs) * bucketMs;
-}
-
-function defaultDbg(dbg: any) {
+function dbgApi(dbg: any) {
     const log = dbg?.log ?? (() => {});
     const warn = dbg?.warn ?? log;
     const error = dbg?.error ?? log;
     return { log, warn, error };
 }
 
-export async function resolveWheel(wheel: BoardWheel, ctx: SolveCtx, opts: ResolveOpts = {}): Promise<WheelSolveResult> {
-    const entry = getWheelEntry(wheel.wheelType);
-    const dbg = defaultDbg(ctx.dbg);
+function isBoardWheel(w: any): w is BoardWheel {
+    return !!w && typeof w === 'object' && typeof w.id === 'string' && typeof w.wheelType === 'string';
+}
 
-    // 0) compute-only wheels (no cycleKey) — просто считаем
-    // Ты можешь сделать это более “официально” через entry.getCycleKey()
-    const cycleKey =
-        (opts.cycleKey ?? null) ??
-        ((entry as any).getCycleKey ? (entry as any).getCycleKey(wheel) : null);
+function toCacheWheelLike(w: BoardWheel | CacheWheelLike): CacheWheelLike {
+    const anyw: any = w as any;
+    return {
+        wheelType: anyw.wheelType,
+        roles: anyw.roles ?? {},
+        observer: anyw.observer, // может быть undefined у виртуальных
+    };
+}
 
-    if (!cycleKey) {
-        return solveWheel(wheel, { ...ctx, dbg });
-    }
+function solveRaw(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): WheelSolveResult {
+    const wAny: any = wheel as any;
+    const entry = getWheelEntry(wAny.wheelType);
 
-    const wheelId =
-        opts.wheelId ??
-        (wheel as any).id ??
-        (wheel as any).instanceId ??
-        'wheel'; // fallback, но лучше реально иметь стабильный id
+    // meta имеет смысл в основном для "реальных" board wheels
+    const meta = isBoardWheel(wheel) ? resolveWheelMeta(wheel as any) : undefined;
 
-    const useLocal = opts.useLocal ?? true;
-    const useIdb = opts.useIdb ?? true;
-    const persist = opts.persist ?? true;
+    // Если wheel реально на доске — доверяем entry.makeInput (там может быть хитрая нормализация)
+    const input = isBoardWheel(wheel)
+        ? entry.makeInput(wheel as any, ctx)
+        : ({
+            wheelType: wAny.wheelType,
+            ts: ctx.ts,
+            location: ctx.location,
+            dbg: ctx.dbg,
+            meta,
+            ...(wAny.roles ?? {}),
+        } as any);
 
-    // общий ключ для дедупликации запросов
-    const keyInflight = `${wheel.wheelType}|${cycleKey}|${wheelId}|${tsBucket(ctx.ts, 60_000)}`;
+    return entry.solve(input);
+}
 
-    const existing = inflight.get(keyInflight);
-    if (existing) return existing;
+/**
+ * Single entry point.
+ * Cache policy + runtime/idb are encapsulated in cycle/store.
+ */
+export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): Promise<WheelSolveResult> {
+    const dbg = dbgApi(ctx.dbg);
 
-    const promise = (async (): Promise<WheelSolveResult> => {
-        // 1) local cache
-        if (useLocal) {
-            try {
-                const local = getLocalCycle(wheelId, cycleKey, ctx.ts);
-                if (local) {
-                    return {
-                        ok: true,
-                        kind: 'cycle',
-                        ts: ctx.ts,
-                        spokes: local.spokes ?? [],
-                    } as any;
-                }
-            } catch (e) {
-                dbg.log?.('resolveWheel.local.get failed', e);
-            }
-        }
+    const wheelLike = toCacheWheelLike(wheel);
 
-        // 2) IndexedDB cache
-        if (useIdb) {
-            try {
-                const fromDb = await getPersistentCycle(cycleKey, ctx.ts);
-                if (fromDb) {
-                    if (useLocal) {
-                        try {
-                            setLocalCycle(wheelId, cycleKey, fromDb);
-                        } catch (e) {
-                            dbg.log?.('resolveWheel.local.set failed', e);
-                        }
-                    }
-                    return {
-                        ok: true,
-                        kind: 'cycle',
-                        ts: ctx.ts,
-                        spokes: fromDb.spokes ?? [],
-                    } as any;
-                }
-            } catch (e) {
-                dbg.log?.('resolveWheel.idb.get failed', e);
-                // важно: НЕ падаем, просто идём считать
-            }
-        }
-
-        // 3) compute via solver
-        const res = solveWheel(wheel, { ...ctx, dbg });
-
-        // Если это не цикл — просто отдаём как есть
-        if (!res || (res as any).kind !== 'cycle') return res;
-
-        const r: any = res;
-        if (!r.ok) return res;
-
-        // 4) build + save
-        let built: any = null;
-        try {
-            built = buildCycleDataFromSolve(cycleKey, r);
-        } catch (e) {
-            dbg.log?.('resolveWheel.build failed', e);
-        }
-
-        if (built) {
-            if (useLocal) {
-                try {
-                    setLocalCycle(wheelId, cycleKey, built);
-                } catch (e) {
-                    dbg.log?.('resolveWheel.local.set failed', e);
-                }
-            }
-            if (useIdb && persist) {
-                // Не блокируем ответ: запись async “fire-and-forget”
-                putPersistentCycle(built).catch((e: any) => dbg.log?.('resolveWheel.idb.put failed', e));
-            }
-        }
-
-        return res;
-    })();
-
-    inflight.set(keyInflight, promise);
-
+    // 1) try cache (runtime -> idb -> runtime update inside store)
     try {
-        return await promise;
-    } finally {
-        inflight.delete(keyInflight);
+        const hit = await getCycle(wheelLike, ctx.ts);
+        if (hit) {
+            return { ok: true, kind: 'cycle', ts: ctx.ts, spokes: hit.spokes } as any;
+        }
+    } catch (e) {
+        dbg.log('resolveWheel.cache.get failed', e);
     }
+
+    // 2) compute
+    const res = solveRaw(wheel, { ...ctx, dbg });
+
+    // 3) if this is a successful cycle -> write to cache (runtime + persistent inside store)
+    if (res && (res as any).kind === 'cycle') {
+        const r = res as CycleSolveResult<any>;
+        if (r.ok) {
+            try {
+                await putCycleSolved(wheelLike, r);
+            } catch (e) {
+                dbg.log('resolveWheel.cache.put failed', e);
+            }
+        }
+    }
+
+    return res;
 }
