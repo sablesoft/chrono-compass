@@ -4,6 +4,8 @@
 
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
+    import { useWheelEffectiveTs } from '../lib/wheel/ui/useEffectiveTs';
+
     import CycleTooltip from './CycleTooltip.svelte';
     import { useCycleTooltip, type CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { PointerAnimator } from '../lib/wheel/pointerAnimator';
@@ -43,7 +45,7 @@
     import WheelHeader from "./WheelHeader.svelte";
 
     // ------------------------------------------------------------
-    // Props (NEW contract: Board passes wheel + location)
+    // Props (Board passes wheel + location)
     // ------------------------------------------------------------
     export let wheel: BoardWheel;
     export let selectedTs: number;
@@ -77,87 +79,60 @@
     // prefer passed-in location (already resolved in Board)
     $: wheelLoc = location;
 
-    function cycleWindowFromSpokes() {
-        const a = spokeTimes?.[0];
-        const b = spokeTimes?.[16];
-        return (Number.isFinite(a) && Number.isFinite(b) && b > a) ? { start: a, end: b } : null;
-    }
-
-    function angleDegAtTs(ts0: number): number | null {
-        const t = spokeTimes;
-        if (!t || t.length < 17) return null;
-
-        const tE = t[0];
-        const tE2 = t[16];
-        if (!Number.isFinite(tE) || !Number.isFinite(tE2) || !(tE2 > tE)) return null;
-
-        const ts = Math.min(Math.max(ts0, tE), tE2);
-
-        let i = 0;
-        for (let k = 0; k < 16; k++) {
-            const a = t[k];
-            const b = t[k + 1];
-            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
-            if (ts >= a && ts <= b) { i = k; break; }
-            if (ts > b) i = k;
-        }
-
-        const aT = t[i];
-        const bT = t[i + 1];
-        const den = (Number.isFinite(aT) && Number.isFinite(bT) && bT > aT) ? (bT - aT) : 1;
-        const u = clamp01((ts - aT) / den);
-
-        const aAng = spokeAngleDeg(i);
-        const bAng = (i === 15) ? (spokeAngleDeg(0) + 360) : spokeAngleDeg(i + 1);
-
-        return aAng + (bAng - aAng) * u;
-    }
-
-    const now = useCycleNowPointer(
-        () => cycleWindowFromSpokes(),
-        (ts0) => angleDegAtTs(ts0),
-        dbg
-    );
-    const nowState = now.state;
-
-    let showNowPointer = false;
-    let nowDisplayAngle = 0;
-
-    $: showNowPointer = $nowState.show;
-    $: nowDisplayAngle = $nowState.displayAngle;
-
-    // чтобы now пересчитывался сразу, когда сменилось окно цикла
-    $: {
-        const w = cycleWindowFromSpokes();
-        now.refresh?.(`deps:${w?.start ?? 'na'}:${w?.end ?? 'na'}`);
-    }
-
     function closeCycle() {
         onUserActivity();
         boardApi.removeWheelById(wheelId, 'Cycle.close');
     }
 
     // ------------------------------------------------------------
-    // Time sync: global <-> wheel time (same as Compass)
+    // Effective time (UNIFIED)
+    // - effTs = what solver uses
+    // - also exposes globalTs/globalLive/localLiveNowTs for TimePicker UI
     // ------------------------------------------------------------
-    let localLiveNowTs = ms(Date.now());
-    let localLiveTimer: ReturnType<typeof setInterval> | null = null;
-    let localAlignTimer: ReturnType<typeof setTimeout> | null = null;
+    const eff = useWheelEffectiveTs(
+        () => wheelId,
+        () => time,
+        {
+            syncToBoard: true,
+            onSyncTime: (next, reason) => {
+                if (!wheelId) return;
+                boardApi.updateWheelTime(wheelId, next, reason ?? 'Cycle.syncWheelTime');
+            },
+            dbg: { warn: dbg.log }
+        }
+    );
 
+    const effState = eff.state;
+    $: effTs = $effState.ts;
+    $: globalTs = $effState.globalTs;
+    $: globalLive = $effState.globalLive;
+    $: localLiveNowTs = $effState.localLiveNowTs;
+
+    onDestroy(() => {
+        // runtime-cache теперь глобальный по wheelKey; тут ничего не чистим специально
+    });
+
+    // If observer isn't locked -> keep it synced to passed-in location (ONLY for horizon wheels)
+    $: {
+        if (wheelId && isHorizon)
+            if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
+                boardApi.updateWheelObserver(wheelId, { locationId: wheelLoc.id }, 'Cycle.syncObserverLocation');
+            }
+    }
+
+    // ------------------------------------------------------------
+    // Helpers (format)
+    // ------------------------------------------------------------
     function fmtOrDash(ts0: number) {
         return Number.isFinite(ts0) ? formatDateTime(ts0) : '—';
     }
 
-    // “календарная” длительность: годы/месяцы/дни/часы/минуты
-    // (без секунд; если меньше единицы — пропускаем; если всё ноль — "0 minutes")
     function formatDurationHuman(ms0: number) {
         if (!Number.isFinite(ms0) || ms0 <= 0) return '—';
 
         const totalMinutes = Math.floor(ms0 / 60_000);
         if (totalMinutes <= 0) return '0 minutes';
 
-        // Разложим в “приближённые” календарные единицы:
-        // 1 month = 30 days (для UI вполне ок), 1 year = 365 days
         let minutes = totalMinutes;
 
         const MIN_PER_HOUR = 60;
@@ -178,92 +153,11 @@
         if (hours) parts.push(`${hours}h`);
         if (mins) parts.push(`${mins}m`);
 
-        // правило “если меньше года — не выводить годы…” уже соблюдается,
-        // потому что years будет 0 и не попадёт в parts, и т.д.
         return parts.length ? parts.join(' ') : '0m';
     }
 
-    $: cycleBeginTs = spokeTimes?.[0];
-    $: cycleEndTs = spokeTimes?.[16];
-    $: cycleDurationMs =
-        Number.isFinite(cycleBeginTs) && Number.isFinite(cycleEndTs) && cycleEndTs > cycleBeginTs
-            ? (cycleEndTs - cycleBeginTs)
-            : NaN;
-
-    $: cycleDurationHuman = formatDurationHuman(cycleDurationMs);
-
-    function clearLocalLiveTimers() {
-        if (localAlignTimer) { clearTimeout(localAlignTimer); localAlignTimer = null; }
-        if (localLiveTimer) { clearInterval(localLiveTimer); localLiveTimer = null; }
-    }
-
-    function startLocalLiveTicker() {
-        clearLocalLiveTimers();
-        localLiveNowTs = ms(Date.now());
-
-        const now = Date.now();
-        const msToNextMinute = 60_000 - (now % 60_000);
-
-        localAlignTimer = setTimeout(() => {
-            localLiveNowTs = ms(Date.now());
-            localLiveTimer = setInterval(() => {
-                localLiveNowTs = ms(Date.now());
-            }, 60_000);
-        }, msToNextMinute + 5);
-    }
-
-    $: {
-        const needLocalLive = !!time?.locked && !!time?.live;
-        if (needLocalLive) startLocalLiveTicker();
-        else clearLocalLiveTimers();
-    }
-
-    $: effTs =
-        !time?.locked
-            ? selectedTs
-            : time?.live
-                ? localLiveNowTs
-                : ms((time as any)?.ts ?? selectedTs);
-
-    let globalTs = ms(Date.now());
-    let globalLive = true;
-
-    const unsubGTs = globalSelectedTs.subscribe(v => globalTs = v);
-    const unsubGLive = globalIsLive.subscribe(v => globalLive = v);
-
-    onDestroy(() => {
-        unsubGTs();
-        unsubGLive();
-        clearLocalLiveTimers();
-
-        // NEW: prevent local cache leaks for destroyed wheel instance
-        if (wheelId) clearLocalCycle(wheelId);
-    });
-
-    // If wheel time isn't locked -> keep it synced to global time
-    $: {
-        if (wheelId)
-            if (!time?.locked) {
-                if (time.live !== globalLive || (time as any).ts !== (globalLive ? (time as any).ts : globalTs)) {
-                    boardApi.updateWheelTime(
-                        wheelId,
-                        globalLive ? { live: true } : { live: false, ts: globalTs },
-                        'Cycle.syncWheelTime'
-                    );
-                }
-            }
-    }
-
-    // If observer isn't locked -> keep it synced to passed-in location (ONLY for horizon wheels)
-    $: {
-        if (wheelId && isHorizon)
-            if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
-                boardApi.updateWheelObserver(wheelId, { locationId: wheelLoc.id }, 'Cycle.syncObserverLocation');
-            }
-    }
-
     // ------------------------------------------------------------
-    // Geometry (same as Wheel)
+    // Geometry
     // ------------------------------------------------------------
     const geom = createWheelGeom(16, 1000);
     const labels = SPOKE_LABELS;
@@ -314,7 +208,6 @@
     let solveReason = '';
     let spokes: CycleSpoke<any>[] = [];
 
-    // guard against async races
     let ensureRunId = 0;
 
     function sortSpokes(xs: CycleSpoke<any>[]) {
@@ -361,141 +254,8 @@
         spokes = sortSpokes(r.spokes ?? []);
     }
 
-    function spokePayload(i: number): CycleTipPayload {
-        const s = spokes.find(x => x.index === i);
-        const code = (spokeCodes?.[i] ?? (i === 16 ? 'E_next' : labels[i])) as any;
-        return {
-            kind: 'spoke',
-            code: String(code),
-            ts: ms(spokeTimes?.[i]),
-            meta: (s as any)?.meta
-        };
-    }
-
-    function boundaryPayload(i: number): CycleTipPayload {
-        const from = String(labels[i]);
-        const to = String(i === 15 ? 'E+' : labels[i + 1]);
-        return {
-            kind: 'boundary',
-            from,
-            to,
-            ts: ms(boundaryTimes?.[i]),
-        };
-    }
-
-    // Recompute ONLY when we must:
-    // - effTs changes
-    // - wheelId/cycleKey changes
-    // - horizon location (because solver depends on it) changes
     $: {
-        const ts = effTs;
-        const wid = wheelId;
-        if (!wid || !wheel) {
-            solveOk = false;
-            solveReason = 'No wheel';
-            spokes = [];
-            cycle = null;
-        } else {
-            // kick async resolver; race-safe via ensureRunId
-            void ensureCycleForTs(ts);
-        }
-    }
-
-    function bodyEmoji(id: ObjId | null | undefined): string | null {
-        if (!id) return null;
-        const b = (objects as any)[id] as { emoji?: string } | undefined;
-        return b?.emoji ?? null;
-    }
-
-    type UiAnchor =
-        | { kind: 'center' }
-        | { kind: 'pointer' }
-        | { kind: 'label'; spoke: SpokeCode }
-        | { kind: 'spoke'; spoke: SpokeCode };
-
-    function anchorKey(a: UiAnchor) {
-        if (a.kind === 'center') return 'center';
-        if (a.kind === 'pointer') return 'pointer';
-        return `${a.kind}:${a.spoke}`;
-    }
-
-    function parsePlacement(p: EmojiPlacement): UiAnchor {
-        if (p === 'center') return { kind: 'center' };
-        if (p === 'pointer') return { kind: 'pointer' };
-        if (p.endsWith('-spoke')) return { kind: 'spoke', spoke: p.slice(0, -'-spoke'.length) as SpokeCode };
-        return { kind: 'label', spoke: p as SpokeCode };
-    }
-
-    type EmojiAt = { anchor: UiAnchor; text: string };
-
-    /**
-     * Собираем рендер-план:
-     * - spec = wheels[wheelType]
-     * - ui = spec.ui
-     * - roles = wheel.roles (focus/target/looker)
-     * - для target берём первый элемент (как ты делаешь в bind)
-     */
-    let spec: WheelSpec | null = null;
-    let emojiAt: EmojiAt[] = [];
-
-    $: {
-        spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
-
-        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
-        const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
-
-        const focusId = (wheel?.roles as any)?.focus as ObjId | null;
-        const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
-        const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
-
-        if (ui?.focus && focusId) {
-            const e = bodyEmoji(focusId);
-            if (e) draws.push({ anchor: parsePlacement(ui.focus), emoji: e });
-        }
-
-        if (ui?.target && targetId) {
-            const e = bodyEmoji(targetId);
-            if (e) draws.push({ anchor: parsePlacement(ui.target), emoji: e });
-        }
-
-        if (ui?.looker) {
-            const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
-            const e = bodyEmoji(lookerId);
-            if (e) draws.push({ anchor: parsePlacement(ui.looker), emoji: e });
-        }
-
-        // merge if several emojis land in same anchor
-        const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
-        for (const d of draws) {
-            const k = anchorKey(d.anchor);
-            const cur = m.get(k) ?? { anchor: d.anchor, parts: [] };
-            cur.parts.push(d.emoji);
-            m.set(k, cur);
-        }
-
-        emojiAt = Array.from(m.values()).map(x => ({ anchor: x.anchor, text: x.parts.join('') }));
-    }
-
-    // helpers for SVG queries
-    function emojiAtPointer(): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'pointer')?.text ?? null;
-    }
-    function emojiAtCenter(): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'center')?.text ?? null;
-    }
-    function emojiAtLabel(spoke: SpokeCode): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'label' && x.anchor.spoke === spoke)?.text ?? null;
-    }
-    function emojiAtSpoke(spoke: SpokeCode): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke)?.text ?? null;
-    }
-
-    let pointerEmoji: string | null = null;
-    let centerEmoji: string | null = null;
-
-    $: {
-        pointerEmoji = emojiAtPointer();
-        centerEmoji = emojiAtCenter();
+        void ensureCycleForTs(effTs);
     }
 
     // ------------------------------------------------------------
@@ -532,21 +292,192 @@
         boundaryTimes = bt;
     }
 
-    let nowWindowKey = 'na';
-
-    $: {
+    function cycleWindowFromSpokes() {
         const a = spokeTimes?.[0];
         const b = spokeTimes?.[16];
-        nowWindowKey = (Number.isFinite(a) && Number.isFinite(b) && b > a)
-            ? `${a}:${b}`
-            : 'na';
+        return (Number.isFinite(a) && Number.isFinite(b) && b > a) ? { start: a, end: b } : null;
     }
 
-    // дергаем пересчет NOW при любом изменении окна, но только когда оно валидно
-    $: if (nowWindowKey !== 'na') {
-        now.refresh?.(`window:${nowWindowKey}`);
+    function clamp01(x: number) {
+        return x < 0 ? 0 : (x > 1 ? 1 : x);
     }
 
+    function angleDegAtTs(ts0: number): number | null {
+        const t = spokeTimes;
+        if (!t || t.length < 17) return null;
+
+        const tE = t[0];
+        const tE2 = t[16];
+        if (!Number.isFinite(tE) || !Number.isFinite(tE2) || !(tE2 > tE)) return null;
+
+        const ts = Math.min(Math.max(ts0, tE), tE2);
+
+        let i = 0;
+        for (let k = 0; k < 16; k++) {
+            const a = t[k];
+            const b = t[k + 1];
+            if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+            if (ts >= a && ts <= b) { i = k; break; }
+            if (ts > b) i = k;
+        }
+
+        const aT = t[i];
+        const bT = t[i + 1];
+        const den = (Number.isFinite(aT) && Number.isFinite(bT) && bT > aT) ? (bT - aT) : 1;
+        const u = clamp01((ts - aT) / den);
+
+        const aAng = spokeAngleDeg(i);
+        const bAng = (i === 15) ? (spokeAngleDeg(0) - 360) : spokeAngleDeg(i + 1);
+
+        return aAng + (bAng - aAng) * u;
+    }
+
+    const now = useCycleNowPointer(
+        () => cycleWindowFromSpokes(),
+        (ts0) => angleDegAtTs(ts0),
+        dbg
+    );
+    const nowState = now.state;
+
+    let showNowPointer = false;
+    let nowDisplayAngle = 0;
+
+    $: showNowPointer = $nowState.show;
+    $: nowDisplayAngle = $nowState.displayAngle;
+
+    $: {
+        const w = cycleWindowFromSpokes();
+        now.refresh?.(`deps:${w?.start ?? 'na'}:${w?.end ?? 'na'}`);
+    }
+
+    $: cycleBeginTs = spokeTimes?.[0];
+    $: cycleEndTs = spokeTimes?.[16];
+    $: cycleDurationMs =
+        Number.isFinite(cycleBeginTs) && Number.isFinite(cycleEndTs) && cycleEndTs > cycleBeginTs
+            ? (cycleEndTs - cycleBeginTs)
+            : NaN;
+
+    $: cycleDurationHuman = formatDurationHuman(cycleDurationMs);
+
+    function spokePayload(i: number): CycleTipPayload {
+        const s = spokes.find(x => x.index === i);
+        const code = (i == 16) ? 'E+' : (spokeCodes?.[i] ?? labels[i]);
+
+        const t = spokeTimes?.[i];
+        const ts = Number.isFinite(t) ? t : NaN;
+
+        return {
+            kind: 'spoke',
+            code: String(code),
+            ts,
+            meta: (s as any)?.meta
+        };
+    }
+
+    function boundaryPayload(i: number): CycleTipPayload {
+        const from = String(labels[i]);
+        const to = String(i === 15 ? 'E+' : labels[i + 1]);
+
+        const t = boundaryTimes?.[i];
+        const ts = Number.isFinite(t) ? t : NaN;
+
+        return { kind: 'boundary', from, to, ts };
+    }
+
+    // ------------------------------------------------------------
+    // Emoji placements
+    // ------------------------------------------------------------
+    function bodyEmoji(id: ObjId | null | undefined): string | null {
+        if (!id) return null;
+        const b = (objects as any)[id] as { emoji?: string } | undefined;
+        return b?.emoji ?? null;
+    }
+
+    type UiAnchor =
+        | { kind: 'center' }
+        | { kind: 'pointer' }
+        | { kind: 'label'; spoke: SpokeCode }
+        | { kind: 'spoke'; spoke: SpokeCode };
+
+    function anchorKey(a: UiAnchor) {
+        if (a.kind === 'center') return 'center';
+        if (a.kind === 'pointer') return 'pointer';
+        return `${a.kind}:${a.spoke}`;
+    }
+
+    function parsePlacement(p: EmojiPlacement): UiAnchor {
+        if (p === 'center') return { kind: 'center' };
+        if (p === 'pointer') return { kind: 'pointer' };
+        if (p.endsWith('-spoke')) return { kind: 'spoke', spoke: p.slice(0, -'-spoke'.length) as SpokeCode };
+        return { kind: 'label', spoke: p as SpokeCode };
+    }
+
+    type EmojiAt = { anchor: UiAnchor; text: string };
+
+    let spec: WheelSpec | null = null;
+    let emojiAt: EmojiAt[] = [];
+
+    $: {
+        spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
+
+        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
+        const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
+
+        const focusId = (wheel?.roles as any)?.focus as ObjId | null;
+        const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
+        const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
+
+        if (ui?.focus && focusId) {
+            const e = bodyEmoji(focusId);
+            if (e) draws.push({ anchor: parsePlacement(ui.focus), emoji: e });
+        }
+
+        if (ui?.target && targetId) {
+            const e = bodyEmoji(targetId);
+            if (e) draws.push({ anchor: parsePlacement(ui.target), emoji: e });
+        }
+
+        if (ui?.looker) {
+            const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
+            const e = bodyEmoji(lookerId);
+            if (e) draws.push({ anchor: parsePlacement(ui.looker), emoji: e });
+        }
+
+        const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
+        for (const d of draws) {
+            const k = anchorKey(d.anchor);
+            const cur = m.get(k) ?? { anchor: d.anchor, parts: [] };
+            cur.parts.push(d.emoji);
+            m.set(k, cur);
+        }
+
+        emojiAt = Array.from(m.values()).map(x => ({ anchor: x.anchor, text: x.parts.join('') }));
+    }
+
+    function emojiAtPointer(): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'pointer')?.text ?? null;
+    }
+    function emojiAtCenter(): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'center')?.text ?? null;
+    }
+    function emojiAtLabel(spoke: SpokeCode): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'label' && x.anchor.spoke === spoke)?.text ?? null;
+    }
+    function emojiAtSpoke(spoke: SpokeCode): string | null {
+        return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke)?.text ?? null;
+    }
+
+    let pointerEmoji: string | null = null;
+    let centerEmoji: string | null = null;
+
+    $: {
+        pointerEmoji = emojiAtPointer();
+        centerEmoji = emojiAtCenter();
+    }
+
+    // ------------------------------------------------------------
+    // Pointer animation
+    // ------------------------------------------------------------
     function nearestSpokeIndexByTime(ts0: number, arr: number[]) {
         let bestI = 0;
         let bestD = Infinity;
@@ -559,14 +490,10 @@
         return bestI;
     }
 
-    function clamp01(x: number) {
-        return x < 0 ? 0 : (x > 1 ? 1 : x);
-    }
-
     $: activeSpokeIndex = spokeTimes?.length ? nearestSpokeIndexByTime(effTs, spokeTimes) : 0;
     $: activeSpokeCode = spokeCodes?.[activeSpokeIndex] ?? ((activeSpokeIndex === 16) ? 'E_next' : (labels[activeSpokeIndex] as any));
+    $: activeSpokeLabel = activeSpokeCode == 'E_next'? 'E+' : activeSpokeCode;
 
-    // Pointer angle: piecewise interpolation between spokes
     $: pointerAngleDeg = (() => {
         const t = spokeTimes;
         if (!t || t.length < 17) return 0;
@@ -592,14 +519,11 @@
         const u = clamp01((ts0 - aT) / segDen);
 
         const aAng = spokeAngleDeg(i);
-        const bAng = (i === 15) ? (spokeAngleDeg(0) + 360) : spokeAngleDeg(i + 1);
+        const bAng = (i === 15) ? (spokeAngleDeg(0) - 360) : spokeAngleDeg(i + 1);
 
         return aAng + (bAng - aAng) * u;
     })();
 
-    // ------------------------------------------------------------
-    // Pointer animation (Wheel-style)
-    // ------------------------------------------------------------
     let lastSeenTs = effTs;
     let timeDir: -1 | 0 | 1 = 0;
 
@@ -616,8 +540,6 @@
         timeDir = delta === 0 ? 0 : (delta > 0 ? 1 : -1);
         lastSeenTs = effTs;
 
-        // IMPORTANT: cycleKey must stay stable while we're inside the same cycle window.
-        // We use actual E/E+ to define the window identity for animation logic.
         const cycleWindowKey = `${spokeTimes?.[0] ?? 'na'}:${spokeTimes?.[16] ?? 'na'}`;
 
         animator.applyInput({
@@ -635,7 +557,6 @@
         now.refresh?.(`user:${reason}`);
     }
 
-    // Nav: use cycle window edges
     const SHIFT_EPS_MS = 1500;
 
     function shiftCycle(dir: -1 | 1) {
@@ -647,9 +568,6 @@
         jumpTo(probe, dir < 0 ? 'prevCycle' : 'nextCycle');
     }
 
-    // ------------------------------------------------------------
-    // Tooltip handlers for spokes + boundaries
-    // ------------------------------------------------------------
     function handleSpokeActivate(i: number) {
         const t = spokeTimes[i];
         if (Number.isFinite(t)) jumpTo(t, `spoke:${i}`);
@@ -665,9 +583,7 @@
         tip.closeNow();
     }
 
-    // ------------------------------------------------------------
-    // Markers (stub for now — we’ll wire to moments later)
-    // ------------------------------------------------------------
+    // Markers (stub)
     let markerClusters: MarkerCluster[] = [];
     markerClusters = [];
 </script>
@@ -682,21 +598,21 @@
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
+                    <!-- House Boundaries -->
                     {#each Array(spokeCount) as _, i (i)}
                         {@const a = boundaryAngleDeg(i)}
                         {@const pA = polarToXY(rOuter * 0.96, a)}
                         {@const pB = polarToXY(rOuter * 1.1, a)}
                         {@const pHit = polarToXY(rOuter, a)}
-                        {@const payload = boundaryPayload(i)}
                         {@const key = `boundary:${i}`}
 
                         <g class="tick"
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House boundary ${i + 1}`}
-                                on:click={(e) => tip.openNow(e, payload)}
+                                on:click={(e) => tip.openNow(e, boundaryPayload(i))}
                                 on:dblclick={() => handleBoundaryActivate(i)}
-                                on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                on:mouseenter={(e) => tip.hoverEnter(e, boundaryPayload(i), key)}
                                 on:mouseleave={() => tip.hoverLeave(key)}
                                 on:keydown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
@@ -716,12 +632,12 @@
                         <path d={ringSectorPath(-315, -405)} class="q q-gold" />
                     </g>
 
+                    <!-- Spoke Labels -->
                     {#each labels as label, i (label)}
                         {@const a = spokeAngleDeg(i)}
                         {@const p1 = polarToXY(rInner, a)}
                         {@const p2 = polarToXY(rOuter, a)}
                         {@const pt = polarToXY(rLabel, a)}
-                        {@const payload = spokePayload(i)}
                         {@const key = `spoke:${i}`}
                         {@const isActive = i === activeSpokeIndex}
 
@@ -730,7 +646,6 @@
                         {@const spokeEmoji = emojiAtSpoke(code)}
                         {@const midPt = polarToXY((rInner + rOuter) * 0.56, a)}
 
-                        <!-- теперь это просто контейнер/рисунок, НЕ кнопка -->
                         <g class="spoke" style="pointer-events: none;">
                             <line
                                     x1={p1.x} y1={p1.y}
@@ -756,9 +671,9 @@
                                     role="button"
                                     tabindex="0"
                                     aria-label={`Spoke ${label}`}
-                                    on:click={(e) => tip.openNow(e, payload)}
+                                    on:click={(e) => tip.openNow(e, spokePayload(i))}
                                     on:dblclick={() => handleSpokeActivate(i)}
-                                    on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                    on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(i), key)}
                                     on:mouseleave={() => tip.hoverLeave(key)}
                                     on:keydown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
@@ -797,7 +712,6 @@
 
                             {#if i === 0}
                                 {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
-                                {@const payload = spokePayload(16)}
                                 {@const key = `spoke:${i}`}
                                 {@const ePlusActive = activeSpokeIndex === 16}
 
@@ -807,9 +721,9 @@
                                         role="button"
                                         tabindex="0"
                                         aria-label="Spoke E+"
-                                        on:click={(e) => tip.openNow(e, payload)}
+                                        on:click={(e) => tip.openNow(e, spokePayload(16))}
                                         on:dblclick={() => handleSpokeActivate(16)}
-                                        on:mouseenter={(e) => tip.hoverEnter(e, payload, key)}
+                                        on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(16), key)}
                                         on:mouseleave={() => tip.hoverLeave(key)}
                                         on:keydown={(e) => {
                                           if (e.key === 'Enter' || e.key === ' ') {
@@ -823,17 +737,14 @@
                                             r={VB * 0.034}
                                             fill="transparent"
                                             stroke="currentColor"
-                                            stroke-opacity={ePlusActive ? 0.55 : 0.25}
-                                            stroke-width={ePlusActive ? 3 : 2}/>
+                                            class:activeHalo={ePlusActive}/>
                                     <text class="spokeLabel eplusLabel"
                                             x={pt2.x} y={pt2.y}
                                             text-anchor="middle"
                                             dominant-baseline="middle"
                                             font-size={VB * 0.034}
                                             fill="currentColor"
-                                            fill-opacity={ePlusActive ? 0.9 : 0.55}>
-                                        E+
-                                    </text>
+                                            fill-opacity={ePlusActive ? 0.9 : 0.55}>E+</text>
                                 </g>
                             {/if}
 
@@ -842,6 +753,7 @@
                         </g>
                     {/each}
 
+                    <!-- Markers -->
                     {#each markerClusters as c (c.id)}
                         {@const a = c.angleDeg}
                         {@const rMark = rInner + (rOuter - rInner) * (c.orbit ?? 0.6)}
@@ -870,6 +782,7 @@
                         </g>
                     {/each}
 
+                    <!-- Now Moment Pointer -->
                     {#if showNowPointer}
                         <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
                             <line x1={cx} y1={cy}
@@ -896,7 +809,7 @@
                         </g>
                     {/if}
 
-                    <!-- Pointer -->
+                    <!-- Current Moment Pointer -->
                     <g transform={`translate(${cx} ${cy})`}>
                         <g class="pointer"
                                 class:noTransition={noTransition}
@@ -964,7 +877,7 @@
             <button
                     class="infoLine"
                     type="button"
-                    title={solveOk ? `Go to ${activeSpokeCode}` : solveReason || 'Solve failed'}
+                    title={solveOk ? `Go to ${activeSpokeLabel}` : solveReason || 'Solve failed'}
                     disabled={!solveOk}
                     on:click={() => {
                       const t = spokeTimes?.[activeSpokeIndex];
@@ -972,7 +885,7 @@
                     }}>
                 <div class="infoLabel">
                     <span class="labelText">Spoke</span>
-                    <span class="chip">{activeSpokeCode}</span>
+                    <span class="chip">{activeSpokeLabel}</span>
                 </div>
                 <div class="infoValue">{solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}</div>
             </button>

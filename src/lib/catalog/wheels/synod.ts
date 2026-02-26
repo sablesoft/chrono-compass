@@ -1,3 +1,4 @@
+// src/lib/catalog/wheels/synod.ts
 import type { WheelSpec } from '../types';
 
 export const synod = {

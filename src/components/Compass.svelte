@@ -1,19 +1,18 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
+    import { useWheelEffectiveTs } from '../lib/wheel/ui/useEffectiveTs';
 
     import DocsModal from './DocsModal.svelte';
     import CompassTooltip from './CompassTooltip.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
+    import WheelHeader from './WheelHeader.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
-    import { ms } from '../lib/format';
 
     import { objects } from '../lib/catalog';
     import type { ObjId } from '../lib/catalog';
@@ -26,18 +25,15 @@
     import { solveWheel } from '../lib/board/dispatcher';
     import type { WheelSolveResult } from '../lib/board/runtime';
 
-    import {DEFAULT_LOCATION_ID, type Location} from '../lib/location/types';
+    import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
-
-    import { selectedTs as globalSelectedTs, isLive as globalIsLive } from '../lib/time/store';
 
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
-    import {norm360} from "../lib/math/helpers";
-    import WheelHeader from "./WheelHeader.svelte";
+    import { norm360 } from '../lib/math/helpers';
 
     // ------------------------------------------------------------
-    // Props (NEW contract: Board passes wheel + location)
+    // Props (Board passes wheel + resolved location)
     // ------------------------------------------------------------
     export let wheel: BoardWheel;
     export let selectedTs: number;
@@ -75,73 +71,30 @@
     }
 
     // ------------------------------------------------------------
-    // Time sync: global <-> wheel time
+    // Effective time (UNIFIED)
+    // - effTs = what solver uses
+    // - effState.globalTs/globalLive/localLiveNowTs are still available for TimePicker UI
     // ------------------------------------------------------------
-    let localLiveNowTs = ms(Date.now());
-    let localLiveTimer: ReturnType<typeof setInterval> | null = null;
-    let localAlignTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function clearLocalLiveTimers() {
-        if (localAlignTimer) { clearTimeout(localAlignTimer); localAlignTimer = null; }
-        if (localLiveTimer) { clearInterval(localLiveTimer); localLiveTimer = null; }
-    }
-
-    function startLocalLiveTicker() {
-        clearLocalLiveTimers();
-        localLiveNowTs = ms(Date.now());
-
-        const now = Date.now();
-        const msToNextMinute = 60_000 - (now % 60_000);
-
-        localAlignTimer = setTimeout(() => {
-            localLiveNowTs = ms(Date.now());
-            localLiveTimer = setInterval(() => {
-                localLiveNowTs = ms(Date.now());
-            }, 60_000);
-        }, msToNextMinute + 5);
-    }
-
-    $: {
-        const needLocalLive = !!time?.locked && !!time?.live;
-        if (needLocalLive) startLocalLiveTicker();
-        else clearLocalLiveTimers();
-    }
-
-    $: effTs =
-        !time?.locked
-            ? selectedTs
-            : time?.live
-                ? localLiveNowTs
-                : ms((time as any)?.ts ?? selectedTs);
-
-    let globalTs = ms(Date.now());
-    let globalLive = true;
-
-    const unsubGTs = globalSelectedTs.subscribe(v => globalTs = v);
-    const unsubGLive = globalIsLive.subscribe(v => globalLive = v);
-
-    onDestroy(() => {
-        unsubGTs();
-        unsubGLive();
-        clearLocalLiveTimers();
-    });
-
-    // If wheel time isn't locked -> keep it synced to global time
-    $: {
-        if (wheelId)
-        if (!time?.locked) {
-            if (time.live !== globalLive || (time as any).ts !== (globalLive ? (time as any).ts : globalTs)) {
-                boardApi.updateWheelTime(
-                    wheelId,
-                    globalLive ? { live: true } : { live: false, ts: globalTs },
-                    'Compass.syncWheelTime'
-                );
-            }
+    const eff = useWheelEffectiveTs(
+        () => wheelId,
+        () => time,
+        {
+            syncToBoard: true,
+            onSyncTime: (next, reason) => {
+                if (!wheelId) return;
+                boardApi.updateWheelTime(wheelId, next, reason ?? 'Compass.syncWheelTime');
+            },
+            dbg: { warn: dbg.log }
         }
-    }
+    );
 
-    // If observer isn't locked -> keep it synced to passed-in location (board already chose it)
-    // (We don't read global location store anymore in Compass; Board is the boss now.)
+    const effState = eff.state; // store
+    $: effTs = $effState.ts;
+    $: globalTs = $effState.globalTs;
+    $: globalLive = $effState.globalLive;
+    $: localLiveNowTs = $effState.localLiveNowTs;
+
+    // If observer isn't locked -> keep it synced to passed-in location
     $: {
         if (wheelId)
             if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
@@ -224,7 +177,7 @@
         return (body ? (body as ObjId) : null);
     }
 
-    function handleMarkerPick(ts0: number) {
+    function handleMarkerPick(_ts0: number) {
         onUserActivity();
         tip.closeNow();
     }
@@ -247,7 +200,6 @@
     // ------------------------------------------------------------
     // House mapping helpers
     // ------------------------------------------------------------
-
     function angDistDeg(a: number, b: number): number {
         const d = Math.abs(norm360(a) - norm360(b));
         return Math.min(d, 360 - d);
@@ -283,33 +235,43 @@
     }
 
     // ------------------------------------------------------------
-    // Solve via runtime dispatcher
+    // Solve via unified dispatcher (async, race-safe)
     // ------------------------------------------------------------
-    $: {
+    let ensureRunId = 0;
+
+    async function ensureCompassForTs(ts: number) {
+        const myRun = ++ensureRunId;
+
         const targets = asBodyIdArray((roles as any)?.target);
         const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
 
         if (!wheel || !wheelLoc || !targets.length || wheelLat == null || wheelLon == null) {
             markerClusters = [];
             lastTargets = [];
-        } else {
-            const ctx = {
-                ts: effTs,
-                location: wheelLoc,
-                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
-            };
+            return;
+        }
+
+        const ctx = {
+            ts,
+            location: wheelLoc,
+            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+        };
 
             const res: WheelSolveResult = solveWheel(wheel as any, ctx);
 
-            if (!res || res.kind !== 'compass' || !res.ok) {
-                markerClusters = [];
-                lastTargets = [];
-            } else {
-                lastTargets = (res.bodies as CompassTargetState[]) ?? [];
-                const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, lastTargets, looker);
-                markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
-            }
+        if (!res || res.kind !== 'compass' || !res.ok) {
+            markerClusters = [];
+            lastTargets = [];
+            return;
         }
+
+        lastTargets = (res.bodies as CompassTargetState[]) ?? [];
+        const items: MarkerItem[] = compassTargetsToMarkerItems(ts, lastTargets, looker);
+        markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+    }
+
+    $: {
+        void ensureCompassForTs(effTs);
     }
 
     // table rows for tooltip / pinned row
