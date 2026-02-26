@@ -1,5 +1,6 @@
 // src/lib/board/store.ts
 import { writable, derived, get } from 'svelte/store';
+import { nanoid } from 'nanoid';
 
 import { debug } from '../debug';
 import type { WheelType } from '../catalog';
@@ -7,14 +8,14 @@ import type { WheelRolesState } from '../wheel/control';
 
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 import {
-    makeWheelId,
+    makeSolveKey,
     normalizeWheelObserver,
     normalizeWheelTime,
     dedupeWheelItemsById
 } from '../wheel/id';
-import type {BoardWheel} from "./types";
-import {DEFAULT_LOCATION_ID} from "../location/types";
-import {DEFAULT_TIME} from "../time/types";
+import type { BoardWheel } from './types';
+import { DEFAULT_LOCATION_ID } from '../location/types';
+import { DEFAULT_TIME } from '../time/types';
 
 export type BoardState = {
     items: BoardWheel[];
@@ -54,7 +55,8 @@ function defaultCompassItem(order: number): BoardWheel {
     const time: WheelTimeState = { ...DEFAULT_TIME };
 
     return {
-        wheelId: makeWheelId(wheelType, roles, observer, time),
+        id: nanoid(),
+        solveKey: makeSolveKey(wheelType, roles, observer, time),
         wheelType,
         title: 'Compass',
         roles,
@@ -87,10 +89,12 @@ function normalizeBoard(input: any): BoardState {
                 const observer: WheelObserverState = normalizeWheelObserver(x.observer, DEFAULT_LOCATION_ID);
                 const time: WheelTimeState = normalizeWheelTime(x.time);
 
-                const wheelId = makeWheelId(wheelType, roles, observer, time);
+                // identity must be stable; if missing in persisted storage -> generate once
+                const id = (typeof x.id === 'string' && x.id.length > 0) ? x.id : nanoid();
 
                 return {
-                    wheelId,
+                    id,
+                    solveKey: makeSolveKey(wheelType, roles, observer, time),
                     wheelType,
                     title: typeof x.title === 'string' ? x.title : '',
                     roles,
@@ -104,6 +108,8 @@ function normalizeBoard(input: any): BoardState {
         let items = normalizeOrder(parsedItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
+
+        items = ensureCompass(items, 'normalizeBoard');
 
         const out: BoardState = {
             items,
@@ -122,7 +128,7 @@ function loadBoard(): BoardState {
         const state = normalizeBoard(parsed);
 
         if (!raw) {
-            if (!raw) dbg.warn('board.load.noStorage', { count: state.items.length });
+            dbg.warn('board.load.noStorage', { count: state.items.length });
         }
 
         dbg.log('board.load.ok', { hasRaw: !!raw, count: state.items.length });
@@ -157,6 +163,8 @@ function setItems(nextItems: BoardWheel[], reason: string) {
         let items = normalizeOrder(nextItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
+        items = ensureCompass(items, reason);
+
         const next: BoardState = { items, updatedAt: now() };
         dbg.log('board.setItems', { reason, count: next.items.length, updatedAt: next.updatedAt });
         return next;
@@ -164,7 +172,7 @@ function setItems(nextItems: BoardWheel[], reason: string) {
 }
 
 type WheelSelector =
-    | { mode: 'updateById'; wheelId: string }
+    | { mode: 'updateById'; id: string }
     | { mode: 'upsertByKey' };
 
 type WheelPatch = {
@@ -188,52 +196,56 @@ export const boardApi = {
         return s.items.slice().sort((a, b) => a.order - b.order);
     },
 
-    hasWheelId(wheelId: string): boolean {
+    hasSolveKey(solveKey: string): boolean {
         const cur = get(boardState).items;
-        return cur.some((x) => x.wheelId === wheelId);
+        return cur.some((x) => x.solveKey === solveKey);
     },
 
-    removeWheelById(wheelId: string, reason = 'removeWheelById') {
+    removeWheelById(id: string, reason = 'removeWheelById') {
         dbg.group('boardApi.removeWheelById', () => {
             const cur = get(boardState).items;
-            const next = cur.filter((x) => x.wheelId !== wheelId);
+            const next = cur.filter((x) => x.id !== id);
 
-            dbg.log('removeWheelById', { wheelId, before: cur.length, after: next.length, reason });
+            dbg.log('removeWheelById', { id, before: cur.length, after: next.length, reason });
             setItems(next, reason);
         });
     },
 
     updateWheelTime(
-        wheelId: string,
+        id: string,
         patch: Partial<WheelTimeState>,
         reason = 'updateWheelTime'
     ) {
         dbg.group('boardApi.updateWheelTime', () => {
             const cur = get(boardState).items.slice();
-            const idx = cur.findIndex((x) => x.wheelId === wheelId);
-            if (idx < 0) return;
+            const idx = cur.findIndex((x) => x.id === id);
+            if (idx < 0) {
+                dbg.warn('updateWheelTime.notFound', { id, reason });
+                return;
+            }
 
             const prev = cur[idx];
             const nextTime: WheelTimeState = normalizeWheelTime(
                 { ...(prev.time as any), ...(patch as any) }
             );
 
-            const nextWheelId = makeWheelId(prev.wheelType, prev.roles, prev.observer, nextTime);
+            const nextSolveKey = makeSolveKey(prev.wheelType, prev.roles, prev.observer, nextTime);
 
             // если конфликтует с другим колесом — блокируем
-            const conflict = cur.some((x, i) => i !== idx && x.wheelId === nextWheelId);
+            const conflict = cur.some((x, i) => i !== idx && x.solveKey === nextSolveKey);
             if (conflict) {
-                dbg.warn('updateWheelTime.conflict', { wheelId, nextWheelId, reason });
+                dbg.warn('updateWheelTime.conflict', { id, fromSolveKey: prev.solveKey, nextSolveKey, reason });
                 return;
             }
 
             cur[idx] = {
                 ...prev,
-                wheelId: nextWheelId,
+                // id сохраняем
+                solveKey: nextSolveKey,
                 time: nextTime
             };
 
-            dbg.log('updated', { wheelId, nextWheelId, patch, reason });
+            dbg.log('updated', { id, fromSolveKey: prev.solveKey, nextSolveKey, patch, reason });
             setItems(cur, reason);
         });
     },
@@ -242,22 +254,22 @@ export const boardApi = {
      * Универсальный upsert.
      *
      * mode:
-     * - updateById: обновить КОНКРЕТНЫЙ айтем (пересчитает wheelId). При конфликте с другим wheelId — заблокирует.
-     * - upsertByKey: upsert по вычисленному wheelId (если найден — заменит, иначе добавит).
+     * - updateById: обновить КОНКРЕТНЫЙ айтем (по id, пересчитает solveKey). При конфликте с другим solveKey — заблокирует.
+     * - upsertByKey: upsert по вычисленному solveKey (если найден — обновит, иначе добавит новый id).
      *
      * Возвращает:
      * - ok=false если не нашёл базу (updateById) или конфликт
-     * - nextWheelId (если ok)
+     * - nextSolveKey (если ok)
      */
-    upsertWheel(sel: WheelSelector, patch: WheelPatch, reason = 'upsertWheel'): { ok: boolean; nextWheelId?: string } {
+    upsertWheel(sel: WheelSelector, patch: WheelPatch, reason = 'upsertWheel'): { ok: boolean; nextSolveKey?: string } {
         return dbg.group('boardApi.upsertWheel', () => {
             const cur = get(boardState).items.slice();
 
-            const idx = sel.mode === 'updateById' ? cur.findIndex((x) => x.wheelId === sel.wheelId) : -1;
+            const idx = sel.mode === 'updateById' ? cur.findIndex((x) => x.id === sel.id) : -1;
             const prev = idx >= 0 ? cur[idx] : null;
 
             if (sel.mode === 'updateById' && !prev) {
-                dbg.warn('upsertWheel.notFound', { wheelId: sel.wheelId, reason });
+                dbg.warn('upsertWheel.notFound', { id: sel.id, reason });
                 return { ok: false };
             }
 
@@ -274,19 +286,19 @@ export const boardApi = {
             const title: string = ((patch.title ?? prev?.title ?? '') as any) ?? '';
             const size: number | undefined = patch.size ?? prev?.size;
 
-            const nextWheelId = makeWheelId(wheelType, roles, observer, time);
+            const nextSolveKey = makeSolveKey(wheelType, roles, observer, time);
 
             if (sel.mode === 'updateById') {
-                // конфликт: другой айтем уже имеет nextWheelId
-                const conflict = cur.some((x, i) => i !== idx && x.wheelId === nextWheelId);
+                const conflict = cur.some((x, i) => i !== idx && x.solveKey === nextSolveKey);
                 if (conflict) {
-                    dbg.warn('upsertWheel.conflict', { mode: sel.mode, from: sel.wheelId, to: nextWheelId, reason });
+                    dbg.warn('upsertWheel.conflict', { mode: sel.mode, id: sel.id, fromSolveKey: prev!.solveKey, toSolveKey: nextSolveKey, reason });
                     return { ok: false };
                 }
 
                 cur[idx] = {
                     ...prev!,
-                    wheelId: nextWheelId,
+                    // id НЕ меняем
+                    solveKey: nextSolveKey,
                     wheelType,
                     roles,
                     observer,
@@ -295,85 +307,55 @@ export const boardApi = {
                     size
                 };
 
-                dbg.log('upsertWheel.updatedById', { from: sel.wheelId, to: nextWheelId, reason });
+                dbg.log('upsertWheel.updatedById', { id: sel.id, fromSolveKey: prev!.solveKey, toSolveKey: nextSolveKey, reason });
                 setItems(cur, reason);
-                return { ok: true, nextWheelId };
+                return { ok: true, nextSolveKey };
             }
 
             // upsertByKey
-            const hit = cur.findIndex((x) => x.wheelId === nextWheelId);
-            const order = hit >= 0 ? cur[hit].order : cur.length;
-
-            const nextItem: BoardWheel = {
-                wheelId: nextWheelId,
-                wheelType,
-                title,
-                roles,
-                observer,
-                time,
-                order,
-                size
-            };
+            const hit = cur.findIndex((x) => x.solveKey === nextSolveKey);
 
             if (hit >= 0) {
-                cur[hit] = { ...nextItem, order: cur[hit].order, size: size ?? cur[hit].size };
-                dbg.log('upsertWheel.updatedByKey', { wheelId: nextWheelId, reason });
+                const keep = cur[hit];
+                cur[hit] = {
+                    ...keep,
+                    // keep.id + keep.order сохраняем
+                    solveKey: nextSolveKey,
+                    wheelType,
+                    title,
+                    roles,
+                    observer,
+                    time,
+                    size: size ?? keep.size
+                };
+
+                dbg.log('upsertWheel.updatedByKey', { id: keep.id, solveKey: nextSolveKey, reason });
             } else {
-                cur.push(nextItem);
-                dbg.log('upsertWheel.createdByKey', { wheelId: nextWheelId, reason });
+                const id = nanoid();
+                cur.push({
+                    id,
+                    solveKey: nextSolveKey,
+                    wheelType,
+                    title,
+                    roles,
+                    observer,
+                    time,
+                    order: cur.length,
+                    size
+                });
+
+                dbg.log('upsertWheel.createdByKey', { id, solveKey: nextSolveKey, reason });
             }
 
             setItems(cur, reason);
-            return { ok: true, nextWheelId };
+            return { ok: true, nextSolveKey };
         });
     },
 
     // --- Compatibility wrappers (можно удалить позже, но удобно для миграции) ---
 
-    updateWheelObserver(wheelId: string, patch: Partial<WheelObserverState>, reason = 'updateWheelObserver') {
-        return boardApi.upsertWheel({ mode: 'updateById', wheelId }, { observer: patch }, reason);
-    },
-
-    updateWheelRolesAndTitle(
-        wheelId: string,
-        patch: { roles?: WheelRolesState; title?: string },
-        reason = 'updateWheelRolesAndTitle'
-    ) {
-        return boardApi.upsertWheel({ mode: 'updateById', wheelId }, { roles: patch.roles, title: patch.title }, reason);
-    },
-
-    addWheelFromBase(
-        baseWheelId: string,
-        payload: { wheelType: WheelType; roles: WheelRolesState; title: string },
-        reason = 'addWheelFromBase'
-    ) {
-        return dbg.group('boardApi.addWheelFromBase', () => {
-            const cur = get(boardState).items.slice();
-            const base = cur.find((x) => x.wheelId === baseWheelId);
-            if (!base) {
-                dbg.warn('addWheelFromBase.notFound', { baseWheelId, reason });
-                return { ok: false as const };
-            }
-
-            const nextWheelId = makeWheelId(payload.wheelType, payload.roles, base.observer, base.time);
-            if (cur.some((x) => x.wheelId === nextWheelId)) {
-                dbg.warn('addWheelFromBase.exists', { baseWheelId, nextWheelId, reason });
-                return { ok: false as const };
-            }
-
-            return boardApi.upsertWheel(
-                { mode: 'upsertByKey' },
-                {
-                    wheelType: payload.wheelType,
-                    roles: payload.roles,
-                    title: payload.title ?? '',
-                    observer: base.observer,
-                    time: base.time,
-                    size: base.size
-                },
-                reason
-            );
-        });
+    updateWheelObserver(id: string, patch: Partial<WheelObserverState>, reason = 'updateWheelObserver') {
+        return boardApi.upsertWheel({ mode: 'updateById', id }, { observer: patch }, reason);
     },
 
     setFromSnapshot(items: Omit<BoardWheel, 'order'>[], reason = 'setFromSnapshot') {
@@ -385,10 +367,11 @@ export const boardApi = {
                 const roles = x.roles ?? ({} as WheelRolesState);
                 const observer = normalizeWheelObserver((x as any).observer, DEFAULT_LOCATION_ID);
                 const time = normalizeWheelTime((x as any).time);
-                const wheelId = makeWheelId(wheelType, roles, observer, time);
+                const solveKey = makeSolveKey(wheelType, roles, observer, time);
 
                 return {
-                    wheelId,
+                    id: x.id ? x.id : nanoid(),
+                    solveKey,
                     wheelType,
                     title: x.title ?? '',
                     roles,
@@ -428,7 +411,7 @@ export const boardApi = {
     },
 
     moveWheelById(
-        wheelId: string,
+        id: string,
         dir: -1 | 1,
         opts?: { carouselWrap?: boolean },
         reason = 'moveWheelById'
@@ -443,9 +426,9 @@ export const boardApi = {
             const n = cur.length;
             if (n < 2) return;
 
-            const from = cur.findIndex(x => x.wheelId === wheelId);
+            const from = cur.findIndex(x => x.id === id);
             if (from < 0) {
-                dbg.warn('moveWheelById.notFound', { wheelId, reason });
+                dbg.warn('moveWheelById.notFound', { id, reason });
                 return;
             }
 
@@ -461,7 +444,7 @@ export const boardApi = {
             }
 
             if (to === from) {
-                dbg.log('moveWheelById.noop', { wheelId, from, to, dir, carouselWrap, reason });
+                dbg.log('moveWheelById.noop', { id, from, to, dir, carouselWrap, reason });
                 return;
             }
 
@@ -473,7 +456,7 @@ export const boardApi = {
             next[from] = { ...a, order: b.order };
             next[to] = { ...b, order: a.order };
 
-            dbg.log('moveWheelById.move', { wheelId, from, to, dir, carouselWrap, reason });
+            dbg.log('moveWheelById.move', { id, from, to, dir, carouselWrap, reason });
 
             setItems(next, reason);
         });

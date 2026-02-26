@@ -14,7 +14,7 @@
         return moveWheelOpts ? moveWheelOpts() : { carouselWrap: false };
     }
 
-    $: wheelId = wheel?.wheelId ?? '';
+    $: wheelId = wheel?.id ?? '';
 
     function move(dir: -1 | 1) {
         if (!wheelId) return;
@@ -29,7 +29,7 @@
                 title={wheel.title}
                 baseObserver={wheel.observer}
                 baseTime={wheel.time}
-                baseWheelId={wheel.wheelId}/>
+                baseSolveKey={wheel.solveKey}/>
     </div>
 
     <div class="right">

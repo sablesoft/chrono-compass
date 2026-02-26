@@ -163,4 +163,3 @@ if (typeof window !== 'undefined') {
     const gt = get(globalTime);
     if (gt.live) ensureLiveRunning();
 }
-

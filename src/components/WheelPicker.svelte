@@ -14,7 +14,7 @@
     import {currentLocationId, resolveLocationById} from '../lib/location/store';
 
     import {boardApi} from '../lib/board/store';
-    import {makeWheelId} from '../lib/wheel/id';
+    import {makeSolveKey} from '../lib/wheel/id';
     import {formatWheelSpec, typeLabel} from '../lib/wheel/control';
     import {debug} from '../lib/debug';
 
@@ -363,9 +363,9 @@
             : null;
 
     $: cfgId = hasAll && type
-        ? makeWheelId(type, rolesForId, observerDraft, DEFAULT_TIME)
+        ? makeSolveKey(type, rolesForId, observerDraft, DEFAULT_TIME)
         : '';
-    $: existsOnBoard = !!cfgId && boardApi.hasWheelId(cfgId);
+    $: existsOnBoard = !!cfgId && boardApi.hasSolveKey(cfgId);
 
     $: canAddNow = !!type && hasAll && !existsOnBoard;
 

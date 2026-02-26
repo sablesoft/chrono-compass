@@ -20,7 +20,7 @@ export function stableRolesKey(roles: WheelRolesState): string {
 
 function stableObserverKey(o: WheelObserverState): string {
     // locationId обязателен, locked влияет на поведение, но НЕ на астрономию.
-    // В твоей модели “wheelId = полная конфигурация колеса” — значит locked тоже должен участвовать.
+    // В твоей модели “solveKey = полная конфигурация колеса” — значит locked тоже должен участвовать.
     // Если позже решишь, что lock не часть “сущности”, его можно убрать из id.
     const loc = String(o?.locationId ?? '');
     const locked = o?.locked ? '1' : '0';
@@ -48,9 +48,9 @@ function base64Url(raw: string): string {
 }
 
 /**
- * Детерминированный wheelId = type + roles + observer + time
+ * Детерминированный solveKey = type + roles + observer + time
  */
-export function makeWheelId(
+export function makeSolveKey(
     type: WheelType,
     roles: WheelRolesState,
     observer: WheelObserverState,
@@ -98,14 +98,14 @@ export function normalizeWheelObserver(input: any, fallbackLocationId: string): 
 /**
  * Dedup: оставляет первый по order, но стабилизирует order после.
  */
-export function dedupeWheelItemsById<T extends { wheelId: string; order: number }>(items: T[]): T[] {
+export function dedupeWheelItemsById<T extends { id: string; order: number }>(items: T[]): T[] {
     const seen = new Set<string>();
     const out: T[] = [];
 
     for (const it of items) {
-        if (!it?.wheelId) continue;
-        if (seen.has(it.wheelId)) continue;
-        seen.add(it.wheelId);
+        if (!it?.id) continue;
+        if (seen.has(it.id)) continue;
+        seen.add(it.id);
         out.push(it);
     }
 

@@ -53,7 +53,8 @@
     // ------------------------------------------------------------
     // Local derived state from wheel
     // ------------------------------------------------------------
-    $: wheelId = wheel?.wheelId;
+    $: wheelId = wheel?.id;
+    $: solveKey = wheel?.solveKey;
     $: roles = (wheel?.roles ?? {}) as any;
     $: title = wheel?.title ?? '';
 
@@ -67,6 +68,7 @@
 
     function closeCompass() {
         onUserActivity();
+        if (!wheelId) return;
         boardApi.removeWheelById(wheelId, 'Compass.close');
     }
 
@@ -91,7 +93,6 @@
     const effState = eff.state; // store
     $: effTs = $effState.ts;
     $: globalTs = $effState.globalTs;
-    $: globalLive = $effState.globalLive;
     $: localLiveNowTs = $effState.localLiveNowTs;
 
     // If observer isn't locked -> keep it synced to passed-in location

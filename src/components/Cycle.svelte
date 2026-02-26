@@ -17,6 +17,7 @@
     import DocsModal from './DocsModal.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
+    import WheelHeader from './WheelHeader.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
@@ -28,21 +29,13 @@
     import {resolveWheel} from '../lib/board/dispatcher';
     import type {CycleSpoke } from '../lib/board/runtime';
 
-    import {DEFAULT_LOCATION_ID, type Location} from '../lib/location/types';
-    import type { WheelObserverState, WheelTimeState, SpokeKey } from '../lib/wheel/types';
+    import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
+    import { type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
 
-    import { selectedTs as globalSelectedTs, isLive as globalIsLive, setSelectedTs } from '../lib/time/store';
+    import { setSelectedTs } from '../lib/time/store';
 
     import type { MarkerCluster } from '../lib/wheel/wheel';
-
-    // NEW: cycle cache (local + IndexedDB)
-    import type { CycleData, CycleKey } from '../lib/cycle/types';
-    import {
-        makeCycleKey,
-        clearLocalCycle,
-    } from '../lib/cycle/store';
-    import {typeLabel} from "../lib/wheel/control";
-    import WheelHeader from "./WheelHeader.svelte";
+    import { typeLabel } from '../lib/wheel/control';
 
     // ------------------------------------------------------------
     // Props (Board passes wheel + location)
@@ -68,7 +61,11 @@
     // ------------------------------------------------------------
     // Local derived state from wheel
     // ------------------------------------------------------------
-    $: wheelId = wheel?.wheelId;
+    // IMPORTANT:
+    // - wheelId: stable identity for UI + board mutations (must NOT depend on time/lock/etc)
+    // - solveKey: derived identity for solver/cache (CAN change when roles/observer/time change)
+    $: wheelId = wheel?.id;
+    $: solveKey = wheel?.solveKey;
 
     $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
@@ -81,6 +78,7 @@
 
     function closeCycle() {
         onUserActivity();
+        if (!wheelId) return;
         boardApi.removeWheelById(wheelId, 'Cycle.close');
     }
 
@@ -88,6 +86,8 @@
     // Effective time (UNIFIED)
     // - effTs = what solver uses
     // - also exposes globalTs/globalLive/localLiveNowTs for TimePicker UI
+    //
+    // IMPORTANT: key by wheelId so this hook does NOT restart when solveKey changes
     // ------------------------------------------------------------
     const eff = useWheelEffectiveTs(
         () => wheelId,
@@ -105,12 +105,7 @@
     const effState = eff.state;
     $: effTs = $effState.ts;
     $: globalTs = $effState.globalTs;
-    $: globalLive = $effState.globalLive;
     $: localLiveNowTs = $effState.localLiveNowTs;
-
-    onDestroy(() => {
-        // runtime-cache теперь глобальный по wheelKey; тут ничего не чистим специально
-    });
 
     // If observer isn't locked -> keep it synced to passed-in location (ONLY for horizon wheels)
     $: {
@@ -198,12 +193,8 @@
     const tipState = tip.state;
 
     // ------------------------------------------------------------
-    // Cycle caching (local + IndexedDB)
+    // Solve (unified dispatcher, no UI cycleKey)
     // ------------------------------------------------------------
-    $: cycleKey = (wheel ? makeCycleKey(wheel) : null) as CycleKey | null;
-
-    let cycle: CycleData<any> | null = null;
-
     let solveOk = false;
     let solveReason = '';
     let spokes: CycleSpoke<any>[] = [];
@@ -219,9 +210,8 @@
 
         solveOk = false;
         solveReason = '';
-        spokes = [];
-        cycle = null;
 
+        // wheelId is UI identity; solveKey is just informative here
         if (!wheel || !wheelId) {
             solveReason = 'No wheel';
             return;
@@ -251,6 +241,8 @@
         const r: any = res;
         solveOk = !!r.ok;
         solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
+
+        // обновляем spokes только когда пришёл валидный ответ
         spokes = sortSpokes(r.spokes ?? []);
     }
 
@@ -345,9 +337,17 @@
     $: showNowPointer = $nowState.show;
     $: nowDisplayAngle = $nowState.displayAngle;
 
+    let lastNowDepsKey = '';
+
     $: {
         const w = cycleWindowFromSpokes();
-        now.refresh?.(`deps:${w?.start ?? 'na'}:${w?.end ?? 'na'}`);
+        if (w) {
+            const key = `deps:${w.start}:${w.end}`;
+            if (key !== lastNowDepsKey) {
+                lastNowDepsKey = key;
+                now.refresh?.(key);
+            }
+        }
     }
 
     $: cycleBeginTs = spokeTimes?.[0];
@@ -492,7 +492,7 @@
 
     $: activeSpokeIndex = spokeTimes?.length ? nearestSpokeIndexByTime(effTs, spokeTimes) : 0;
     $: activeSpokeCode = spokeCodes?.[activeSpokeIndex] ?? ((activeSpokeIndex === 16) ? 'E_next' : (labels[activeSpokeIndex] as any));
-    $: activeSpokeLabel = activeSpokeCode == 'E_next'? 'E+' : activeSpokeCode;
+    $: activeSpokeLabel = activeSpokeCode == 'E_next' ? 'E+' : activeSpokeCode;
 
     $: pointerAngleDeg = (() => {
         const t = spokeTimes;
@@ -552,7 +552,12 @@
     function jumpTo(ts0: number, reason = 'jump') {
         if (!Number.isFinite(ts0)) return;
         onUserActivity();
-        dbg.log(`${wheel?.wheelType} ${reason}`, { from: new Date(selectedTs).toISOString(), to: new Date(ms(ts0)).toISOString() });
+        dbg.log(`${wheel?.wheelType} ${reason}`, {
+            from: new Date(selectedTs).toISOString(),
+            to: new Date(ms(ts0)).toISOString(),
+            wheelId,
+            solveKey
+        });
         setSelectedTs(ms(ts0));
         now.refresh?.(`user:${reason}`);
     }
@@ -607,19 +612,19 @@
                         {@const key = `boundary:${i}`}
 
                         <g class="tick"
-                                role="button"
-                                tabindex="0"
-                                aria-label={`House boundary ${i + 1}`}
-                                on:click={(e) => tip.openNow(e, boundaryPayload(i))}
-                                on:dblclick={() => handleBoundaryActivate(i)}
-                                on:mouseenter={(e) => tip.hoverEnter(e, boundaryPayload(i), key)}
-                                on:mouseleave={() => tip.hoverLeave(key)}
-                                on:keydown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      handleBoundaryActivate(i);
-                                    }
-                                  }}>
+                           role="button"
+                           tabindex="0"
+                           aria-label={`House boundary ${i + 1}`}
+                           on:click={(e) => tip.openNow(e, boundaryPayload(i))}
+                           on:dblclick={() => handleBoundaryActivate(i)}
+                           on:mouseenter={(e) => tip.hoverEnter(e, boundaryPayload(i), key)}
+                           on:mouseleave={() => tip.hoverLeave(key)}
+                           on:keydown={(e) => {
+                               if (e.key === 'Enter' || e.key === ' ') {
+                                   e.preventDefault();
+                                   handleBoundaryActivate(i);
+                               }
+                           }}>
                             <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
                             <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
                         </g>
@@ -658,29 +663,29 @@
 
                             {#if spokeEmoji}
                                 <text class="roleEmoji roleEmojiOnSpoke"
-                                        x={midPt.x} y={midPt.y}
-                                        text-anchor="middle"
-                                        dominant-baseline="middle">
+                                      x={midPt.x} y={midPt.y}
+                                      text-anchor="middle"
+                                      dominant-baseline="middle">
                                     {spokeEmoji}
                                 </text>
                             {/if}
 
                             <!-- интерактив только тут -->
                             <g class="spokeHit"
-                                    style="pointer-events: all;"
-                                    role="button"
-                                    tabindex="0"
-                                    aria-label={`Spoke ${label}`}
-                                    on:click={(e) => tip.openNow(e, spokePayload(i))}
-                                    on:dblclick={() => handleSpokeActivate(i)}
-                                    on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(i), key)}
-                                    on:mouseleave={() => tip.hoverLeave(key)}
-                                    on:keydown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                          e.preventDefault();
-                                          handleSpokeActivate(i);
-                                        }
-                                      }}>
+                               style="pointer-events: all;"
+                               role="button"
+                               tabindex="0"
+                               aria-label={`Spoke ${label}`}
+                               on:click={(e) => tip.openNow(e, spokePayload(i))}
+                               on:dblclick={() => handleSpokeActivate(i)}
+                               on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(i), key)}
+                               on:mouseleave={() => tip.hoverLeave(key)}
+                               on:keydown={(e) => {
+                                   if (e.key === 'Enter' || e.key === ' ') {
+                                       e.preventDefault();
+                                       handleSpokeActivate(i);
+                                   }
+                               }}>
                                 <circle
                                         cx={pt.x}
                                         cy={pt.y}
@@ -692,19 +697,19 @@
 
                                 {#if labelEmoji}
                                     <text class="roleEmoji roleEmojiOnLabel"
-                                            x={pt.x} y={pt.y}
-                                            text-anchor="middle"
-                                            dominant-baseline="middle">
+                                          x={pt.x} y={pt.y}
+                                          text-anchor="middle"
+                                          dominant-baseline="middle">
                                         {labelEmoji}
                                     </text>
                                 {:else}
                                     <text class="spokeLabel"
-                                            x={pt.x} y={pt.y}
-                                            text-anchor="middle"
-                                            dominant-baseline="middle"
-                                            font-size={VB * 0.035}
-                                            fill="currentColor"
-                                            fill-opacity={isActive ? 1 : 0.65}>
+                                          x={pt.x} y={pt.y}
+                                          text-anchor="middle"
+                                          dominant-baseline="middle"
+                                          font-size={VB * 0.035}
+                                          fill="currentColor"
+                                          fill-opacity={isActive ? 1 : 0.65}>
                                         {label}
                                     </text>
                                 {/if}
@@ -715,40 +720,39 @@
                                 {@const key = `spoke:${i}`}
                                 {@const ePlusActive = activeSpokeIndex === 16}
 
-                                <!-- E+ отдельная интерактивная зона; родитель не ловит hover, потому что pointer-events:none -->
+                                <!-- E+ отдельная интерактивная зона -->
                                 <g class="eplus spokeHit"
-                                        style="pointer-events: all;"
-                                        role="button"
-                                        tabindex="0"
-                                        aria-label="Spoke E+"
-                                        on:click={(e) => tip.openNow(e, spokePayload(16))}
-                                        on:dblclick={() => handleSpokeActivate(16)}
-                                        on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(16), key)}
-                                        on:mouseleave={() => tip.hoverLeave(key)}
-                                        on:keydown={(e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault();
-                                            handleSpokeActivate(16);
-                                          }
-                                        }}>
+                                   style="pointer-events: all;"
+                                   role="button"
+                                   tabindex="0"
+                                   aria-label="Spoke E+"
+                                   on:click={(e) => tip.openNow(e, spokePayload(16))}
+                                   on:dblclick={() => handleSpokeActivate(16)}
+                                   on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(16), key)}
+                                   on:mouseleave={() => tip.hoverLeave(key)}
+                                   on:keydown={(e) => {
+                                       if (e.key === 'Enter' || e.key === ' ') {
+                                           e.preventDefault();
+                                           handleSpokeActivate(16);
+                                       }
+                                   }}>
                                     <circle class="spokeHalo"
                                             cx={pt2.x}
                                             cy={pt2.y}
                                             r={VB * 0.034}
                                             fill="transparent"
                                             stroke="currentColor"
-                                            class:activeHalo={ePlusActive}/>
+                                            class:activeHalo={ePlusActive} />
                                     <text class="spokeLabel eplusLabel"
-                                            x={pt2.x} y={pt2.y}
-                                            text-anchor="middle"
-                                            dominant-baseline="middle"
-                                            font-size={VB * 0.034}
-                                            fill="currentColor"
-                                            fill-opacity={ePlusActive ? 0.9 : 0.55}>E+</text>
+                                          x={pt2.x} y={pt2.y}
+                                          text-anchor="middle"
+                                          dominant-baseline="middle"
+                                          font-size={VB * 0.034}
+                                          fill="currentColor"
+                                          fill-opacity={ePlusActive ? 0.9 : 0.55}>E+</text>
                                 </g>
                             {/if}
 
-                            <!-- это тоже теперь не интерактивно -->
                             <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
                         </g>
                     {/each}
@@ -761,10 +765,10 @@
                         {@const markerKey = `marker:${c.id}`}
 
                         <g class="marker"
-                                data-marker="1"
-                                transform={`translate(${p.x} ${p.y})`}
-                                on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
-                                on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}>
+                           data-marker="1"
+                           transform={`translate(${p.x} ${p.y})`}
+                           on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
+                           on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}>
                             <circle r={VB * 0.035} fill="transparent" />
                             <circle r={VB * 0.02} fill={c.bg} stroke="currentColor" stroke-opacity="0.45" stroke-width="3" />
                             <circle r={VB * 0.018} fill="none" stroke="var(--bg)" stroke-opacity="0.5" stroke-width="2" />
@@ -786,11 +790,11 @@
                     {#if showNowPointer}
                         <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
                             <line x1={cx} y1={cy}
-                                    x2={cx + rOuter} y2={cy}
-                                    stroke="var(--accent-live)"
-                                    stroke-width="10"
-                                    stroke-linecap="round"
-                                    stroke-opacity="0.35"/>
+                                  x2={cx + rOuter} y2={cy}
+                                  stroke="var(--accent-live)"
+                                  stroke-width="10"
+                                  stroke-linecap="round"
+                                  stroke-opacity="0.35" />
                             <circle cx={cx + rOuter}
                                     cy={cy}
                                     r={VB * 0.018}
@@ -802,36 +806,35 @@
                                     on:click|stopPropagation={now.startLive}
                                     on:keydown|stopPropagation={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
-                                          e.preventDefault();
-                                          now.startLive();
+                                            e.preventDefault();
+                                            now.startLive();
                                         }
-                                      }}/>
+                                    }} />
                         </g>
                     {/if}
 
                     <!-- Current Moment Pointer -->
                     <g transform={`translate(${cx} ${cy})`}>
                         <g class="pointer"
-                                class:noTransition={noTransition}
-                                style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
+                           class:noTransition={noTransition}
+                           style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
                             <line x1="0" y1="0"
-                                    x2={rOuter} y2="0"
-                                    stroke="currentColor"
-                                    stroke-width="9"
-                                    stroke-linecap="round"/>
-                            <!-- белый кружок указателя -->
+                                  x2={rOuter} y2="0"
+                                  stroke="currentColor"
+                                  stroke-width="9"
+                                  stroke-linecap="round" />
                             <circle cx={rOuter} cy="0"
                                     r={VB * 0.028}
                                     fill="var(--bg)"
                                     stroke="currentColor"
                                     stroke-opacity="0.55"
-                                    stroke-width="3"/>
+                                    stroke-width="3" />
 
                             {#if pointerEmoji}
                                 <text class="roleEmoji roleEmojiPointer"
-                                        x={rOuter} y="0"
-                                        text-anchor="middle"
-                                        dominant-baseline="middle">
+                                      x={rOuter} y="0"
+                                      text-anchor="middle"
+                                      dominant-baseline="middle">
                                     {pointerEmoji}
                                 </text>
                             {/if}
@@ -850,27 +853,27 @@
                     {:else}
                         <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
                     {/if}
-
                 </svg>
+
                 <div class="cycleNav">
                     <button class="cycleUp navBtn" title="Next Cycle" on:click={() => shiftCycle(1)}>▲</button>
                     <button class="cycleDown navBtn" title="Previous Cycle" on:click={() => shiftCycle(-1)}>▼</button>
                 </div>
             </div>
 
-                {#if $tipState.open && $tipState.payload}
-                    <CycleTooltip
-                            x={$tipState.x}
-                            y={$tipState.y}
-                            payload={$tipState.payload}
-                            onPickTs={handleMarkerPick}
-                            onClose={tip.closeNow}
-                            onEnter={tip.keepOpen}
-                            onLeave={tip.scheduleClose}
-                    />
-                {/if}
-            </section>
-        </div>
+            {#if $tipState.open && $tipState.payload}
+                <CycleTooltip
+                        x={$tipState.x}
+                        y={$tipState.y}
+                        payload={$tipState.payload}
+                        onPickTs={handleMarkerPick}
+                        onClose={tip.closeNow}
+                        onEnter={tip.keepOpen}
+                        onLeave={tip.scheduleClose}
+                />
+            {/if}
+        </section>
+    </div>
 
     <div class="info">
         <div class="infoRow">
@@ -880,9 +883,9 @@
                     title={solveOk ? `Go to ${activeSpokeLabel}` : solveReason || 'Solve failed'}
                     disabled={!solveOk}
                     on:click={() => {
-                      const t = spokeTimes?.[activeSpokeIndex];
-                      if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
-                    }}>
+                    const t = spokeTimes?.[activeSpokeIndex];
+                    if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
+                }}>
                 <div class="infoLabel">
                     <span class="labelText">Spoke</span>
                     <span class="chip">{activeSpokeLabel}</span>
@@ -890,6 +893,7 @@
                 <div class="infoValue">{solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}</div>
             </button>
         </div>
+
         <div class="infoRow">
             <div
                     class="infoLine"
@@ -899,11 +903,11 @@
                     class:disabledLine={!solveOk}
                     on:click={() => Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin')}
                     on:keydown={(e) => {
-                      if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
+                    if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
                         e.preventDefault();
                         Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin');
-                      }
-                    }}>
+                    }
+                }}>
                 <div class="infoLabel">
                     <span class="labelText">Begin</span>
                     <span class="chip">E</span>
@@ -921,11 +925,11 @@
                     class:disabledLine={!solveOk}
                     on:click={() => Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd')}
                     on:keydown={(e) => {
-                      if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
+                    if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
                         e.preventDefault();
                         Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd');
-                      }
-                    }}>
+                    }
+                }}>
                 <div class="infoLabel">
                     <span class="labelText">End</span>
                     <span class="chip">E+</span>
@@ -950,18 +954,20 @@
                             value={wheelLoc}
                             locked={observer.locked}
                             onChange={(loc, meta) => {
-              onUserActivity();
-              const patch: Partial<WheelObserverState> = {
-                locationId: meta.savedId,
-                locked: meta.lockOnApply ? true : observer.locked
-              };
-              dbg.log?.('Cycle.location.apply', { patch });
-              boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
-            }}
+                            onUserActivity();
+                                const patch: Partial<WheelObserverState> = {
+                                    locationId: meta.savedId,
+                                    locked: meta.lockOnApply ? true : observer.locked
+                                };
+                                dbg.log?.('Cycle.location.apply', { patch, wheelId, solveKey });
+                                if (!wheelId) return;
+                                boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
+                            }}
                             onToggleLock={(next) => {
-              onUserActivity();
-              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
-            }}
+                                onUserActivity();
+                                if (!wheelId) return;
+                                boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
+                            }}
                     />
                 </div>
             </div>
@@ -974,17 +980,19 @@
                         locked={time.locked}
                         liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                         onChange={(next, meta) => {
-            onUserActivity();
-            const patch: Partial<WheelTimeState> =
-              next.live
-                ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
-          }}
+                            onUserActivity();
+                            const patch: Partial<WheelTimeState> =
+                                next.live
+                                    ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                                    : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+                            if (!wheelId) return;
+                            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
+                        }}
                         onToggleLock={(next) => {
-            onUserActivity();
-            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
-          }}
+                            onUserActivity();
+                            if (!wheelId) return;
+                            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
+                        }}
                 />
             </div>
         </div>

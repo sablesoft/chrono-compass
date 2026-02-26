@@ -6,6 +6,7 @@
     import { CYCLE_META } from '../lib/cycle/meta';
     import { getWheelEntry } from '../lib/board/registry';
 
+    import WheelPicker from "./WheelPicker.svelte";
     import Compass from './Compass.svelte';
     import Wheel from './Wheel.svelte';
     import Cycle from './Cycle.svelte';
@@ -15,16 +16,24 @@
 
     // TODO - legacy wheel cycles
     import { cycles } from '../lib/stores/cycle';
-    import WheelPicker from "./WheelPicker.svelte";
     import {DEFAULT_LOCATION_ID} from "../lib/location/types";
 
     export let lat: number;
     export let lon: number;
     export let selectedTs: number;
 
-    function pickComponent(w: BoardWheel) {
+    const compCache = new Map<string, any>();
+
+    function pickComponentStable(w: BoardWheel) {
+        const id = w.solveKey;
+        const cached = compCache.get(id);
+        if (cached) return cached;
+
         const entry = getWheelEntry(w.wheelType);
-        return entry.ui === 'compass' ? Compass : Cycle;
+        const Comp = entry.ui === 'compass' ? Compass : Cycle;
+
+        compCache.set(id, Comp);
+        return Comp;
     }
 
     // стабильный порядок на всякий — boardItems уже отсортирован, но лучше не надеяться
@@ -37,8 +46,6 @@
         return { w, loc: resolveLocationById(id) };
     });
 
-    // если позже появится несколько виджетов — можно будет тут сортировать/фильтровать
-
     // TODO - legacy wheel cycles
     $: cyclesOrdered = ($cycles ?? [])
         .slice()
@@ -46,12 +53,12 @@
 
     $: itemsViewWithComp = itemsView.map((row) => ({
         ...row,
-        Comp: pickComponent(row.w)
+        Comp: pickComponentStable(row.w)
     }));
 </script>
 
 <section class="grid">
-    {#each itemsViewWithComp as row (row.w.wheelId)}
+    {#each itemsViewWithComp as row (row.w.id)}
         <div class="cell" animate:flip={{ duration: 500 }}>
             <svelte:component this={row.Comp} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
         </div>

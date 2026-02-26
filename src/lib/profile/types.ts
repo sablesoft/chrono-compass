@@ -8,7 +8,7 @@ import type {BoardWheel} from "../board/types";
 export type ProfileId = string;
 
 export type SavedWheel = {
-    id: string;               // deterministic: makeWheelId(type, roles, observer, time)
+    id: string;               // deterministic: makeSolveKey(type, roles, observer, time)
     type: WheelType;
     title: string;
     roles: WheelRolesState;

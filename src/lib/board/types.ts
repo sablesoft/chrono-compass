@@ -5,7 +5,8 @@ import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 
 
 export type BoardWheel = {
-    wheelId: string;          // deterministic
+    id: string;
+    solveKey: string;          // deterministic
 
     wheelType: WheelType;
     title: string;
@@ -17,4 +18,3 @@ export type BoardWheel = {
     order: number;
     size?: number;
 };
-
