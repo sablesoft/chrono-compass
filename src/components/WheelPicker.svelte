@@ -10,24 +10,23 @@
         type WheelSpec,
         type WheelType
     } from '../lib/catalog';
-    import {filteredRoles, wheels} from '../lib/catalog';
-    import {currentLocationId, resolveLocationById} from '../lib/location/store';
+    import { filteredRoles, wheels } from '../lib/catalog';
+    import { currentLocationId, resolveLocationById, currentLocation } from '../lib/location/store';
 
-    import {boardApi} from '../lib/board/store';
-    import {makeSolveKey} from '../lib/wheel/id';
-    import {formatWheelSpec, typeLabel} from '../lib/wheel/control';
-    import {debug} from '../lib/debug';
+    import { boardApi } from '../lib/board/store';
+    import { makeDedupKey } from '../lib/profile/dedup';
+    import { formatWheelSpec, typeLabel } from '../lib/wheel/control';
+    import { debug } from '../lib/debug';
 
     // profiles (saved wheels)
-    import {activeProfile} from '../lib/profile/store';
-    import type {SavedWheel} from '../lib/profile/types';
-    import {DEFAULT_LOCATION_ID} from "../lib/location/types";
-    import {DEFAULT_TIME} from "../lib/time/types";
+    import { activeProfile } from '../lib/profile/store';
+    import type { SavedWheel } from '../lib/profile/types';
+
+    import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
+    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
+    import { DEFAULT_TIME } from '../lib/time/types';
 
     import LocationPicker from './LocationPicker.svelte';
-    import type { WheelObserverState } from '../lib/wheel/types';
-    import type { Location } from '../lib/location/types';
-    import { currentLocation } from '../lib/location/store';
 
     const dbg = debug('wheel', '?');
 
@@ -55,6 +54,9 @@
     // title
     let draftTitle = '';
 
+    // time (no UI for now, but saved wheels may carry time)
+    let timeDraft: WheelTimeState = { ...DEFAULT_TIME };
+
     // -------------------------
     // Saved wheels (from profile)
     // -------------------------
@@ -72,7 +74,8 @@
         savedList = list;
     }
 
-    let pickedSavedId = '';
+    // UI select state (Saved)
+    let pickedSavedId = ''; // this is SavedWheel.dedupKey
 
     function savedLabel(w: SavedWheel): string {
         const t = (w.type ?? '') as string;
@@ -119,6 +122,7 @@
         multiTarget = false;
         draftTitle = '';
         observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
+        timeDraft = { ...DEFAULT_TIME };
         lastGlobalLocId = '';
     }
 
@@ -146,6 +150,8 @@
 
         type = nextType;
         resetObserverDraftForType(type);
+        timeDraft = { ...DEFAULT_TIME };
+
         spec = wheels[type];
 
         values = { looker: null, focus: null, target: [] };
@@ -167,12 +173,16 @@
             return;
         }
 
-        // set type/spec first (but do NOT wipe everything like initForType)
+        // set type/spec first
         type = t;
         spec = wheels[type];
-        resetObserverDraftForType(type);
+
         required = requiredRoles(spec);
         multiTarget = (spec as any).multiTarget === true;
+
+        // observer/time come from saved wheel (so it's really “that preset”)
+        observerDraft = w.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false };
+        timeDraft = w.time ?? { ...DEFAULT_TIME };
 
         // title
         draftTitle = (w.title ?? '').trim() || '-';
@@ -201,18 +211,17 @@
 
     function handlePickSaved(e: Event) {
         const el = e.currentTarget as HTMLSelectElement | null;
-        const id = el?.value ?? '';
-        pickedSavedId = id;
+        const dedupKey = el?.value ?? '';
+        pickedSavedId = dedupKey;
 
-        if (!id) return;
+        if (!dedupKey) return;
 
-        const w = savedList.find(x => x.id === id) ?? null;
+        const w = savedList.find(x => x.dedupKey === dedupKey) ?? null;
         dbg.group('WheelPicker.pickSaved', () => {
-            dbg.log('picked', { profileId: $activeProfile?.id, id, type: w?.type, title: w?.title });
+            dbg.log('picked', { profileId: $activeProfile?.id, dedupKey, type: w?.type, title: w?.title });
         });
 
         if (!w) return;
-
         applySavedWheel(w);
     }
 
@@ -220,13 +229,11 @@
         onUserActivity();
         if (!spec || !type) return;
 
-        // сброс значений ролей, но type/spec оставляем
         values = { looker: null, focus: null, target: [] };
         draftTitle = '';
-
-        // clear saved pick because now it's not the same config anymore
         pickedSavedId = '';
 
+        // keep observer/time as-is (type-specific defaults already applied)
         selects = { looker: [], focus: [], target: [] };
         rebuild();
     }
@@ -253,20 +260,40 @@
 
     function addWheel() {
         if (!spec || !type) return;
+        if (!canAddNow) return;
 
         onUserActivity();
 
-        const nextTitle = (draftTitle ?? '').trim() || '-';
-        console.log('ADD WHEEL', { type, values, nextTitle });
+        // If there's a matching saved wheel (auto or picked) — use it as the source of truth
+        const src = savedToApplyOnAdd;
 
-        boardApi.upsertWheel(
-            { mode: 'upsertByKey' },
+        const finalType: WheelType = (src?.type ?? type) as WheelType;
+        const finalRoles: any = (src?.roles ?? values) as any;
+
+        const finalObserver: WheelObserverState = (src?.observer ?? observerDraft) as any;
+        const finalTime: WheelTimeState = (src?.time ?? timeDraft) as any;
+
+        // Title rules:
+        // - If saved wheel matched: use its title (fallback '-')
+        // - Else use draftTitle (fallback '-')
+        const finalTitle =
+            (src ? (src.title ?? '') : (draftTitle ?? '')).trim() || '-';
+
+        dbg.log('WheelPicker.add', {
+            finalType,
+            finalRoles,
+            finalTitle,
+            fromSaved: !!src,
+            savedKey: src?.dedupKey ?? null
+        });
+
+        boardApi.addWheel(
             {
-                wheelType: type as any,
-                roles: values as any,
-                title: nextTitle,
-                observer: observerDraft,
-                time: DEFAULT_TIME
+                wheelType: finalType as any,
+                roles: finalRoles,
+                title: finalTitle,
+                observer: finalObserver,
+                time: finalTime
             },
             'WheelPicker.add'
         );
@@ -287,7 +314,6 @@
 
         if (isControlEl(e.target)) return true;
 
-        // If the event originated inside a control, it will be in the composedPath
         for (const node of path) {
             if (isControlEl(node)) return true;
         }
@@ -316,12 +342,15 @@
             : !!values[r]
         );
 
-    $: rolesForId = {
+    $: rolesForDedup = {
         looker: values.looker,
         focus: values.focus,
         target: multiTarget ? values.target : (values.target[0] ?? null),
     };
 
+    // -------------------------
+    // observer draft (location UI only for compass/horizon)
+    // -------------------------
     function resetObserverDraftForType(t: WheelType | null) {
         if (t === 'compass' || t === 'horizon') {
             observerDraft = { locationId: $currentLocationId || DEFAULT_LOCATION_ID, locked: false };
@@ -339,18 +368,15 @@
     $: {
         const g = ($currentLocationId || DEFAULT_LOCATION_ID);
 
-        // обновим lastGlobalLocId при первом проходе
         if (!lastGlobalLocId) lastGlobalLocId = g;
 
         const needsObserverUi = type === 'compass' || type === 'horizon';
 
         if (needsObserverUi) {
-            // если пользователь НЕ залочил — следуем за глобальной
             if (!observerDraft.locked) {
                 observerDraft = { ...observerDraft, locationId: g };
             }
         } else {
-            // для всех циклов/прочих типов всегда loc:system (и не держим “старую” локацию)
             observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
         }
 
@@ -362,26 +388,43 @@
             ? resolveLocationById(observerDraft.locationId)
             : null;
 
-    $: cfgId = hasAll && type
-        ? makeSolveKey(type, rolesForId, observerDraft, DEFAULT_TIME)
+    // -------------------------
+    // dedupKey for “match saved preset” (NOT board)
+    // -------------------------
+    $: cfgDedupKey = (hasAll && type)
+        ? makeDedupKey(type, rolesForDedup as any, observerDraft, timeDraft)
         : '';
-    $: existsOnBoard = !!cfgId && boardApi.hasSolveKey(cfgId);
 
-    $: canAddNow = !!type && hasAll && !existsOnBoard;
+    // best matching saved wheel for current config
+    $: matchedSaved =
+        cfgDedupKey
+            ? (savedList.find(w => w.dedupKey === cfgDedupKey) ?? null)
+            : null;
 
-    let titlePlaceholder = '';
-    $: titlePlaceholder = type && spec
-        ? formatWheelSpec(type, values as any)
-        : '';
+    // what to use on Add: explicit picked > auto matched
+    $: pickedSaved =
+        pickedSavedId
+            ? (savedList.find(w => w.dedupKey === pickedSavedId) ?? null)
+            : null;
+
+    $: savedToApplyOnAdd = pickedSaved ?? matchedSaved;
+
+    // Auto-highlight saved wheel in selector when current config matches a saved preset.
+    // Don’t override a user-picked value; we only fill when empty.
+    $: if (open && !pickedSavedId && cfgDedupKey && savedList.some(w => w.dedupKey === cfgDedupKey)) {
+        pickedSavedId = cfgDedupKey;
+    }
+
+    $: canAddNow = !!type && hasAll;
 </script>
 
 <section class="panel addWheel"
-        class:open={open}
-        role="button"
-        tabindex="0"
-        aria-label="Add wheel"
-        on:click={() => { if (!open) openForm(); }}
-        on:keydown={handlePanelKeydown}>
+         class:open={open}
+         role="button"
+         tabindex="0"
+         aria-label="Add wheel"
+         on:click={() => { if (!open) openForm(); }}
+         on:keydown={handlePanelKeydown}>
     {#if !open}
         <div class="plusWrap" aria-hidden="true">
             <div class="plusCircle">
@@ -390,7 +433,7 @@
         </div>
     {:else}
         <header class="top" on:click|stopPropagation>
-                <div class="left">
+            <div class="left">
                 <div class="title">Add Wheel</div>
                 <div class="sub">Build a wheel and drop it onto the board</div>
             </div>
@@ -401,13 +444,18 @@
         </header>
 
         <div class="form" on:click|stopPropagation>
-            <!-- NEW: Saved selector (before Type) -->
+            <!-- Saved selector -->
             <div class="row">
                 <label class="lbl">Saved</label>
-                <select class="sel" bind:value={pickedSavedId} on:change={handlePickSaved} disabled={savedList.length === 0}>
+                <select
+                        class="sel"
+                        bind:value={pickedSavedId}
+                        on:change={handlePickSaved}
+                        disabled={savedList.length === 0}
+                >
                     <option value="">{savedList.length === 0 ? '— (empty)' : '—'}</option>
-                    {#each savedList as w (w.id)}
-                        <option value={w.id}>
+                    {#each savedList as w (w.dedupKey)}
+                        <option value={w.dedupKey}>
                             {savedLabel(w)}
                         </option>
                     {/each}
@@ -427,23 +475,25 @@
 
             {#if type && spec}
                 {#if type === 'compass' || type === 'horizon'}
-                    <LocationPicker value={observerLoc}
+                    <LocationPicker
+                            value={observerLoc}
                             locked={observerDraft.locked}
                             onChange={(loc, meta) => {
-                              onUserActivity();
+                            onUserActivity();
 
-                              const globalId = ($currentLocationId || DEFAULT_LOCATION_ID);
-                              const isDifferentFromGlobal = loc.id !== globalId;
-                              const shouldLock = meta.lockOnApply === true || isDifferentFromGlobal;
+                            const globalId = ($currentLocationId || DEFAULT_LOCATION_ID);
+                            const isDifferentFromGlobal = loc.id !== globalId;
+                            const shouldLock = meta.lockOnApply === true || isDifferentFromGlobal;
 
-                              observerDraft = { locationId: meta.savedId, locked: shouldLock };
-                              pickedSavedId = '';
-                            }}
+                            observerDraft = { locationId: meta.savedId, locked: shouldLock };
+                            pickedSavedId = '';
+                        }}
                             onToggleLock={(next) => {
-                              onUserActivity();
-                              observerDraft = { ...observerDraft, locked: next };
-                              pickedSavedId = '';
-                            }}/>
+                            onUserActivity();
+                            observerDraft = { ...observerDraft, locked: next };
+                            pickedSavedId = '';
+                        }}
+                    />
                 {/if}
 
                 <div class="row">
@@ -523,10 +573,6 @@
                     </div>
                 {/if}
 
-                {#if existsOnBoard}
-                    <div class="existsNote">⚠ This wheel already exists on board.</div>
-                {/if}
-
                 <footer class="bottom">
                     <button type="button" class="btn ghost" on:click={closeForm}>Cancel</button>
                     <button
@@ -546,7 +592,6 @@
 </section>
 
 <style>
-    /* Match the same “card” silhouette as Wheel/Cycle/Compass */
     .panel {
         border: 1px solid var(--panel-border);
         background: var(--panel);
@@ -558,14 +603,12 @@
         transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
 
-    /* КОГДА ПИКЕР ЗАКРЫТ — делаем его “как карточка”, и центрируем плюс */
     .panel:not(.open) {
         min-height: clamp(420px, 40vw, 620px);
         display: grid;
         place-items: center;
     }
 
-    /* КОГДА ОТКРЫТ — возвращаем нормальную “формовую” раскладку */
     .panel.open {
         display: block;
         cursor: default;
@@ -681,16 +724,6 @@
     .selMulti {
         min-height: 120px;
         padding: 8px 10px;
-    }
-
-    .existsNote {
-        font-size: 12px;
-        font-weight: 750;
-        opacity: 0.8;
-        padding: 8px 10px;
-        border-radius: 12px;
-        border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 60%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 14%);
     }
 
     .bottom {

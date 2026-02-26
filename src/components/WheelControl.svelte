@@ -1,31 +1,31 @@
 <!-- src/components/WheelControl.svelte -->
 <script lang="ts">
-    import { onDestroy, onMount } from 'svelte';
-    import type { ObjId, WheelType, WheelSpec, RoleName } from '../lib/catalog';
-    import { objects, wheels } from '../lib/catalog';
+    import {onDestroy, onMount} from 'svelte';
+    import type {ObjId, RoleName, WheelSpec, WheelType} from '../lib/catalog';
+    import {objects, wheels} from '../lib/catalog';
 
     import {
-        hasRoleValue,
-        isMultiTarget,
-        type WheelRolesState,
-        rolesUsedBySpec,
-        optionsForRole,
-        normalizeRolesForType,
-        isCompatible,
         formatWheelSpec,
-        shallowEqualRoles
+        hasRoleValue,
+        isCompatible,
+        isMultiTarget,
+        normalizeRolesForType,
+        optionsForRole,
+        rolesUsedBySpec,
+        shallowEqualRoles,
+        type WheelRolesState
     } from '../lib/wheel/control';
 
-    import { debug } from '../lib/debug';
+    import {debug} from '../lib/debug';
 
     // profiles (saved wheels live here now)
-    import { activeProfile, profilesApi } from '../lib/profile/store';
-    import type { SavedWheel } from '../lib/profile/types';
+    import {activeProfile, profilesApi} from '../lib/profile/store';
+    import type {SavedWheel} from '../lib/profile/types';
+    import {makeDedupKey} from '../lib/profile/dedup';
 
     // board
-    import { boardApi } from '../lib/board/store';
-    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
-    import { makeWheelId } from '../lib/wheel/id';
+    import {boardApi} from '../lib/board/store';
+    import type {WheelObserverState, WheelTimeState} from '../lib/wheel/types';
 
     const dbg = debug('control', '🧩');
 
@@ -34,8 +34,10 @@
     export let roles: WheelRolesState = {};
     export let title: string = '';
 
-    // base wheel context (needed for New + board key check)
-    export let baseWheelId: string;
+    // base wheel context:
+    // - baseId is the REAL identity on board (stable, unique per instance)
+    // - baseObserver/baseTime participate in dedupKey for profile saves
+    export let baseId: string;
     export let baseObserver: WheelObserverState;
     export let baseTime: WheelTimeState;
 
@@ -82,8 +84,7 @@
     // -----------------------------------------
     let savedList: SavedWheel[] = [];
     $: {
-        const p = $activeProfile;
-        const list = (p?.data?.wheels ?? []).filter(w => w.type === type);
+        const list = ($activeProfile?.data?.wheels ?? []).filter(w => w.type === type);
 
         list.sort((a, b) => {
             const af = !!a.favorite;
@@ -96,24 +97,20 @@
     }
 
     // UI select state (for loading into draft)
-    let pickedSavedId = '';
+    let pickedSavedKey = '';
 
-    // current config id from draft (for "is saved?" + delete/fav on match)
-    let currentCfgId = '';
-    $: currentCfgId = makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime);
+    // current config dedupKey from draft (for "is saved?" + delete/fav on match)
+    let currentCfgKey = '';
+    $: currentCfgKey = makeDedupKey(type, effectiveDraftRoles, baseObserver, baseTime);
 
     let currentSaved: SavedWheel | null = null;
-    $: currentSaved = savedList.find(w => w.id === currentCfgId) ?? null;
+    $: currentSaved = savedList.find(w => w.dedupKey === currentCfgKey) ?? null;
 
     let isSaved = false;
     $: isSaved = currentSaved != null;
 
     let isFav = false;
     $: isFav = !!currentSaved?.favorite;
-
-    // board existence check for this exact wheelId
-    let existsOnBoard = false;
-    $: existsOnBoard = !!currentCfgId && boardApi.hasWheelId(currentCfgId);
 
     // validity / dirty
     let draftCompatible = false;
@@ -124,50 +121,43 @@
     $: hasAllRolesOk = usedRoles.every(r => hasRoleValue(spec, r, effectiveDraftRoles[r]));
     $: isDirty = !shallowEqualRoles(roles, effectiveDraftRoles) || (title ?? '') !== (draftTitle ?? '');
 
-    // Update is only meaningful if dirty + valid + AND not conflicting with other wheel on board.
-    // If config matches some existing wheelId on board, Update would collide unless it's the same wheel.
+    // Update: applies to THIS board wheel instance (baseId). Duplicates are allowed on board -> no "exists" checks.
     let canUpdate = false;
-    $: canUpdate =
-        hasAllRolesOk &&
-        draftCompatible &&
-        isDirty &&
-        (!existsOnBoard || currentCfgId === baseWheelId);
+    $: canUpdate = hasAllRolesOk && draftCompatible && isDirty;
 
-    // New: valid config + must not already exist on board
+    // New: always allowed when config is valid (board can have duplicates)
     let canNew = false;
-    $: canNew = hasAllRolesOk && draftCompatible && !existsOnBoard;
+    $: canNew = hasAllRolesOk && draftCompatible;
 
     function openModal() {
         dbg.log('WheelPicker.open', { type });
 
         dbg.group('WheelControl.openModal.snapshot', () => {
             const rolesTarget = (roles as any)?.target;
-            const savedIds = savedList.map(w => w.id);
+            const savedKeys = savedList.map(w => w.dedupKey);
+
             dbg.log('props', {
                 type,
                 title,
                 roles,
                 rolesTarget,
                 rolesTargetType: Array.isArray(rolesTarget) ? 'array' : typeof rolesTarget,
-                baseWheelId,
+                baseId,
                 baseObserver,
                 baseTime,
-                savedListLen: savedList.length,
-                savedHasBaseWheelId: savedIds.includes(baseWheelId),
+                savedListLen: savedList.length
             });
 
-            // ВАЖНО: сравним id, который считаем от props.roles, и тот, который база
             let computedFromProps = '';
             try {
-                computedFromProps = makeWheelId(type, roles, baseObserver, baseTime);
+                computedFromProps = makeDedupKey(type, roles, baseObserver, baseTime);
             } catch (e) {
-                dbg.warn('makeWheelId(props.roles) threw', { e });
+                dbg.warn('makeDedupKey(props.roles) threw', { e });
             }
-            dbg.log('ids', {
-                baseWheelId,
+
+            dbg.log('dedup', {
                 computedFromProps,
-                equal: computedFromProps === baseWheelId,
-                savedHasComputedFromProps: savedIds.includes(computedFromProps),
+                savedHasComputedFromProps: savedKeys.includes(computedFromProps)
             });
         });
 
@@ -180,7 +170,6 @@
             draftTargets = Array.isArray(t) ? (t as ObjId[]) : (t ? [t as ObjId] : []);
             draftRoles = { ...roles, target: draftTargets };
         } else {
-            // SINGLE TARGET WHEELS:
             const t = roles.target;
             const one = Array.isArray(t) ? (t[0] ?? null) : (t ?? null);
 
@@ -188,8 +177,8 @@
             draftRoles = { ...roles, target: one };
         }
 
-        const appliedId = makeWheelId(type, roles, baseObserver, baseTime);
-        pickedSavedId = savedList.some(w => w.id === appliedId) ? appliedId : '';
+        const appliedKey = makeDedupKey(type, roles, baseObserver, baseTime);
+        pickedSavedKey = savedList.some(w => w.dedupKey === appliedKey) ? appliedKey : '';
 
         dbg.group('WheelControl.openModal.afterDraftSet', () => {
             dbg.log('derived', {
@@ -197,10 +186,9 @@
                 usedRoles,
                 draftRoles,
                 draftTargets,
-                effectiveDraftRoles,
+                effectiveDraftRoles
             });
 
-            // Проверяем валидаторы на этом же снапшоте
             let compat = false;
             let allOk = false;
             try { compat = isCompatible(spec, effectiveDraftRoles); } catch (e) { dbg.warn('isCompatible threw', { e }); }
@@ -208,7 +196,6 @@
 
             dbg.log('validity', { compat, allOk });
 
-            // Что дают optionsForRole — ключевое для твоего "пусто в focus/target"
             const opts: Record<string, any> = {};
             for (const r of usedRoles) {
                 try {
@@ -220,10 +207,9 @@
             }
             dbg.log('options', opts);
 
-            // Идентификатор от draft (именно он участвует в currentCfgId)
             let computedFromDraft = '';
-            try { computedFromDraft = makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime); } catch {}
-            dbg.log('draftId', { computedFromDraft });
+            try { computedFromDraft = makeDedupKey(type, effectiveDraftRoles, baseObserver, baseTime); } catch {}
+            dbg.log('draftDedupKey', { computedFromDraft });
         });
 
         open = true;
@@ -246,7 +232,7 @@
         draftRoles = { ...draftRoles };
         if (multiTarget) draftTargets = [];
         draftTitle = '';
-        pickedSavedId = '';
+        pickedSavedKey = '';
     }
 
     function resetDraft() {
@@ -265,8 +251,8 @@
             draftRoles = { ...initialRoles, target: one };
         }
 
-        const id = makeWheelId(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles, baseObserver, baseTime);
-        pickedSavedId = savedList.some(w => w.id === id) ? id : '';
+        const k = makeDedupKey(type, multiTarget ? { ...initialRoles, target: draftTargets } : initialRoles, baseObserver, baseTime);
+        pickedSavedKey = savedList.some(w => w.dedupKey === k) ? k : '';
     }
 
     function setRole(role: RoleName, value: string) {
@@ -283,7 +269,7 @@
             draftRoles = { ...normalized, target: draftRoles.target };
         }
 
-        pickedSavedId = '';
+        pickedSavedKey = '';
     }
 
     function handleRoleChange(role: RoleName, e: Event) {
@@ -305,7 +291,7 @@
         draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
         draftRoles = { ...normalized, target: draftRoles.target };
 
-        pickedSavedId = '';
+        pickedSavedKey = '';
     }
 
     function updateExisting() {
@@ -314,14 +300,12 @@
         const nextTitle = (draftTitle ?? '').trim();
         const nextRoles = effectiveDraftRoles;
 
-        dbg.log('WheelPicker.update', { type, roles: nextRoles, title: nextTitle, baseWheelId });
+        dbg.log('WheelPicker.update', { type, roles: nextRoles, title: nextTitle, baseId });
 
-        // keep old hook (parent might update UI title etc.)
+        // parent hook (UI title etc.)
         onApply({ roles: nextRoles, title: nextTitle });
-
-        // ensure board updated (safe even if parent also does it; upsertWheel will compute id)
-        boardApi.upsertWheel(
-            { mode: 'updateById', wheelId: baseWheelId },
+        boardApi.updateWheelById(
+            baseId,
             { wheelType: type, roles: nextRoles, title: nextTitle },
             'WheelPicker.update'
         );
@@ -336,9 +320,7 @@
         const nextRoles = effectiveDraftRoles;
 
         dbg.log('WheelPicker.new', { type, roles: nextRoles, title: nextTitle });
-
-        boardApi.upsertWheel(
-            { mode: 'upsertByKey' },
+        boardApi.addWheel(
             { wheelType: type, roles: nextRoles, title: nextTitle, observer: baseObserver, time: baseTime },
             'WheelPicker.new'
         );
@@ -367,15 +349,15 @@
 
     function handlePickSaved(e: Event) {
         const el = e.currentTarget as HTMLSelectElement | null;
-        const id = el?.value ?? '';
-        pickedSavedId = id;
+        const k = el?.value ?? '';
+        pickedSavedKey = k;
 
-        if (!id) return;
+        if (!k) return;
 
-        const w = savedList.find(x => x.id === id) ?? null;
+        const w = savedList.find(x => x.dedupKey === k) ?? null;
 
         dbg.group('WheelPicker.pickSaved', () => {
-            dbg.log('picked', { profileId: $activeProfile?.id, type, id, wheel: w?.title });
+            dbg.log('picked', { profileId: $activeProfile?.id, type, dedupKey: k, wheel: w?.title });
         });
 
         if (!w) return;
@@ -406,25 +388,32 @@
         }
 
         const t = (draftTitle ?? '').trim() || formatWheelSpec(type, effectiveDraftRoles);
-        const savedId = profilesApi.saveWheel({ type, title: t, roles: effectiveDraftRoles, observer: baseObserver, time: baseTime});
 
-        dbg.log('WheelPicker.saved', { id: savedId, title: t });
-        pickedSavedId = savedId || makeWheelId(type, effectiveDraftRoles, baseObserver, baseTime);
+        const dedupKey = profilesApi.saveWheel({
+            type,
+            title: t,
+            roles: effectiveDraftRoles,
+            observer: baseObserver,
+            time: baseTime
+        });
+
+        dbg.log('WheelPicker.saved', { dedupKey, title: t });
+        pickedSavedKey = dedupKey || makeDedupKey(type, effectiveDraftRoles, baseObserver, baseTime);
     }
 
     function deleteCurrentConfig() {
         if (!currentSaved) return;
 
-        profilesApi.deleteWheel(currentSaved.id);
-        dbg.log('WheelPicker.deleted', { id: currentSaved.id });
+        profilesApi.deleteWheel(currentSaved.dedupKey);
+        dbg.log('WheelPicker.deleted', { dedupKey: currentSaved.dedupKey });
 
-        if (pickedSavedId === currentSaved.id) pickedSavedId = '';
+        if (pickedSavedKey === currentSaved.dedupKey) pickedSavedKey = '';
     }
 
     function toggleFavCurrent() {
         if (!currentSaved) return;
-        profilesApi.setWheelFavorite(currentSaved.id, !currentSaved.favorite);
-        dbg.log('WheelPicker.favorite', { id: currentSaved.id, value: !currentSaved.favorite });
+        profilesApi.setWheelFavorite(currentSaved.dedupKey, !currentSaved.favorite);
+        dbg.log('WheelPicker.favorite', { dedupKey: currentSaved.dedupKey, value: !currentSaved.favorite });
     }
 
     let __lastSig = '';
@@ -439,13 +428,12 @@
             usedRoles,
             draftCompatible,
             hasAllRolesOk,
-            currentCfgId,
-            baseWheelId,
-            pickedSavedId,
-            savedMatch: savedList.some(w => w.id === currentCfgId),
-            existsOnBoard,
+            currentCfgKey,
+            baseId,
+            pickedSavedKey,
+            savedMatch: savedList.some(w => w.dedupKey === currentCfgKey),
             canUpdate,
-            canNew,
+            canNew
         };
         const sig = JSON.stringify(sigObj);
         if (sig !== __lastSig) {
@@ -484,10 +472,10 @@
                     <label class="lbl" for={idSaved}>Saved</label>
 
                     <div class="savedRow">
-                        <select id={idSaved} class="sel" on:change={handlePickSaved} bind:value={pickedSavedId}>
+                        <select id={idSaved} class="sel" on:change={handlePickSaved} bind:value={pickedSavedKey}>
                             <option value="">—</option>
-                            {#each savedList as w (w.id)}
-                                <option value={w.id}>
+                            {#each savedList as w (w.dedupKey)}
+                                <option value={w.dedupKey}>
                                     {w.favorite ? '★ ' : ''}{w.title || '(untitled)'}
                                 </option>
                             {/each}
@@ -568,10 +556,6 @@
 
                 {#if !draftCompatible && hasAllRolesOk}
                     <div class="warn">⚠ This configuration is unavailable (catalog changed). Edit roles.</div>
-                {/if}
-
-                {#if existsOnBoard && currentCfgId !== baseWheelId}
-                    <div class="existsNote">⚠ This wheel already exists on board.</div>
                 {/if}
             </div>
 
@@ -781,16 +765,6 @@
         opacity: 0.9;
     }
 
-    .existsNote {
-        font-size: 12px;
-        font-weight: 750;
-        opacity: 0.8;
-        padding: 8px 10px;
-        border-radius: 12px;
-        border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 60%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 14%);
-    }
-
     .modalBottom {
         display: flex;
         justify-content: space-between;
@@ -827,7 +801,6 @@
 
     .btn.ghost { opacity: 0.92; }
 
-    /* make disabled look consistently disabled even when the base styles are "active" */
     .btn:disabled,
     .btn.primary:disabled,
     .btn.ghost:disabled {

@@ -25,7 +25,7 @@
     const compCache = new Map<string, any>();
 
     function pickComponentStable(w: BoardWheel) {
-        const id = w.solveKey;
+        const id = w.id;
         const cached = compCache.get(id);
         if (cached) return cached;
 

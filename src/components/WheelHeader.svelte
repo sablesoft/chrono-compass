@@ -29,7 +29,7 @@
                 title={wheel.title}
                 baseObserver={wheel.observer}
                 baseTime={wheel.time}
-                baseSolveKey={wheel.solveKey}/>
+                baseId={wheelId}/>
     </div>
 
     <div class="right">

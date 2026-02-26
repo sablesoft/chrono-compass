@@ -23,7 +23,7 @@ export type UseWheelEffectiveTsOpts = {
 };
 
 export function useWheelEffectiveTs(
-    getSolveKey: () => string | null | undefined,
+    getWheelId: () => string | null | undefined,
     getTime: () => WheelTimeState | null | undefined,
     opts: UseWheelEffectiveTsOpts = {}
 ) {
@@ -76,7 +76,7 @@ export function useWheelEffectiveTs(
     }
 
     function refresh(reason = 'refresh') {
-        const solveKey = getSolveKey?.() ?? null;
+        const id = getWheelId?.() ?? null;
         const time = getTime?.() ?? null;
 
         const needLocalLive = !!time?.locked && !!time?.live;
@@ -106,13 +106,12 @@ export function useWheelEffectiveTs(
             const wantTs = want.live ? curTs : ms(Number((want as any).ts));
 
             const mismatch =
-                curLocked !== false ||
-                curLive !== !!want.live ||
+                curLocked || curLive !== want.live ||
                 (!want.live && (!Number.isFinite(curTs) || curTs !== wantTs));
 
             if (mismatch) {
                 try {
-                    opts.onSyncTime(want, `useWheelEffectiveTs:${reason}:${solveKey ?? 'noid'}`);
+                    opts.onSyncTime(want, `useWheelEffectiveTs:${reason}:${id ?? 'noid'}`);
                 } catch (e) {
                     dbg.warn?.('useWheelEffectiveTs.onSyncTime failed', e);
                 }

@@ -54,9 +54,7 @@
     // Local derived state from wheel
     // ------------------------------------------------------------
     $: wheelId = wheel?.id;
-    $: solveKey = wheel?.solveKey;
     $: roles = (wheel?.roles ?? {}) as any;
-    $: title = wheel?.title ?? '';
 
     $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;

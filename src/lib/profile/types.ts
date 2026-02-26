@@ -3,12 +3,17 @@ import type { WheelType } from '../catalog';
 import type { ObjId } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
-import type {BoardWheel} from "../board/types";
+import type { BoardWheel } from '../board/types';
 
 export type ProfileId = string;
 
+/**
+ * SavedWheel = preset stored in profile library.
+ * dedupKey is deterministic for (type+roles+observer+time) and is used ONLY inside profile
+ * to dedupe/overwrite same config.
+ */
 export type SavedWheel = {
-    id: string;               // deterministic: makeSolveKey(type, roles, observer, time)
+    dedupKey: string;
     type: WheelType;
     title: string;
     roles: WheelRolesState;
@@ -28,7 +33,7 @@ export type BodyUserOverride = {
 
 export type ProfileData = {
     wheels: SavedWheel[];
-    favorites: string[];
+    favorites: string[]; // stores dedupKey values
     bodies: Partial<Record<ObjId, BodyUserOverride>>;
 
     /** Сохранённая доска в профиле (снапшот) */

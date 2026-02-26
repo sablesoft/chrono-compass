@@ -1,7 +1,5 @@
 <!-- src/components/Cycle.svelte -->
 <script lang="ts">
-    import { onDestroy } from 'svelte';
-
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useWheelEffectiveTs } from '../lib/wheel/ui/useEffectiveTs';
@@ -30,7 +28,7 @@
     import type {CycleSpoke } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
-    import { type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
+    import { type WheelObserverState, type WheelTimeState, type SpokeKey } from '../lib/wheel/types';
 
     import { setSelectedTs } from '../lib/time/store';
 
@@ -63,9 +61,7 @@
     // ------------------------------------------------------------
     // IMPORTANT:
     // - wheelId: stable identity for UI + board mutations (must NOT depend on time/lock/etc)
-    // - solveKey: derived identity for solver/cache (CAN change when roles/observer/time change)
     $: wheelId = wheel?.id;
-    $: solveKey = wheel?.solveKey;
 
     $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
@@ -86,8 +82,6 @@
     // Effective time (UNIFIED)
     // - effTs = what solver uses
     // - also exposes globalTs/globalLive/localLiveNowTs for TimePicker UI
-    //
-    // IMPORTANT: key by wheelId so this hook does NOT restart when solveKey changes
     // ------------------------------------------------------------
     const eff = useWheelEffectiveTs(
         () => wheelId,
@@ -211,7 +205,6 @@
         solveOk = false;
         solveReason = '';
 
-        // wheelId is UI identity; solveKey is just informative here
         if (!wheel || !wheelId) {
             solveReason = 'No wheel';
             return;
@@ -556,7 +549,6 @@
             from: new Date(selectedTs).toISOString(),
             to: new Date(ms(ts0)).toISOString(),
             wheelId,
-            solveKey
         });
         setSelectedTs(ms(ts0));
         now.refresh?.(`user:${reason}`);
@@ -959,7 +951,7 @@
                                     locationId: meta.savedId,
                                     locked: meta.lockOnApply ? true : observer.locked
                                 };
-                                dbg.log?.('Cycle.location.apply', { patch, wheelId, solveKey });
+                                dbg.log?.('Cycle.location.apply', { patch, wheelId });
                                 if (!wheelId) return;
                                 boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
                             }}
