@@ -1,5 +1,6 @@
 <!-- src/components/CycleTooltip.svelte -->
 <script lang="ts">
+    import { tick } from 'svelte';
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
 
@@ -10,8 +11,18 @@
     export let onPickTs: (ts: number) => void = () => {};
     export let onClose: () => void = () => {};
 
+    // NEW: allow parent to keep tooltip open while hovering it
+    export let onEnter: () => void = () => {};
+    export let onLeave: () => void = () => {};
+
     function isFiniteNumber(v: any): v is number {
         return typeof v === 'number' && Number.isFinite(v);
+    }
+
+    // Patch 2: do not format junk as date
+    function fmtTs(v: any): string {
+        const n = typeof v === 'number' ? v : Number(v);
+        return Number.isFinite(n) ? formatDateTime(n) : '—';
     }
 
     function formatKm(km: number) {
@@ -32,10 +43,10 @@
         if (!meta) return [];
 
         // BindMeta
-        if (isFiniteNumber(meta.distanceKm) || isFiniteNumber(meta.distanceAu)) {
+        if (isFiniteNumber((meta as any).distanceKm) || isFiniteNumber((meta as any).distanceAu)) {
             return [
-                ...(isFiniteNumber(meta.distanceAu) ? [{ k: 'Distance', v: formatAu(meta.distanceAu) }] : []),
-                ...(isFiniteNumber(meta.distanceKm) ? [{ k: ' ', v: formatKm(meta.distanceKm) }] : []),
+                ...(isFiniteNumber((meta as any).distanceAu) ? [{ k: 'Distance', v: formatAu((meta as any).distanceAu) }] : []),
+                ...(isFiniteNumber((meta as any).distanceKm) ? [{ k: ' ', v: formatKm((meta as any).distanceKm) }] : []),
             ];
         }
 
@@ -52,19 +63,65 @@
 
         return [];
     }
+
+    // --- NEW: viewport clamping (prevent going off-screen) ---
+    let el: HTMLDivElement | null = null;
+    let posX = 0;
+    let posY = 0;
+
+    const OFFSET = 12; // cursor offset
+    const MARGIN = 10; // viewport margin
+
+    async function recomputePosition() {
+        await tick();
+        if (!el) {
+            posX = x + OFFSET;
+            posY = y + OFFSET;
+            return;
+        }
+
+        const r = el.getBoundingClientRect();
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+
+        // default: show to the bottom-right of cursor
+        let nx = x + OFFSET;
+        let ny = y + OFFSET;
+
+        // clamp right
+        if (nx + r.width + MARGIN > vw) nx = Math.max(MARGIN, vw - r.width - MARGIN);
+
+        // clamp bottom: try above cursor first
+        if (ny + r.height + MARGIN > vh) {
+            const up = y - OFFSET - r.height;
+            ny = up >= MARGIN ? up : Math.max(MARGIN, vh - r.height - MARGIN);
+        }
+
+        // final clamp
+        nx = Math.min(Math.max(MARGIN, nx), Math.max(MARGIN, vw - r.width - MARGIN));
+        ny = Math.min(Math.max(MARGIN, ny), Math.max(MARGIN, vh - r.height - MARGIN));
+
+        posX = nx;
+        posY = ny;
+    }
+
+    // react to movement and content changes (content affects size)
+    $: void recomputePosition();
+    $: if (payload) void recomputePosition();
 </script>
 
 <div
         class="root"
+        bind:this={el}
         data-tooltip-root="1"
-        style={`left:${x}px; top:${y}px;`}
-        on:mouseenter
-        on:mouseleave
+        style={`left:${posX}px; top:${posY}px;`}
+        on:mouseenter={onEnter}
+        on:mouseleave={onLeave}
 >
     {#if payload}
         {#if payload.kind === 'spoke'}
             <div class="title">Spoke <span class="chip">{payload.code}</span></div>
-            <div class="dt">{formatDateTime(payload.ts)}</div>
+            <div class="dt">{fmtTs(payload.ts)}</div>
 
             {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
                 <div class="metaRow">
@@ -74,13 +131,13 @@
             {/each}
 
             <div class="actions">
-                <button type="button" class="btn" on:click={() => onPickTs(payload.ts)}>Go</button>
+                <button type="button" class="btn" on:click={() => isFiniteNumber(payload.ts) && onPickTs(payload.ts)}>Go</button>
                 <button type="button" class="btn ghost" on:click={onClose}>Close</button>
             </div>
 
         {:else if payload.kind === 'boundary'}
             <div class="title">Boundary <span class="chip">{payload.from}→{payload.to}</span></div>
-            <div class="dt">{formatDateTime(payload.ts)}</div>
+            <div class="dt">{fmtTs(payload.ts)}</div>
 
             {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
                 <div class="metaRow">
@@ -90,7 +147,7 @@
             {/each}
 
             <div class="actions">
-                <button type="button" class="btn" on:click={() => onPickTs(payload.ts)}>Go</button>
+                <button type="button" class="btn" on:click={() => isFiniteNumber(payload.ts) && onPickTs(payload.ts)}>Go</button>
                 <button type="button" class="btn ghost" on:click={onClose}>Close</button>
             </div>
 
@@ -99,12 +156,12 @@
 
             <div class="list">
                 {#each payload.moments as m, i (m.id ?? m.ts ?? i)}
-                    <button type="button" class="row" on:click={() => onPickTs(m.ts)}>
+                    <button type="button" class="row" on:click={() => isFiniteNumber(m.ts) && onPickTs(m.ts)}>
             <span class="left">
               <span class="emoji">{m.emoji ?? '•'}</span>
               <span class="lbl">{m.label}</span>
             </span>
-                        <span class="right">{formatDateTime(m.ts)}</span>
+                        <span class="right">{fmtTs(m.ts)}</span>
                     </button>
                 {/each}
             </div>
@@ -120,7 +177,6 @@
     .root{
         position: fixed;
         z-index: 9999;
-        transform: translate(12px, 12px);
         min-width: 240px;
         max-width: 360px;
         padding: 10px 12px;

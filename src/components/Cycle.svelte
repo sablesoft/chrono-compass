@@ -945,17 +945,19 @@
                 </div>
             </div>
 
-            {#if $tipState.open && $tipState.payload}
-                <CycleTooltip
-                        x={$tipState.x}
-                        y={$tipState.y}
-                        payload={$tipState.payload}
-                        onPickTs={handleMarkerPick}
-                        onClose={tip.closeNow}
-                />
-            {/if}
-        </section>
-    </div>
+                {#if $tipState.open && $tipState.payload}
+                    <CycleTooltip
+                            x={$tipState.x}
+                            y={$tipState.y}
+                            payload={$tipState.payload}
+                            onPickTs={handleMarkerPick}
+                            onClose={tip.closeNow}
+                            onEnter={tip.keepOpen}
+                            onLeave={tip.scheduleClose}
+                    />
+                {/if}
+            </section>
+        </div>
 
     <div class="info">
         <div class="infoRow">
