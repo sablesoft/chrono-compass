@@ -49,7 +49,7 @@ export async function putCycleSolved<Meta = any>(
 
 // -----------
 
-const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
+const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', false); // todo - turn on after testing
 const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'horizon', 'system']);
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
