@@ -24,6 +24,36 @@
 // Output rounding:
 // - ALL solving/validation uses exact timestamps (no rounding).
 // - Only final spoke.ts is rounded to minutes, with monotonic enforcement.
+//
+// Unified Synod wheel solver (phase-angular, 17 spokes) for any (looker, focus, target)
+// where focus is the VERTEX of the angle.
+//
+// v5.1 (DIRECTED-CROSSING BOUNDARIES, ASYMMETRIC SEARCH) — UPDATED ONTOLOGY:
+// - looker = external observer direction (defines S direction)
+// - focus  = vertex of the angle (center of wheel geometry)
+// - target = rotates around focus relative to looker
+//
+// Geometry:
+//   uL = dir(focus -> looker)
+//   uT = dir(focus -> target)
+//   φ  = lon(uT) - lon(uL)   in [0..360)
+//   S = focus - target - looker  => φ ~ 0
+//   N = target - focus - looker  => φ ~ 180
+//
+// Boundaries/spokes:
+// - E and E_next are searched separately:
+//     E      = nearest directed θ=90° crossing at/before ts (expand backwards)
+//     E_next = nearest directed θ=90° crossing after ts     (expand forwards)
+// - Unwrap remains anchored at E time; spokes solved by bisection on θ_unwrap.
+//
+// Output rounding:
+// - ALL solving/validation uses exact timestamps (no rounding).
+// - Only final spoke.ts is rounded to minutes, with monotonic enforcement.
+//
+// PATCHES APPLIED (3):
+// 1) Robust directed-crossing scan across NaN gaps (baseline reset) + no early-return on initial NaN.
+// 2) Adaptive scan step fallback (halve step if crossingsCount==0 in a window).
+// 3) Post-boundary window normalization to enforce invariant: E <= ts < E_next (shift to current cycle).
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
@@ -36,11 +66,6 @@ import { refUnit, lonDegEcliptic, type Vec } from './vector';
 import { fmt } from './extrema';
 
 export type SynodMeta = {
-    phaseDeg: number; // raw φ in [0..360)
-    phaseForwardDeg: number; // θ_mod target (static) in [0..360)
-    phaseUnwrapDeg: number; // θ_unwrap target (static) in [90..450)
-    motion: 'ccw' | 'cw';
-
     // distances (AU) from focus -> target / focus -> looker (lookerDistAu = NaN for reference looker)
     distanceAu: number;
     distanceKm: number;
@@ -298,15 +323,24 @@ function findDirectedCrossingsInWindow(
         return signedDiffToTarget(th, targetDeg);
     };
 
+    // PATCH #1: don’t bail out if initial sample is NaN.
+    // Also: when coming back from a NaN stretch, reset baseline so we don’t miss crossings.
     let tPrev = a;
-    let gPrev = gAt(tPrev);
-    if (!isFiniteNumber(gPrev)) return out;
+    let gPrev = NaN;
 
-    for (let t = a + stepMs; t <= b + 1; t += stepMs) {
+    for (let t = a; t <= b + 1; t += stepMs) {
         const tt = Math.min(t, b);
         const g = gAt(tt);
 
         if (!isFiniteNumber(g)) {
+            tPrev = tt;
+            gPrev = NaN;
+            if (tt >= b) break;
+            continue;
+        }
+
+        if (!isFiniteNumber(gPrev)) {
+            // baseline reset after NaN gap
             tPrev = tt;
             gPrev = g;
             if (tt >= b) break;
@@ -349,6 +383,27 @@ function firstCrossingAfter(ts: number, crossings: Crossing[]): number | null {
     return null;
 }
 
+// PATCH #2 helper: try smaller step if we found zero crossings in a window.
+function findCrossingsAdaptiveStep(
+    thetaModAt: (t: number) => number,
+    t0: number,
+    t1: number,
+    targetDeg: number,
+    stepMs: number,
+    epsMs: number,
+): { crossings: Crossing[]; stepUsedMs: number; subAttempt: number } {
+    let step = stepMs;
+
+    // try: original, /2, /4 (enough to fix “missed” events without exploding cost)
+    for (let sub = 0; sub < 3; sub++) {
+        const xs = findDirectedCrossingsInWindow(thetaModAt, t0, t1, targetDeg, step, epsMs);
+        if (xs.length > 0) return { crossings: xs, stepUsedMs: step, subAttempt: sub };
+        step = clamp(step / 2, 5 * 60_000, 30 * DAY_MS);
+    }
+
+    return { crossings: [], stepUsedMs: step, subAttempt: 2 };
+}
+
 function findNearestCrossingBackward(
     thetaModAt: (t: number) => number,
     ts: number,
@@ -364,11 +419,20 @@ function findNearestCrossingBackward(
         const t0 = ts - windowMs;
         const t1 = ts;
 
-        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, targetDeg, stepMs, epsMs);
+        const { crossings, stepUsedMs, subAttempt } = findCrossingsAdaptiveStep(
+            thetaModAt,
+            t0,
+            t1,
+            targetDeg,
+            stepMs,
+            epsMs,
+        );
         const E = lastCrossingAtOrBefore(ts, crossings);
 
         dbg?.log?.('synod.E.search', {
             attempt,
+            subAttempt,
+            stepUsedMs,
             t0: fmt(t0),
             t1: fmt(t1),
             windowDays: Number((windowMs / DAY_MS).toFixed(3)),
@@ -399,11 +463,20 @@ function findNearestCrossingForward(
         const t0 = ts;
         const t1 = ts + windowMs;
 
-        const crossings = findDirectedCrossingsInWindow(thetaModAt, t0, t1, targetDeg, stepMs, epsMs);
+        const { crossings, stepUsedMs, subAttempt } = findCrossingsAdaptiveStep(
+            thetaModAt,
+            t0,
+            t1,
+            targetDeg,
+            stepMs,
+            epsMs,
+        );
         const E2 = firstCrossingAfter(ts, crossings);
 
         dbg?.log?.('synod.E_next.search', {
             attempt,
+            subAttempt,
+            stepUsedMs,
             t0: fmt(t0),
             t1: fmt(t1),
             windowDays: Number((windowMs / DAY_MS).toFixed(3)),
@@ -533,7 +606,9 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
 
     const phi0 = phiRawAt(ts);
     if (!isFiniteNumber(phi0)) {
-        return fail(`Synod wheel: cannot compute phase for looker=${String(looker)} focus=${String(focus)} target=${String(target)}`);
+        return fail(
+            `Synod wheel: cannot compute phase for looker=${String(looker)} focus=${String(focus)} target=${String(target)}`,
+        );
     }
 
     const dirInfo = detectMotionDir(phiRawAt, ts);
@@ -572,16 +647,25 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         estPeriodDays: Number(estPeriodDays.toFixed(6)),
     });
 
-    // Find E and E_next separately (fixes ultra-long periods)
-    const E_t = findNearestCrossingBackward(thetaModAt, ts, 90, stepMs, epsMs, estPeriodDays, dbg);
-    if (!isFiniteNumber(E_t)) return fail('Synod wheel: failed to locate E (θ=90°) at/before ts');
+    // Find E and E_next separately
+    const E_t0 = findNearestCrossingBackward(thetaModAt, ts, 90, stepMs, epsMs, estPeriodDays, dbg);
+    if (!isFiniteNumber(E_t0)) return fail('Synod wheel: failed to locate E (θ=90°) at/before ts');
 
     const epsAfterE = Math.max(2 * epsMs, 60_000); // avoid re-catching same crossing
-    const E_next_t = findNearestCrossingForward(thetaModAt, (E_t as number) + epsAfterE, 90, stepMs, epsMs, estPeriodDays, dbg);
-    if (!isFiniteNumber(E_next_t) || !((E_t as number) < (E_next_t as number))) {
+
+    const E_next_t0 = findNearestCrossingForward(
+        thetaModAt,
+        (E_t0 as number) + epsAfterE,
+        90,
+        stepMs,
+        epsMs,
+        estPeriodDays,
+        dbg,
+    );
+    if (!isFiniteNumber(E_next_t0) || !((E_t0 as number) < (E_next_t0 as number))) {
         dbg?.warn?.('synod.boundary.not-found', {
-            E: isFiniteNumber(E_t) ? fmt(E_t as number) : E_t,
-            E_next: isFiniteNumber(E_next_t) ? fmt(E_next_t as number) : E_next_t,
+            E: isFiniteNumber(E_t0) ? fmt(E_t0 as number) : E_t0,
+            E_next: isFiniteNumber(E_next_t0) ? fmt(E_next_t0 as number) : E_next_t0,
             ts: fmt(ts),
             motion,
             estPeriodDays: Number(estPeriodDays.toFixed(6)),
@@ -589,8 +673,68 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         return fail('Synod wheel: failed to locate E+ (next θ=90°) after E');
     }
 
-    const tE = E_t as number;
-    const tE2 = E_next_t as number;
+    // PATCH #3: normalize window so that E <= ts < E_next.
+    let tE = E_t0 as number;
+    let tE2 = E_next_t0 as number;
+
+    for (let guard = 0; guard < 8; guard++) {
+        if (ts >= tE2) {
+            // shift forward: current E becomes previous E_next
+            const prevE = tE;
+            const prevE2 = tE2;
+
+            const nextE = prevE2;
+            const nextE2 = findNearestCrossingForward(thetaModAt, nextE + epsAfterE, 90, stepMs, epsMs, estPeriodDays, dbg);
+
+            dbg?.warn?.('synod.window.shift.forward', {
+                guard,
+                ts: fmt(ts),
+                prev: { E: fmt(prevE), E_next: fmt(prevE2) },
+                nextE: fmt(nextE),
+                nextE2: isFiniteNumber(nextE2) ? fmt(nextE2 as number) : null,
+            });
+
+            if (!isFiniteNumber(nextE2) || !(nextE < (nextE2 as number))) {
+                return fail('Synod wheel: failed to normalize window forward (E <= ts < E_next)');
+            }
+
+            tE = nextE;
+            tE2 = nextE2 as number;
+            continue;
+        }
+
+        if (ts < tE) {
+            // shift backward: find previous E before current E
+            const prevE = findNearestCrossingBackward(thetaModAt, tE - epsAfterE, 90, stepMs, epsMs, estPeriodDays, dbg);
+            if (!isFiniteNumber(prevE)) return fail('Synod wheel: failed to normalize window backward (prev E not found)');
+
+            const prevE2 = findNearestCrossingForward(thetaModAt, (prevE as number) + epsAfterE, 90, stepMs, epsMs, estPeriodDays, dbg);
+
+            dbg?.warn?.('synod.window.shift.backward', {
+                guard,
+                ts: fmt(ts),
+                cur: { E: fmt(tE), E_next: fmt(tE2) },
+                prevE: fmt(prevE as number),
+                prevE2: isFiniteNumber(prevE2) ? fmt(prevE2 as number) : null,
+            });
+
+            if (!isFiniteNumber(prevE2) || !((prevE as number) < (prevE2 as number))) {
+                return fail('Synod wheel: failed to normalize window backward (E_next not found)');
+            }
+
+            tE = prevE as number;
+            tE2 = prevE2 as number;
+            continue;
+        }
+
+        // invariant satisfied
+        break;
+    }
+
+    if (!(tE <= ts && ts < tE2)) {
+        dbg?.warn?.('synod.window.invariant.failed', { ts: fmt(ts), E: fmt(tE), E_next: fmt(tE2) });
+        return fail('Synod wheel: failed to enforce window invariant (E <= ts < E_next)');
+    }
 
     const thetaUnwrapAt = makeThetaUnwrapAt(thetaModAt, tE);
 
@@ -665,14 +809,10 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     const tOut = roundToMinuteMonotonic(tExact);
 
     function mkSpoke(i: number): CycleSpoke<SynodMeta> {
-        const wantUn = wantThetaUnwrapForIndex(i);
-        const wantFwd = norm360(wantUn);
-
         const tSolve = tExact[i];
         const tDisplay = tOut[i];
 
         const r = phaseDeg(looker, focus, target, tSolve);
-        const raw = r?.phi ?? NaN;
 
         const rAu = isFiniteNumber(r?.dT) ? r!.dT : NaN;
         const rKm = isFiniteNumber(rAu) ? rAu * AU_KM : NaN;
@@ -682,10 +822,6 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
             code: SPOKES_ORDER[i] ?? (i === 16 ? 'E+' : 'E'),
             index: i,
             meta: {
-                phaseDeg: isFiniteNumber(raw) ? raw : NaN,
-                phaseForwardDeg: wantFwd,
-                phaseUnwrapDeg: wantUn,
-                motion,
                 distanceAu: rAu,
                 distanceKm: rKm,
                 focusDistAu: isFiniteNumber(r?.dL) ? r!.dL : NaN,
@@ -717,7 +853,73 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         durationDays: Number(((tE2 - tE) / DAY_MS).toFixed(9)),
         spokeTs0: fmt(spokes[0]?.ts),
         spokeTs16: fmt(spokes[16]?.ts),
+        spokes
     });
 
     return { ok: true, kind: 'cycle', ts, spokes };
+}
+
+// --- synod.ts (add exports) ---
+
+export type SynodInstant = {
+    looker: ObjId;
+    focus: ObjId;
+    target: ObjId;
+    ts: number;
+
+    // geometry
+    phaseDeg: number;       // φ in [0..360) : 0=S, 180=N
+    motion: 'ccw' | 'cw';   // local direction of change of φ near ts
+    thetaModDeg: number;    // θ_mod in [0..360) (forwarded for directed-crossing logic)
+
+    // distances (AU)
+    distanceAu: number;     // focus -> target
+    focusDistAu: number;    // focus -> looker (NaN if looker is reference)
+};
+
+// Small helper: instant computation (no cycle solving, no spokes)
+export function synodInstantAt(
+    looker: ObjId,
+    focus: ObjId,
+    target: ObjId,
+    ts: number,
+): SynodInstant | null {
+    // focus must be an engine_body vertex
+    const focusRec = getObj(focus);
+    if (focusRec?.kind === 'reference') return null;
+
+    const phiRawAt = (t: number) => {
+        const r = phaseDeg(looker, focus, target, t);
+        return r ? r.phi : NaN;
+    };
+
+    const r0 = phaseDeg(looker, focus, target, ts);
+    if (!r0 || !isFiniteNumber(r0.phi)) return null;
+
+    const dirInfo = detectMotionDir(phiRawAt, ts);
+    if (!dirInfo) return null;
+
+    const motion = dirInfo.motion;
+    const thetaModDeg = forwardPhase(r0.phi, motion);
+
+    return {
+        looker,
+        focus,
+        target,
+        ts,
+        phaseDeg: r0.phi,
+        motion,
+        thetaModDeg,
+        distanceAu: r0.dT,
+        focusDistAu: r0.dL,
+    };
+}
+
+/**
+ * Convert φ (0=S, 90=E, 180=N, 270=W) to your wheel angle convention
+ * (0=E, -90=N, +90=S, ±180=W).
+ */
+export function synodPhaseToWheelAngleDeg(phaseDeg: number): number {
+    // φ=0 => +90 (S), φ=90 => 0 (E), φ=180 => -90 (N), φ=270 => ±180 (W)
+    return toSigned180(90 - norm360(phaseDeg));
 }
