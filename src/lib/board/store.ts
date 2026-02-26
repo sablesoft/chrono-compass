@@ -48,31 +48,6 @@ function normalizeOrder(items: BoardWheel[]): BoardWheel[] {
         .map((x, i) => ({ ...x, order: i }));
 }
 
-function defaultCompassItem(order: number): BoardWheel {
-    const wheelType: WheelType = 'compass';
-    const roles: WheelRolesState = { looker: 'Earth', focus: null, target: ['Moon', 'Sun'] } as any;
-    const observer: WheelObserverState = { ...DEFAULT_OBSERVER };
-    const time: WheelTimeState = { ...DEFAULT_TIME };
-
-    return {
-        id: nanoid(),
-        solveKey: makeSolveKey(wheelType, roles, observer, time),
-        wheelType,
-        title: 'Compass',
-        roles,
-        observer,
-        time,
-        order
-    };
-}
-
-function ensureCompass(items: BoardWheel[], reason: string): BoardWheel[] {
-    if (items.some((x) => x.wheelType === 'compass')) return items;
-
-    dbg.warn('board.ensureCompass.inject', { reason });
-    return [...items, defaultCompassItem(items.length)];
-}
-
 function normalizeBoard(input: any): BoardState {
     return dbg.group('board.normalize', () => {
         const t = now();
@@ -108,8 +83,6 @@ function normalizeBoard(input: any): BoardState {
         let items = normalizeOrder(parsedItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
-
-        items = ensureCompass(items, 'normalizeBoard');
 
         const out: BoardState = {
             items,
@@ -163,7 +136,6 @@ function setItems(nextItems: BoardWheel[], reason: string) {
         let items = normalizeOrder(nextItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
-        items = ensureCompass(items, reason);
 
         const next: BoardState = { items, updatedAt: now() };
         dbg.log('board.setItems', { reason, count: next.items.length, updatedAt: next.updatedAt });
