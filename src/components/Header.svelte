@@ -14,7 +14,7 @@
 
     $: cycleItems = getCycleOptions([
         // 'diurnal',
-        'lunarSynodic',
+        // 'lunarSynodic',
         // 'lunarAnomalistic',
         'lunarDraconic',
         'solarTropical',
