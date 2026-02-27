@@ -19,6 +19,13 @@
         return typeof v === 'number' && Number.isFinite(v);
     }
 
+    function resolvePickTs(payload: CycleTipPayload): number {
+        if (payload.kind === 'marker') return NaN;
+        const v = payload.pickTs;
+        if (isFiniteNumber(v)) return v;
+        return payload.ts;
+    }
+
     // Patch 2: do not format junk as date
     function fmtTs(v: any): string {
         const n = typeof v === 'number' ? v : Number(v);
@@ -131,7 +138,10 @@
             {/each}
 
             <div class="actions">
-                <button type="button" class="btn" on:click={() => isFiniteNumber(payload.ts) && onPickTs(payload.ts)}>Go</button>
+                <button type="button" class="btn" on:click={() => {
+                    const t = resolvePickTs(payload);
+                    isFiniteNumber(t) && onPickTs(t);
+                }}>Go</button>
                 <button type="button" class="btn ghost" on:click={onClose}>Close</button>
             </div>
 
@@ -147,7 +157,10 @@
             {/each}
 
             <div class="actions">
-                <button type="button" class="btn" on:click={() => isFiniteNumber(payload.ts) && onPickTs(payload.ts)}>Go</button>
+                <button type="button" class="btn" on:click={() => {
+                    const t = resolvePickTs(payload);
+                    isFiniteNumber(t) && onPickTs(t);
+                }}>Go</button>
                 <button type="button" class="btn ghost" on:click={onClose}>Close</button>
             </div>
 

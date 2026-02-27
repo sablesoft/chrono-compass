@@ -353,11 +353,13 @@
 
         const t = spokeTimes?.[i];
         const ts = Number.isFinite(t) ? t : NaN;
+        const pickTs = resolveSpokePickTs(i);
 
         return {
             kind: 'spoke',
             code: String(code),
             ts,
+            pickTs: Number.isFinite(pickTs) ? pickTs : undefined,
             meta: (s as any)?.meta
         };
     }
@@ -560,8 +562,15 @@
         jumpTo(probe, dir < 0 ? 'prevCycle' : 'nextCycle');
     }
 
+    function resolveSpokePickTs(i: number): number {
+        const t = spokeTimes?.[i];
+        if (!Number.isFinite(t)) return NaN;
+        // E+ is the boundary; move slightly forward to force next-cycle solve at E.
+        return i === 16 ? (t + SHIFT_EPS_MS) : t;
+    }
+
     function handleSpokeActivate(i: number) {
-        const t = spokeTimes[i];
+        const t = resolveSpokePickTs(i);
         if (Number.isFinite(t)) jumpTo(t, `spoke:${i}`);
     }
 
@@ -910,11 +919,15 @@
                     tabindex="0"
                     aria-label="Go to End (E+)"
                     class:disabledLine={!solveOk}
-                    on:click={() => Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd')}
+                    on:click={() => {
+                    const t = resolveSpokePickTs(16);
+                    Number.isFinite(t) && jumpTo(t, 'cycleEndNext');
+                }}
                     on:keydown={(e) => {
                     if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
                         e.preventDefault();
-                        Number.isFinite(cycleEndTs) && jumpTo(cycleEndTs, 'cycleEnd');
+                        const t = resolveSpokePickTs(16);
+                        Number.isFinite(t) && jumpTo(t, 'cycleEndNext');
                     }
                 }}>
                 <div class="infoLabel">

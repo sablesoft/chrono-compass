@@ -6,6 +6,7 @@ export type CycleTipSpoke = {
     kind: 'spoke';
     code: string;          // 'E', 'N', ... or 'E_next'
     ts: number;
+    pickTs?: number;       // optional action timestamp (can differ from display ts)
     meta?: any;            // cycle-specific meta (BindMeta etc)
 };
 
@@ -14,6 +15,7 @@ export type CycleTipBoundary = {
     from: string;          // 'E'
     to: string;            // 'ENE'
     ts: number;
+    pickTs?: number;
     meta?: any;
 };
 
