@@ -11,6 +11,7 @@
         type WheelType
     } from '../lib/catalog';
     import { filteredRoles, wheels } from '../lib/catalog';
+    import { useDocs } from '../lib/docs';
     import { currentLocationId, resolveLocationById, currentLocation } from '../lib/location/store';
 
     import { boardApi } from '../lib/board/store';
@@ -27,6 +28,7 @@
     import { DEFAULT_TIME } from '../lib/time/types';
 
     import LocationPicker from './LocationPicker.svelte';
+    import DocsModal from "./DocsModal.svelte";
 
     const dbg = debug('wheel', '?');
 
@@ -34,6 +36,17 @@
         .filter((t) => wheels[t].ready === true);
 
     export let onUserActivity: () => void = () => {};
+
+    // docs (per wheel type)
+    const docs = useDocs(
+        () => `concept/wheel.md`,
+        {
+            getTitle: () => 'Wheel',
+            dbg,
+            tag: () => 'concept'
+        }
+    );
+    const docsState = docs.state;
 
     let open = false;
 
@@ -439,6 +452,7 @@
             </div>
 
             <div class="right">
+                <button type="button" class="navBtn" title="Docs" on:click={() => docs.openDocs()}>i</button>
                 <button type="button" class="navBtn danger" title="Close" on:click|stopPropagation={closeForm}>×</button>
             </div>
         </header>
@@ -590,6 +604,14 @@
         </div>
     {/if}
 </section>
+
+<DocsModal
+        open={$docsState.open}
+        title={$docsState.title}
+        md={$docsState.loading ? '# Loading…' : $docsState.md}
+        url={$docsState.url}
+        onClose={docs.closeDocs}
+/>
 
 <style>
     .panel {
