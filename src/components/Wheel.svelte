@@ -1,4 +1,6 @@
 <!-- src/components/Wheel.svelte -->
+<!-- LEGACY: keep this component stable; do not add new behavior here.
+     Migrate legacy cycles to Cycle.svelte and the new engine instead. -->
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store';

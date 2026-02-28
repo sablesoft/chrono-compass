@@ -322,9 +322,18 @@
 
     let showNowPointer = false;
     let nowDisplayAngle = 0;
+    let hideNowPointerByWindowLag = false;
 
     $: showNowPointer = $nowState.show;
     $: nowDisplayAngle = $nowState.displayAngle;
+    $: {
+        const w = cycleWindowFromSpokes();
+        hideNowPointerByWindowLag = !!(
+            w &&
+            Number.isFinite(effTs) &&
+            (effTs < w.start || effTs > w.end)
+        );
+    }
 
     let lastNowDepsKey = '';
 
@@ -785,7 +794,7 @@
                     {/each}
 
                     <!-- Now Moment Pointer -->
-                    {#if showNowPointer}
+                    {#if showNowPointer && !hideNowPointerByWindowLag}
                         <g class="nowPointer" transform={`rotate(${safeAngle(nowDisplayAngle, 0)} ${cx} ${cy})`}>
                             <line x1={cx} y1={cy}
                                   x2={cx + rOuter} y2={cy}
