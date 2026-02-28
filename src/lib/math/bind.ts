@@ -598,8 +598,6 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
         E: fmt(E_t),
         E_next: fmt(E_next_t),
     });
-    cycleDurationTag = formatCycleDurationTag(E_next_t - E_t);
-
     // ------------------------------------------------------------
     // 4) Build 17 spokes using explicit E and E_next
     // ------------------------------------------------------------
@@ -613,6 +611,7 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     const rN = N.v;
     const rS = S.v;
     const rE2 = (S.v + N_next.v) / 2;
+    cycleDurationTag = formatCycleDurationTag(E_next_t - E_t);
 
     function solveOnInc(t0: number, t1: number, r: number) {
         return solveOn(t0, t1, true, r);

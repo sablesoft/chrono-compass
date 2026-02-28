@@ -261,7 +261,12 @@
 
     function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
         if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
-        if (hasNodeTag(tags, 'E-nodal') || hasNodeTag(tags, 'W-nodal')) return 'seam';
+        if (
+            hasNodeTag(tags, 'E-nodal') ||
+            hasNodeTag(tags, 'W-nodal') ||
+            hasNodeTag(tags, 'N-nodal') ||
+            hasNodeTag(tags, 'S-nodal')
+        ) return 'seam';
         if (hasNodeTag(tags, 'max distance') || hasNodeTag(tags, 'min distance') || hasNodeTag(tags, 'mid distance')) return 'bind';
         if (hasNodeTag(tags, 'N-synod') || hasNodeTag(tags, 'W-synod') || hasNodeTag(tags, 'S-synod')) return 'synod';
         if (hasNodeTag(tags, 'zenith') || hasNodeTag(tags, 'nadir')) return 'zenithNadir';
@@ -668,11 +673,19 @@
 
         const out: OrbitNodeUi[] = [];
         for (const [, bodyNodes] of byBody) {
-            const bodyMinTs = Math.min(...bodyNodes.map((n) => n.ts));
-            const bodyMaxTs = Math.max(...bodyNodes.map((n) => n.ts));
+            const regularNodes = bodyNodes.filter((n) => orbitNodeGroup(n) === 'regular');
+            const specialNodes = bodyNodes.filter((n) => orbitNodeGroup(n) !== 'regular');
+
+            // Keep all special nodes (nodal/synod/bind/boundary/zenith-nadir) as-is.
+            out.push(...specialNodes);
+
+            if (!regularNodes.length) continue;
+
+            const bodyMinTs = Math.min(...regularNodes.map((n) => n.ts));
+            const bodyMaxTs = Math.max(...regularNodes.map((n) => n.ts));
             const edgeTsEps = 2 * 60_000;
 
-            const sorted = bodyNodes.slice().sort((a, b) => {
+            const sorted = regularNodes.slice().sort((a, b) => {
                 const aSpoke = a.source === 'spoke' ? 1 : 0;
                 const bSpoke = b.source === 'spoke' ? 1 : 0;
                 if (aSpoke !== bSpoke) return bSpoke - aSpoke;
@@ -1572,12 +1585,12 @@
                                     class="nodeToggle navBtn nodeSeam"
                                     class:off={!showOrbitNodesSeam}
                                     type="button"
-                                    title="Toggle seam nodes"
-                                    aria-label="Toggle seam nodes"
+                                    title="Toggle nodals"
+                                    aria-label="Toggle nodals"
                                     aria-pressed={showOrbitNodesSeam}
                                     on:click|stopPropagation={toggleOrbitNodesSeam}
                             >
-                                ⊗
+                                N
                             </button>
                             <button
                                     class="nodeToggle navBtn nodeRegular"
@@ -1597,12 +1610,12 @@
                                     class="nodeToggle navBtn nodeSeam"
                                     class:off={!showOrbitNodesSeam}
                                     type="button"
-                                    title="Toggle seam nodes"
-                                    aria-label="Toggle seam nodes"
+                                    title="Toggle nodals"
+                                    aria-label="Toggle nodals"
                                     aria-pressed={showOrbitNodesSeam}
                                     on:click|stopPropagation={toggleOrbitNodesSeam}
                             >
-                                ⊗
+                                N
                             </button>
                             <button
                                     class="nodeToggle navBtn nodeRegular"
@@ -2083,7 +2096,9 @@
         stroke: color-mix(in oklab, #61d87a, black 32%);
     }
     .orbitNode.tg-e-nodal,
-    .orbitNode.tg-w-nodal {
+    .orbitNode.tg-w-nodal,
+    .orbitNode.tg-n-nodal,
+    .orbitNode.tg-s-nodal {
         fill: color-mix(in oklab, #ff5a6e, white 16%);
         stroke: color-mix(in oklab, #ff5a6e, black 36%);
     }

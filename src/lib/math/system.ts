@@ -10,6 +10,8 @@ import { clamp, norm360 } from './helpers';
 import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
+import { solveNodalWheel } from './nodal';
+import type { NodalMeta } from './nodal';
 import type { CompassTrackPoint } from './compass';
 import { eqToEcl } from './vector';
 
@@ -27,6 +29,20 @@ function uniqueTags(tags: Array<string | null | undefined>): string[] {
         out.push(tag);
     }
     return out;
+}
+
+function cleanSystemCycleTags(rawTags: unknown, code: string): string[] {
+    const tags = Array.isArray(rawTags) ? rawTags : [];
+    const isESpoke = code === 'E' || code === 'E_next' || code === 'E+';
+    return uniqueTags(
+        tags.filter((tag): tag is string => {
+            if (typeof tag !== 'string') return false;
+            if (!isESpoke) return true;
+            if (tag === 'cycle start' || tag === 'cycle end') return false;
+            if (tag.startsWith('cycle duration ')) return false;
+            return true;
+        })
+    );
 }
 
 export type SystemTrackPoint = CompassTrackPoint & {
@@ -199,6 +215,42 @@ async function resolveBindSpokesForTarget(
     return direct.spokes as CycleSpoke<BindMeta>[];
 }
 
+async function resolveNodalSpokesForTarget(
+    input: WheelInput,
+    target: ObjId,
+    ts: number
+): Promise<CycleSpoke<NodalMeta>[] | undefined> {
+    const nodalLooker = 'Earth' as ObjId;
+    const nodalFocus = 'Sun' as ObjId;
+
+    const virtualNodalWheel = {
+        id: `virtual:nodal:${String(nodalLooker)}:${String(nodalFocus)}:${String(target)}`,
+        wheelType: 'nodal' as const,
+        roles: { looker: nodalLooker, focus: nodalFocus, target }
+    };
+
+    const res = await resolveWheel(virtualNodalWheel as any, {
+        ts,
+        location: input.location,
+        dbg: input.dbg
+    });
+    if (res && res.kind === 'cycle' && res.ok) {
+        return res.spokes as CycleSpoke<NodalMeta>[];
+    }
+
+    const direct = solveNodalWheel({
+        wheelType: 'nodal',
+        ts,
+        location: input.location,
+        dbg: input.dbg,
+        looker: nodalLooker,
+        focus: nodalFocus,
+        target
+    } as WheelInput<'nodal'>);
+    if (!direct.ok) return undefined;
+    return direct.spokes as CycleSpoke<NodalMeta>[];
+}
+
 async function collectBindSpokesInWindow(
     input: WheelInput,
     focus: ObjId,
@@ -219,6 +271,54 @@ async function collectBindSpokesInWindow(
 
     for (let i = 0; i < MAX_CYCLES; i++) {
         const spokes = await resolveBindSpokesForTarget(input, focus, target, probe);
+        if (!spokes?.length) break;
+
+        const sorted = spokes.slice().sort((a, b) => a.index - b.index);
+        const s0 = sorted.find((s) => s.index === 0);
+        const s16 = sorted.find((s) => s.index === 16);
+        if (!s0 || !s16 || !(s16.ts > s0.ts)) break;
+
+        const cycleKey = `${Math.round(s0.ts)}:${Math.round(s16.ts)}`;
+        if (seenCycles.has(cycleKey)) break;
+        seenCycles.add(cycleKey);
+
+        for (const s of sorted) {
+            if (s.ts < (startTs - RANGE_EPS_MS) || s.ts > (endTs + RANGE_EPS_MS)) continue;
+            const key = `${s.index}:${Math.round(s.ts)}`;
+            if (seenSpokes.has(key)) continue;
+            seenSpokes.add(key);
+            out.push(s);
+        }
+
+        if (s16.ts >= endTs) break;
+
+        const nextProbe = s16.ts + CYCLE_SHIFT_EPS_MS;
+        if (!(nextProbe > probe)) break;
+        probe = nextProbe;
+    }
+
+    return out.sort((a, b) => a.ts - b.ts);
+}
+
+async function collectNodalSpokesInWindow(
+    input: WheelInput,
+    target: ObjId,
+    startTs: number,
+    endTs: number
+): Promise<CycleSpoke<NodalMeta>[]> {
+    if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return [];
+
+    const out: CycleSpoke<NodalMeta>[] = [];
+    const seenCycles = new Set<string>();
+    const seenSpokes = new Set<string>();
+    const RANGE_EPS_MS = 60_000;
+
+    const CYCLE_SHIFT_EPS_MS = 1_500;
+    const MAX_CYCLES = 320;
+    let probe = startTs + CYCLE_SHIFT_EPS_MS;
+
+    for (let i = 0; i < MAX_CYCLES; i++) {
+        const spokes = await resolveNodalSpokesForTarget(input, target, probe);
         if (!spokes?.length) break;
 
         const sorted = spokes.slice().sort((a, b) => a.index - b.index);
@@ -437,7 +537,7 @@ function buildTrackFromBindSpokes(
         const dist = Number(s.meta?.distanceAu);
         const distanceAu = Number.isFinite(dist) && dist > 0 ? dist : inst.distanceAu;
         const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
-        const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
+        const tags = cleanSystemCycleTags(s.tags, s.code);
 
         out.push({
             ts: s.ts,
@@ -458,87 +558,42 @@ function buildTrackFromBindSpokes(
     return out.sort((a, b) => a.ts - b.ts);
 }
 
-function computeSystemStyleSeams(opts: {
-    looker: ObjId;
-    focus: ObjId;
-    target: ObjId;
-    track: SystemTrackPoint[] | undefined;
-}): SystemTrackPoint[] {
-    const { looker, focus, target, track } = opts;
-    if (!track || track.length < 2) return [];
+function buildTrackFromNodalSpokes(
+    spokes: CycleSpoke<NodalMeta>[] | undefined,
+    looker: ObjId,
+    focus: ObjId,
+    target: ObjId
+): SystemTrackPoint[] | undefined {
+    if (!spokes?.length) return undefined;
 
-    const xs = track.slice().sort((a, b) => a.ts - b.ts);
     const out: SystemTrackPoint[] = [];
-    const TS_DEDUP_MS = 30_000;
-    const BISECT_ITERS = 24;
-
-    const pushUnique = (p: SystemTrackPoint) => {
-        const hit = out.find((q) => Math.abs(q.ts - p.ts) <= TS_DEDUP_MS);
-        if (!hit) out.push(p);
-    };
-
-    for (let i = 0; i < xs.length - 1; i++) {
-        const a = xs[i];
-        const b = xs[i + 1];
-        if (!(b.ts > a.ts)) continue;
-        if (a.visible === b.visible) continue;
-
-        let lo = a.ts;
-        let hi = b.ts;
-        let fLo = a.altitudeDeg;
-        let fHi = b.altitudeDeg;
-
-        if (!(Number.isFinite(fLo) && Number.isFinite(fHi))) continue;
-        if (fLo === 0) hi = lo;
-        else if (fHi === 0) lo = hi;
-        else if (fLo * fHi > 0) continue;
-        else {
-            for (let it = 0; it < BISECT_ITERS; it++) {
-                const mid = (lo + hi) * 0.5;
-                const fMid = eclipticLatitudeDegAt(focus, target, mid);
-                if (!Number.isFinite(fMid)) break;
-                if (Math.abs(fMid) <= 1e-3) {
-                    lo = mid;
-                    hi = mid;
-                    break;
-                }
-                if (fLo * fMid <= 0) {
-                    hi = mid;
-                    fHi = fMid;
-                } else {
-                    lo = mid;
-                    fLo = fMid;
-                }
-                if (Math.abs(hi - lo) <= 500) break;
-            }
-        }
-
-        const ts = (lo + hi) * 0.5;
-        const inst = synodInstantAt(looker, focus, target, ts);
+    for (const s of spokes) {
+        const inst = synodInstantAt(looker, focus, target, s.ts);
         if (!inst) continue;
-        const eclLat = eclipticLatitudeDegAt(focus, target, ts);
-        const northbound = fLo < 0 && fHi > 0;
-        const nodalTag = northbound ? 'E-nodal' : 'W-nodal';
-        const nodalLabel = northbound ? 'ascending node' : 'descending node';
+        const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
+        const tags = cleanSystemCycleTags(s.tags, s.code);
+        const source =
+            s.code === 'E' || s.code === 'W' || s.code === 'E_next'
+                ? 'seam'
+                : 'cycle';
 
-        pushUnique({
-            ts,
-            index: a.index,
-            code: 'PL',
+        out.push({
+            ts: s.ts,
+            index: s.index,
+            code: s.code,
             azimuthDeg: pseudoAzimuthFromWheelAngle(systemAngleDeg(inst)),
-            altitudeDeg: 0,
+            altitudeDeg: Number.isFinite(eclLat) ? eclLat : Number(s.meta?.nodalLatitudeDeg),
             angleDeg: systemAngleDeg(inst),
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
-            source: 'seam',
+            source,
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
-            tags: uniqueTags([nodalTag, nodalLabel])
+            tags: tags.length ? tags : undefined
         });
     }
-
-    return out.sort((x, y) => x.ts - y.ts);
+    return out.sort((a, b) => a.ts - b.ts);
 }
 
 function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): SystemTrackPoint[] | undefined {
@@ -560,8 +615,22 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
         return d;
     };
 
+    const hasTag = (x: SystemTrackPoint, tag: string): boolean =>
+        Array.isArray(x.tags) && x.tags.includes(tag);
+
+    const pointGroup = (x: SystemTrackPoint): 'boundary' | 'synod' | 'bind' | 'nodal' | 'regular' => {
+        const tags = Array.isArray(x.tags) ? x.tags : [];
+        if (tags.includes('cycle start') || tags.includes('cycle end')) return 'boundary';
+        if (tags.some((t) => /(?:^|-)synod$/.test(t))) return 'synod';
+        if (tags.some((t) => /(?:^|-)bind$/.test(t)) || tags.includes('max distance') || tags.includes('min distance') || tags.includes('mid distance')) return 'bind';
+        if (tags.some((t) => /(?:^|-)nodal$/.test(t))) return 'nodal';
+        return 'regular';
+    };
+
     for (const p of sorted) {
+        const pGroup = pointGroup(p);
         const hitIdx = merged.findIndex((m) =>
+            pointGroup(m) === pGroup &&
             Math.abs(m.ts - p.ts) <= TS_EPS &&
             angDist(m.angleDeg, p.angleDeg) <= ANG_EPS &&
             Math.abs(m.distanceAu - p.distanceAu) <= ORBIT_EPS
@@ -573,13 +642,14 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
         }
 
         const prev = merged[hitIdx];
-        const isBoundaryCode = (code: string) => code === 'E' || code === 'E+' || code === 'E_next';
-        const prevBoundary = isBoundaryCode(prev.code);
-        const pBoundary = isBoundaryCode(p.code);
+        const isBoundaryPoint = (x: SystemTrackPoint): boolean =>
+            hasTag(x, 'cycle start') || hasTag(x, 'cycle end');
+        const prevBoundary = isBoundaryPoint(prev);
+        const pBoundary = isBoundaryPoint(p);
 
         const rank = (x: SystemTrackPoint) => {
-            if (x.source === 'seam') return 3;
-            if (x.source === 'spoke') return 2;
+            if (x.source === 'spoke') return 3;
+            if (x.source === 'seam') return 2;
             return 1;
         };
 
@@ -646,15 +716,13 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const bindSpokes = hasSynodWindow
             ? await collectBindSpokesInWindow(input, focus, id, synodStart, synodEnd)
             : [];
+        const nodalSpokes = hasSynodWindow
+            ? await collectNodalSpokesInWindow(input, id, synodStart, synodEnd)
+            : [];
         const bindTrack = buildTrackFromBindSpokes(bindSpokes, looker, focus, id);
-        const seamTrack = computeSystemStyleSeams({
-            looker,
-            focus,
-            target: id,
-            track: mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? [])])
-        });
+        const nodalTrack = buildTrackFromNodalSpokes(nodalSpokes, looker, focus, id);
 
-        const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? []), ...seamTrack]);
+        const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? []), ...(nodalTrack ?? [])]);
         const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id);
         const orbitTrack = mergeTrackPointsPreferSynod(denseTrack);
 
