@@ -10,20 +10,18 @@
 
     export let onPickTs: (ts: number) => void = () => {};
     export let onClose: () => void = () => {};
-
-    // NEW: allow parent to keep tooltip open while hovering it
     export let onEnter: () => void = () => {};
     export let onLeave: () => void = () => {};
 
-    function isFiniteNumber(v: any): v is number {
+    function isFiniteNumber(v: unknown): v is number {
         return typeof v === 'number' && Number.isFinite(v);
     }
 
-    function resolvePickTs(payload: CycleTipPayload): number {
-        if (payload.kind === 'marker') return NaN;
-        const v = payload.pickTs;
+    function resolvePickTs(p: CycleTipPayload): number {
+        if (p.kind === 'marker') return NaN;
+        const v = p.pickTs;
         if (isFiniteNumber(v)) return v;
-        return payload.ts;
+        return p.ts;
     }
 
     function titleCaseWords(text: string): string {
@@ -43,50 +41,49 @@
         return Array.from(new Set(normalized));
     }
 
-    // Patch 2: do not format junk as date
-    function fmtTs(v: any): string {
+    function fmtTs(v: unknown): string {
         const n = typeof v === 'number' ? v : Number(v);
         return Number.isFinite(n) ? formatDateTime(n) : '—';
     }
 
-    function formatKm(km: number) {
+    function formatKm(km: number): string {
         if (!isFiniteNumber(km)) return '—';
-        if (km >= 1e9) return `${(km / 1e9).toFixed(2)}B km`;
-        if (km >= 1e6) return `${(km / 1e6).toFixed(2)}M km`;
-        if (km >= 1e3) return `${(km / 1e3).toFixed(1)}k km`;
-        return `${Math.round(km)} km`;
+        const abs = Math.abs(km);
+        if (abs >= 1e12) return `${(km / 1e12).toFixed(3)} Tkm`;
+        if (abs >= 1e9) return `${(km / 1e9).toFixed(3)} Bkm`;
+        if (abs >= 1e6) return `${(km / 1e6).toFixed(3)} Mkm`;
+        if (abs >= 1e3) return `${(km / 1e3).toFixed(3)} Kkm`;
+        return `${km.toFixed(3)} km`;
     }
 
-    function formatAu(au: number) {
+    function formatAu(au: number): string {
         if (!isFiniteNumber(au)) return '—';
         return `${au.toFixed(3)} AU`;
     }
 
-    function formatDeg(v: number) {
+    function formatDeg(v: number): string {
         if (!isFiniteNumber(v)) return '—';
         return `${v.toFixed(1)}°`;
     }
 
-    function formatDeg3(v: number) {
+    function formatDeg3(v: number): string {
         if (!isFiniteNumber(v)) return '—';
         return `${v.toFixed(3)}°`;
     }
 
-    function formatNum3(v: number) {
+    function formatNum3(v: number): string {
         if (!isFiniteNumber(v)) return '—';
         return v.toFixed(3);
     }
 
-    function formatHours(v: number) {
+    function formatHours(v: number): string {
         if (!isFiniteNumber(v)) return '—';
         return `${v.toFixed(3)}h`;
     }
 
-    // “общий” рендер меты: сначала known-кейсы, потом fallback
     function renderMetaLines(meta: any): Array<{ k: string; v: string }> {
         if (!meta) return [];
 
-        // HorizonMeta
         if (isFiniteNumber((meta as any).altitudeDeg) || isFiniteNumber((meta as any).azimuthDeg)) {
             return [
                 ...(isFiniteNumber((meta as any).altitudeDeg)
@@ -110,7 +107,6 @@
             ];
         }
 
-        // NodalMeta
         if (isFiniteNumber((meta as any).nodalLatitudeDeg)) {
             return [
                 { k: 'Nodal Lat', v: formatDeg3((meta as any).nodalLatitudeDeg) },
@@ -118,12 +114,11 @@
                     ? [{ k: 'Dist AU', v: formatNum3((meta as any).targetDistanceAu) }]
                     : []),
                 ...(isFiniteNumber((meta as any).targetDistanceKm)
-                    ? [{ k: 'Dist km', v: formatNum3((meta as any).targetDistanceKm) }]
+                    ? [{ k: 'Dist km', v: formatKm((meta as any).targetDistanceKm) }]
                     : []),
             ];
         }
 
-        // BindMeta
         if (isFiniteNumber((meta as any).distanceKm) || isFiniteNumber((meta as any).distanceAu)) {
             return [
                 ...(isFiniteNumber((meta as any).distanceAu) ? [{ k: 'Distance', v: formatAu((meta as any).distanceAu) }] : []),
@@ -131,7 +126,6 @@
             ];
         }
 
-        // fallback: плоские примитивы
         if (typeof meta === 'object' && meta) {
             const out: Array<{ k: string; v: string }> = [];
             for (const [k, v] of Object.entries(meta)) {
@@ -145,13 +139,67 @@
         return [];
     }
 
-    // --- NEW: viewport clamping (prevent going off-screen) ---
+    function payloadTitle(p: CycleTipPayload | null): string {
+        if (!p) return 'Details';
+        if (p.kind === 'spoke') return `Spoke ${p.code}`;
+        if (p.kind === 'boundary') return `Boundary ${p.from}→${p.to}`;
+        return `Marker ${p.label}`;
+    }
+
+    function payloadSubtitle(p: CycleTipPayload | null): string {
+        if (!p) return '';
+        if (p.kind === 'marker') return `${p.moments.length} ${p.moments.length === 1 ? 'moment' : 'moments'}`;
+        return fmtTs(p.ts);
+    }
+
+    function payloadCopyText(p: CycleTipPayload | null): string {
+        if (!p) return '';
+        if (p.kind === 'marker') {
+            const lines = p.moments
+                .map((m) => `${m.emoji ?? '•'} ${m.label} | ${fmtTs(m.ts)}`)
+                .join('\n');
+            return `${payloadTitle(p)}\n${lines}`;
+        }
+
+        const tags = payloadTags(p);
+        const meta = renderMetaLines(p.meta).map((row) => `${row.k}: ${row.v}`).join(' | ');
+        const chunks = [
+            payloadTitle(p),
+            fmtTs(p.ts),
+            tags.length ? `Tags: ${tags.join(', ')}` : '',
+            meta,
+        ].filter((x) => x.length > 0);
+        return chunks.join(' | ');
+    }
+
+    async function copyPayload() {
+        const text = payloadCopyText(payload);
+        if (!text) return;
+        try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+        } catch {}
+
+        if (typeof document === 'undefined') return;
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', 'true');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+    }
+
     let el: HTMLDivElement | null = null;
     let posX = 0;
     let posY = 0;
 
-    const OFFSET = 12; // cursor offset
-    const MARGIN = 10; // viewport margin
+    const OFFSET = 12;
+    const MARGIN = 10;
 
     async function recomputePosition() {
         await tick();
@@ -165,20 +213,16 @@
         const vw = window.innerWidth;
         const vh = window.innerHeight;
 
-        // default: show to the bottom-right of cursor
         let nx = x + OFFSET;
         let ny = y + OFFSET;
 
-        // clamp right
         if (nx + r.width + MARGIN > vw) nx = Math.max(MARGIN, vw - r.width - MARGIN);
 
-        // clamp bottom: try above cursor first
         if (ny + r.height + MARGIN > vh) {
             const up = y - OFFSET - r.height;
             ny = up >= MARGIN ? up : Math.max(MARGIN, vh - r.height - MARGIN);
         }
 
-        // final clamp
         nx = Math.min(Math.max(MARGIN, nx), Math.max(MARGIN, vw - r.width - MARGIN));
         ny = Math.min(Math.max(MARGIN, ny), Math.max(MARGIN, vh - r.height - MARGIN));
 
@@ -186,24 +230,51 @@
         posY = ny;
     }
 
-    // react to movement and content changes (content affects size)
     $: void recomputePosition();
     $: if (payload) void recomputePosition();
 </script>
 
 <div
-        class="root"
-        bind:this={el}
-        data-tooltip-root="1"
-        role="tooltip"
-        style={`left:${posX}px; top:${posY}px;`}
-        on:mouseenter={onEnter}
-        on:mouseleave={onLeave}
+    class="tip"
+    bind:this={el}
+    data-tooltip-root="1"
+    role="dialog"
+    tabindex="-1"
+    style={`left:${posX}px; top:${posY}px;`}
+    on:mouseenter={onEnter}
+    on:mouseleave={onLeave}
 >
     {#if payload}
+        <header class="head">
+            <div class="headLeft">
+                <div class="title">{payloadTitle(payload)}</div>
+                <div class="dt">{payloadSubtitle(payload)}</div>
+            </div>
+            <div class="headRight">
+                {#if payload.kind !== 'marker'}
+                    <button
+                        class="navBtn miniBtn topIconBtn"
+                        type="button"
+                        title="Go to this moment"
+                        aria-label="Go to this moment"
+                        on:click={() => {
+                            const t = resolvePickTs(payload);
+                            if (isFiniteNumber(t)) onPickTs(t);
+                        }}
+                    >↪</button>
+                {/if}
+                <button
+                    class="navBtn miniBtn topIconBtn"
+                    type="button"
+                    title="Copy"
+                    aria-label="Copy"
+                    on:click={copyPayload}
+                >⧉</button>
+                <button class="navBtn close topIconBtn" type="button" aria-label="Close" on:click={onClose}>×</button>
+            </div>
+        </header>
+
         {#if payload.kind === 'spoke'}
-            <div class="title">Spoke <span class="ui-chip">{payload.code}</span></div>
-            <div class="dt">{fmtTs(payload.ts)}</div>
             {#if payloadTags(payload).length > 0}
                 <div class="ui-tag-row">
                     {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
@@ -218,18 +289,8 @@
                     <span class="v">{row.v}</span>
                 </div>
             {/each}
-
-            <div class="actions">
-                <button type="button" class="btn" on:click={() => {
-                    const t = resolvePickTs(payload);
-                    isFiniteNumber(t) && onPickTs(t);
-                }}>Go</button>
-                <button type="button" class="btn ghost" on:click={onClose}>Close</button>
-            </div>
 
         {:else if payload.kind === 'boundary'}
-            <div class="title">Boundary <span class="ui-chip">{payload.from}→{payload.to}</span></div>
-            <div class="dt">{fmtTs(payload.ts)}</div>
             {#if payloadTags(payload).length > 0}
                 <div class="ui-tag-row">
                     {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
@@ -245,86 +306,154 @@
                 </div>
             {/each}
 
-            <div class="actions">
-                <button type="button" class="btn" on:click={() => {
-                    const t = resolvePickTs(payload);
-                    isFiniteNumber(t) && onPickTs(t);
-                }}>Go</button>
-                <button type="button" class="btn ghost" on:click={onClose}>Close</button>
-            </div>
-
         {:else if payload.kind === 'marker'}
-            <div class="title">Marker <span class="ui-chip">{payload.label}</span></div>
-
             <div class="list">
                 {#each payload.moments as m, i (m.id ?? m.ts ?? i)}
-                    <button type="button" class="row" on:click={() => isFiniteNumber(m.ts) && onPickTs(m.ts)}>
-            <span class="left">
-              <span class="emoji">{m.emoji ?? '•'}</span>
-              <span class="lbl">{m.label}</span>
-            </span>
+                    <button
+                        type="button"
+                        class="row"
+                        on:click={() => {
+                            if (isFiniteNumber(m.ts)) onPickTs(m.ts);
+                        }}
+                    >
+                        <span class="left">
+                            <span class="emoji">{m.emoji ?? '•'}</span>
+                            <span class="lbl">{m.label}</span>
+                        </span>
                         <span class="right">{fmtTs(m.ts)}</span>
                     </button>
                 {/each}
-            </div>
-
-            <div class="actions">
-                <button type="button" class="btn ghost" on:click={onClose}>Close</button>
             </div>
         {/if}
     {/if}
 </div>
 
 <style>
-    .root{
+    .tip {
         position: fixed;
-        z-index: 9999;
-        min-width: 240px;
-        max-width: 360px;
-        padding: 10px 12px;
-        border-radius: 12px;
-        background: color-mix(in oklab, var(--panel), black 12%);
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+        z-index: 50;
+        width: min(420px, calc(100vw - 16px));
+        max-height: min(420px, calc(100vh - 16px));
+        color: var(--fg);
+        background: color-mix(in oklab, var(--bg), black 10%);
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        border-radius: 14px;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
         backdrop-filter: blur(8px);
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: auto 1fr;
+        padding-bottom: 14px;
     }
-    .title{ font-weight: 850; display:flex; gap:8px; align-items:center; }
-    .dt{ margin-top: 6px; opacity: 0.9; font-variant-numeric: tabular-nums; }
-    .metaRow{ display:flex; justify-content: space-between; gap: 12px; margin-top: 6px; opacity:0.85; }
-    .metaRow .k{ opacity:0.7; }
-    .metaRow .v{ font-variant-numeric: tabular-nums; }
 
-    .actions{ display:flex; gap:8px; justify-content:flex-end; margin-top: 10px; }
-    .btn{
-        padding: 6px 10px;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        font-weight: 800;
+    .head {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 10px 12px;
+        border-bottom: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
     }
-    .btn.ghost{
-        background: transparent;
+
+    .headLeft {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+    }
+
+    .title {
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .dt {
+        font-size: 12px;
         opacity: 0.85;
+        font-variant-numeric: tabular-nums;
     }
 
-    .list{ display:grid; gap:6px; margin-top: 10px; }
-    .row{
-        display:flex;
+    .headRight {
+        display: flex;
+        gap: 8px;
+    }
+
+    .topIconBtn {
+        min-width: 34px;
+        height: 34px;
+        padding: 0;
+        display: inline-grid;
+        place-items: center;
+        font-size: 15px;
+        line-height: 1;
+    }
+
+    .ui-tag-row {
+        padding: 10px 12px 0;
+    }
+
+    .metaRow {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 6px 12px 0;
+        opacity: 0.9;
+    }
+
+    .metaRow .k {
+        opacity: 0.7;
+    }
+
+    .metaRow .v {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .list {
+        display: grid;
+        gap: 6px;
+        margin: 10px 12px 10px;
+        overflow: auto;
+    }
+
+    .row {
+        display: flex;
         justify-content: space-between;
         gap: 10px;
         padding: 6px 8px;
         border-radius: 10px;
-        border: 1px solid rgba(255,255,255,0.06);
-        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.03);
         color: inherit;
         cursor: pointer;
-        text-align:left;
+        text-align: left;
     }
-    .row:hover{ background: rgba(255,255,255,0.06); }
-    .left{ display:flex; gap:8px; align-items:center; min-width:0; }
-    .emoji{ width: 18px; text-align:center; }
-    .lbl{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .right{ white-space:nowrap; opacity:0.9; font-variant-numeric: tabular-nums; }
+
+    .row:hover {
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .left {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        min-width: 0;
+    }
+
+    .emoji {
+        width: 18px;
+        text-align: center;
+    }
+
+    .lbl {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .right {
+        white-space: nowrap;
+        opacity: 0.9;
+        font-variant-numeric: tabular-nums;
+    }
 </style>
