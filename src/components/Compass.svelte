@@ -202,6 +202,7 @@
     let showOrbitNodesSeam = true;
     let showOrbitNodesSynod = true;
     let showOrbitNodesBind = true;
+    let showOrbitNodesZenithNadir = true;
     let activeSpokeCode: string | null = null;
     let lastResolvedTs = NaN;
     let markerTweenRaf = 0;
@@ -239,10 +240,15 @@
         showOrbitNodesBind = !showOrbitNodesBind;
     }
 
-    function orbitNodeGroup(node: { nodeStyle?: string }): 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' {
+    function toggleOrbitNodesZenithNadir() {
+        showOrbitNodesZenithNadir = !showOrbitNodesZenithNadir;
+    }
+
+    function orbitNodeGroup(node: { nodeStyle?: string }): 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' | 'zenithNadir' {
         if (node.nodeStyle === 'cycle-boundary') return 'boundary';
         if (node.nodeStyle === 'seam') return 'seam';
-        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min' || node.nodeStyle === 'zenith' || node.nodeStyle === 'nadir') return 'bind';
+        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min') return 'bind';
+        if (node.nodeStyle === 'zenith' || node.nodeStyle === 'nadir') return 'zenithNadir';
         if (node.nodeStyle === 'synod-n' || node.nodeStyle === 'synod-w' || node.nodeStyle === 'synod-s') return 'synod';
         return 'regular';
     }
@@ -255,6 +261,7 @@
         if (g === 'seam') return showOrbitNodesSeam;
         if (g === 'synod') return showOrbitNodesSynod;
         if (g === 'bind') return showOrbitNodesBind;
+        if (g === 'zenithNadir') return showOrbitNodesZenithNadir;
         return true;
     }
 
@@ -266,6 +273,7 @@
         if (g === 'seam') return showOrbitNodesSeam;
         if (g === 'synod') return showOrbitNodesSynod;
         if (g === 'bind') return showOrbitNodesBind;
+        if (g === 'zenithNadir') return showOrbitNodesZenithNadir;
         return true;
     });
 
@@ -1535,54 +1543,93 @@
                 </div>
 
                 {#if pinnedBodyId}
-                    <div class="nodeNav">
-                        <button
-                                class="nodeToggle navBtn nodeSeam"
-                                class:off={!showOrbitNodesSeam}
-                                type="button"
-                                title="Toggle seam nodes"
-                                aria-label="Toggle seam nodes"
-                                aria-pressed={showOrbitNodesSeam}
-                                on:click|stopPropagation={toggleOrbitNodesSeam}
-                        >
-                            ⊗
-                        </button>
-                        <button
-                                class="nodeToggle navBtn nodeRegular"
-                                class:off={!showOrbitNodesRegular}
-                                type="button"
-                                title="Toggle regular nodes"
-                                aria-label="Toggle regular nodes"
-                                aria-pressed={showOrbitNodesRegular}
-                                on:click|stopPropagation={toggleOrbitNodesRegular}
-                        >
-                            •
-                        </button>
-                        {#if wheel?.wheelType === 'system'}
+                    {#if wheel?.wheelType === 'compass'}
+                        <div class="nodeNav nodeNavCompass">
+                            <span class="nodeSpacer" aria-hidden="true"></span>
                             <button
-                                    class="nodeToggle navBtn nodeSynod"
-                                    class:off={!showOrbitNodesSynod}
+                                    class="nodeToggle navBtn nodeZenithNadir"
+                                    class:off={!showOrbitNodesZenithNadir}
                                     type="button"
-                                    title="Toggle synod nodes"
-                                    aria-label="Toggle synod nodes"
-                                    aria-pressed={showOrbitNodesSynod}
-                                    on:click|stopPropagation={toggleOrbitNodesSynod}
+                                    title="Toggle zenith and nadir nodes"
+                                    aria-label="Toggle zenith and nadir nodes"
+                                    aria-pressed={showOrbitNodesZenithNadir}
+                                    on:click|stopPropagation={toggleOrbitNodesZenithNadir}
                             >
-                                S
+                                ZN
                             </button>
                             <button
-                                    class="nodeToggle navBtn nodeBind"
-                                    class:off={!showOrbitNodesBind}
+                                    class="nodeToggle navBtn nodeSeam"
+                                    class:off={!showOrbitNodesSeam}
                                     type="button"
-                                    title="Toggle bind nodes"
-                                    aria-label="Toggle bind nodes"
-                                    aria-pressed={showOrbitNodesBind}
-                                    on:click|stopPropagation={toggleOrbitNodesBind}
+                                    title="Toggle seam nodes"
+                                    aria-label="Toggle seam nodes"
+                                    aria-pressed={showOrbitNodesSeam}
+                                    on:click|stopPropagation={toggleOrbitNodesSeam}
                             >
-                                B
+                                ⊗
                             </button>
-                        {/if}
-                    </div>
+                            <button
+                                    class="nodeToggle navBtn nodeRegular"
+                                    class:off={!showOrbitNodesRegular}
+                                    type="button"
+                                    title="Toggle regular nodes"
+                                    aria-label="Toggle regular nodes"
+                                    aria-pressed={showOrbitNodesRegular}
+                                    on:click|stopPropagation={toggleOrbitNodesRegular}
+                            >
+                                •
+                            </button>
+                        </div>
+                    {:else}
+                        <div class="nodeNav">
+                            <button
+                                    class="nodeToggle navBtn nodeSeam"
+                                    class:off={!showOrbitNodesSeam}
+                                    type="button"
+                                    title="Toggle seam nodes"
+                                    aria-label="Toggle seam nodes"
+                                    aria-pressed={showOrbitNodesSeam}
+                                    on:click|stopPropagation={toggleOrbitNodesSeam}
+                            >
+                                ⊗
+                            </button>
+                            <button
+                                    class="nodeToggle navBtn nodeRegular"
+                                    class:off={!showOrbitNodesRegular}
+                                    type="button"
+                                    title="Toggle regular nodes"
+                                    aria-label="Toggle regular nodes"
+                                    aria-pressed={showOrbitNodesRegular}
+                                    on:click|stopPropagation={toggleOrbitNodesRegular}
+                            >
+                                •
+                            </button>
+                            {#if wheel?.wheelType === 'system'}
+                                <button
+                                        class="nodeToggle navBtn nodeSynod"
+                                        class:off={!showOrbitNodesSynod}
+                                        type="button"
+                                        title="Toggle synod nodes"
+                                        aria-label="Toggle synod nodes"
+                                        aria-pressed={showOrbitNodesSynod}
+                                        on:click|stopPropagation={toggleOrbitNodesSynod}
+                                >
+                                    S
+                                </button>
+                                <button
+                                        class="nodeToggle navBtn nodeBind"
+                                        class:off={!showOrbitNodesBind}
+                                        type="button"
+                                        title="Toggle bind nodes"
+                                        aria-label="Toggle bind nodes"
+                                        aria-pressed={showOrbitNodesBind}
+                                        on:click|stopPropagation={toggleOrbitNodesBind}
+                                >
+                                    B
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
                 {/if}
             </div>
 
@@ -1910,6 +1957,15 @@
         grid-template-columns: repeat(2, 30px);
         gap: 6px;
     }
+    .nodeNavCompass {
+        right: -2px;
+        bottom: 20px;
+    }
+    .nodeSpacer {
+        width: 30px;
+        height: 30px;
+        pointer-events: none;
+    }
     .orbitToggle {
         width: 34px;
         height: 34px;
@@ -1942,6 +1998,9 @@
     }
     .nodeToggle.nodeBind {
         color: color-mix(in oklab, #40a8ff, white 8%);
+    }
+    .nodeToggle.nodeZenithNadir {
+        color: color-mix(in oklab, #e0a600, #40a8ff 45%);
     }
     .orbitCurve {
         fill: none;
