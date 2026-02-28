@@ -350,6 +350,18 @@
         }
     }
 
+    function handlePanelClick(e: MouseEvent) {
+        if (open) return;
+        const target = e.target;
+        if (!(target instanceof Element)) {
+            openForm();
+            return;
+        }
+        if (target === e.currentTarget || !!target.closest('.plusWrap')) {
+            openForm();
+        }
+    }
+
     $: hasAll =
         required.every((r) => r === 'target'
             ? values.target.length > 0
@@ -447,7 +459,7 @@
      role="button"
      tabindex="0"
      aria-label="Add wheel"
-     on:click={() => { if (!open) openForm(); }}
+     on:click={handlePanelClick}
      on:keydown={handlePanelKeydown}>
     {#if !open}
         <div class="plusWrap" aria-hidden="true">
