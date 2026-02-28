@@ -51,7 +51,7 @@ export async function putCycleSolved<Meta = any>(
 
 // -----------
 
-const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', false); // todo - turn on after testing
+const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
 const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'system']);
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
@@ -60,6 +60,9 @@ const MAX_CYCLES_PER_KEY = 256;
 const MAX_CYCLES_TOTAL = 5000;
 const CYCLE_TS_BUCKET_MS = 60_000;
 const BOUNDARY_SNAP_TOLERANCE_MS = 2 * CYCLE_TS_BUCKET_MS;
+const STORAGE_SOFT_LIMIT_PCT = 0.7;
+const STORAGE_TARGET_PCT = 0.6;
+const STORAGE_CLEANUP_BATCH_MIN = 64;
 
 const runtime = new Map<CacheKey, CycleData<any>>();
 
@@ -215,6 +218,43 @@ function nowMs(): number {
     return ms(Date.now());
 }
 
+function distanceFromPresent(row: Pick<CycleRecord, 'startTs' | 'endTs'>, nowTs: number): number {
+    return Math.min(Math.abs(row.startTs - nowTs), Math.abs(row.endTs - nowTs));
+}
+
+function sortByFarthestFromPresent(rows: CycleRecord[], nowTs: number): CycleRecord[] {
+    return rows.sort((a, b) => {
+        const da = distanceFromPresent(a, nowTs);
+        const db = distanceFromPresent(b, nowTs);
+        if (da !== db) return db - da;
+        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0);
+    });
+}
+
+function isQuotaExceededError(err: unknown): boolean {
+    if (!err) return false;
+    if (err instanceof DOMException) {
+        return err.name === 'QuotaExceededError' || err.code === 22;
+    }
+    const msg = String((err as any)?.name ?? '') + ' ' + String((err as any)?.message ?? '');
+    return /quota/i.test(msg);
+}
+
+async function estimateStorage(): Promise<{ usage: number; quota: number } | null> {
+    if (typeof navigator === 'undefined') return null;
+    const estimateFn = navigator?.storage?.estimate;
+    if (typeof estimateFn !== 'function') return null;
+    try {
+        const e = await estimateFn.call(navigator.storage);
+        const usage = Number(e?.usage);
+        const quota = Number(e?.quota);
+        if (!Number.isFinite(usage) || !Number.isFinite(quota) || quota <= 0) return null;
+        return { usage, quota };
+    } catch {
+        return null;
+    }
+}
+
 function coversTs(c: CycleData, ts: number): boolean {
     return isFiniteNum(ts) && ts >= c.startTs && ts <= c.endTs;
 }
@@ -316,11 +356,8 @@ async function idbPut(cycle: CycleData): Promise<CycleData> {
 
     const aligned = alignCycleWithKnownBoundaries(cycle, prev?.endTs, next?.startTs);
 
-    const db = await openDb();
-    const tx = db.transaction(STORE_CYCLES, 'readwrite');
-    const store = tx.objectStore(STORE_CYCLES);
-
     const t = nowMs();
+    await trimByStoragePressure(t);
 
     const rec: CycleRecord = {
         cacheKey: aligned.cacheKey as any,
@@ -331,11 +368,18 @@ async function idbPut(cycle: CycleData): Promise<CycleData> {
         updatedAt: t,
     };
 
-    store.put(rec as any);
-    await txDone(tx);
+    try {
+        await putRecord(rec);
+    } catch (err) {
+        if (!isQuotaExceededError(err)) throw err;
+        await trimByStoragePressure(t, { force: true, targetPct: STORAGE_TARGET_PCT * 0.9 });
+        await trimTotal(t);
+        await putRecord(rec);
+    }
 
     await trimKey(aligned.cacheKey, t);
     await trimTotal(t);
+    await trimByStoragePressure(t);
     return { ...aligned, updatedAt: t };
 }
 
@@ -367,21 +411,10 @@ async function trimKey(cycleKey: CacheKey, nowTs: number): Promise<void> {
     const rows = await listRecordsForKey(cycleKey);
     if (rows.length <= MAX_CYCLES_PER_KEY) return;
 
-    rows.sort((a, b) => {
-        const da = Math.min(Math.abs(a.startTs - nowTs), Math.abs(a.endTs - nowTs));
-        const db = Math.min(Math.abs(b.startTs - nowTs), Math.abs(b.endTs - nowTs));
-        if (da !== db) return db - da;
-        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0);
-    });
+    sortByFarthestFromPresent(rows, nowTs);
 
     const toDelete = rows.slice(0, rows.length - MAX_CYCLES_PER_KEY);
-
-    const db = await openDb();
-    const tx = db.transaction(STORE_CYCLES, 'readwrite');
-    const store = tx.objectStore(STORE_CYCLES);
-
-    for (const r of toDelete) store.delete([r.cacheKey as any, r.startTs] as any);
-    await txDone(tx);
+    await deleteRecords(toDelete);
 }
 
 async function countAll(): Promise<number> {
@@ -431,20 +464,51 @@ async function trimTotal(nowTs: number): Promise<void> {
     if (total <= MAX_CYCLES_TOTAL) return;
 
     const rows = await listAllByUpdatedAt();
-
-    rows.sort((a, b) => {
-        const da = Math.min(Math.abs(a.startTs - nowTs), Math.abs(a.endTs - nowTs));
-        const db = Math.min(Math.abs(b.startTs - nowTs), Math.abs(b.endTs - nowTs));
-        if (da !== db) return db - da;
-        return (a.updatedAt ?? 0) - (b.updatedAt ?? 0);
-    });
+    sortByFarthestFromPresent(rows, nowTs);
 
     const toDelete = rows.slice(0, total - MAX_CYCLES_TOTAL);
+    await deleteRecords(toDelete);
+}
 
+async function putRecord(rec: CycleRecord): Promise<void> {
+    const db = await openDb();
+    const tx = db.transaction(STORE_CYCLES, 'readwrite');
+    const store = tx.objectStore(STORE_CYCLES);
+    store.put(rec as any);
+    await txDone(tx);
+}
+
+async function deleteRecords(rows: CycleRecord[]): Promise<void> {
+    if (!rows.length) return;
     const db = await openDb();
     const tx = db.transaction(STORE_CYCLES, 'readwrite');
     const store = tx.objectStore(STORE_CYCLES);
 
-    for (const r of toDelete) store.delete([r.cacheKey as any, r.startTs] as any);
+    for (const r of rows) store.delete([r.cacheKey as any, r.startTs] as any);
     await txDone(tx);
+}
+
+async function trimByStoragePressure(
+    nowTs: number,
+    opts?: { force?: boolean; targetPct?: number }
+): Promise<void> {
+    const est = await estimateStorage();
+    if (!est) return;
+
+    const usedPct = est.usage / est.quota;
+    const targetPct = Math.max(0.2, Math.min(0.95, opts?.targetPct ?? STORAGE_TARGET_PCT));
+    const shouldTrim = opts?.force ? usedPct > targetPct : usedPct > STORAGE_SOFT_LIMIT_PCT;
+    if (!shouldTrim) return;
+
+    const rows = await listAllByUpdatedAt();
+    if (!rows.length) return;
+    sortByFarthestFromPresent(rows, nowTs);
+
+    const targetUsage = est.quota * targetPct;
+    const excess = Math.max(0, est.usage - targetUsage);
+    const ratio = est.usage > 0 ? excess / est.usage : 0;
+    const countByRatio = Math.ceil(rows.length * ratio);
+    const deleteCount = Math.min(rows.length, Math.max(STORAGE_CLEANUP_BATCH_MIN, countByRatio));
+
+    await deleteRecords(rows.slice(0, deleteCount));
 }
