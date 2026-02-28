@@ -47,9 +47,18 @@
 
     const dbg = debug('COMPASS', '🧭');
 
+    function docsPathForWheelType(type: string | undefined): string {
+        const wt = String(type ?? 'compass');
+        return `concept/${wt}.md`;
+    }
+
+    function docsTitleForWheelType(type: string | undefined): string {
+        return `${String(type ?? 'compass')} wheel`;
+    }
+
     // docs
-    const docs = useDocs(() => 'concept/compass.md', {
-        getTitle: () => 'Compass Wheel',
+    const docs = useDocs(() => docsPathForWheelType(wheel?.wheelType), {
+        getTitle: () => docsTitleForWheelType(wheel?.wheelType),
         dbg,
         tag: () => 'compass'
     });

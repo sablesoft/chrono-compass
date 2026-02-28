@@ -144,6 +144,32 @@ When markers overlap or are too close:
 
 ---
 
+## Orbit tracks and nodes
+
+Compass Wheel can also render per-target orbit tracks around the horizon frame.
+
+Track data is assembled from:
+
+* **cycle points** from the current horizon cycle,
+* **spoke points** (exact spoke intersections above horizon),
+* **seam points** (style transition anchors on horizon crossing).
+
+These points are merged with deterministic priority so navigation anchors remain stable:
+
+* cycle boundaries (`E`, `E+`, `E_next`) are preserved,
+* seam points override regular nearby points,
+* spoke points override regular cycle samples near the same moment.
+
+In the UI:
+
+* above-horizon arcs and below-horizon arcs use different line style,
+* orbit nodes are interactive moment anchors,
+* seam and spoke nodes can be used for direct time navigation.
+
+This lets Compass Wheel remain a spatial instrument while providing precise temporal entry points.
+
+---
+
 ## Interaction model
 
 ### Clicking empty space
