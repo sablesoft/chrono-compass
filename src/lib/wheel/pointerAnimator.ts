@@ -46,8 +46,10 @@ export class PointerAnimator {
         if (!this.state.isAnimating) {
             const cur = this.wrapTo360Like(this.state.angleDeg);
             const base = this.wrapTo360Like(baseAngleDeg);
-
-            const next = this.normalizeByDirection(base, cur, timeDir);
+            // On first frame of a new cycle window, do not force motion direction.
+            // This prevents choosing a wrong angle branch right after E+ -> E jump.
+            const dirForNormalize: -1 | 0 | 1 = cycleChanged ? 0 : timeDir;
+            const next = this.normalizeByDirection(base, cur, dirForNormalize);
             this.state.angleDeg = next;
 
             if (Math.abs(this.state.angleDeg) > 2000) this.needsWrapFix = true;

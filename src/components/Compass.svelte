@@ -17,7 +17,7 @@
     import { debug } from '../lib/debug';
 
     import { objects, wheels } from '../lib/catalog';
-    import type { ObjId, EmojiPlacement, RoleName, WheelSpec } from '../lib/catalog';
+    import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelSpec } from '../lib/catalog';
 
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
@@ -895,6 +895,12 @@
         return { kind: 'label', spoke: p };
     }
 
+    function parsePlacements(p: EmojiPlacementInput | undefined): UiAnchor[] {
+        if (!p) return [];
+        const arr = Array.isArray(p) ? p : [p];
+        return arr.map((x) => parsePlacement(x)).filter((x): x is UiAnchor => !!x);
+    }
+
     type EmojiAt = { anchor: UiAnchor; text: string };
 
     let spec: WheelSpec | null = null;
@@ -910,7 +916,7 @@
     $: {
         spec = wheel?.wheelType ? ((wheels as any)[wheel.wheelType] as WheelSpec) : null;
 
-        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
+        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
         const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
 
         const focusId = (wheel?.roles as any)?.focus as ObjId | null;
@@ -918,23 +924,26 @@
         const targetIds = roleTargetIds((wheel?.roles as any)?.target);
 
         if (ui?.focus && focusId) {
-            const a = parsePlacement(ui.focus);
             const e = roleEmojiById(focusId);
-            if (a && e) draws.push({ anchor: a, emoji: e });
+            if (e) {
+                for (const a of parsePlacements(ui.focus)) draws.push({ anchor: a, emoji: e });
+            }
         }
 
         if (ui?.looker && lookerId) {
-            const a = parsePlacement(ui.looker);
             const e = roleEmojiById(lookerId);
-            if (a && e) draws.push({ anchor: a, emoji: e });
+            if (e) {
+                for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e });
+            }
         }
 
         if (ui?.target && targetIds.length) {
-            const a = parsePlacement(ui.target);
-            if (a) {
+            const anchors = parsePlacements(ui.target);
+            if (anchors.length) {
                 for (const id of targetIds) {
                     const e = roleEmojiById(id);
-                    if (e) draws.push({ anchor: a, emoji: e });
+                    if (!e) continue;
+                    for (const a of anchors) draws.push({ anchor: a, emoji: e });
                 }
             }
         }

@@ -162,7 +162,9 @@ export type EmojiPlacement =
     | SpokeCode
     | `${SpokeCode}-spoke`;
 
-export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacement>>;
+export type EmojiPlacementInput = EmojiPlacement | readonly EmojiPlacement[];
+
+export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacementInput>>;
 
 /* =============================================================================
    Role values/selects

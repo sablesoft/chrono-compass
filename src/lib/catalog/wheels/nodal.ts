@@ -4,7 +4,7 @@ export const nodal = {
     type: 'nodal',
     ready: true,
     ui: {
-        looker: 'E-spoke',
+        looker: ['E-spoke', 'W-spoke'],
         focus: 'center',
         target: 'pointer',
     },

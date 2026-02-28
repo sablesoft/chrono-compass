@@ -11,7 +11,7 @@
     import { useCycleNowPointer } from '../lib/wheel/ui/useCycleNowPointer';
 
     import { objects, wheels } from '../lib/catalog';
-    import type { ObjId, WheelSpec, RoleName, EmojiPlacement, SpokeCode } from '../lib/catalog';
+    import type { ObjId, WheelSpec, RoleName, EmojiPlacement, EmojiPlacementInput, SpokeCode } from '../lib/catalog';
 
     import DocsModal from './DocsModal.svelte';
     import LocationPicker from './LocationPicker.svelte';
@@ -419,6 +419,12 @@
         return { kind: 'label', spoke: p as SpokeCode };
     }
 
+    function parsePlacements(p: EmojiPlacementInput | undefined): UiAnchor[] {
+        if (!p) return [];
+        const arr = Array.isArray(p) ? p : [p];
+        return arr.map((x) => parsePlacement(x));
+    }
+
     type EmojiAt = { anchor: UiAnchor; text: string };
 
     let spec: WheelSpec | null = null;
@@ -427,7 +433,7 @@
     $: {
         spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
 
-        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
+        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
         const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
 
         const focusId = (wheel?.roles as any)?.focus as ObjId | null;
@@ -436,18 +442,24 @@
 
         if (ui?.focus && focusId) {
             const e = bodyEmoji(focusId);
-            if (e) draws.push({ anchor: parsePlacement(ui.focus), emoji: e });
+            if (e) {
+                for (const a of parsePlacements(ui.focus)) draws.push({ anchor: a, emoji: e });
+            }
         }
 
         if (ui?.target && targetId) {
             const e = bodyEmoji(targetId);
-            if (e) draws.push({ anchor: parsePlacement(ui.target), emoji: e });
+            if (e) {
+                for (const a of parsePlacements(ui.target)) draws.push({ anchor: a, emoji: e });
+            }
         }
 
         if (ui?.looker) {
             const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
             const e = bodyEmoji(lookerId);
-            if (e) draws.push({ anchor: parsePlacement(ui.looker), emoji: e });
+            if (e) {
+                for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e });
+            }
         }
 
         const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
@@ -569,6 +581,7 @@
     }
 
     const SHIFT_EPS_MS = 1500;
+    const NEXT_CYCLE_PICK_EPS_MS = 15_000;
     const SNAP_SPOKE_EPS_MS = 250;
     let pendingShiftSnap: { dir: -1 | 1 } | null = null;
 
@@ -617,8 +630,9 @@
     function resolveSpokePickTs(i: number): number {
         const t = spokeTimes?.[i];
         if (!Number.isFinite(t)) return NaN;
-        // E+ is the boundary; move slightly forward to force next-cycle solve at E.
-        return i === 16 ? (t + SHIFT_EPS_MS) : t;
+        // E+ is boundary/end. Use a larger offset than regular shift epsilon
+        // to reliably step into the next cycle window (cache buckets are coarser).
+        return i === 16 ? (t + NEXT_CYCLE_PICK_EPS_MS) : t;
     }
 
     function handleSpokeActivate(i: number) {
