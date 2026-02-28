@@ -16,26 +16,6 @@ export async function bootstrap() {
 }
 
 function registerWheels() {
-    // bind...
-    registerWheel({
-        type: 'bind',
-        ui: 'cycle',
-        makeInput: (wheel, ctx) => ({
-            wheelType: 'bind',
-            ts: ctx.ts,
-            location: ctx.location,
-            dbg: ctx.dbg,
-
-            looker: (wheel.roles as any)?.looker ?? undefined,
-            focus: (wheel.roles as any)?.focus ?? undefined,
-            target: (wheel.roles as any)?.target,
-
-            // NEW: meta from catalog role-combo
-            meta: resolveWheelMeta(wheel),
-        }),
-        solve: (input) => solveBindWheel(input as any),
-    } satisfies WheelRegistryEntry<'bind'>);
-
     // compass...
     registerWheel({
         type: 'compass',
@@ -72,23 +52,7 @@ function registerWheels() {
         solve: (input) => solveHorizonWheel(input as any),
     } satisfies WheelRegistryEntry<'horizon'>);
 
-    registerWheel({
-        type: 'synod',
-        ui: 'cycle',
-        makeInput: (wheel, ctx) => ({
-            wheelType: 'synod',
-            ts: ctx.ts,
-            location: ctx.location, // не нужен для synod
-            dbg: ctx.dbg,
-
-            looker: (wheel.roles as any)?.looker,
-            focus: (wheel.roles as any)?.focus,
-            target: (wheel.roles as any)?.target, // у synod всегда один
-            // meta пока не обязательна; можно не прокидывать
-        }),
-        solve: (input) => solveSynodWheel(input as any),
-    } satisfies WheelRegistryEntry<'synod'>);
-
+    // system...
     registerWheel({
         type: 'system',
         ui: 'compass',
@@ -105,6 +69,44 @@ function registerWheels() {
         }),
         solve: (input) => solveSystemWheel(input as any),
     } satisfies WheelRegistryEntry<'system'>);
+
+    // bind...
+    registerWheel({
+        type: 'bind',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'bind',
+            ts: ctx.ts,
+            location: ctx.location,
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker ?? undefined,
+            focus: (wheel.roles as any)?.focus ?? undefined,
+            target: (wheel.roles as any)?.target,
+
+            // NEW: meta from catalog role-combo
+            meta: resolveWheelMeta(wheel),
+        }),
+        solve: (input) => solveBindWheel(input as any),
+    } satisfies WheelRegistryEntry<'bind'>);
+
+    // synod...
+    registerWheel({
+        type: 'synod',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'synod',
+            ts: ctx.ts,
+            location: ctx.location, // не нужен для synod
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker,
+            focus: (wheel.roles as any)?.focus,
+            target: (wheel.roles as any)?.target, // у synod всегда один
+            // meta пока не обязательна; можно не прокидывать
+        }),
+        solve: (input) => solveSynodWheel(input as any),
+    } satisfies WheelRegistryEntry<'synod'>);
 
     // TODO остальные...
 }
