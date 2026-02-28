@@ -26,6 +26,23 @@
         return payload.ts;
     }
 
+    function titleCaseWords(text: string): string {
+        return text
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
+    }
+
+    function payloadTags(p: CycleTipPayload | null): string[] {
+        if (!p || p.kind === 'marker') return [];
+        const tags: unknown[] = Array.isArray(p.tags) ? p.tags : [];
+        const normalized = tags
+            .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+            .map((t) => titleCaseWords(t.trim()));
+        return Array.from(new Set(normalized));
+    }
+
     // Patch 2: do not format junk as date
     function fmtTs(v: any): string {
         const n = typeof v === 'number' ? v : Number(v);
@@ -162,8 +179,15 @@
 >
     {#if payload}
         {#if payload.kind === 'spoke'}
-            <div class="title">Spoke <span class="chip">{payload.code}</span></div>
+            <div class="title">Spoke <span class="ui-chip">{payload.code}</span></div>
             <div class="dt">{fmtTs(payload.ts)}</div>
+            {#if payloadTags(payload).length > 0}
+                <div class="ui-tag-row">
+                    {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
+                        <span class="ui-tag">{tag}</span>
+                    {/each}
+                </div>
+            {/if}
 
             {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
                 <div class="metaRow">
@@ -181,8 +205,15 @@
             </div>
 
         {:else if payload.kind === 'boundary'}
-            <div class="title">Boundary <span class="chip">{payload.from}→{payload.to}</span></div>
+            <div class="title">Boundary <span class="ui-chip">{payload.from}→{payload.to}</span></div>
             <div class="dt">{fmtTs(payload.ts)}</div>
+            {#if payloadTags(payload).length > 0}
+                <div class="ui-tag-row">
+                    {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
+                        <span class="ui-tag">{tag}</span>
+                    {/each}
+                </div>
+            {/if}
 
             {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
                 <div class="metaRow">
@@ -200,7 +231,7 @@
             </div>
 
         {:else if payload.kind === 'marker'}
-            <div class="title">Marker <span class="chip">{payload.label}</span></div>
+            <div class="title">Marker <span class="ui-chip">{payload.label}</span></div>
 
             <div class="list">
                 {#each payload.moments as m, i (m.id ?? m.ts ?? i)}
@@ -235,15 +266,6 @@
         backdrop-filter: blur(8px);
     }
     .title{ font-weight: 850; display:flex; gap:8px; align-items:center; }
-    .chip{
-        font-weight: 800;
-        font-size: 0.85em;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.08);
-        opacity: 0.9;
-    }
     .dt{ margin-top: 6px; opacity: 0.9; font-variant-numeric: tabular-nums; }
     .metaRow{ display:flex; justify-content: space-between; gap: 12px; margin-top: 6px; opacity:0.85; }
     .metaRow .k{ opacity:0.7; }

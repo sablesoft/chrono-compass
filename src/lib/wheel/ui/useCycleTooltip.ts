@@ -8,6 +8,7 @@ export type CycleTipSpoke = {
     ts: number;
     pickTs?: number;       // optional action timestamp (can differ from display ts)
     meta?: any;            // cycle-specific meta (BindMeta etc)
+    tags?: string[];
 };
 
 export type CycleTipBoundary = {
@@ -17,6 +18,7 @@ export type CycleTipBoundary = {
     ts: number;
     pickTs?: number;
     meta?: any;
+    tags?: string[];
 };
 
 export type CycleTipMarker = {

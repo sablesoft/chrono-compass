@@ -267,12 +267,6 @@ function buildTrackFromSynodSpokes(
         const spokePhaseDeg = 90 + (360 * (s.index ?? 0)) / 16;
         const spokeAngleDeg = synodPhaseToWheelAngleDeg(spokePhaseDeg);
         const spokePhaseNormDeg = norm360(spokePhaseDeg);
-        const isCycleBoundary = (s.code === 'E' || s.code === 'E_next');
-        const synodStyle = s.code === 'N'
-            ? 'synod-n'
-            : (s.code === 'W'
-                ? 'synod-w'
-                : (s.code === 'S' ? 'synod-s' : undefined));
         const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
         out.push({
             ts: nodeTs,
@@ -287,7 +281,6 @@ function buildTrackFromSynodSpokes(
             phaseDeg: spokePhaseNormDeg,
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
-            nodeStyle: isCycleBoundary ? 'cycle-boundary' : synodStyle,
             tags: tags.length ? tags : undefined
         });
     }
@@ -444,9 +437,6 @@ function buildTrackFromBindSpokes(
         const dist = Number(s.meta?.distanceAu);
         const distanceAu = Number.isFinite(dist) && dist > 0 ? dist : inst.distanceAu;
         const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
-        const bindIsMax = s.code === 'N';
-        const bindIsMin = s.code === 'S';
-        const nodeStyle = bindIsMax ? 'bind-max' : (bindIsMin ? 'bind-min' : undefined);
         const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
 
         out.push({
@@ -462,7 +452,6 @@ function buildTrackFromBindSpokes(
             phaseDeg: systemPhaseDeg(inst),
             distanceAu,
             focusDistAu: inst.focusDistAu,
-            nodeStyle,
             tags: tags.length ? tags : undefined
         });
     }
@@ -530,6 +519,7 @@ function computeSystemStyleSeams(opts: {
         const eclLat = eclipticLatitudeDegAt(focus, target, ts);
         const northbound = fLo < 0 && fHi > 0;
         const nodalTag = northbound ? 'E-nodal' : 'W-nodal';
+        const nodalLabel = northbound ? 'ascending node' : 'descending node';
 
         pushUnique({
             ts,
@@ -544,8 +534,7 @@ function computeSystemStyleSeams(opts: {
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
-            nodeStyle: 'seam',
-            tags: uniqueTags([nodalTag, 'ecliptic crossing'])
+            tags: uniqueTags([nodalTag, nodalLabel])
         });
     }
 

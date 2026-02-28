@@ -404,17 +404,17 @@
                 <div class="nodeMoment">{nodeMomentText}</div>
             {/if}
             {#if momentTags.length > 0}
-                <div class="tagRow">
-                    {#each momentTagsUi as tag (`tag:${tag}`)}
-                        <span class="momentTag">{tag}</span>
+                <div class="ui-tag-row">
+                    {#each momentTagsUi as tag, i (`tag:${tag}:${i}`)}
+                        <span class="ui-tag">{tag}</span>
                     {/each}
                 </div>
             {/if}
 
             {#if isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0}
-                <div class="metaTagRow">
-                    {#each momentMetaPartsUi as p (`meta:${p}`)}
-                        <span class="metaTag">{p}</span>
+                <div class="ui-tag-row">
+                    {#each momentMetaPartsUi as p, i (`meta:${p}:${i}`)}
+                        <span class="ui-tag">{p}</span>
                     {/each}
                 </div>
             {/if}
@@ -647,41 +647,6 @@
         letter-spacing: 0.08em;
         text-transform: uppercase;
         opacity: 0.8;
-    }
-
-    .tagRow {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 0 2px 10px;
-    }
-    .momentTag {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        background: color-mix(in oklab, var(--fg), transparent 93%);
-        opacity: 0.9;
-        white-space: nowrap;
-    }
-    .metaTagRow {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 0 2px 10px;
-    }
-    .metaTag {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.02em;
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        background: color-mix(in oklab, var(--fg), transparent 93%);
-        opacity: 0.9;
-        white-space: nowrap;
     }
 
     .empty { padding: 10px 6px; font-size: 12px; opacity: 0.75; }

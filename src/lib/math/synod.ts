@@ -147,9 +147,11 @@ function uniqueTags(tags: Array<string | null | undefined>): string[] {
 }
 
 function synodSpokeTags(code: SpokeKey, durationTag: string): string[] {
+    const codeTag = code === 'E_next' ? null : `${code}-synod`;
     return uniqueTags([
-        `${code}-synod`,
+        codeTag,
         code === 'E' ? 'cycle start' : null,
+        code === 'E' ? 'cycle end' : null,
         code === 'E' ? 'first quarter' : null,
         code === 'E' ? 'waxing quadrature' : null,
         code === 'N' ? 'opposition' : null,
@@ -158,8 +160,7 @@ function synodSpokeTags(code: SpokeKey, durationTag: string): string[] {
         code === 'W' ? 'waning quadrature' : null,
         code === 'S' ? 'conjunction' : null,
         code === 'S' ? 'new phase' : null,
-        code === 'E_next' ? 'cycle end' : null,
-        (code === 'E' || code === 'E_next') ? durationTag : null,
+        code === 'E' ? durationTag : null,
     ]);
 }
 

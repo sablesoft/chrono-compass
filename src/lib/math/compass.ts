@@ -18,7 +18,6 @@ export type CompassTrackPoint = {
     orbit: number;
     visible: boolean;
     source?: 'cycle' | 'spoke' | 'seam';
-    nodeStyle?: string;
     tags?: string[];
 };
 
@@ -110,7 +109,6 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
         const orbit = Number(s.meta?.orbit);
         if (!Number.isFinite(az) || !Number.isFinite(alt) || !Number.isFinite(orbit)) continue;
         const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
-        const isCycleBoundary = s.code === 'E' || s.code === 'E_next';
         out.push({
             ts: s.ts,
             index: s.index,
@@ -121,7 +119,6 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
             orbit,
             visible: alt >= 0,
             source: 'cycle',
-            nodeStyle: isCycleBoundary ? 'cycle-boundary' : undefined,
             tags: tags.length ? tags : undefined
         });
     }
@@ -367,8 +364,7 @@ function computeHorizonStyleSeams(opts: {
             orbit: 1,
             visible: inst.altitudeDeg >= 0,
             source: 'seam',
-            nodeStyle: 'seam',
-            tags: uniqueTags([nodalTag, 'horizon crossing'])
+            tags: uniqueTags([nodalTag, 'horizon crossing', rising ? 'cycle end' : null])
         });
     }
 
@@ -402,14 +398,12 @@ function computeZenithNadirNodes(track: CompassTrackPoint[] | undefined): Compas
             ...zenith,
             code: 'ZN',
             source: 'spoke',
-            nodeStyle: 'zenith',
             tags: uniqueTags(['zenith', 'max altitude', 'above horizon'])
         },
         {
             ...nadir,
             code: 'ND',
             source: 'spoke',
-            nodeStyle: 'nadir',
             tags: uniqueTags(['nadir', 'min altitude', 'below horizon'])
         }
     ];

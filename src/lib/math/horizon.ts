@@ -604,9 +604,10 @@ function uniqueTags(tags: Array<string | null | undefined>): string[] {
 }
 
 function horizonSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number): string[] {
-    const durTag = (code === 'E' || code === 'E_next') ? formatCycleDurationTag(cycleDurationMs) : '';
+    const codeTag = code === 'E_next' ? null : `${code}-horizon`;
+    const durTag = code === 'E' ? formatCycleDurationTag(cycleDurationMs) : '';
     return uniqueTags([
-        `${code}-horizon`,
+        codeTag,
         index < 8 ? 'above horizon' : null,
         index > 8 ? 'below horizon' : null,
         index === 8 ? 'horizon crossing' : null,
@@ -617,9 +618,6 @@ function horizonSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number
         code === 'W' ? 'W-nodal' : null,
         code === 'N' ? 'max altitude' : null,
         code === 'S' ? 'min altitude' : null,
-        code === 'E_next' ? 'cycle end' : null,
-        code === 'E_next' ? 'rising horizon crossing' : null,
-        code === 'E_next' ? 'E-nodal' : null,
         durTag || null,
     ]);
 }

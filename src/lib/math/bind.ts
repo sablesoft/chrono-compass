@@ -81,15 +81,18 @@ function uniqueTags(tags: Array<string | null | undefined>): string[] {
 }
 
 function bindSpokeTags(code: SpokeKey, index: number, durationTag: string): string[] {
+    const isExtremum = code === 'N' || code === 'S';
+    const isAxisMidpoint = code === 'E' || code === 'W';
+    const codeTag = code === 'E_next' ? null : `${code}-bind`;
     return uniqueTags([
-        `${code}-bind`,
-        (index <= 4 || index >= 13) ? 'distance rising' : null,
-        (index >= 5 && index <= 12) ? 'distance falling' : null,
+        codeTag,
+        !isExtremum && (index <= 4 || index >= 13) ? 'distance rising' : null,
+        !isExtremum && (index >= 5 && index <= 12) ? 'distance falling' : null,
+        isAxisMidpoint ? 'mid distance' : null,
         code === 'N' ? 'max distance' : null,
         code === 'S' ? 'min distance' : null,
         code === 'E' ? 'cycle start' : null,
-        code === 'E_next' ? 'cycle end' : null,
-        (code === 'E' || code === 'E_next') ? durationTag : null,
+        code === 'E' ? durationTag : null,
     ]);
 }
 

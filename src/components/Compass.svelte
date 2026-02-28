@@ -187,7 +187,6 @@
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
-        nodeStyle?: string;
     };
     let orbitNodes: Array<{
         key: string;
@@ -199,7 +198,6 @@
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
-        nodeStyle?: string;
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
     let orbitNodesVisible: OrbitNodeUi[] = [];
@@ -251,16 +249,45 @@
         showOrbitNodesZenithNadir = !showOrbitNodesZenithNadir;
     }
 
-    function orbitNodeGroup(node: { nodeStyle?: string }): 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' | 'zenithNadir' {
-        if (node.nodeStyle === 'cycle-boundary') return 'boundary';
-        if (node.nodeStyle === 'seam') return 'seam';
-        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min') return 'bind';
-        if (node.nodeStyle === 'zenith' || node.nodeStyle === 'nadir') return 'zenithNadir';
-        if (node.nodeStyle === 'synod-n' || node.nodeStyle === 'synod-w' || node.nodeStyle === 'synod-s') return 'synod';
+    type OrbitNodeGroup = 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' | 'zenithNadir';
+
+    function nodeTagsOf(node: { tip?: MomentTip }): string[] {
+        return Array.isArray(node.tip?.tags) ? node.tip!.tags!.filter((t) => typeof t === 'string') : [];
+    }
+
+    function hasNodeTag(tags: string[], tag: string): boolean {
+        return tags.includes(tag);
+    }
+
+    function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
+        if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
+        if (hasNodeTag(tags, 'E-nodal') || hasNodeTag(tags, 'W-nodal')) return 'seam';
+        if (hasNodeTag(tags, 'max distance') || hasNodeTag(tags, 'min distance') || hasNodeTag(tags, 'mid distance')) return 'bind';
+        if (hasNodeTag(tags, 'N-synod') || hasNodeTag(tags, 'W-synod') || hasNodeTag(tags, 'S-synod')) return 'synod';
+        if (hasNodeTag(tags, 'zenith') || hasNodeTag(tags, 'nadir')) return 'zenithNadir';
         return 'regular';
     }
 
-    function shouldShowOrbitNode(node: { nodeStyle?: string }): boolean {
+    function orbitNodeGroup(node: { tip?: MomentTip }): OrbitNodeGroup {
+        return orbitNodeGroupFromTags(nodeTagsOf(node));
+    }
+
+    function tagToCssClass(tag: string): string {
+        const norm = String(tag)
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        return norm ? `tg-${norm}` : '';
+    }
+
+    function orbitNodeTagClassList(node: { tip?: MomentTip }): string {
+        const tags = nodeTagsOf(node);
+        const classes = Array.from(new Set(tags.map(tagToCssClass).filter(Boolean)));
+        return classes.join(' ');
+    }
+
+    function shouldShowOrbitNode(node: { tip?: MomentTip }): boolean {
         const g = orbitNodeGroup(node);
         if (g === 'boundary') return true;
         if (!showOrbitNodesAny) return false;
@@ -687,15 +714,6 @@
                 const hasEndEdge = c.members.some((m) => Math.abs(m.ts - bodyMaxTs) <= edgeTsEps);
                 const isSeamCluster = hasStartEdge && hasEndEdge;
                 const tags = Array.from(new Set(c.members.flatMap((m) => m.tip.tags ?? [])));
-                const styleFromMembers = c.members.find((m) => m.nodeStyle === 'cycle-boundary')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'synod-n')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'synod-w')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'synod-s')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'bind-max')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'bind-min')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'zenith')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'nadir')?.nodeStyle
-                    ?? c.members.find((m) => m.nodeStyle === 'seam')?.nodeStyle;
 
                 const pickTsList = isSeamCluster
                     ? [bodyMinTs, bodyMaxTs]
@@ -703,7 +721,6 @@
                 const rep = c.rep;
                 out.push({
                     ...rep,
-                    nodeStyle: styleFromMembers ?? rep.nodeStyle,
                     tip: {
                         ...rep.tip,
                         pickTsList,
@@ -773,11 +790,9 @@
         tip.closeNow();
     }
 
-    function orbitNodeRadiusVB(node: { nodeStyle?: string }): number {
-        if (node.nodeStyle) {
-            return VB * 0.007;
-        }
-        return VB * 0.005;
+    function orbitNodeRadiusVB(node: { tip?: MomentTip }): number {
+        const g = orbitNodeGroup(node);
+        return g === 'regular' ? (VB * 0.005) : (VB * 0.007);
     }
 
     // ------------------------------------------------------------
@@ -1070,7 +1085,6 @@
                     code: p.code,
                     source: p.source,
                     ts: p.ts,
-                    nodeStyle: p.nodeStyle,
                     tip: {
                         label: `${emoji} ${name} orbit node (${p.code})`,
                         ts: p.ts,
@@ -1400,18 +1414,9 @@
                         {#each orbitNodesVisible as n (n.key)}
                             {#if n.bodyId === pinnedBodyId}
                                 <circle
-                                        class="orbitNode"
+                                        class={`orbitNode ${orbitNodeTagClassList(n)}`}
                                         class:dim={!n.visible}
                                         class:pinnedNode={pinnedBodyId === n.bodyId}
-                                        class:bindMaxNode={n.nodeStyle === 'bind-max'}
-                                        class:bindMinNode={n.nodeStyle === 'bind-min'}
-                                        class:zenithNode={n.nodeStyle === 'zenith'}
-                                        class:nadirNode={n.nodeStyle === 'nadir'}
-                                        class:cycleBoundaryNode={n.nodeStyle === 'cycle-boundary'}
-                                        class:seamNode={n.nodeStyle === 'seam'}
-                                        class:synodNNode={n.nodeStyle === 'synod-n'}
-                                        class:synodWNode={n.nodeStyle === 'synod-w'}
-                                        class:synodSNode={n.nodeStyle === 'synod-s'}
                                         data-marker="1"
                                         role="button"
                                         tabindex="0"
@@ -2052,39 +2057,45 @@
         stroke-width: 1.7;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
-    .orbitNode.bindMaxNode {
+    .orbitNode.tg-max-distance {
         fill: color-mix(in oklab, #40a8ff, white 22%);
         stroke: color-mix(in oklab, #40a8ff, black 35%);
     }
-    .orbitNode.bindMinNode {
+    .orbitNode.tg-min-distance {
         fill: color-mix(in oklab, #e0a600, white 20%);
         stroke: color-mix(in oklab, #e0a600, black 35%);
     }
-    .orbitNode.zenithNode {
+    .orbitNode.tg-mid-distance {
+        fill: color-mix(in oklab, #63c3ff, white 18%);
+        stroke: color-mix(in oklab, #63c3ff, black 35%);
+    }
+    .orbitNode.tg-zenith {
         fill: color-mix(in oklab, #e0a600, white 20%);
         stroke: color-mix(in oklab, #e0a600, black 35%);
     }
-    .orbitNode.nadirNode {
+    .orbitNode.tg-nadir {
         fill: color-mix(in oklab, #40a8ff, white 22%);
         stroke: color-mix(in oklab, #40a8ff, black 35%);
     }
-    .orbitNode.cycleBoundaryNode {
+    .orbitNode.tg-cycle-start,
+    .orbitNode.tg-cycle-end {
         fill: color-mix(in oklab, #61d87a, white 20%);
         stroke: color-mix(in oklab, #61d87a, black 32%);
     }
-    .orbitNode.seamNode {
+    .orbitNode.tg-e-nodal,
+    .orbitNode.tg-w-nodal {
         fill: color-mix(in oklab, #ff5a6e, white 16%);
         stroke: color-mix(in oklab, #ff5a6e, black 36%);
     }
-    .orbitNode.synodNNode {
+    .orbitNode.tg-n-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }
-    .orbitNode.synodWNode {
+    .orbitNode.tg-w-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }
-    .orbitNode.synodSNode {
+    .orbitNode.tg-s-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }

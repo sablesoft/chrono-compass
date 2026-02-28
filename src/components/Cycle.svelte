@@ -376,7 +376,8 @@
             code: String(code),
             ts,
             pickTs: Number.isFinite(pickTs) ? pickTs : undefined,
-            meta: (s as any)?.meta
+            meta: (s as any)?.meta,
+            tags: Array.isArray((s as any)?.tags) ? (s as any).tags : undefined
         };
     }
 
