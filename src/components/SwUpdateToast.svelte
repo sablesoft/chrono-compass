@@ -1,22 +1,40 @@
 <script lang="ts">
     import { onMount } from 'svelte'
     import { registerSW } from 'virtual:pwa-register'
+    import { initCycleCacheStorage } from '../lib/cycle/store'
 
     let needRefresh = false
     let offlineReady = false
 
     let updateSW: ((reloadPage?: boolean) => Promise<void>) | null = null
+    const CACHE_CHECK_INTERVAL_MS = 5 * 60_000
+
+    function runCycleCacheVersionCheck() {
+        void initCycleCacheStorage().catch(() => {})
+    }
 
     onMount(() => {
+        runCycleCacheVersionCheck()
+
+        const cacheCheckTimer = window.setInterval(() => {
+            runCycleCacheVersionCheck()
+        }, CACHE_CHECK_INTERVAL_MS)
+
         updateSW = registerSW({
             onNeedRefresh() {
+                runCycleCacheVersionCheck()
                 needRefresh = true
             },
             onOfflineReady() {
+                runCycleCacheVersionCheck()
                 offlineReady = true
                 setTimeout(() => (offlineReady = false), 2500)
             }
         })
+
+        return () => {
+            window.clearInterval(cacheCheckTimer)
+        }
     })
 
     async function refresh() {

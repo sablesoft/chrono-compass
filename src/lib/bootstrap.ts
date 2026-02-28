@@ -10,8 +10,10 @@ import { solveNodalWheel } from './math/nodal';
 
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
+import { initCycleCacheStorage } from './cycle/store';
 
 export async function bootstrap() {
+    await initCycleCacheStorage();
     registerWheels();
     await initLocation();
 }

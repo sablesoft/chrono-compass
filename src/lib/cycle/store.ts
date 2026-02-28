@@ -54,8 +54,11 @@ export async function putCycleSolved<Meta = any>(
 const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
 const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'system']);
 const DB_NAME = 'chrono_compass_cycle_cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+const CYCLE_CACHE_UID = 'cycle-cache-2026-02-28-a';
 const STORE_CYCLES = 'cycles';
+const STORE_META = 'meta';
+const META_KEY_CACHE_UID = 'cycle_cache_uid';
 const MAX_CYCLES_PER_KEY = 256;
 const MAX_CYCLES_TOTAL = 5000;
 const CYCLE_TS_BUCKET_MS = 10_000;
@@ -74,6 +77,11 @@ type CycleRecord = {
     createdAt: number;
     updatedAt: number;
     [k: string]: any;
+};
+
+type MetaRecord = {
+    key: string;
+    value: any;
 };
 
 function buildCycleDataFromSolve<Meta = any>(
@@ -275,6 +283,7 @@ function runtimePut(cycle: CycleData): void {
    ============================================================ */
 
 let _dbPromise: Promise<IDBDatabase> | null = null;
+let _cacheInitPromise: Promise<void> | null = null;
 
 function openDb(): Promise<IDBDatabase> {
     if (_dbPromise) return _dbPromise;
@@ -291,6 +300,10 @@ function openDb(): Promise<IDBDatabase> {
                 store.createIndex('by_cycleKey', 'cacheKey', { unique: false });
                 store.createIndex('by_updatedAt', 'updatedAt', { unique: false });
             }
+
+            if (!db.objectStoreNames.contains(STORE_META)) {
+                db.createObjectStore(STORE_META, { keyPath: 'key' });
+            }
         };
 
         req.onsuccess = () => resolve(req.result);
@@ -298,6 +311,40 @@ function openDb(): Promise<IDBDatabase> {
     });
 
     return _dbPromise;
+}
+
+export async function initCycleCacheStorage(): Promise<void> {
+    if (!ENABLE_CYCLE_IDB) return;
+    if (typeof indexedDB === 'undefined') return;
+    if (_cacheInitPromise) return _cacheInitPromise;
+
+    _cacheInitPromise = (async () => {
+        const db = await openDb();
+        const tx = db.transaction([STORE_META, STORE_CYCLES], 'readwrite');
+        const meta = tx.objectStore(STORE_META);
+        const cycles = tx.objectStore(STORE_CYCLES);
+
+        const rec = await reqToPromise(meta.get(META_KEY_CACHE_UID as any) as IDBRequest<MetaRecord | undefined>);
+        const currentUid = typeof rec?.value === 'string' ? rec.value : '';
+
+        if (!currentUid || currentUid !== CYCLE_CACHE_UID) {
+            cycles.clear();
+            meta.put({
+                key: META_KEY_CACHE_UID,
+                value: CYCLE_CACHE_UID,
+            } satisfies MetaRecord as any);
+            runtime.clear();
+        }
+
+        await txDone(tx);
+    })();
+
+    try {
+        await _cacheInitPromise;
+    } catch (err) {
+        _cacheInitPromise = null;
+        throw err;
+    }
 }
 
 function txDone(tx: IDBTransaction): Promise<void> {
