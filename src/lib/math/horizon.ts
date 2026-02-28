@@ -37,6 +37,7 @@ import type { ObjId } from '../catalog';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { SPOKES_ORDER } from '../wheel/types';
 import {AU_KM, clamp, lerp, norm360} from './helpers';
+import type { Location } from '../location/types';
 
 const DAY_MS = 86_400_000;
 
@@ -59,6 +60,18 @@ class BudgetError extends Error {
 export type HorizonMeta = {
     altitudeDeg: number;  // [-90..+90]
     azimuthDeg: number;   // [0..360)
+    orbit: number;        // [0..2], derived from altitude
+    raHours?: number;
+    decDeg?: number;
+    distanceAu?: number;
+    distanceKm?: number;
+};
+
+export type HorizonInstantState = {
+    altitudeDeg: number;
+    azimuthDeg: number;
+    orbit: number;
+    visible: boolean;
     raHours?: number;
     decDeg?: number;
     distanceAu?: number;
@@ -128,6 +141,39 @@ function targetState(ts: number, obs: Observer, target: ObjId): {
 function targetAltitudeDeg(ts: number, obs: Observer, target: ObjId): number {
     const s = targetState(ts, obs, target);
     return s ? s.altDeg : NaN;
+}
+
+export function orbitFromAltitudeDeg(altitudeDeg: number): number {
+    const alt = clamp(altitudeDeg, -90, 90);
+    return alt >= 0
+        ? (90 - alt) / 90
+        : 1 + (-alt) / 90;
+}
+
+export function computeHorizonInstant(opts: {
+    ts: number;
+    looker?: ObjId;
+    target: ObjId;
+    location: Pick<Location, 'lat' | 'lon'>;
+}): HorizonInstantState | null {
+    const looker = (opts.looker ?? 'Earth') as ObjId;
+    if (looker !== 'Earth') return null;
+
+    const obs = makeObserver(opts.location.lat, opts.location.lon, 0);
+    const st = targetState(opts.ts, obs, opts.target);
+    if (!st) return null;
+
+    const distanceKm = isFiniteNumber(st.distAu) ? st.distAu * AU_KM : undefined;
+    return {
+        altitudeDeg: st.altDeg,
+        azimuthDeg: st.azDeg,
+        orbit: orbitFromAltitudeDeg(st.altDeg),
+        visible: st.altDeg >= 0,
+        raHours: st.raHours,
+        decDeg: st.decDeg,
+        distanceAu: st.distAu,
+        distanceKm
+    };
 }
 
 type AltProvider = {
@@ -509,6 +555,7 @@ function mkSpoke(index: number, ts: number, obs: Observer, target: ObjId): Cycle
         meta: {
             altitudeDeg: isFiniteNumber(alt) ? alt : NaN,
             azimuthDeg: isFiniteNumber(az) ? az : NaN,
+            orbit: isFiniteNumber(alt) ? orbitFromAltitudeDeg(alt) : NaN,
             raHours: st?.raHours,
             decDeg: st?.decDeg,
             distanceAu: distAu,
