@@ -272,39 +272,39 @@
         pickedSavedKey = '';
     }
 
+    function toggleRoleOption(role: RoleName, id: ObjId) {
+        if (role === 'target') {
+            toggleDraftTarget(id);
+            return;
+        }
+        const cur = (effectiveDraftRoles as any)[role] as ObjId | null | undefined;
+        setRole(role, cur === id ? '' : id);
+    }
+
     function handleRoleChange(role: RoleName, e: Event) {
         const el = e.currentTarget as HTMLSelectElement | null;
         setRole(role, el?.value ?? '');
     }
 
-    function handleTargetsChange(e: Event) {
-        if (!multiTarget) return;
-        const el = e.currentTarget as HTMLSelectElement | null;
-        if (!el) return;
-
-        const picked = Array.from(el.selectedOptions)
-            .map(o => o.value)
-            .filter(Boolean) as ObjId[];
-
-        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
-        const t = normalized.target;
-        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
-        draftRoles = { ...normalized, target: draftRoles.target };
-
-        pickedSavedKey = '';
-    }
-
     function toggleDraftTarget(id: ObjId) {
-        if (!multiTarget) return;
-        const has = draftTargets.includes(id);
-        const picked = has
-            ? draftTargets.filter((x) => x !== id)
-            : [...draftTargets, id];
+        if (multiTarget) {
+            const has = draftTargets.includes(id);
+            const picked = has
+                ? draftTargets.filter((x) => x !== id)
+                : [...draftTargets, id];
 
-        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
-        const t = normalized.target;
-        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
-        draftRoles = { ...normalized, target: draftRoles.target };
+            const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+            const t = normalized.target;
+            draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+            draftRoles = { ...normalized, target: draftRoles.target };
+        } else {
+            const cur = draftRoles.target;
+            const picked = cur === id ? null : id;
+            const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+            const one = Array.isArray(normalized.target) ? (normalized.target[0] ?? null) : (normalized.target ?? null);
+            draftTargets = [];
+            draftRoles = { ...normalized, target: one };
+        }
         pickedSavedKey = '';
     }
 
@@ -549,35 +549,25 @@
                 </div>
 
                 {#each usedRoles as r (r)}
-                    <div class="row" class:multiRow={r === 'target' && multiTarget}>
-                        {#if r === 'target' && multiTarget}
-                            <div class="lbl" id={`${roleId(r)}_label`}>{r}</div>
-                            <div class="checks" role="group" aria-labelledby={`${roleId(r)}_label`}>
-                                {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
-                                    {@const checked = draftTargets.includes(id)}
-                                    <label class="checkItem" class:checked={checked}>
-                                        <input
-                                                class="checkInput"
-                                                type="checkbox"
-                                                checked={checked}
-                                                on:change={() => toggleDraftTarget(id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{bodyLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        {:else}
-                            <label class="lbl" for={roleId(r)}>{r}</label>
-                            <select id={roleId(r)} class="sel" on:change={(e) => handleRoleChange(r, e)}>
-                                <option value="" selected={(effectiveDraftRoles[r] ?? '') === ''}>—</option>
-                                {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
-                                    <option value={id} selected={effectiveDraftRoles[r] === id}>
-                                        {bodyLabel(id)}
-                                    </option>
-                                {/each}
-                            </select>
-                        {/if}
+                    <div class="row" class:multiRow={r === 'target'}>
+                        <div class="lbl" id={`${roleId(r)}_label`}>{r}</div>
+                        <div class="checks" role="group" aria-labelledby={`${roleId(r)}_label`}>
+                            {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
+                                {@const checked = r === 'target'
+                                    ? (multiTarget ? draftTargets.includes(id) : effectiveDraftRoles.target === id)
+                                    : effectiveDraftRoles[r] === id}
+                                <label class="checkItem" class:checked={checked}>
+                                    <input
+                                            class="checkInput"
+                                            type="checkbox"
+                                            checked={checked}
+                                            on:change={() => toggleRoleOption(r, id)}
+                                    />
+                                    <span class="checkBox" aria-hidden="true"></span>
+                                    <span class="checkText">{bodyLabel(id)}</span>
+                                </label>
+                            {/each}
+                        </div>
                     </div>
                 {/each}
 

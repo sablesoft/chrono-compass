@@ -108,12 +108,6 @@
         return t instanceof HTMLSelectElement ? t.value : '';
     }
 
-    function selectValues(e: Event): string[] {
-        const t = e.currentTarget;
-        if (!(t instanceof HTMLSelectElement)) return [];
-        return Array.from(t.selectedOptions).map(o => o.value).filter(Boolean);
-    }
-
     function openForm() {
         onUserActivity();
         open = true;
@@ -176,6 +170,28 @@
         multiTarget = (spec as any).multiTarget === true;
 
         rebuild();
+    }
+
+    function clearTypeSelection() {
+        onUserActivity();
+        pickedSavedId = '';
+        type = null;
+        spec = null;
+        values = { looker: null, focus: null, target: [] };
+        selects = { looker: [], focus: [], target: [] };
+        required = [];
+        multiTarget = false;
+        draftTitle = '';
+        resetObserverDraftForType(null);
+        timeDraft = { ...DEFAULT_TIME };
+    }
+
+    function toggleTypeOption(nextType: WheelType) {
+        if (type === nextType) {
+            clearTypeSelection();
+            return;
+        }
+        initForType(nextType);
     }
 
     function applySavedWheel(w: SavedWheel) {
@@ -262,6 +278,11 @@
         rebuild();
     }
 
+    function toggleSingleRole(role: 'looker' | 'focus', id: ObjId) {
+        const cur = values[role];
+        setSingle(role, cur === id ? '' : id);
+    }
+
     function setTargets(list: string[]) {
         onUserActivity();
 
@@ -274,9 +295,9 @@
 
     function toggleTarget(id: ObjId) {
         const has = values.target.includes(id);
-        const next = has
-            ? values.target.filter((x) => x !== id)
-            : [...values.target, id];
+        const next = multiTarget
+            ? (has ? values.target.filter((x) => x !== id) : [...values.target, id])
+            : (has ? [] : [id]);
         setTargets(next);
     }
 
@@ -509,14 +530,23 @@
             </div>
 
             <!-- Type selector -->
-            <div class="row">
-                <label class="lbl" for={`${formId}-type`}>Type</label>
-                <select id={`${formId}-type`} class="sel" bind:value={type} on:change={(e) => initForType(selectValue(e))}>
-                    <option value="">—</option>
+            <div class="row multiRow">
+                <div class="lbl" id={`${formId}-type-label`}>Type</div>
+                <div class="checks" role="group" aria-labelledby={`${formId}-type-label`}>
                     {#each ALL_TYPES as t (t)}
-                        <option value={t}>{typeLabel(t)}</option>
+                        {@const checked = type === t}
+                        <label class="checkItem" class:checked={checked}>
+                            <input
+                                    class="checkInput"
+                                    type="checkbox"
+                                    checked={checked}
+                                    on:change={() => toggleTypeOption(t)}
+                            />
+                            <span class="checkBox" aria-hidden="true"></span>
+                            <span class="checkText">{typeLabel(t)}</span>
+                        </label>
                     {/each}
-                </select>
+                </div>
             </div>
 
             {#if type && spec}
@@ -548,78 +578,65 @@
                 </div>
 
                 {#if selects.looker.length > 0}
-                    <div class="row">
-                        <label class="lbl" for={`${formId}-looker`}>looker</label>
-                        <!--suppress HtmlUnknownAttribute -->
-                        <select
-                                id={`${formId}-looker`}
-                                class="sel"
-                                value={values.looker ?? ''}
-                                disabled={selects.looker.length === 1}
-                                on:change={(e) => setSingle('looker', selectValue(e))}
-                        >
-                            <option value="">—</option>
+                    <div class="row multiRow">
+                        <div class="lbl" id={`${formId}-looker-label`}>looker</div>
+                        <div class="checks" role="group" aria-labelledby={`${formId}-looker-label`}>
                             {#each selects.looker as id (id)}
-                                <option value={id}>{objectLabel(id)}</option>
+                                {@const checked = values.looker === id}
+                                <label class="checkItem" class:checked={checked}>
+                                    <input
+                                            class="checkInput"
+                                            type="checkbox"
+                                            checked={checked}
+                                            on:change={() => toggleSingleRole('looker', id)}
+                                    />
+                                    <span class="checkBox" aria-hidden="true"></span>
+                                    <span class="checkText">{objectLabel(id)}</span>
+                                </label>
                             {/each}
-                        </select>
+                        </div>
                     </div>
                 {/if}
 
                 {#if selects.focus.length > 0}
-                    <div class="row">
-                        <label class="lbl" for={`${formId}-focus`}>focus</label>
-                        <!--suppress HtmlUnknownAttribute -->
-                        <select
-                                id={`${formId}-focus`}
-                                class="sel"
-                                value={values.focus ?? ''}
-                                disabled={selects.focus.length === 1}
-                                on:change={(e) => setSingle('focus', selectValue(e))}
-                        >
-                            <option value="">—</option>
+                    <div class="row multiRow">
+                        <div class="lbl" id={`${formId}-focus-label`}>focus</div>
+                        <div class="checks" role="group" aria-labelledby={`${formId}-focus-label`}>
                             {#each selects.focus as id (id)}
-                                <option value={id}>{objectLabel(id)}</option>
+                                {@const checked = values.focus === id}
+                                <label class="checkItem" class:checked={checked}>
+                                    <input
+                                            class="checkInput"
+                                            type="checkbox"
+                                            checked={checked}
+                                            on:change={() => toggleSingleRole('focus', id)}
+                                    />
+                                    <span class="checkBox" aria-hidden="true"></span>
+                                    <span class="checkText">{objectLabel(id)}</span>
+                                </label>
                             {/each}
-                        </select>
+                        </div>
                     </div>
                 {/if}
 
                 {#if selects.target.length > 0}
                     <div class="row" class:multiRow={multiTarget}>
-                        {#if multiTarget}
-                            <div class="lbl" id={`${formId}-target-label`}>target</div>
-                            <div class="checks" role="group" aria-labelledby={`${formId}-target-label`}>
-                                {#each selects.target as id (id)}
-                                    {@const checked = values.target.includes(id)}
-                                    <label class="checkItem" class:checked={checked}>
-                                        <input
-                                                class="checkInput"
-                                                type="checkbox"
-                                                checked={checked}
-                                                on:change={() => toggleTarget(id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{objectLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        {:else}
-                            <label class="lbl" for={`${formId}-target`}>target</label>
-                            <!--suppress HtmlUnknownAttribute -->
-                            <select
-                                    id={`${formId}-target`}
-                                    class="sel"
-                                    value={(values.target[0] ?? '')}
-                                    disabled={selects.target.length === 1}
-                                    on:change={(e) => setTargets([selectValue(e)])}
-                            >
-                                <option value="">—</option>
-                                {#each selects.target as id (id)}
-                                    <option value={id}>{objectLabel(id)}</option>
-                                {/each}
-                            </select>
-                        {/if}
+                        <div class="lbl" id={`${formId}-target-label`}>target</div>
+                        <div class="checks" role="group" aria-labelledby={`${formId}-target-label`}>
+                            {#each selects.target as id (id)}
+                                {@const checked = values.target.includes(id)}
+                                <label class="checkItem" class:checked={checked}>
+                                    <input
+                                            class="checkInput"
+                                            type="checkbox"
+                                            checked={checked}
+                                            on:change={() => toggleTarget(id)}
+                                    />
+                                    <span class="checkBox" aria-hidden="true"></span>
+                                    <span class="checkText">{objectLabel(id)}</span>
+                                </label>
+                            {/each}
+                        </div>
                     </div>
                 {/if}
 
