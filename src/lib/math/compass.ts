@@ -17,6 +17,7 @@ export type CompassTrackPoint = {
     angleDeg: number;
     orbit: number;
     visible: boolean;
+    source?: 'cycle' | 'spoke';
 };
 
 export type CompassTargetState = {
@@ -33,6 +34,8 @@ export type CompassTargetState = {
     decDeg?: number;
     distanceAu?: number;
 };
+
+const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
 
 function bodyEmoji(id: ObjId): string {
     const b = (objects as any)[id] as { emoji?: string } | undefined;
@@ -98,10 +101,216 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
             altitudeDeg: alt,
             angleDeg: azimuthToWheelAngleDeg(az),
             orbit,
-            visible: alt >= 0
+            visible: alt >= 0,
+            source: 'cycle'
         });
     }
     return out;
+}
+
+function unwrapAnglesByTs(points: CompassTrackPoint[]): Array<CompassTrackPoint & { angleUnwrapped: number }> {
+    const sorted = points.slice().sort((a, b) => a.ts - b.ts);
+    const out: Array<CompassTrackPoint & { angleUnwrapped: number }> = [];
+    for (const p of sorted) {
+        if (!out.length) {
+            out.push({ ...p, angleUnwrapped: p.angleDeg });
+            continue;
+        }
+        let a = p.angleDeg;
+        const prev = out[out.length - 1].angleUnwrapped;
+        while (a - prev > 180) a -= 360;
+        while (a - prev < -180) a += 360;
+        out.push({ ...p, angleUnwrapped: a });
+    }
+    return out;
+}
+
+function spokeAngleByIndex(i: number): number {
+    return toSigned180(-22.5 * i);
+}
+
+function computeSpokeIntersectionsAboveHorizon(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    baseTrack: CompassTrackPoint[] | undefined;
+}): CompassTrackPoint[] {
+    const { looker, target, location, baseTrack } = opts;
+    if (!location || !baseTrack || baseTrack.length < 2) return [];
+
+    const xs = unwrapAnglesByTs(baseTrack);
+    const out: CompassTrackPoint[] = [];
+    const SEGMENT_SAMPLES = 10;
+    const BISECT_ITERS = 20;
+    const ROOT_EPS_DEG = 0.03;
+    const TS_DEDUP_MS = 60_000;
+
+    const pushUnique = (p: CompassTrackPoint) => {
+        const hit = out.find((q) =>
+            q.code === p.code &&
+            Math.abs(q.ts - p.ts) <= TS_DEDUP_MS
+        );
+        if (!hit) out.push(p);
+    };
+
+    for (let i = 0; i < xs.length - 1; i++) {
+        const a = xs[i];
+        const b = xs[i + 1];
+        if (!(b.ts > a.ts)) continue;
+        if (Math.max(a.altitudeDeg, b.altitudeDeg) < 0) continue;
+        if (a.angleUnwrapped === b.angleUnwrapped) continue;
+
+        const lo = Math.min(a.angleUnwrapped, b.angleUnwrapped);
+        const hi = Math.max(a.angleUnwrapped, b.angleUnwrapped);
+
+        for (let si = 0; si < COMPASS_SPOKES.length; si++) {
+            const spokeCode = COMPASS_SPOKES[si];
+            const spokeBase = spokeAngleByIndex(si);
+            const kMin = Math.ceil((lo - spokeBase) / 360);
+            const kMax = Math.floor((hi - spokeBase) / 360);
+            for (let k = kMin; k <= kMax; k++) {
+                const targetUnwrapped = spokeBase + 360 * k;
+
+                type HorizonInstant = Exclude<ReturnType<typeof computeHorizonInstant>, null>;
+                const diffAtTs = (ts: number): { diff: number; inst: HorizonInstant } | null => {
+                    const inst = computeHorizonInstant({ ts, looker, target, location });
+                    if (!inst) return null;
+                    const ang = azimuthToWheelAngleDeg(inst.azimuthDeg);
+                    const branch = Math.round((targetUnwrapped - ang) / 360);
+                    const angUnwrapped = ang + 360 * branch;
+                    return { diff: angUnwrapped - targetUnwrapped, inst };
+                };
+
+                const samples: Array<{ ts: number; diff: number }> = [];
+                for (let s = 0; s <= SEGMENT_SAMPLES; s++) {
+                    const u = s / SEGMENT_SAMPLES;
+                    const t = a.ts + (b.ts - a.ts) * u;
+                    const d = diffAtTs(t);
+                    if (!d) continue;
+                    samples.push({ ts: t, diff: d.diff });
+                }
+                if (samples.length < 2) continue;
+
+                let loTs = NaN;
+                let hiTs = NaN;
+                let loD = 0;
+                let hiD = 0;
+                let bestAbs = Number.POSITIVE_INFINITY;
+                let bestTs = samples[0].ts;
+
+                for (let j = 0; j < samples.length - 1; j++) {
+                    const s0 = samples[j];
+                    const s1 = samples[j + 1];
+                    const a0 = Math.abs(s0.diff);
+                    const a1 = Math.abs(s1.diff);
+                    if (a0 < bestAbs) {
+                        bestAbs = a0;
+                        bestTs = s0.ts;
+                    }
+                    if (a1 < bestAbs) {
+                        bestAbs = a1;
+                        bestTs = s1.ts;
+                    }
+                    if (s0.diff === 0 || s1.diff === 0 || s0.diff * s1.diff <= 0) {
+                        loTs = s0.ts;
+                        hiTs = s1.ts;
+                        loD = s0.diff;
+                        hiD = s1.diff;
+                        break;
+                    }
+                }
+
+                let t = bestTs;
+                if (Number.isFinite(loTs) && Number.isFinite(hiTs)) {
+                    for (let it = 0; it < BISECT_ITERS; it++) {
+                        const mid = (loTs + hiTs) * 0.5;
+                        const dMid = diffAtTs(mid);
+                        if (!dMid) break;
+                        if (Math.abs(dMid.diff) <= ROOT_EPS_DEG) {
+                            loTs = mid;
+                            hiTs = mid;
+                            break;
+                        }
+                        if (loD === 0) {
+                            hiTs = loTs;
+                            break;
+                        }
+                        if (hiD === 0) {
+                            loTs = hiTs;
+                            break;
+                        }
+                        if (loD * dMid.diff <= 0) {
+                            hiTs = mid;
+                            hiD = dMid.diff;
+                        } else {
+                            loTs = mid;
+                            loD = dMid.diff;
+                        }
+                    }
+                    t = (loTs + hiTs) * 0.5;
+                }
+
+                const final = diffAtTs(t);
+                if (!final) continue;
+                if (Math.abs(final.diff) > 0.35) continue;
+                if (final.inst.altitudeDeg < 0) continue;
+
+                pushUnique({
+                    ts: t,
+                    index: si,
+                    code: spokeCode,
+                    azimuthDeg: final.inst.azimuthDeg,
+                    altitudeDeg: final.inst.altitudeDeg,
+                    angleDeg: spokeBase,
+                    orbit: final.inst.orbit,
+                    visible: final.inst.visible,
+                    source: 'spoke'
+                });
+            }
+        }
+    }
+
+    return out;
+}
+
+function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
+    if (!points?.length) return points;
+
+    const sorted = points
+        .slice()
+        .sort((a, b) => (a.ts - b.ts) || (a.angleDeg - b.angleDeg));
+
+    const merged: CompassTrackPoint[] = [];
+    const ANG_EPS = 1.2;
+    const ORBIT_EPS = 0.02;
+    const TS_EPS = 10 * 60_000;
+
+    const angDist = (a: number, b: number) => {
+        let d = Math.abs(a - b);
+        while (d > 360) d -= 360;
+        if (d > 180) d = 360 - d;
+        return d;
+    };
+
+    for (const p of sorted) {
+        const hitIdx = merged.findIndex((m) =>
+            Math.abs(m.ts - p.ts) <= TS_EPS &&
+            angDist(m.angleDeg, p.angleDeg) <= ANG_EPS &&
+            Math.abs(m.orbit - p.orbit) <= ORBIT_EPS
+        );
+
+        if (hitIdx < 0) {
+            merged.push(p);
+            continue;
+        }
+
+        const prev = merged[hitIdx];
+        if (p.source === 'spoke' && prev.source !== 'spoke') {
+            merged[hitIdx] = p;
+        }
+    }
+
+    return merged.sort((a, b) => a.ts - b.ts);
 }
 
 export async function solveCompassWheel(input: WheelInput): Promise<CompassSolveResult<CompassTargetState>> {
@@ -146,7 +355,14 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
             if (!instant) return null;
 
             const cycleSpokes = await resolveHorizonSpokesForTarget(input, id);
-            const orbitTrack = buildTrackFromHorizonSpokes(cycleSpokes);
+            const baseTrack = buildTrackFromHorizonSpokes(cycleSpokes);
+            const spokeTrack = computeSpokeIntersectionsAboveHorizon({
+                looker,
+                target: id,
+                location: loc,
+                baseTrack
+            });
+            const orbitTrack = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
 
             return {
                 id,

@@ -121,6 +121,10 @@
         return !!m?.desc && m.desc.startsWith('house:');
     }
 
+    function isOrbitNodeMoment(m: MomentTip | null): boolean {
+        return !!m?.desc && m.desc.startsWith('orbit-node:');
+    }
+
     $: activeHouse = isHouseMoment(moment) ? (moment!.desc!.slice('house:'.length) || moment!.label) : null;
 
     // Cluster rows (then enrich from allBodies)
@@ -173,7 +177,8 @@
     // Header house priority:
     // pinned > activeHouse (spoke hover) > clusterHouse (marker hover) > moment label > —
     $: headerHouse =
-        activeHouse
+        (isOrbitNodeMoment(moment) ? 'orbit node' : null)
+        ?? activeHouse
         ?? clusterHouse
         ?? moment?.label
         ?? '—';

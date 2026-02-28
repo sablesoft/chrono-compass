@@ -1,5 +1,6 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
@@ -29,6 +30,7 @@
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
+    import { setSelectedTs } from '../lib/time/store';
 
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
@@ -151,13 +153,260 @@
     // Marker clustering + pinning
     // ------------------------------------------------------------
     const MIN_ARC_PX = 28;
+    const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.028;
+    const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
+    let displayTargets: CompassTargetState[] = [];
+    let orbitCurves: Array<{ id: ObjId; d: string; visible: boolean }> = [];
+    let orbitNodes: Array<{
+        key: string;
+        x: number;
+        y: number;
+        tip: MomentTip;
+        visible: boolean;
+        bodyId: ObjId;
+        code: string;
+        source?: 'cycle' | 'spoke';
+        ts: number;
+    }> = [];
+    let showOrbits = true;
+    let activeSpokeCode: string | null = null;
+    let lastResolvedTs = NaN;
+    let markerTweenRaf = 0;
+    let markerTweenToken = 0;
 
     let pinnedBodyId: ObjId | null = null;
 
     function clearPinned() {
         pinnedBodyId = null;
+    }
+
+    function toggleOrbits() {
+        onUserActivity();
+        showOrbits = !showOrbits;
+    }
+
+    function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke'; code: string }) {
+        activeSpokeCode = node.source === 'spoke' ? node.code : null;
+    }
+
+    function clearActiveSpoke() {
+        activeSpokeCode = null;
+    }
+
+    function stopMarkerTween() {
+        if (markerTweenRaf) {
+            cancelAnimationFrame(markerTweenRaf);
+            markerTweenRaf = 0;
+        }
+        markerTweenToken++;
+    }
+
+    function easeInOut(u: number): number {
+        const x = Math.max(0, Math.min(1, u));
+        return x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+    }
+
+    function lerp(a: number, b: number, u: number): number {
+        return a + (b - a) * u;
+    }
+
+    function lerpAngleShortest(a0: number, a1: number, u: number): number {
+        let d = a1 - a0;
+        while (d > 180) d -= 360;
+        while (d < -180) d += 360;
+        return a0 + d * u;
+    }
+
+    function sampleTrackAtTs(track: CompassTargetState['orbitTrack'], ts: number) {
+        if (!track || track.length === 0 || !Number.isFinite(ts)) return null;
+        const xs = track.slice().sort((a, b) => a.ts - b.ts);
+        if (xs.length === 1) return xs[0];
+        if (ts <= xs[0].ts) return xs[0];
+        if (ts >= xs[xs.length - 1].ts) return xs[xs.length - 1];
+
+        for (let i = 0; i < xs.length - 1; i++) {
+            const a = xs[i];
+            const b = xs[i + 1];
+            if (!(ts >= a.ts && ts <= b.ts)) continue;
+
+            const den = b.ts - a.ts;
+            const u = den > 0 ? (ts - a.ts) / den : 0;
+            const angleDeg = lerpAngleShortest(a.angleDeg, b.angleDeg, u);
+            return {
+                ...a,
+                ts,
+                angleDeg,
+                orbit: lerp(a.orbit, b.orbit, u),
+                azimuthDeg: lerp(a.azimuthDeg, b.azimuthDeg, u),
+                altitudeDeg: lerp(a.altitudeDeg, b.altitudeDeg, u),
+                visible: lerp(a.altitudeDeg, b.altitudeDeg, u) >= 0
+            };
+        }
+        return xs[xs.length - 1];
+    }
+
+    function animateDisplayTargets(fromTs: number, toTs: number, next: CompassTargetState[]) {
+        stopMarkerTween();
+        const token = ++markerTweenToken;
+
+        const prevById = new Map(displayTargets.map((t) => [t.id, t]));
+        const jump = Math.abs(toTs - fromTs);
+        const shouldAnimate = Number.isFinite(fromTs) && jump > 0 && jump <= 6 * 3_600_000;
+        if (!shouldAnimate || !displayTargets.length) {
+            displayTargets = next;
+            return;
+        }
+
+        const duration = Math.max(220, Math.min(520, jump / 12_000));
+        const t0 = performance.now();
+
+        const tick = (now: number) => {
+            if (token !== markerTweenToken) return;
+            const u = easeInOut((now - t0) / duration);
+            const tsNow = lerp(fromTs, toTs, u);
+
+            displayTargets = next.map((n) => {
+                const sampled = sampleTrackAtTs(n.orbitTrack, tsNow);
+                if (sampled) {
+                    return {
+                        ...n,
+                        angleDeg: sampled.angleDeg,
+                        orbit: sampled.orbit,
+                        azimuthDeg: sampled.azimuthDeg,
+                        altitudeDeg: sampled.altitudeDeg,
+                        visible: sampled.visible
+                    };
+                }
+
+                const p = prevById.get(n.id);
+                if (!p) return n;
+                const alt = lerp(p.altitudeDeg, n.altitudeDeg, u);
+                return {
+                    ...n,
+                    angleDeg: lerpAngleShortest(p.angleDeg, n.angleDeg, u),
+                    orbit: lerp(p.orbit, n.orbit, u),
+                    azimuthDeg: lerp(p.azimuthDeg, n.azimuthDeg, u),
+                    altitudeDeg: alt,
+                    visible: alt >= 0
+                };
+            });
+
+            if (u < 1) {
+                markerTweenRaf = requestAnimationFrame(tick);
+            } else {
+                markerTweenRaf = 0;
+                displayTargets = next;
+            }
+        };
+
+        markerTweenRaf = requestAnimationFrame(tick);
+    }
+
+    function trackPathD(track: NonNullable<CompassTargetState['orbitTrack']>): string {
+        const nodes = track
+            .slice()
+            .sort((a, b) => a.ts - b.ts)
+            .map((p) => ({
+                angleDeg: p.angleDeg,
+                orbit: p.orbit
+            }));
+
+        if (nodes.length < 2) return '';
+
+        // Unwrap signed angles to keep angular continuity across the -180/180 seam.
+        const unwrapped: Array<{ angleDeg: number; orbit: number }> = [];
+        for (const n of nodes) {
+            if (!unwrapped.length) {
+                unwrapped.push({ ...n });
+                continue;
+            }
+
+            let a = n.angleDeg;
+            const prev = unwrapped[unwrapped.length - 1].angleDeg;
+            while (a - prev > 180) a -= 360;
+            while (a - prev < -180) a += 360;
+            unwrapped.push({ angleDeg: a, orbit: n.orbit });
+        }
+
+        const pts = unwrapped.map((p) => {
+            const r = orbitToRadiusVB(Math.max(0, Math.min(2, p.orbit)));
+            const xy = polarToXY(r, p.angleDeg);
+            return { x: xy.x, y: xy.y };
+        });
+        if (pts.length < 2) return '';
+
+        const len = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(b.x - a.x, b.y - a.y);
+        const lineDist = (p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }) => {
+            const vx = b.x - a.x;
+            const vy = b.y - a.y;
+            const den = Math.hypot(vx, vy);
+            if (!(den > 0)) return 0;
+            return Math.abs(vx * (a.y - p.y) - (a.x - p.x) * vy) / den;
+        };
+
+        const tangentAt = (i: number) => {
+            const pPrev = pts[i - 1] ?? pts[i];
+            const pCur = pts[i];
+            const pNext = pts[i + 1] ?? pts[i];
+            const vx = pNext.x - pPrev.x;
+            const vy = pNext.y - pPrev.y;
+            const vLen = Math.hypot(vx, vy);
+            if (!(vLen > 0)) return { x: 0, y: 0 };
+
+            const lPrev = len(pPrev, pCur);
+            const lNext = len(pCur, pNext);
+            const scale = Math.min(lPrev, lNext) * 0.45;
+            return { x: (vx / vLen) * scale, y: (vy / vLen) * scale };
+        };
+
+        const COLLINEAR_EPS = VB * 0.0025;
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p1 = pts[i];
+            const p2 = pts[i + 1];
+            const n1 = unwrapped[i];
+            const n2 = unwrapped[i + 1];
+
+            // For fully-below-horizon spans, keep interpolation in polar space.
+            // This guarantees the path stays outside the horizon ring (orbit > 1)
+            // and avoids cubic overshoot that can cross back over the horizon.
+            if (n1.orbit > 1 && n2.orbit > 1) {
+                const SUBDIV_BELOW = 8;
+                const startJ = i === 0 ? 1 : 1;
+                for (let j = startJ; j <= SUBDIV_BELOW; j++) {
+                    const u = j / SUBDIV_BELOW;
+                    const angleDeg = n1.angleDeg + (n2.angleDeg - n1.angleDeg) * u;
+                    const orbit = n1.orbit + (n2.orbit - n1.orbit) * u;
+                    const r = orbitToRadiusVB(Math.max(1.001, Math.min(2, orbit)));
+                    const p = polarToXY(r, angleDeg);
+                    d += ` L ${p.x} ${p.y}`;
+                }
+                continue;
+            }
+
+            const colA = i > 0 && i < pts.length - 1
+                ? lineDist(pts[i], pts[i - 1], pts[i + 1]) <= COLLINEAR_EPS
+                : false;
+            const colB = i + 1 > 0 && i + 1 < pts.length - 1
+                ? lineDist(pts[i + 1], pts[i], pts[i + 2]) <= COLLINEAR_EPS
+                : false;
+
+            if (colA && colB) {
+                d += ` L ${p2.x} ${p2.y}`;
+                continue;
+            }
+
+            const t1 = tangentAt(i);
+            const t2 = tangentAt(i + 1);
+            const cp1 = { x: p1.x + t1.x / 3, y: p1.y + t1.y / 3 };
+            const cp2 = { x: p2.x - t2.x / 3, y: p2.y - t2.y / 3 };
+            d += ` C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
+        }
+
+        return d;
     }
 
     function togglePin(id: ObjId) {
@@ -179,8 +428,80 @@
         return (body ? (body as ObjId) : null);
     }
 
-    function handleMarkerPick(_ts0: number) {
+    function dedupeOrbitNodesByBody<T extends {
+        x: number;
+        y: number;
+        bodyId: ObjId;
+        source?: 'cycle' | 'spoke';
+        ts: number;
+    }>(nodes: T[]): T[] {
+        const byBody = new Map<ObjId, T[]>();
+        for (const n of nodes) {
+            const arr = byBody.get(n.bodyId);
+            if (arr) arr.push(n);
+            else byBody.set(n.bodyId, [n]);
+        }
+
+        const out: T[] = [];
+        for (const [, bodyNodes] of byBody) {
+            const sorted = bodyNodes.slice().sort((a, b) => {
+                const aSpoke = a.source === 'spoke' ? 1 : 0;
+                const bSpoke = b.source === 'spoke' ? 1 : 0;
+                if (aSpoke !== bSpoke) return bSpoke - aSpoke;
+                return a.ts - b.ts;
+            });
+
+            const clusters: Array<{ rep: T }> = [];
+            for (const n of sorted) {
+                let hit: { rep: T } | null = null;
+                let bestDist = Number.POSITIVE_INFINITY;
+                for (const c of clusters) {
+                    const d = Math.hypot(n.x - c.rep.x, n.y - c.rep.y);
+                    if (d <= ORBIT_NODE_MERGE_RADIUS_VB && d < bestDist) {
+                        hit = c;
+                        bestDist = d;
+                    }
+                }
+
+                if (!hit) {
+                    clusters.push({ rep: n });
+                    continue;
+                }
+
+                const rep = hit.rep;
+                const repSpoke = rep.source === 'spoke';
+                const nSpoke = n.source === 'spoke';
+                if (!repSpoke && nSpoke) {
+                    hit.rep = n;
+                    continue;
+                }
+                if (repSpoke === nSpoke && n.ts < rep.ts) {
+                    hit.rep = n;
+                }
+            }
+
+            for (const c of clusters) out.push(c.rep);
+        }
+
+        return out;
+    }
+
+    function handleMarkerPick(ts0: number) {
+        if (!Number.isFinite(ts0)) return;
         onUserActivity();
+
+        if (time.locked) {
+            if (wheelId) {
+                boardApi.updateWheelTime(
+                    wheelId,
+                    { live: false, ts: ts0, locked: true },
+                    'Compass.tip.goLocked'
+                );
+            }
+        } else {
+            setSelectedTs(ts0);
+        }
+
         tip.closeNow();
     }
 
@@ -245,11 +566,12 @@
         const myRun = ++ensureRunId;
 
         const targets = asBodyIdArray((roles as any)?.target);
-        const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
+        // const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
 
         if (!wheel || !wheelLoc || !targets.length || wheelLat == null || wheelLon == null) {
             markerClusters = [];
             lastTargets = [];
+            displayTargets = [];
             return;
         }
 
@@ -266,17 +588,82 @@
         if (!res || res.kind !== 'compass' || !res.ok) {
             markerClusters = [];
             lastTargets = [];
+            displayTargets = [];
             return;
         }
 
         lastTargets = (res.bodies as CompassTargetState[]) ?? [];
-        const items: MarkerItem[] = compassTargetsToMarkerItems(ts, lastTargets, looker);
-        markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+        animateDisplayTargets(lastResolvedTs, ts, lastTargets);
+        lastResolvedTs = ts;
     }
 
     $: {
         void ensureCompassForTs(effTs);
     }
+
+    $: {
+        const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
+        const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, displayTargets, looker);
+        markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+    }
+
+    $: orbitCurves = lastTargets
+        .map((t) => {
+            const track = t.orbitTrack;
+            if (!track || track.length < 2) return null;
+            const d = trackPathD(track);
+            if (!d) return null;
+            return {
+                id: t.id,
+                d,
+                visible: !!t.visible
+            };
+        })
+        .filter((x): x is { id: ObjId; d: string; visible: boolean } => !!x);
+
+    $: orbitNodes = (() => {
+        const bodyPos = new Map<ObjId, { x: number; y: number }>();
+        for (const t of lastTargets) {
+            const r = orbitToRadiusVB(t.orbit);
+            const p = polarToXY(r, t.angleDeg);
+            bodyPos.set(t.id, { x: p.x, y: p.y });
+        }
+
+        const rawNodes = lastTargets
+        .flatMap((t) => {
+            const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
+            const emoji = b?.emoji ?? '•';
+            const name = b?.name?.en ?? String(t.id);
+            return (t.orbitTrack ?? []).map((p) => {
+                const r = orbitToRadiusVB(p.orbit);
+                const xy = polarToXY(r, p.angleDeg);
+                return {
+                    key: `orbit-node:${t.id}:${p.index}:${p.ts}`,
+                    x: xy.x,
+                    y: xy.y,
+                    visible: p.visible,
+                    bodyId: t.id,
+                    code: p.code,
+                    source: p.source,
+                    ts: p.ts,
+                    tip: {
+                        label: `${emoji} ${name} orbit node (${p.code})`,
+                        ts: p.ts,
+                        desc: `orbit-node:${t.id}:${p.code}`
+                    } satisfies MomentTip
+                };
+            });
+        })
+        .filter((n) => {
+            const bp = bodyPos.get(n.bodyId);
+            if (!bp) return true;
+            const dx = n.x - bp.x;
+            const dy = n.y - bp.y;
+            return Math.hypot(dx, dy) > BODY_MARKER_HIDE_RADIUS_VB;
+        });
+
+        return dedupeOrbitNodesByBody(rawNodes);
+    })();
 
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
@@ -364,6 +751,13 @@
         if (ev) tip.openMomentNow(ev, houseTip);
     }
 
+    function handleOrbitNodeKeydown(e: KeyboardEvent, nodeTip: MomentTip) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        const ev = centerClickEvent(e.currentTarget);
+        if (ev) tip.openMomentNow(ev, nodeTip);
+    }
+
     const tip = useTooltip({
         isCoarsePointer: () => isCoarsePointer,
         onActivateCluster: (c) => handleMarkerActivate(c),
@@ -372,6 +766,10 @@
         ignoreOutsideSelectors: ['[data-tooltip-root]', '[data-marker]'],
     });
     const tipState = tip.state;
+
+    onDestroy(() => {
+        stopMarkerTween();
+    });
 </script>
 
 <section class="panel">
@@ -429,6 +827,7 @@
 
                         <g
                                 class="spoke"
+                                class:hot={activeSpokeCode === label}
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House ${label}`}
@@ -471,6 +870,53 @@
                             <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
                         </g>
                     {/each}
+
+                    {#each orbitCurves as c (`orbit:${c.id}`)}
+                        {#if showOrbits || pinnedBodyId === c.id}
+                            <path
+                                    class="orbitCurve"
+                                    class:dim={!c.visible}
+                                    class:pinnedCurve={pinnedBodyId === c.id}
+                                    d={c.d}
+                            />
+                        {/if}
+                    {/each}
+
+                    {#if pinnedBodyId}
+                        {#each orbitNodes as n (n.key)}
+                            {#if n.bodyId === pinnedBodyId}
+                                <circle
+                                        class="orbitNode"
+                                        class:dim={!n.visible}
+                                        class:pinnedNode={pinnedBodyId === n.bodyId}
+                                        data-marker="1"
+                                        role="button"
+                                        tabindex="0"
+                                        aria-label={n.tip.label}
+                                        cx={n.x}
+                                        cy={n.y}
+                                        r={VB * 0.0065}
+                                        on:click={(e) => tip.openMomentNow(e, n.tip)}
+                                        on:dblclick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleMarkerPick(n.tip.ts);
+                                        }}
+                                        on:mouseenter={(e) => {
+                                            activateSpokeFromOrbitNode(n);
+                                            tip.hoverMomentEnter(e, n.tip, n.key);
+                                        }}
+                                        on:mouseleave={() => {
+                                            clearActiveSpoke();
+                                            tip.hoverLeave(n.key);
+                                        }}
+                                        on:focus={() => activateSpokeFromOrbitNode(n)}
+                                        on:blur={clearActiveSpoke}
+                                        on:keydown={(e) => handleOrbitNodeKeydown(e, n.tip)}
+                                />
+                            {/if}
+                        {/each}
+                    {/if}
 
                     {#each markerClusters as c (c.id)}
                         {@const a = c.angleDeg}
@@ -538,6 +984,19 @@
 
                     <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
                 </svg>
+
+                <div class="compassNav">
+                    <button
+                            class="orbitToggle navBtn"
+                            type="button"
+                            title={showOrbits ? 'Hide orbits' : 'Show orbits'}
+                            aria-label={showOrbits ? 'Hide orbits' : 'Show orbits'}
+                            aria-pressed={showOrbits}
+                            on:click={toggleOrbits}
+                    >
+                        {showOrbits ? '◉' : '○'}
+                    </button>
+                </div>
             </div>
 
             {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
@@ -662,9 +1121,13 @@
     }
 
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
-    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: hidden; }
+    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: hidden; position: relative; }
     .wheelBox svg { width: 100%; height: 100%; display: block; }
     svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; }
+    svg:focus,
+    svg:focus-visible {
+        outline: none;
+    }
 
     .quadrants .q { fill-opacity: 0.16; stroke: none; }
     .quadrants .q-red   { fill: var(--accent-red); }
@@ -714,6 +1177,10 @@
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
+    .marker:focus,
+    .marker:focus-visible {
+        outline: none;
+    }
 
     .spoke { cursor: pointer; user-select: none; }
 
@@ -799,11 +1266,72 @@
         stroke-opacity: 0.9;
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }
+    .spoke.hot .spokeHalo {
+        stroke-opacity: 0.9;
+        filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
+    }
+    .spoke.hot .spokeLabel {
+        fill-opacity: 1;
+        font-weight: 800;
+    }
     .markerGlyph {
         paint-order: stroke;
         filter:
                 drop-shadow(0 0 2px color-mix(in oklab, var(--bg), transparent 0%))
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));
+    }
+    .compassNav {
+        position: absolute;
+        top: 4px;
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .orbitToggle {
+        width: 34px;
+        height: 34px;
+        font-size: 17px;
+        line-height: 1;
+    }
+    .orbitCurve {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2.5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-opacity: 0.24;
+        pointer-events: none;
+    }
+    .orbitCurve.dim {
+        stroke-opacity: 0.12;
+        stroke-dasharray: 8 7;
+    }
+    .orbitCurve.pinnedCurve {
+        stroke-opacity: 0.42;
+        stroke-width: 2.8;
+        filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
+    }
+    .orbitNode {
+        fill: color-mix(in oklab, var(--fg), var(--bg) 20%);
+        fill-opacity: 0.9;
+        stroke: color-mix(in oklab, var(--bg), var(--fg) 30%);
+        stroke-width: 1.5;
+        cursor: pointer;
+    }
+    .orbitNode:focus,
+    .orbitNode:focus-visible {
+        outline: none;
+    }
+    .orbitNode.dim {
+        fill-opacity: 0.55;
+        stroke-opacity: 0.55;
+    }
+    .orbitNode.pinnedNode {
+        fill-opacity: 0.92;
+        stroke-opacity: 0.85;
+        stroke-width: 1.7;
+        filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
     .padding-right {
         padding-right: 2px;
