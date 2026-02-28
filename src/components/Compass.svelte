@@ -15,8 +15,8 @@
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
 
-    import { objects } from '../lib/catalog';
-    import type { ObjId } from '../lib/catalog';
+    import { objects, wheels } from '../lib/catalog';
+    import type { ObjId, EmojiPlacement, RoleName, WheelSpec } from '../lib/catalog';
 
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
@@ -60,6 +60,7 @@
     // ------------------------------------------------------------
     $: wheelId = wheel?.id;
     $: roles = (wheel?.roles ?? {}) as any;
+    $: isCompassWheelType = wheel?.wheelType === 'compass';
 
     $: observer = (wheel?.observer ?? { locationId: DEFAULT_LOCATION_ID, locked: false }) as WheelObserverState;
     $: time = (wheel?.time ?? { live: true, locked: false }) as WheelTimeState;
@@ -155,10 +156,9 @@
     const MIN_ARC_PX = 28;
     const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.028;
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
-    const MAX_MARKER_ANIM_JUMP_MS = 24 * 3_600_000;
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
-    let displayTargets: CompassTargetState[] = [];
+    let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
     let orbitCurves: Array<{ id: ObjId; d: string; visible: boolean }> = [];
     type OrbitNodeUi = {
         key: string;
@@ -235,12 +235,24 @@
         if (!track || track.length === 0 || !Number.isFinite(ts)) return null;
         const xs = track.slice().sort((a, b) => a.ts - b.ts);
         if (xs.length === 1) return xs[0];
-        if (ts <= xs[0].ts) return xs[0];
-        if (ts >= xs[xs.length - 1].ts) return xs[xs.length - 1];
 
-        for (let i = 0; i < xs.length - 1; i++) {
-            const a = xs[i];
-            const b = xs[i + 1];
+        const tStart = xs[0].ts;
+        const tEnd = xs[xs.length - 1].ts;
+        const cycleDuration = tEnd - tStart;
+
+        // Extend track by +/- 1 cycle so sampling across E/E+ stays continuous.
+        const sampleSeq = (() => {
+            if (!(cycleDuration > 0)) return xs;
+            const shift = (dt: number) => xs.map((p) => ({ ...p, ts: p.ts + dt }));
+            return [...shift(-cycleDuration), ...xs, ...shift(cycleDuration)];
+        })();
+
+        if (ts <= sampleSeq[0].ts) return sampleSeq[0];
+        if (ts >= sampleSeq[sampleSeq.length - 1].ts) return sampleSeq[sampleSeq.length - 1];
+
+        for (let i = 0; i < sampleSeq.length - 1; i++) {
+            const a = sampleSeq[i];
+            const b = sampleSeq[i + 1];
             if (!(ts >= a.ts && ts <= b.ts)) continue;
 
             const den = b.ts - a.ts;
@@ -256,7 +268,7 @@
                 visible: lerp(a.altitudeDeg, b.altitudeDeg, u) >= 0
             };
         }
-        return xs[xs.length - 1];
+        return sampleSeq[sampleSeq.length - 1];
     }
 
     function animateDisplayTargets(fromTs: number, toTs: number, next: CompassTargetState[]) {
@@ -265,8 +277,29 @@
 
         const prevById = new Map(displayTargets.map((t) => [t.id, t]));
         const jump = Math.abs(toTs - fromTs);
-        const shouldAnimate = Number.isFinite(fromTs) && jump > 0 && jump <= MAX_MARKER_ANIM_JUMP_MS;
-        if (!shouldAnimate || !displayTargets.length) {
+        const canAnimateBody = (n: CompassTargetState): boolean => {
+            const track = n.orbitTrack;
+            if (!track?.length) return false;
+
+            const tsVals = track
+                .map((p) => p.ts)
+                .filter((x): x is number => Number.isFinite(x));
+            if (!tsVals.length) return false;
+
+            const start = Math.min(...tsVals);
+            const end = Math.max(...tsVals);
+            const duration = end - start;
+            if (!(duration > 0)) return false;
+
+            const lo = start - duration; // previous cycle start
+            const hi = end + duration;   // next cycle end
+            return fromTs >= lo && fromTs <= hi && toTs >= lo && toTs <= hi;
+        };
+
+        const animatableIds = new Set(next.filter(canAnimateBody).map((n) => n.id));
+        const shouldAnimateSome = Number.isFinite(fromTs) && Number.isFinite(toTs) && jump > 0 && animatableIds.size > 0;
+
+        if (!shouldAnimateSome || !displayTargets.length) {
             displayTargets = next;
             return;
         }
@@ -280,6 +313,10 @@
             const tsNow = lerp(fromTs, toTs, u);
 
             displayTargets = next.map((n) => {
+                if (!animatableIds.has(n.id)) {
+                    return { ...n, hiddenDuringTween: true };
+                }
+
                 const sampled = sampleTrackAtTs(n.orbitTrack, tsNow);
                 if (sampled) {
                     return {
@@ -398,7 +435,6 @@
                 }
                 continue;
             }
-
             const colA = i > 0 && i < pts.length - 1
                 ? lineDist(pts[i], pts[i - 1], pts[i + 1]) <= COLLINEAR_EPS
                 : false;
@@ -585,9 +621,111 @@
     }
 
     // ------------------------------------------------------------
+    // Role emoji placements (center / label / spoke)
+    // ------------------------------------------------------------
+    function roleEmojiById(id: ObjId | null | undefined): string | null {
+        if (!id) return null;
+        const b = (objects as any)[id] as { emoji?: string } | undefined;
+        return b?.emoji ?? null;
+    }
+
+    type UiAnchor =
+        | { kind: 'center' }
+        | { kind: 'label'; spoke: string }
+        | { kind: 'spoke'; spoke: string };
+
+    function anchorKey(a: UiAnchor): string {
+        if (a.kind === 'center') return 'center';
+        return `${a.kind}:${a.spoke}`;
+    }
+
+    function parsePlacement(p: EmojiPlacement): UiAnchor | null {
+        if (p === 'center') return { kind: 'center' };
+        if (p === 'pointer') return null;
+        if (p.endsWith('-spoke')) return { kind: 'spoke', spoke: p.slice(0, -'-spoke'.length) };
+        return { kind: 'label', spoke: p };
+    }
+
+    type EmojiAt = { anchor: UiAnchor; text: string };
+
+    let spec: WheelSpec | null = null;
+    let emojiAt: EmojiAt[] = [];
+    let centerEmoji: string | null = null;
+
+    function roleTargetIds(raw: unknown): ObjId[] {
+        if (Array.isArray(raw)) return raw.filter((x): x is ObjId => typeof x === 'string' && !!x);
+        if (typeof raw === 'string' && raw) return [raw as ObjId];
+        return [];
+    }
+
+    $: {
+        spec = wheel?.wheelType ? ((wheels as any)[wheel.wheelType] as WheelSpec) : null;
+
+        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacement>> | undefined;
+        const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
+
+        const focusId = (wheel?.roles as any)?.focus as ObjId | null;
+        const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
+        const targetIds = roleTargetIds((wheel?.roles as any)?.target);
+
+        if (ui?.focus && focusId) {
+            const a = parsePlacement(ui.focus);
+            const e = roleEmojiById(focusId);
+            if (a && e) draws.push({ anchor: a, emoji: e });
+        }
+
+        if (ui?.looker && lookerId) {
+            const a = parsePlacement(ui.looker);
+            const e = roleEmojiById(lookerId);
+            if (a && e) draws.push({ anchor: a, emoji: e });
+        }
+
+        if (ui?.target && targetIds.length) {
+            const a = parsePlacement(ui.target);
+            if (a) {
+                for (const id of targetIds) {
+                    const e = roleEmojiById(id);
+                    if (e) draws.push({ anchor: a, emoji: e });
+                }
+            }
+        }
+
+        const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
+        for (const d of draws) {
+            const k = anchorKey(d.anchor);
+            const cur = m.get(k) ?? { anchor: d.anchor, parts: [] };
+            cur.parts.push(d.emoji);
+            m.set(k, cur);
+        }
+
+        emojiAt = Array.from(m.values()).map((x) => ({ anchor: x.anchor, text: x.parts.join('') }));
+    }
+
+    function emojiAtCenter(): string | null {
+        return emojiAt.find((x) => x.anchor.kind === 'center')?.text ?? null;
+    }
+
+    function emojiAtLabel(label: string): string | null {
+        return emojiAt.find((x) => x.anchor.kind === 'label' && x.anchor.spoke === label)?.text ?? null;
+    }
+
+    function emojiAtSpoke(label: string): string | null {
+        return emojiAt.find((x) => x.anchor.kind === 'spoke' && x.anchor.spoke === label)?.text ?? null;
+    }
+
+    $: {
+        centerEmoji = emojiAtCenter();
+    }
+
+    // ------------------------------------------------------------
     // Solve via unified dispatcher (async, race-safe)
     // ------------------------------------------------------------
     let ensureRunId = 0;
+    $: solveTargetsKey = JSON.stringify(asBodyIdArray((roles as any)?.target));
+    $: solveLookerKey = String(asBodyIdOrNull((roles as any)?.looker) ?? '');
+    $: solveFocusKey = String(asBodyIdOrNull((roles as any)?.focus) ?? '');
+    $: solveLocationKey = String(wheelLoc?.id ?? '');
+    $: solveDepsKey = `${wheelId ?? ''}|${wheel?.wheelType ?? ''}|${solveLookerKey}|${solveFocusKey}|${solveTargetsKey}|${solveLocationKey}`;
 
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
@@ -625,12 +763,14 @@
     }
 
     $: {
+        void solveDepsKey;
         void ensureCompassForTs(effTs);
     }
 
     $: {
         const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
-        const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, displayTargets, looker);
+        const visibleDisplayTargets = displayTargets.filter((t) => !t.hiddenDuringTween);
+        const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, visibleDisplayTargets, looker);
         markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
     }
 
@@ -866,8 +1006,11 @@
                         {@const p1 = { x: cx, y: cy }}
                         {@const p2 = polarToXY(rOuter, a)}
                         {@const pt = polarToXY(rLabel, a)}
+                        {@const midPt = polarToXY(rOuter * 0.56, a)}
                         {@const houseTip = buildHouseTip(label)}
                         {@const houseKey = `house:${label}`}
+                        {@const labelEmoji = emojiAtLabel(label)}
+                        {@const spokeEmoji = emojiAtSpoke(label)}
 
                         <g
                                 class="spoke"
@@ -891,6 +1034,18 @@
                                     stroke-linecap="round"
                             />
 
+                            {#if spokeEmoji}
+                                <text
+                                        class="roleEmoji roleEmojiOnSpoke"
+                                        x={midPt.x}
+                                        y={midPt.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                >
+                                    {spokeEmoji}
+                                </text>
+                            {/if}
+
                             <circle
                                     cx={pt.x}
                                     cy={pt.y}
@@ -901,17 +1056,29 @@
                                     class:occupied={occupiedSpokes[i]}
                             />
 
-                            <text
-                                    class="spokeLabel"
-                                    x={pt.x} y={pt.y}
-                                    text-anchor="middle"
-                                    dominant-baseline="middle"
-                                    font-size={VB * 0.035}
-                                    fill="currentColor"
-                                    fill-opacity={0.65}
-                            >
-                                {label}
-                            </text>
+                            {#if labelEmoji}
+                                <text
+                                        class="roleEmoji roleEmojiOnLabel"
+                                        x={pt.x}
+                                        y={pt.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                >
+                                    {labelEmoji}
+                                </text>
+                            {:else}
+                                <text
+                                        class="spokeLabel"
+                                        x={pt.x} y={pt.y}
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                        font-size={VB * 0.035}
+                                        fill="currentColor"
+                                        fill-opacity={0.65}
+                                >
+                                    {label}
+                                </text>
+                            {/if}
 
                             <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
                         </g>
@@ -1029,6 +1196,17 @@
                         </g>
                     {/each}
 
+                    {#if centerEmoji}
+                        <text
+                                class="roleEmoji roleEmojiCenter"
+                                x={cx}
+                                y={cy}
+                                text-anchor="middle"
+                                dominant-baseline="middle"
+                        >
+                            {centerEmoji}
+                        </text>
+                    {/if}
                     <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
                 </svg>
 
@@ -1066,28 +1244,30 @@
 
     <!-- INFO -->
     <div class="info">
-        <div class="padding-right">
-            <div class="rowFill">
-                <LocationPicker
-                        value={wheelLoc}
-                        locked={observer.locked}
-                        onChange={(loc) => {
-                          onUserActivity();
+        {#if isCompassWheelType}
+            <div class="padding-right">
+                <div class="rowFill">
+                    <LocationPicker
+                            value={wheelLoc}
+                            locked={observer.locked}
+                            onChange={(loc) => {
+                              onUserActivity();
 
-                          const patch: Partial<WheelObserverState> = {
-                            locationId: loc.id,
-                            locked: true
-                          };
+                              const patch: Partial<WheelObserverState> = {
+                                locationId: loc.id,
+                                locked: true
+                              };
 
-                          dbg.log?.('Compass.location.apply', { patch });
-                          boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
-                        }}
-                        onToggleLock={(next) => {
-                          onUserActivity();
-                          boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
-                        }}/>
+                              dbg.log?.('Compass.location.apply', { patch });
+                              boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
+                            }}
+                            onToggleLock={(next) => {
+                              onUserActivity();
+                              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
+                            }}/>
+                </div>
             </div>
-        </div>
+        {/if}
 
         <div class="padding-right">
             <div class="rowFill">
@@ -1320,6 +1500,30 @@
     .spoke.hot .spokeLabel {
         fill-opacity: 1;
         font-weight: 800;
+    }
+    .roleEmoji {
+        user-select: none;
+        pointer-events: none;
+        font-variant-emoji: emoji;
+        fill: currentColor;
+        opacity: 0.95;
+    }
+    .roleEmojiCenter {
+        font-size: 40px;
+        font-weight: 400;
+    }
+    .roleEmojiOnLabel {
+        font-size: 62px;
+        font-weight: 900;
+    }
+    .roleEmojiOnSpoke {
+        font-size: 34px;
+        font-weight: 900;
+        opacity: 0.9;
+    }
+    .spoke:hover .roleEmojiOnLabel,
+    .spoke.hot .roleEmojiOnLabel {
+        opacity: 1;
     }
     .markerGlyph {
         paint-order: stroke;

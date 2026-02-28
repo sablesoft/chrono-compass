@@ -5,6 +5,7 @@ import { solveBindWheel } from './math/bind';
 import { solveCompassWheel } from './math/compass';
 import { solveHorizonWheel } from './math/horizon';
 import { solveSynodWheel } from "./math/synod";
+import { solveSystemWheel } from './math/system';
 
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
@@ -87,6 +88,23 @@ function registerWheels() {
         }),
         solve: (input) => solveSynodWheel(input as any),
     } satisfies WheelRegistryEntry<'synod'>);
+
+    registerWheel({
+        type: 'system',
+        ui: 'compass',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'system',
+            ts: ctx.ts,
+            location: ctx.location,
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker,
+            focus: (wheel.roles as any)?.focus,
+            target: (wheel.roles as any)?.target,
+            meta: resolveWheelMeta(wheel),
+        }),
+        solve: (input) => solveSystemWheel(input as any),
+    } satisfies WheelRegistryEntry<'system'>);
 
     // TODO остальные...
 }
