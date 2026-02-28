@@ -1063,6 +1063,13 @@
         transition: stroke-opacity 120ms ease;
     }
     .tick:hover .tickLine { stroke-opacity: 0.75; }
+    .tick:focus,
+    .tick:focus-visible {
+        outline: none;
+    }
+    .tick:focus-visible .tickLine {
+        stroke-opacity: 0.75;
+    }
 
     .spokeLabel {
         pointer-events: auto;
@@ -1087,6 +1094,14 @@
     /* hover только по зоне клика */
     .spokeHit:hover .spokeLabel { fill-opacity: 1; font-weight: 800; }
     .spokeHit:hover .spokeHalo  {
+        stroke-opacity: 0.9;
+        filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
+    }
+    .spokeHit:focus,
+    .spokeHit:focus-visible {
+        outline: none;
+    }
+    .spokeHit:focus-visible .spokeHalo {
         stroke-opacity: 0.9;
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }
