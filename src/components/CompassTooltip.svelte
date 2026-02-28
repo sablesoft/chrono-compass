@@ -380,8 +380,8 @@
                         <button
                                 class="navBtn miniBtn topIconBtn"
                                 type="button"
-                                title={`Go to ${formatDateTime(ts)}`}
-                                aria-label={`Go to ${formatDateTime(ts)}`}
+                                title={i === 0 ? 'Go to Begin' : (i === momentPickTs.length - 1 ? 'Go to Next' : `Go to ${formatDateTime(ts)}`)}
+                                aria-label={i === 0 ? 'Go to Begin' : (i === momentPickTs.length - 1 ? 'Go to Next' : `Go to ${formatDateTime(ts)}`)}
                                 on:click={() => onPickTs(pickTargetTs(ts, i, momentPickTs.length))}
                         >◷</button>
                     {/each}

@@ -1063,11 +1063,34 @@
             const distanceLabel = typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
                 : 'Dist';
+            const trackTs = (t.orbitTrack ?? [])
+                .map((q) => q.ts)
+                .filter((v): v is number => Number.isFinite(v));
+            const trackMinTs = trackTs.length ? Math.min(...trackTs) : NaN;
+            const trackMaxTs = trackTs.length ? Math.max(...trackTs) : NaN;
             return (t.orbitTrack ?? [])
                 .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
                 const house = houseLabelForAzimuth(p.azimuthDeg);
+                const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
+                const nextSynodBoundaryTs = (t.orbitTrack ?? [])
+                    .filter((q) => q.source === 'spoke' && q.code === 'E_next' && Number.isFinite(q.ts))
+                    .map((q) => q.ts)
+                    .sort((a, b) => a - b)[0];
+                const isDualCycleNode =
+                    wheel?.wheelType === 'system' &&
+                    pointTags.includes('cycle start') &&
+                    pointTags.includes('cycle end') &&
+                    Number.isFinite(trackMinTs) &&
+                    Number.isFinite(trackMaxTs) &&
+                    trackMaxTs > trackMinTs;
+                const pickTsList = isDualCycleNode
+                    ? [
+                        p.ts,
+                        Number.isFinite(nextSynodBoundaryTs) ? (nextSynodBoundaryTs as number) : trackMaxTs
+                    ]
+                    : undefined;
                 const primaryLabel = isSystemWheel ? 'Phase' : 'Az';
                 const primaryDeg = isSystemWheel ? Number((p as any).phaseDeg ?? NaN) : p.azimuthDeg;
                 const secondaryLabel = isSystemWheel ? 'Ecl' : 'Alt';
@@ -1102,7 +1125,8 @@
                         label: `${emoji} ${name} orbit node (${p.code})`,
                         ts: p.ts,
                         desc: `orbit-node:${t.id}:${p.code}`,
-                        tags: p.tags,
+                        tags: pointTags,
+                        pickTsList,
                         metaParts,
                         metaText,
                         copyText: copyParts.join(' | ')
