@@ -160,6 +160,17 @@
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: CompassTargetState[] = [];
     let orbitCurves: Array<{ id: ObjId; d: string; visible: boolean }> = [];
+    type OrbitNodeUi = {
+        key: string;
+        x: number;
+        y: number;
+        tip: MomentTip;
+        visible: boolean;
+        bodyId: ObjId;
+        code: string;
+        source?: 'cycle' | 'spoke';
+        ts: number;
+    };
     let orbitNodes: Array<{
         key: string;
         x: number;
@@ -171,7 +182,7 @@
         source?: 'cycle' | 'spoke';
         ts: number;
     }> = [];
-    let showOrbits = true;
+    let showOrbits = false;
     let activeSpokeCode: string | null = null;
     let lastResolvedTs = NaN;
     let markerTweenRaf = 0;
@@ -429,22 +440,20 @@
         return (body ? (body as ObjId) : null);
     }
 
-    function dedupeOrbitNodesByBody<T extends {
-        x: number;
-        y: number;
-        bodyId: ObjId;
-        source?: 'cycle' | 'spoke';
-        ts: number;
-    }>(nodes: T[]): T[] {
-        const byBody = new Map<ObjId, T[]>();
+    function dedupeOrbitNodesByBody(nodes: OrbitNodeUi[]): OrbitNodeUi[] {
+        const byBody = new Map<ObjId, OrbitNodeUi[]>();
         for (const n of nodes) {
             const arr = byBody.get(n.bodyId);
             if (arr) arr.push(n);
             else byBody.set(n.bodyId, [n]);
         }
 
-        const out: T[] = [];
+        const out: OrbitNodeUi[] = [];
         for (const [, bodyNodes] of byBody) {
+            const bodyMinTs = Math.min(...bodyNodes.map((n) => n.ts));
+            const bodyMaxTs = Math.max(...bodyNodes.map((n) => n.ts));
+            const edgeTsEps = 2 * 60_000;
+
             const sorted = bodyNodes.slice().sort((a, b) => {
                 const aSpoke = a.source === 'spoke' ? 1 : 0;
                 const bSpoke = b.source === 'spoke' ? 1 : 0;
@@ -452,9 +461,9 @@
                 return a.ts - b.ts;
             });
 
-            const clusters: Array<{ rep: T }> = [];
+            const clusters: Array<{ rep: OrbitNodeUi; members: OrbitNodeUi[] }> = [];
             for (const n of sorted) {
-                let hit: { rep: T } | null = null;
+                let hit: { rep: OrbitNodeUi; members: OrbitNodeUi[] } | null = null;
                 let bestDist = Number.POSITIVE_INFINITY;
                 for (const c of clusters) {
                     const d = Math.hypot(n.x - c.rep.x, n.y - c.rep.y);
@@ -465,10 +474,11 @@
                 }
 
                 if (!hit) {
-                    clusters.push({ rep: n });
+                    clusters.push({ rep: n, members: [n] });
                     continue;
                 }
 
+                hit.members.push(n);
                 const rep = hit.rep;
                 const repSpoke = rep.source === 'spoke';
                 const nSpoke = n.source === 'spoke';
@@ -481,7 +491,23 @@
                 }
             }
 
-            for (const c of clusters) out.push(c.rep);
+            for (const c of clusters) {
+                const hasStartEdge = c.members.some((m) => Math.abs(m.ts - bodyMinTs) <= edgeTsEps);
+                const hasEndEdge = c.members.some((m) => Math.abs(m.ts - bodyMaxTs) <= edgeTsEps);
+                const isSeamCluster = hasStartEdge && hasEndEdge;
+
+                const pickTsList = isSeamCluster
+                    ? [bodyMinTs, bodyMaxTs]
+                    : [c.rep.ts];
+                const rep = c.rep;
+                out.push({
+                    ...rep,
+                    tip: {
+                        ...rep.tip,
+                        pickTsList
+                    }
+                });
+            }
         }
 
         return out;
@@ -630,7 +656,7 @@
             bodyPos.set(t.id, { x: p.x, y: p.y });
         }
 
-        const rawNodes = lastTargets
+        const rawNodes: OrbitNodeUi[] = lastTargets
         .flatMap((t) => {
             const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
             const emoji = b?.emoji ?? '•';
@@ -759,6 +785,23 @@
         if (ev) tip.openMomentNow(ev, nodeTip);
     }
 
+    function handleSpokeDoubleClick(spokeCode: string) {
+        if (!pinnedBodyId) return;
+
+        const candidates = orbitNodes.filter((n) =>
+            n.bodyId === pinnedBodyId &&
+            n.code === spokeCode &&
+            n.source === 'spoke' &&
+            (n.tip.pickTsList?.length ?? 1) === 1
+        );
+        if (!candidates.length) return;
+
+        const best = candidates.reduce((acc, cur) =>
+            Math.abs(cur.ts - effTs) < Math.abs(acc.ts - effTs) ? cur : acc
+        );
+        handleMarkerPick(best.ts);
+    }
+
     const tip = useTooltip({
         isCoarsePointer: () => isCoarsePointer,
         onActivateCluster: (c) => handleMarkerActivate(c),
@@ -786,7 +829,7 @@
                      on:click={(e) => {
                       const t = e.target;
                       if (!(t instanceof Element)) return clearPinned();
-                      if (t.closest('[data-marker], [data-tooltip-root]')) return;
+                      if (t.closest('[data-marker], [data-tooltip-root], [data-keep-pin]')) return;
                       clearPinned();
                     }}
                      on:keydown={(e) => {
@@ -829,10 +872,12 @@
                         <g
                                 class="spoke"
                                 class:hot={activeSpokeCode === label}
+                                data-keep-pin="1"
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House ${label}`}
                                 on:click={(e) => tip.openMomentNow(e, houseTip)}
+                                on:dblclick={() => handleSpokeDoubleClick(label)}
                                 on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
                                 on:mouseleave={() => tip.hoverLeave(houseKey)}
                                 on:keydown={(e) => handleHouseKeydown(e, houseTip)}
@@ -899,6 +944,7 @@
                                         r={VB * 0.0065}
                                         on:click={(e) => tip.openMomentNow(e, n.tip)}
                                         on:dblclick={(e) => {
+                                            if ((n.tip.pickTsList?.length ?? 0) > 1) return;
                                             e.preventDefault();
                                             e.stopPropagation();
                                             handleMarkerPick(n.tip.ts);

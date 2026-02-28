@@ -22,6 +22,7 @@ export type MomentTip = {
     label: string;
     ts: number;
     desc?: string;
+    pickTsList?: number[];
 };
 
 export const SPOKES = 16;

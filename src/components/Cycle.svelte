@@ -562,14 +562,49 @@
     }
 
     const SHIFT_EPS_MS = 1500;
+    const SNAP_SPOKE_EPS_MS = 250;
+    let pendingShiftSnap: { dir: -1 | 1 } | null = null;
+
+    function nearestMainSpokeIndexByTime(ts0: number, arr: number[]) {
+        let bestI = 0;
+        let bestD = Infinity;
+        for (let i = 0; i < 16; i++) {
+            const t = arr?.[i];
+            if (!Number.isFinite(t)) continue;
+            const d = Math.abs(ts0 - t);
+            if (d < bestD) { bestD = d; bestI = i; }
+        }
+        return bestI;
+    }
 
     function shiftCycle(dir: -1 | 1) {
         onUserActivity();
         const t0 = spokeTimes?.[0];
         const t1 = spokeTimes?.[16];
         if (!Number.isFinite(t0) || !Number.isFinite(t1)) return;
-        const probe = dir < 0 ? (t0 - SHIFT_EPS_MS) : (t1 + SHIFT_EPS_MS);
+        const tsNow = Math.min(Math.max(effTs, t0), t1);
+        const offsetFromStart = tsNow - t0;
+        const offsetToEnd = t1 - tsNow;
+
+        // Keep the same phase position in adjacent cycle instead of snapping to E/E+ boundary.
+        const probe = dir < 0
+            ? (t0 - offsetToEnd - SHIFT_EPS_MS)
+            : (t1 + offsetFromStart + SHIFT_EPS_MS);
+        pendingShiftSnap = { dir };
         jumpTo(probe, dir < 0 ? 'prevCycle' : 'nextCycle');
+    }
+
+    $: {
+        if (pendingShiftSnap && solveOk && spokeTimes && spokeTimes.length >= 16) {
+            const dir = pendingShiftSnap.dir;
+            const i = nearestMainSpokeIndexByTime(effTs, spokeTimes);
+            const snapTs = spokeTimes[i];
+            pendingShiftSnap = null;
+
+            if (Number.isFinite(snapTs) && Math.abs(effTs - snapTs) > SNAP_SPOKE_EPS_MS) {
+                jumpTo(snapTs, `shiftSnap:${dir < 0 ? 'prev' : 'next'}:spoke:${i}`);
+            }
+        }
     }
 
     function resolveSpokePickTs(i: number): number {

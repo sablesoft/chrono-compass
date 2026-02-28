@@ -34,6 +34,7 @@
     const GAP = 12;
     const MAX_W = 420;
     const MAX_H = 420;
+    const SEAM_NEXT_EPS_MS = 1500;
 
     let el: HTMLDivElement | null = null;
     let left = 0;
@@ -124,6 +125,21 @@
     function isOrbitNodeMoment(m: MomentTip | null): boolean {
         return !!m?.desc && m.desc.startsWith('orbit-node:');
     }
+
+    function pickTsListForMoment(m: MomentTip | null): number[] {
+        if (!m) return [];
+        if (Array.isArray(m.pickTsList) && m.pickTsList.length > 0) {
+            return m.pickTsList.filter((ts) => Number.isFinite(ts)).sort((a, b) => a - b);
+        }
+        return Number.isFinite(m.ts) ? [m.ts] : [];
+    }
+
+    function pickTargetTs(ts: number, idx: number, len: number): number {
+        if (len > 1 && idx === len - 1) return ts + SEAM_NEXT_EPS_MS;
+        return ts;
+    }
+
+    $: momentPickTs = pickTsListForMoment(moment);
 
     $: activeHouse = isHouseMoment(moment) ? (moment!.desc!.slice('house:'.length) || moment!.label) : null;
 
@@ -277,8 +293,16 @@
             <div class="listHead">
                 <div class="label">Bodies</div>
 
-                {#if moment?.ts && !isHouseMoment(moment)}
-                    <button class="go" type="button" on:click={() => onPickTs(moment?.ts)}>Go to this moment</button>
+                {#if !isHouseMoment(moment) && momentPickTs.length === 1}
+                    <button class="go" type="button" on:click={() => onPickTs(momentPickTs[0])}>Go to this moment</button>
+                {:else if !isHouseMoment(moment) && momentPickTs.length > 1}
+                    <div class="goGroup">
+                        {#each momentPickTs as ts, i (`pick:${ts}:${i}`)}
+                            <button class="go" type="button" on:click={() => onPickTs(pickTargetTs(ts, i, momentPickTs.length))}>
+                                Go to {formatDateTime(ts)}
+                            </button>
+                        {/each}
+                    </div>
                 {/if}
             </div>
 
@@ -454,6 +478,11 @@
         font-weight: 700;
     }
     .go:hover { background: color-mix(in oklab, var(--fg), transparent 90%); }
+    .goGroup {
+        display: grid;
+        gap: 6px;
+        justify-items: end;
+    }
 
     .empty { padding: 10px 6px; font-size: 12px; opacity: 0.75; }
 
