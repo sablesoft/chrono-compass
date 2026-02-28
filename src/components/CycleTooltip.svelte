@@ -45,9 +45,43 @@
         return `${au.toFixed(3)} AU`;
     }
 
+    function formatDeg(v: number) {
+        if (!isFiniteNumber(v)) return '—';
+        return `${v.toFixed(1)}°`;
+    }
+
+    function formatHours(v: number) {
+        if (!isFiniteNumber(v)) return '—';
+        return `${v.toFixed(3)}h`;
+    }
+
     // “общий” рендер меты: сначала known-кейсы, потом fallback
     function renderMetaLines(meta: any): Array<{ k: string; v: string }> {
         if (!meta) return [];
+
+        // HorizonMeta
+        if (isFiniteNumber((meta as any).altitudeDeg) || isFiniteNumber((meta as any).azimuthDeg)) {
+            return [
+                ...(isFiniteNumber((meta as any).altitudeDeg)
+                    ? [{ k: 'Alt', v: formatDeg((meta as any).altitudeDeg) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).azimuthDeg)
+                    ? [{ k: 'Az', v: formatDeg((meta as any).azimuthDeg) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).raHours)
+                    ? [{ k: 'RA', v: formatHours((meta as any).raHours) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).decDeg)
+                    ? [{ k: 'Dec', v: formatDeg((meta as any).decDeg) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).distanceAu)
+                    ? [{ k: 'Distance', v: formatAu((meta as any).distanceAu) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).distanceKm)
+                    ? [{ k: ' ', v: formatKm((meta as any).distanceKm) }]
+                    : []),
+            ];
+        }
 
         // BindMeta
         if (isFiniteNumber((meta as any).distanceKm) || isFiniteNumber((meta as any).distanceAu)) {

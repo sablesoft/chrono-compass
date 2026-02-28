@@ -29,7 +29,7 @@ function toCacheWheelLike(w: BoardWheel | CacheWheelLike): CacheWheelLike {
     };
 }
 
-function solveRaw(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): WheelSolveResult {
+async function solveRaw(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): Promise<WheelSolveResult> {
     const wAny: any = wheel as any;
     const entry = getWheelEntry(wAny.wheelType);
 
@@ -71,11 +71,11 @@ export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: Solv
     }
 
     // 2) compute
-    const res = solveRaw(wheel, { ...ctx, dbg });
+    const res = await solveRaw(wheel, { ...ctx, dbg });
 
     // 3) if this is a successful cycle -> write to cache (runtime + persistent inside store)
     if (res && (res as any).kind === 'cycle') {
-        const r = res as CycleSolveResult<any>;
+        const r = res as CycleSolveResult;
         if (r.ok) {
             try {
                 await putCycleSolved(wheelLike, r);

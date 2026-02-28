@@ -35,13 +35,15 @@ export async function putCycleSolved<Meta = any>(
 ): Promise<CycleData<Meta> | null> {
     if (!isCacheEnabledForWheel(wheel)) return null;
 
-    const cycle = buildCycleDataFromSolve(wheel, solve);
+    let cycle = buildCycleDataFromSolve(wheel, solve);
     if (!cycle) return null;
 
+    cycle = alignCycleWithRuntimeNeighbor(cycle);
     runtimePut(cycle);
 
     if (opts?.persist !== false) {
-        await persistentPut(cycle);
+        cycle = await persistentPut(cycle) as CycleData<Meta>;
+        runtimePut(cycle);
     }
 
     return cycle;
@@ -50,12 +52,14 @@ export async function putCycleSolved<Meta = any>(
 // -----------
 
 const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', false); // todo - turn on after testing
-const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'horizon', 'system']);
+const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'system']);
 const DB_NAME = 'chrono_compass_cycle_cache';
 const DB_VERSION = 1;
 const STORE_CYCLES = 'cycles';
 const MAX_CYCLES_PER_KEY = 256;
 const MAX_CYCLES_TOTAL = 5000;
+const CYCLE_TS_BUCKET_MS = 60_000;
+const BOUNDARY_SNAP_TOLERANCE_MS = 2 * CYCLE_TS_BUCKET_MS;
 
 const runtime = new Map<CacheKey, CycleData<any>>();
 
@@ -77,16 +81,25 @@ function buildCycleDataFromSolve<Meta = any>(
 
     const cacheKey = makeCacheKey(wheel);
 
-    const spokes = (solve.spokes ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+    const spokes = (solve.spokes ?? [])
+        .slice()
+        .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+        .map((s) => ({ ...s, ts: roundToBucketMs(s.ts, CYCLE_TS_BUCKET_MS) }));
     if (!spokes.length) return null;
 
     const s0 = spokes.find((s) => s.index === 0);
     const s16 = spokes.find((s) => s.index === 16);
 
-    const startTs = s0?.ts;
-    const endTs = s16?.ts;
+    let startTs = s0?.ts;
+    let endTs = s16?.ts;
 
-    if (!isFiniteNum(startTs) || !isFiniteNum(endTs) || !(endTs > startTs)) return null;
+    if (!isFiniteNum(startTs) || !isFiniteNum(endTs)) return null;
+    if (!(endTs > startTs)) {
+        endTs = startTs + CYCLE_TS_BUCKET_MS;
+    }
+
+    setSpokeTs(spokes as CycleSpoke<any>[], 0, startTs);
+    setSpokeTs(spokes as CycleSpoke<any>[], 16, endTs);
 
     const t = nowMs();
 
@@ -98,6 +111,64 @@ function buildCycleDataFromSolve<Meta = any>(
         createdAt: t,
         updatedAt: t,
     };
+}
+
+function roundToBucketMs(ts: number, bucketMs: number): number {
+    if (!isFiniteNum(ts)) return NaN;
+    return Math.round(ts / bucketMs) * bucketMs;
+}
+
+function setSpokeTs(spokes: CycleSpoke<any>[], index: number, ts: number): void {
+    const i = spokes.findIndex((s) => (s.index ?? -1) === index);
+    if (i < 0) return;
+    spokes[i] = { ...spokes[i], ts };
+}
+
+function snapBoundaryToNeighbor(candidate: number, neighbor: number, toleranceMs = BOUNDARY_SNAP_TOLERANCE_MS): number {
+    if (!isFiniteNum(candidate) || !isFiniteNum(neighbor)) return candidate;
+    return Math.abs(candidate - neighbor) <= toleranceMs ? neighbor : candidate;
+}
+
+function alignCycleWithKnownBoundaries(cycle: CycleData, prevEndTs?: number, nextStartTs?: number): CycleData {
+    let startTs = cycle.startTs;
+    let endTs = cycle.endTs;
+    const spokes = (cycle.spokes ?? []).map((s) => ({ ...s }));
+
+    if (isFiniteNum(prevEndTs)) startTs = snapBoundaryToNeighbor(startTs, prevEndTs);
+    if (isFiniteNum(nextStartTs)) endTs = snapBoundaryToNeighbor(endTs, nextStartTs);
+
+    if (!(endTs > startTs)) endTs = startTs + CYCLE_TS_BUCKET_MS;
+
+    setSpokeTs(spokes, 0, startTs);
+    setSpokeTs(spokes, 16, endTs);
+
+    return { ...cycle, startTs, endTs, spokes };
+}
+
+function alignCycleWithRuntimeNeighbor(cycle: CycleData): CycleData {
+    const known = runtime.get(cycle.cacheKey);
+    if (!known) return cycle;
+
+    let prevEndTs: number | undefined = undefined;
+    let nextStartTs: number | undefined = undefined;
+
+    // Same-cycle stabilization.
+    if (Math.abs(cycle.startTs - known.startTs) <= BOUNDARY_SNAP_TOLERANCE_MS) {
+        nextStartTs = known.startTs;
+    }
+    if (Math.abs(cycle.endTs - known.endTs) <= BOUNDARY_SNAP_TOLERANCE_MS) {
+        prevEndTs = known.endTs;
+    }
+
+    // Neighbor-cycle stabilization (only when boundaries are close enough).
+    if (Math.abs(cycle.startTs - known.endTs) <= BOUNDARY_SNAP_TOLERANCE_MS) {
+        prevEndTs = known.endTs;
+    }
+    if (Math.abs(cycle.endTs - known.startTs) <= BOUNDARY_SNAP_TOLERANCE_MS) {
+        nextStartTs = known.startTs;
+    }
+
+    return alignCycleWithKnownBoundaries(cycle, prevEndTs, nextStartTs);
 }
 
 function roleToKeyPart(v: any): string {
@@ -234,7 +305,17 @@ async function idbGetForTs(cycleKey: CacheKey, ts: number): Promise<CycleData | 
     };
 }
 
-async function idbPut(cycle: CycleData): Promise<void> {
+async function idbPut(cycle: CycleData): Promise<CycleData> {
+    const rows = await listRecordsForKey(cycle.cacheKey);
+    const prev = rows
+        .filter((r) => isFiniteNum(r.endTs) && r.endTs <= cycle.startTs)
+        .sort((a, b) => b.endTs - a.endTs)[0];
+    const next = rows
+        .filter((r) => isFiniteNum(r.startTs) && r.startTs >= cycle.endTs)
+        .sort((a, b) => a.startTs - b.startTs)[0];
+
+    const aligned = alignCycleWithKnownBoundaries(cycle, prev?.endTs, next?.startTs);
+
     const db = await openDb();
     const tx = db.transaction(STORE_CYCLES, 'readwrite');
     const store = tx.objectStore(STORE_CYCLES);
@@ -242,19 +323,20 @@ async function idbPut(cycle: CycleData): Promise<void> {
     const t = nowMs();
 
     const rec: CycleRecord = {
-        cacheKey: cycle.cacheKey as any,
-        startTs: cycle.startTs,
-        endTs: cycle.endTs,
-        spokes: cycle.spokes,
-        createdAt: cycle.createdAt ?? t,
+        cacheKey: aligned.cacheKey as any,
+        startTs: aligned.startTs,
+        endTs: aligned.endTs,
+        spokes: aligned.spokes,
+        createdAt: aligned.createdAt ?? t,
         updatedAt: t,
     };
 
     store.put(rec as any);
     await txDone(tx);
 
-    await trimKey(cycle.cacheKey, t);
+    await trimKey(aligned.cacheKey, t);
     await trimTotal(t);
+    return { ...aligned, updatedAt: t };
 }
 
 async function listRecordsForKey(cycleKey: CacheKey): Promise<CycleRecord[]> {
@@ -339,9 +421,9 @@ async function persistentGet(wheel: CacheWheelLike, ts: number): Promise<CycleDa
     return await idbGetForTs(key, ts);
 }
 
-async function persistentPut(cycle: CycleData): Promise<void> {
-    if (!ENABLE_CYCLE_IDB) return;
-    await idbPut(cycle);
+async function persistentPut(cycle: CycleData): Promise<CycleData> {
+    if (!ENABLE_CYCLE_IDB) return cycle;
+    return await idbPut(cycle);
 }
 
 async function trimTotal(nowTs: number): Promise<void> {

@@ -193,11 +193,11 @@
     // ------------------------------------------------------------
     let solveOk = false;
     let solveReason = '';
-    let spokes: CycleSpoke<any>[] = [];
+    let spokes: CycleSpoke[] = [];
 
     let ensureRunId = 0;
 
-    function sortSpokes(xs: CycleSpoke<any>[]) {
+    function sortSpokes(xs: CycleSpoke[]) {
         return (xs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     }
 
@@ -231,7 +231,7 @@
         solveOk = !!r.ok;
         solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
 
-        // обновляем spokes только когда пришёл валидный ответ
+        // обновляем спицы, только когда пришёл валидный ответ
         spokes = sortSpokes(r.spokes ?? []);
     }
 

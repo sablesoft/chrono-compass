@@ -11,14 +11,17 @@ import { objects } from '../catalog';
 import type { ObjId } from '../catalog';
 import type { MarkerItem } from '../wheel/wheel'; // если путь у тебя другой — скажи, поправлю
 
-import type { WheelInput, CompassSolveResult } from '../board/runtime';
+import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
+import { resolveWheel } from '../board/dispatcher';
 import {clamp, norm360, toSigned180} from "./helpers";
+import type { HorizonMeta } from './horizon';
 
 export type CompassTargetState = {
     id: ObjId;
     azimuthDeg: number;   // [0..360)
     altitudeDeg: number;  // [-90..+90]
     visible: boolean;
+    horizonSpokes?: CycleSpoke<HorizonMeta>[];
 
     raHours?: number;
     decDeg?: number;
@@ -55,7 +58,32 @@ function refractionMode(enabled: boolean, mode: 'normal' | 'jplhor' = 'normal'):
  * Возвращает:
  * - CompassSolveResult из board/runtime: kind='compass', objects=[]
  */
-export function solveCompassWheel(input: WheelInput): CompassSolveResult<CompassTargetState> {
+function locationCacheKeyPart(loc: WheelInput['location']): string {
+    if (typeof loc?.id === 'string' && loc.id.trim()) return loc.id;
+    return 'loc:system';
+}
+
+async function resolveHorizonSpokesForTarget(input: WheelInput, target: ObjId): Promise<CycleSpoke<HorizonMeta>[] | undefined> {
+    const loc = input.location;
+    if (!loc) return undefined;
+
+    const virtualHorizonWheel = {
+        wheelType: 'horizon' as const,
+        roles: { looker: 'Earth', target },
+        observer: { locationId: locationCacheKeyPart(loc) }
+    };
+
+    const res = await resolveWheel(virtualHorizonWheel as any, {
+        ts: input.ts,
+        location: loc,
+        dbg: input.dbg
+    });
+
+    if (!res || res.kind !== 'cycle' || !res.ok) return undefined;
+    return res.spokes as CycleSpoke<HorizonMeta>[];
+}
+
+export async function solveCompassWheel(input: WheelInput): Promise<CompassSolveResult<CompassTargetState>> {
     const dbg = input.dbg;
 
     const ts = input.ts;
@@ -89,9 +117,7 @@ export function solveCompassWheel(input: WheelInput): CompassSolveResult<Compass
     const time = new AstroTime(new Date(ts));
     const obs = new Observer(loc.lat, loc.lon, 0);
 
-    const out: CompassTargetState[] = [];
-
-    for (const id of targets) {
+    const out = await Promise.all(targets.map(async (id): Promise<CompassTargetState | null> => {
         try {
             const body = toEngineBody(id);
 
@@ -101,24 +127,29 @@ export function solveCompassWheel(input: WheelInput): CompassSolveResult<Compass
 
             const az = norm360(hor.azimuth);
             const alt = clamp(hor.altitude, -90, 90);
+            const horizonSpokes = await resolveHorizonSpokesForTarget(input, id);
 
-            out.push({
+            return {
                 id,
                 azimuthDeg: az,
                 altitudeDeg: alt,
                 visible: alt >= 0,
+                horizonSpokes,
                 raHours: eq.ra,
                 decDeg: eq.dec,
                 distanceAu: eq.dist
-            });
+            };
         } catch (err) {
             dbg?.warn?.('solveCompassWheel.targetError', { id, err });
+            return null;
         }
-    }
+    }));
 
-    dbg?.log?.('solveCompassWheel.out', { count: out.length, ids: out.map(x => x.id) });
+    const bodies = out.filter((x): x is CompassTargetState => !!x);
 
-    return { ok: true, kind: 'compass', ts, bodies: out };
+    dbg?.log?.('solveCompassWheel.out', { count: bodies.length, ids: bodies.map(x => x.id), bodies });
+
+    return { ok: true, kind: 'compass', ts, bodies };
 }
 
 /**

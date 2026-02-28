@@ -4,6 +4,8 @@ import { wheels } from '../catalog';
 import type { WheelInput, WheelSolveResult } from './runtime';
 import type { BoardWheel } from './types';
 
+type Awaitable<T> = T | Promise<T>;
+
 export type WheelUiKind = 'compass' | 'cycle';
 
 export type WheelRegistryEntry<TType extends WheelType = WheelType> = {
@@ -11,7 +13,7 @@ export type WheelRegistryEntry<TType extends WheelType = WheelType> = {
     ui: WheelUiKind;
 
     makeInput: (wheel: BoardWheel, ctx: { ts: number; location?: any; dbg?: any }) => WheelInput<TType>;
-    solve: (input: WheelInput<TType>) => WheelSolveResult;
+    solve: (input: WheelInput<TType>) => Awaitable<WheelSolveResult>;
 };
 
 export const wheelRegistry: Record<string, WheelRegistryEntry<any>> = Object.create(null);
