@@ -33,6 +33,7 @@ export type CompassTargetState = {
     raHours?: number;
     decDeg?: number;
     distanceAu?: number;
+    distanceLabel?: string;
 };
 
 const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
@@ -473,7 +474,8 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 orbitTrack,
                 raHours: instant.raHours,
                 decDeg: instant.decDeg,
-                distanceAu: instant.distanceAu
+                distanceAu: instant.distanceAu,
+                distanceLabel: `Dist to ${bodyNameEn(looker)}`
             };
         } catch (err) {
             dbg?.warn?.('solveCompassWheel.targetError', { id, err });

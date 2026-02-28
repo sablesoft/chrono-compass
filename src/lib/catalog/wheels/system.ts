@@ -17,7 +17,7 @@ export const system = {
         {
             looker: ['ref:galactic-center'],
             focus: ['Sun'],
-            target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Neptune', 'Pluto', 'Saturn', 'Uranus']
+            target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto',]
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'system' }>;

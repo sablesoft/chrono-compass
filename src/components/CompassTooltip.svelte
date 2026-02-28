@@ -17,6 +17,8 @@
         id: ObjId;
         emoji: string;
         name: string;
+        distanceAu: number;
+        distanceLabel: string;
         primaryDeg: number;
         secondaryDeg: number;
         primaryLabel: string;
@@ -80,6 +82,11 @@
         return `${x.toFixed(1)}°`;
     }
 
+    function fmtDistAu(x: number) {
+        if (!Number.isFinite(x)) return '—';
+        return `${x.toFixed(3)} AU`;
+    }
+
     // Compass spokes: E, ENE, ..., ESE (16)
     const HOUSE_LABELS = ['E','ENE','NE','NNE','N','NNW','NW','WNW','W','WSW','SW','SSW','S','SSE','SE','ESE'] as const;
     const STEP_DEG = 360 / 16;
@@ -93,6 +100,8 @@
         id: ObjId;
         emoji: string;
         name: string;
+        distanceAu: number;
+        distanceLabel: string;
         primaryDeg: number;
         secondaryDeg: number;
         primaryLabel: string;
@@ -117,6 +126,8 @@
             id,
             emoji: it.emoji ?? '•',
             name: it.title ?? String(id),
+            distanceAu: NaN,
+            distanceLabel: 'Dist',
             primaryDeg: az,
             secondaryDeg: alt,
             primaryLabel: 'Az',
@@ -165,6 +176,8 @@
                 house: found.house,
                 name: found.name,
                 emoji: found.emoji,
+                distanceAu: found.distanceAu,
+                distanceLabel: found.distanceLabel,
                 primaryDeg: found.primaryDeg,
                 secondaryDeg: found.secondaryDeg,
                 primaryLabel: found.primaryLabel,
@@ -182,6 +195,8 @@
             id: b.id,
             emoji: b.emoji,
             name: b.name,
+            distanceAu: b.distanceAu,
+            distanceLabel: b.distanceLabel,
             primaryDeg: b.primaryDeg,
             secondaryDeg: b.secondaryDeg,
             primaryLabel: b.primaryLabel,
@@ -308,6 +323,11 @@
                             <span class="k">{pinnedRow.secondaryLabel}</span>
                             <span class="v">{fmtDeg(pinnedRow.secondaryDeg)}</span>
                         </div>
+
+                        <div class="kv">
+                            <span class="k">{pinnedRow.distanceLabel}</span>
+                            <span class="v">{fmtDistAu(pinnedRow.distanceAu)}</span>
+                        </div>
                     </div>
                 {:else}
                     <div class="pinnedRow muted">
@@ -358,6 +378,8 @@
                                 <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                 <span class="sep">•</span>
                                 <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                <span class="sep">•</span>
+                                <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
                             </div>
                         </div>
 
@@ -396,6 +418,8 @@
                                 <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                 <span class="sep">•</span>
                                 <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                <span class="sep">•</span>
+                                <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
                             </div>
                         </div>
 
@@ -466,7 +490,7 @@
     }
     .pinnedRow {
         display: grid;
-        grid-template-columns: 26px 1fr auto auto auto;
+        grid-template-columns: 26px 1fr auto auto auto auto;
         gap: 10px;
         align-items: center;
         min-width: 0;

@@ -908,6 +908,10 @@
             id: t.id,
             emoji,
             name,
+            distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
+            distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
+                ? (t as any).distanceLabel
+                : 'Dist',
             primaryDeg,
             secondaryDeg,
             primaryLabel: isSystemWheel ? 'Phase' : 'Az',
@@ -944,6 +948,10 @@
             id: pinnedBodyId,
             emoji,
             name,
+            distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
+            distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
+                ? (t as any).distanceLabel
+                : 'Dist',
             house: houseFromAzimuth(t.azimuthDeg),
             primaryDeg: wheel?.wheelType === 'system' ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg,
             secondaryDeg: t.altitudeDeg,

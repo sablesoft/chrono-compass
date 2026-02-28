@@ -32,6 +32,7 @@ export type SystemTargetState = {
     phaseDeg: number;
     distanceAu: number;
     focusDistAu: number;
+    distanceLabel: string;
 };
 
 function bodyEmoji(id: ObjId): string {
@@ -652,7 +653,8 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             orbitTrack,
             phaseDeg: r.phaseDeg,
             distanceAu: r.distanceAu,
-            focusDistAu: r.focusDistAu
+            focusDistAu: r.focusDistAu,
+            distanceLabel: `Dist to ${bodyNameEn(focus)}`
         };
     });
 
