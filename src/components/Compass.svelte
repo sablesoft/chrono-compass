@@ -155,6 +155,7 @@
     const MIN_ARC_PX = 28;
     const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.028;
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
+    const MAX_MARKER_ANIM_JUMP_MS = 24 * 3_600_000;
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: CompassTargetState[] = [];
@@ -253,7 +254,7 @@
 
         const prevById = new Map(displayTargets.map((t) => [t.id, t]));
         const jump = Math.abs(toTs - fromTs);
-        const shouldAnimate = Number.isFinite(fromTs) && jump > 0 && jump <= 6 * 3_600_000;
+        const shouldAnimate = Number.isFinite(fromTs) && jump > 0 && jump <= MAX_MARKER_ANIM_JUMP_MS;
         if (!shouldAnimate || !displayTargets.length) {
             displayTargets = next;
             return;
