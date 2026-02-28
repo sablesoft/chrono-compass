@@ -1,11 +1,11 @@
-// src/lib/cycle/lunarDraconic.ts
+// src/lib/math/deprecated/lunarDraconic.ts
 import * as Astronomy from 'astronomy-engine';
-import type { Anchors } from '../wheel/spokes';
-import { angleFromAnchors } from './angle';
-import { ms } from '../format';
-import { utcYearFromTs } from '../wheel/wheel';
-import { isFiniteNumber } from '../math/helpers';
-import { debug } from '../debug';
+import type { Anchors } from '../../wheel/spokes';
+import { angleFromAnchors } from '../../cycle/angle';
+import { ms } from '../../format';
+import { utcYearFromTs } from '../../wheel/wheel';
+import { isFiniteNumber } from '../helpers';
+import { debug } from '../../debug';
 
 const dbg = debug('lunarDraconic', '☀🐲');
 const { group, log, warn } = dbg;

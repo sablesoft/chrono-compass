@@ -337,16 +337,22 @@ Axial-orbital cycles describing the orientation of a target body’s rotational 
 
 ### Nodal Wheels
 
-Cycles describing the motion of a target body’s orbital nodes relative to a **leading orbital plane**.
+Cycles describing the motion of a target body’s orbital nodes relative to a **reference orbital plane**.
 
-In a Nodal Wheel, the reference plane is the orbital plane of a **looker body** around its **focus body**.  
+In a Nodal Wheel:
+- **target** is the body whose nodal cycle is measured.
+- **focus** is the mandatory central body that target orbits.
+- **looker** is the body that, together with focus, defines the reference plane.
+
+The reference plane is the orbital plane of the **looker-focus pair**  
+(for example, either *looker around focus* or *focus around looker*, depending on the system model).  
 The nodes are defined as the intersections between:
-- the orbital plane of the target body around the looker body, and
-- the orbital plane of the looker body around the focus body.
+- the orbital plane of **target around focus**, and
+- the orbital plane of the **looker-focus pair**.
 
 A Nodal Wheel is well-defined only if:
-- the target body orbits the looker body, and
-- the looker body itself orbits the focus body, thereby providing a leading reference plane.
+- the target body orbits the focus body, and
+- the looker-focus pair has a valid orbital plane in the selected model, thereby providing the reference plane.
 
 **Required attributes:**
 - looker
@@ -356,14 +362,16 @@ A Nodal Wheel is well-defined only if:
 → [nodal-wheel.md](nodal-wheel.md)
 
 *Examples:*  
-`Earth Nodal: Sun – Moon`  
-(looker: Earth, focus: Sun, target: Moon)
+`Sun Nodal: Earth – Moon`  
+(looker: Sun, focus: Earth, target: Moon)  
+(classic draconic cycle of the Moon)
 
-`Jupiter Nodal: Sun – Europa`  
-(looker: Jupiter, focus: Sun, target: Europa)
+`Earth Nodal: Sun – Mars`  
+(looker: Earth, focus: Sun, target: Mars)  
+(planetary nodes relative to the ecliptic plane)
 
-`Sun Nodal: Galaxy – Earth`  
-(looker: Sun, focus: Galaxy, target: Earth)
+`Earth Nodal: Sun – Jupiter`  
+(looker: Earth, focus: Sun, target: Jupiter)
 
 ---
 

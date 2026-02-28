@@ -9,6 +9,10 @@ export const GalacticCenter = {
     id: 'ref:galactic-center',
     kind: 'reference',
     name: { en: 'Galactic' },
+    description: {
+        en: 'Reference direction toward the Galactic Center in ICRF/J2000. It is a line-of-sight vector, not a physical point with modeled orbital motion in this app.',
+        ru: 'Опорное направление на центр Галактики в системе ICRF/J2000. Это вектор линии визирования, а не физическая точка с моделируемой орбитальной динамикой в приложении.',
+    },
     emoji: '🌀',
     meta: {
         direction: {

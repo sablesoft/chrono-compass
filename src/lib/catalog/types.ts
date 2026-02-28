@@ -75,6 +75,7 @@ export type ObjMeta =
 
 type ObjBase = {
     name: LocalizedString;
+    description?: LocalizedString;
     emoji: string;
     meta?: ObjMeta;
 };

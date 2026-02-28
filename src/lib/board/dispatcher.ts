@@ -8,7 +8,7 @@ import { getWheelEntry, resolveWheelMeta } from './registry';
 import type {CacheWheelLike} from "../cycle/types";
 
 type SolveCtx = { ts: number; location?: any; dbg?: any };
-const TAGGED_CYCLE_TYPES = new Set<string>(['horizon', 'synod', 'bind']);
+const TAGGED_CYCLE_TYPES = new Set<string>(['horizon', 'synod', 'bind', 'nodal']);
 
 function dbgApi(dbg: any) {
     const log = dbg?.log ?? (() => {});

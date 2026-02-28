@@ -67,6 +67,16 @@
         return `${v.toFixed(1)}°`;
     }
 
+    function formatDeg3(v: number) {
+        if (!isFiniteNumber(v)) return '—';
+        return `${v.toFixed(3)}°`;
+    }
+
+    function formatNum3(v: number) {
+        if (!isFiniteNumber(v)) return '—';
+        return v.toFixed(3);
+    }
+
     function formatHours(v: number) {
         if (!isFiniteNumber(v)) return '—';
         return `${v.toFixed(3)}h`;
@@ -96,6 +106,19 @@
                     : []),
                 ...(isFiniteNumber((meta as any).distanceKm)
                     ? [{ k: ' ', v: formatKm((meta as any).distanceKm) }]
+                    : []),
+            ];
+        }
+
+        // NodalMeta
+        if (isFiniteNumber((meta as any).nodalLatitudeDeg)) {
+            return [
+                { k: 'Nodal Lat', v: formatDeg3((meta as any).nodalLatitudeDeg) },
+                ...(isFiniteNumber((meta as any).targetDistanceAu)
+                    ? [{ k: 'Dist AU', v: formatNum3((meta as any).targetDistanceAu) }]
+                    : []),
+                ...(isFiniteNumber((meta as any).targetDistanceKm)
+                    ? [{ k: 'Dist km', v: formatNum3((meta as any).targetDistanceKm) }]
                     : []),
             ];
         }

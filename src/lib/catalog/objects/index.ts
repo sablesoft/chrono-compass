@@ -12,6 +12,7 @@ import { Uranus } from './uranus';
 import { Neptune } from './neptune';
 import { Pluto } from './pluto';
 import {GalacticCenter} from "./galactic-center";
+import { EclipticAxis } from './ecliptic-axis';
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -26,4 +27,5 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Saturn.id]: Saturn,
     [Uranus.id]: Uranus,
     [GalacticCenter.id]: GalacticCenter,
+    [EclipticAxis.id]: EclipticAxis,
 } satisfies Partial<Record<ObjId, Obj>>;
