@@ -17,7 +17,7 @@ export type CompassTrackPoint = {
     angleDeg: number;
     orbit: number;
     visible: boolean;
-    source?: 'cycle' | 'spoke';
+    source?: 'cycle' | 'spoke' | 'seam';
 };
 
 export type CompassTargetState = {
@@ -273,6 +273,83 @@ function computeSpokeIntersectionsAboveHorizon(opts: {
     return out;
 }
 
+function computeHorizonStyleSeams(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    track: CompassTrackPoint[] | undefined;
+}): CompassTrackPoint[] {
+    const { looker, target, location, track } = opts;
+    if (!location || !track || track.length < 2) return [];
+
+    const xs = track.slice().sort((a, b) => a.ts - b.ts);
+    const out: CompassTrackPoint[] = [];
+    const ROOT_EPS_DEG = 0.01;
+    const BISECT_ITERS = 20;
+    const TS_DEDUP_MS = 30_000;
+
+    const pushUnique = (p: CompassTrackPoint) => {
+        const hit = out.find((q) => Math.abs(q.ts - p.ts) <= TS_DEDUP_MS);
+        if (!hit) out.push(p);
+    };
+
+    for (let i = 0; i < xs.length - 1; i++) {
+        const a = xs[i];
+        const b = xs[i + 1];
+        if (!(b.ts > a.ts)) continue;
+        if (a.visible === b.visible) continue;
+
+        let lo = a.ts;
+        let hi = b.ts;
+        let altLo = a.altitudeDeg;
+        let altHi = b.altitudeDeg;
+
+        if (!(Number.isFinite(altLo) && Number.isFinite(altHi))) continue;
+        if (altLo === 0) hi = lo;
+        else if (altHi === 0) lo = hi;
+        else if (altLo * altHi > 0) continue;
+        else {
+            for (let it = 0; it < BISECT_ITERS; it++) {
+                const mid = (lo + hi) * 0.5;
+                const instMid = computeHorizonInstant({ ts: mid, looker, target, location });
+                if (!instMid) break;
+                const altMid = instMid.altitudeDeg;
+                if (Math.abs(altMid) <= ROOT_EPS_DEG) {
+                    lo = mid;
+                    hi = mid;
+                    break;
+                }
+                if (altLo * altMid <= 0) {
+                    hi = mid;
+                    altHi = altMid;
+                } else {
+                    lo = mid;
+                    altLo = altMid;
+                }
+                if (Math.abs(hi - lo) <= 500) break;
+            }
+        }
+
+        const ts = (lo + hi) * 0.5;
+        const inst = computeHorizonInstant({ ts, looker, target, location });
+        if (!inst) continue;
+
+        pushUnique({
+            ts,
+            index: a.index,
+            code: 'HZ',
+            azimuthDeg: inst.azimuthDeg,
+            altitudeDeg: 0,
+            angleDeg: azimuthToWheelAngleDeg(inst.azimuthDeg),
+            orbit: 1,
+            visible: inst.altitudeDeg >= 0,
+            source: 'seam'
+        });
+    }
+
+    return out.sort((x, y) => x.ts - y.ts);
+}
+
 function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
     if (!points?.length) return points;
 
@@ -305,7 +382,22 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
         }
 
         const prev = merged[hitIdx];
-        if (p.source === 'spoke' && prev.source !== 'spoke') {
+        const isBoundaryCode = (code: string) => code === 'E' || code === 'E+' || code === 'E_next';
+        const prevBoundary = isBoundaryCode(prev.code);
+        const pBoundary = isBoundaryCode(p.code);
+
+        const rank = (x: CompassTrackPoint) => {
+            if (x.source === 'seam') return 3;
+            if (x.source === 'spoke') return 2;
+            return 1;
+        };
+
+        if (prevBoundary || pBoundary) {
+            if (pBoundary && !prevBoundary) merged[hitIdx] = p;
+            continue;
+        }
+
+        if (rank(p) > rank(prev)) {
             merged[hitIdx] = p;
         }
     }
@@ -362,7 +454,13 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 location: loc,
                 baseTrack
             });
-            const orbitTrack = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
+            const seamTrack = computeHorizonStyleSeams({
+                looker,
+                target: id,
+                location: loc,
+                track: baseTrack
+            });
+            const orbitTrack = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack, ...seamTrack]);
 
             return {
                 id,

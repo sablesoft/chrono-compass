@@ -1,3 +1,4 @@
+import * as Astronomy from 'astronomy-engine';
 import { objects } from '../catalog';
 import type { ObjId } from '../catalog';
 import type { MarkerItem } from '../wheel/wheel';
@@ -10,6 +11,7 @@ import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodM
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
 import type { CompassTrackPoint } from './compass';
+import { eqToEcl } from './vector';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
 
@@ -50,6 +52,40 @@ function asTargetArray(v: unknown): ObjId[] {
 
 function pseudoAzimuthFromWheelAngle(angleDeg: number): number {
     return norm360(angleDeg + 90);
+}
+
+function toEngineBody(id: ObjId): any {
+    return (Astronomy as any).Body?.[id as any] ?? (Astronomy as any).Body?.Sun;
+}
+
+function helioVec(id: ObjId, ts: number): { x: number; y: number; z: number } | null {
+    const A: any = Astronomy as any;
+    const t = new A.AstroTime(new Date(ts));
+
+    if (id === 'Sun') return { x: 0, y: 0, z: 0 };
+
+    try {
+        if (typeof A.HelioVector === 'function') {
+            const v = A.HelioVector(toEngineBody(id), t);
+            if (v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z)) {
+                return { x: v.x, y: v.y, z: v.z };
+            }
+        }
+    } catch {}
+
+    return null;
+}
+
+function eclipticLatitudeDegAt(focus: ObjId, target: ObjId, ts: number): number {
+    const pF = helioVec(focus, ts);
+    const pT = helioVec(target, ts);
+    if (!pF || !pT) return NaN;
+
+    const vEq = { x: pT.x - pF.x, y: pT.y - pF.y, z: pT.z - pF.z };
+    const vEcl = eqToEcl(vEq);
+    const r = Math.hypot(vEcl.x, vEcl.y, vEcl.z);
+    if (!(r > 0)) return NaN;
+    return (Math.asin(vEcl.z / r) * 180) / Math.PI;
 }
 
 async function resolveSynodSpokesForTarget(
@@ -185,15 +221,16 @@ function buildTrackFromSynodSpokes(
     for (const s of spokes) {
         const inst = synodInstantAt(looker, focus, target, s.ts);
         if (!inst) continue;
+        const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
         out.push({
             ts: s.ts,
             index: s.index,
             code: s.code,
             azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
-            altitudeDeg: 0,
+            altitudeDeg: eclLat,
             angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
             orbit: NaN,
-            visible: true,
+            visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'spoke',
             phaseDeg: inst.phaseDeg,
             distanceAu: inst.distanceAu,
@@ -314,16 +351,17 @@ function densifyTrackByAngleGap(
 
             const inst = synodInstantAt(looker, focus, target, tsMid);
             if (!inst) continue;
+            const eclLat = eclipticLatitudeDegAt(focus, target, tsMid);
 
             out.push({
                 ts: tsMid,
                 index: a.index,
                 code: a.code,
                 azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
-                altitudeDeg: 0,
+                altitudeDeg: eclLat,
                 angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
                 orbit: NaN,
-                visible: true,
+                visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
                 source: 'cycle',
                 phaseDeg: inst.phaseDeg,
                 distanceAu: inst.distanceAu,
@@ -351,16 +389,17 @@ function buildTrackFromBindSpokes(
         if (!inst) continue;
         const dist = Number(s.meta?.distanceAu);
         const distanceAu = Number.isFinite(dist) && dist > 0 ? dist : inst.distanceAu;
+        const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
 
         out.push({
             ts: s.ts,
             index: s.index,
             code: s.code,
             azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
-            altitudeDeg: 0,
+            altitudeDeg: eclLat,
             angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
             orbit: NaN,
-            visible: true,
+            visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'cycle',
             phaseDeg: inst.phaseDeg,
             distanceAu,
@@ -368,6 +407,85 @@ function buildTrackFromBindSpokes(
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
+}
+
+function computeSystemStyleSeams(opts: {
+    looker: ObjId;
+    focus: ObjId;
+    target: ObjId;
+    track: SystemTrackPoint[] | undefined;
+}): SystemTrackPoint[] {
+    const { looker, focus, target, track } = opts;
+    if (!track || track.length < 2) return [];
+
+    const xs = track.slice().sort((a, b) => a.ts - b.ts);
+    const out: SystemTrackPoint[] = [];
+    const TS_DEDUP_MS = 30_000;
+    const BISECT_ITERS = 24;
+
+    const pushUnique = (p: SystemTrackPoint) => {
+        const hit = out.find((q) => Math.abs(q.ts - p.ts) <= TS_DEDUP_MS);
+        if (!hit) out.push(p);
+    };
+
+    for (let i = 0; i < xs.length - 1; i++) {
+        const a = xs[i];
+        const b = xs[i + 1];
+        if (!(b.ts > a.ts)) continue;
+        if (a.visible === b.visible) continue;
+
+        let lo = a.ts;
+        let hi = b.ts;
+        let fLo = a.altitudeDeg;
+        let fHi = b.altitudeDeg;
+
+        if (!(Number.isFinite(fLo) && Number.isFinite(fHi))) continue;
+        if (fLo === 0) hi = lo;
+        else if (fHi === 0) lo = hi;
+        else if (fLo * fHi > 0) continue;
+        else {
+            for (let it = 0; it < BISECT_ITERS; it++) {
+                const mid = (lo + hi) * 0.5;
+                const fMid = eclipticLatitudeDegAt(focus, target, mid);
+                if (!Number.isFinite(fMid)) break;
+                if (Math.abs(fMid) <= 1e-3) {
+                    lo = mid;
+                    hi = mid;
+                    break;
+                }
+                if (fLo * fMid <= 0) {
+                    hi = mid;
+                    fHi = fMid;
+                } else {
+                    lo = mid;
+                    fLo = fMid;
+                }
+                if (Math.abs(hi - lo) <= 500) break;
+            }
+        }
+
+        const ts = (lo + hi) * 0.5;
+        const inst = synodInstantAt(looker, focus, target, ts);
+        if (!inst) continue;
+        const eclLat = eclipticLatitudeDegAt(focus, target, ts);
+
+        pushUnique({
+            ts,
+            index: a.index,
+            code: 'PL',
+            azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
+            altitudeDeg: 0,
+            angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
+            orbit: NaN,
+            visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
+            source: 'seam',
+            phaseDeg: inst.phaseDeg,
+            distanceAu: inst.distanceAu,
+            focusDistAu: inst.focusDistAu
+        });
+    }
+
+    return out.sort((x, y) => x.ts - y.ts);
 }
 
 function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): SystemTrackPoint[] | undefined {
@@ -402,9 +520,22 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
         }
 
         const prev = merged[hitIdx];
-        const pSynod = p.source === 'spoke';
-        const prevSynod = prev.source === 'spoke';
-        if (pSynod && !prevSynod) {
+        const isBoundaryCode = (code: string) => code === 'E' || code === 'E+' || code === 'E_next';
+        const prevBoundary = isBoundaryCode(prev.code);
+        const pBoundary = isBoundaryCode(p.code);
+
+        const rank = (x: SystemTrackPoint) => {
+            if (x.source === 'seam') return 3;
+            if (x.source === 'spoke') return 2;
+            return 1;
+        };
+
+        if (prevBoundary || pBoundary) {
+            if (pBoundary && !prevBoundary) merged[hitIdx] = p;
+            continue;
+        }
+
+        if (rank(p) > rank(prev)) {
             merged[hitIdx] = p;
         }
     }
@@ -416,10 +547,6 @@ function normalizeOrbit(distanceAu: number, maxAu: number): number {
     if (!(distanceAu > 0) || !Number.isFinite(distanceAu)) return 0;
     if (!(maxAu > 0) || !Number.isFinite(maxAu)) return 0;
     return clamp(distanceAu / maxAu, 0, 1);
-}
-
-function toSystemAltitude(orbit: number): number {
-    return 90 - clamp(orbit, 0, 1) * 90;
 }
 
 export async function solveSystemWheel(input: WheelInput<'system'>): Promise<CompassSolveResult<SystemTargetState>> {
@@ -467,8 +594,14 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             ? await collectBindSpokesInWindow(input, focus, id, synodStart, synodEnd)
             : [];
         const bindTrack = buildTrackFromBindSpokes(bindSpokes, looker, focus, id);
+        const seamTrack = computeSystemStyleSeams({
+            looker,
+            focus,
+            target: id,
+            track: mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? [])])
+        });
 
-        const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? [])]);
+        const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? []), ...seamTrack]);
         const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id);
         const orbitTrack = mergeTrackPointsPreferSynod(denseTrack);
 
@@ -498,25 +631,24 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
     const bodies: SystemTargetState[] = rows.map((r) => {
         const orbit = normalizeOrbit(r.distanceAu, maxAu);
-        const alt = toSystemAltitude(orbit);
+        const eclLat = eclipticLatitudeDegAt(focus, r.id, ts);
 
         const orbitTrack = r.orbitTrack?.map((p) => {
             const o = normalizeOrbit(p.distanceAu, maxAu);
             return {
                 ...p,
                 orbit: o,
-                altitudeDeg: toSystemAltitude(o),
-                visible: true
+                visible: Number.isFinite(p.altitudeDeg) ? p.altitudeDeg >= 0 : true
             };
         });
 
         return {
             id: r.id,
             azimuthDeg: pseudoAzimuthFromWheelAngle(r.angleDeg),
-            altitudeDeg: alt,
+            altitudeDeg: eclLat,
             angleDeg: r.angleDeg,
             orbit,
-            visible: true,
+            visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             orbitTrack,
             phaseDeg: r.phaseDeg,
             distanceAu: r.distanceAu,

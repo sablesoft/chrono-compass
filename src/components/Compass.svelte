@@ -159,7 +159,7 @@
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
-    let orbitCurves: Array<{ id: ObjId; d: string; visible: boolean }> = [];
+    let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     type OrbitNodeUi = {
         key: string;
         x: number;
@@ -168,7 +168,7 @@
         visible: boolean;
         bodyId: ObjId;
         code: string;
-        source?: 'cycle' | 'spoke';
+        source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
     };
     let orbitNodes: Array<{
@@ -179,7 +179,7 @@
         visible: boolean;
         bodyId: ObjId;
         code: string;
-        source?: 'cycle' | 'spoke';
+        source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
     }> = [];
     let showOrbits = false;
@@ -199,7 +199,7 @@
         showOrbits = !showOrbits;
     }
 
-    function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke'; code: string }) {
+    function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke' | 'seam'; code: string }) {
         activeSpokeCode = node.source === 'spoke' ? node.code : null;
     }
 
@@ -455,6 +455,59 @@
         }
 
         return d;
+    }
+
+    function splitTrackByVisibility(track: NonNullable<CompassTargetState['orbitTrack']>) {
+        const sorted = track.slice().sort((a, b) => a.ts - b.ts);
+        if (!sorted.length) return [] as Array<{ visible: boolean; pts: typeof sorted }>;
+
+        const out: Array<{ visible: boolean; pts: typeof sorted }> = [];
+        let curVisible = !!sorted[0].visible;
+        let curPts = [sorted[0]];
+
+        for (let i = 1; i < sorted.length; i++) {
+            const prev = sorted[i - 1];
+            const p = sorted[i];
+            const v = !!p.visible;
+            if (v === curVisible) {
+                curPts.push(p);
+                continue;
+            }
+
+            // If this segment crosses horizon ring, insert an interpolated node at orbit=1
+            // so solid/dashed switch happens exactly on horizon boundary.
+            let seamPoint = prev;
+            const o0 = prev.orbit;
+            const o1 = p.orbit;
+            const crossesHorizon =
+                Number.isFinite(o0) &&
+                Number.isFinite(o1) &&
+                ((o0 <= 1 && o1 > 1) || (o1 <= 1 && o0 > 1)) &&
+                o0 !== o1;
+
+            if (crossesHorizon) {
+                const uRaw = (1 - o0) / (o1 - o0);
+                const u = Math.max(0, Math.min(1, uRaw));
+                const ts = prev.ts + (p.ts - prev.ts) * u;
+                seamPoint = {
+                    ...prev,
+                    ts,
+                    orbit: 1,
+                    angleDeg: lerpAngleShortest(prev.angleDeg, p.angleDeg, u),
+                    azimuthDeg: prev.azimuthDeg + (p.azimuthDeg - prev.azimuthDeg) * u,
+                    altitudeDeg: 0,
+                    visible: curVisible
+                };
+            }
+
+            out.push({ visible: curVisible, pts: [...curPts, seamPoint] });
+            curVisible = v;
+            // Keep seam continuity by repeating seam node in the next segment.
+            curPts = [{ ...seamPoint, visible: v }, p];
+        }
+
+        out.push({ visible: curVisible, pts: curPts });
+        return out;
     }
 
     function togglePin(id: ObjId) {
@@ -775,18 +828,26 @@
     }
 
     $: orbitCurves = lastTargets
-        .map((t) => {
+        .flatMap((t) => {
             const track = t.orbitTrack;
-            if (!track || track.length < 2) return null;
-            const d = trackPathD(track);
-            if (!d) return null;
-            return {
-                id: t.id,
-                d,
-                visible: !!t.visible
-            };
+            if (!track || track.length < 2) return [];
+
+            const segments = splitTrackByVisibility(track);
+            return segments
+                .map((s, idx) => {
+                    if (!s.pts || s.pts.length < 2) return null;
+                    const d = trackPathD(s.pts);
+                    if (!d) return null;
+                    return {
+                        id: t.id,
+                        seg: idx,
+                        d,
+                        visible: s.visible
+                    };
+                })
+                .filter((x): x is { id: ObjId; seg: number; d: string; visible: boolean } => !!x);
         })
-        .filter((x): x is { id: ObjId; d: string; visible: boolean } => !!x);
+        .filter((x): x is { id: ObjId; seg: number; d: string; visible: boolean } => !!x);
 
     $: orbitNodes = (() => {
         const bodyPos = new Map<ObjId, { x: number; y: number }>();
@@ -801,7 +862,8 @@
             const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
             const emoji = b?.emoji ?? '•';
             const name = b?.name?.en ?? String(t.id);
-            return (t.orbitTrack ?? []).map((p) => {
+            return (t.orbitTrack ?? [])
+                .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
                 return {
@@ -838,24 +900,32 @@
         const name = b?.name?.en ?? String(t.id);
         const emoji = b?.emoji ?? '•';
         const house = houseLabelForAzimuth(t.azimuthDeg);
+        const isSystemWheel = wheel?.wheelType === 'system';
+        const primaryDeg = isSystemWheel ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg;
+        const secondaryDeg = t.altitudeDeg;
 
         return {
             id: t.id,
             emoji,
             name,
-            azimuthDeg: t.azimuthDeg,
-            altitudeDeg: t.altitudeDeg,
+            primaryDeg,
+            secondaryDeg,
+            primaryLabel: isSystemWheel ? 'Phase' : 'Az',
+            secondaryLabel: isSystemWheel ? 'Ecl' : 'Alt',
+            aboveLabel: isSystemWheel ? 'north' : 'above',
+            belowLabel: isSystemWheel ? 'south' : 'below',
             house,
-            visible: t.altitudeDeg >= 0
+            visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true
         };
     });
 
     // occupied spokes: only if at least one visible body in that house
     let occupiedSpokes: boolean[] = [];
     $: {
+        const isSystemWheel = wheel?.wheelType === 'system';
         const occ = Array.from({ length: spokeCount }, () => false);
         for (const b of allBodies) {
-            if (!b.visible) continue;
+            if (!isSystemWheel && !b.visible) continue;
             const i = labels.indexOf(b.house as any);
             if (i >= 0) occ[i] = true;
         }
@@ -875,8 +945,10 @@
             emoji,
             name,
             house: houseFromAzimuth(t.azimuthDeg),
-            az: t.azimuthDeg,
-            alt: t.altitudeDeg,
+            primaryDeg: wheel?.wheelType === 'system' ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg,
+            secondaryDeg: t.altitudeDeg,
+            primaryLabel: wheel?.wheelType === 'system' ? 'Phase' : 'Az',
+            secondaryLabel: wheel?.wheelType === 'system' ? 'Ecl' : 'Alt',
             visible: !!t.visible
         };
     })();
@@ -1084,7 +1156,7 @@
                         </g>
                     {/each}
 
-                    {#each orbitCurves as c (`orbit:${c.id}`)}
+                    {#each orbitCurves as c (`orbit:${c.id}:${c.seg}`)}
                         {#if showOrbits || pinnedBodyId === c.id}
                             <path
                                     class="orbitCurve"
@@ -1108,7 +1180,7 @@
                                         aria-label={n.tip.label}
                                         cx={n.x}
                                         cy={n.y}
-                                        r={VB * 0.0065}
+                                        r={VB * 0.005}
                                         on:click={(e) => tip.openMomentNow(e, n.tip)}
                                         on:dblclick={(e) => {
                                             if ((n.tip.pickTsList?.length ?? 0) > 1) return;
@@ -1299,8 +1371,8 @@
                         <span class="pE">{pinnedRow.emoji}</span>
                         <span class="pN">{pinnedRow.name}</span>
                         <span class="pH">{pinnedRow.house}</span>
-                        <span class="pA">Az {pinnedRow.az.toFixed(1)}°</span>
-                        <span class="pAlt">{pinnedRow.alt.toFixed(1)}°</span>
+                        <span class="pA">{pinnedRow.primaryLabel} {pinnedRow.primaryDeg.toFixed(1)}°</span>
+                        <span class="pAlt">{pinnedRow.secondaryLabel} {pinnedRow.secondaryDeg.toFixed(1)}°</span>
                     </div>
                 </div>
 
@@ -1311,8 +1383,8 @@
                         <span class="pE">📌</span>
                         <span class="pN">No pinned body</span>
                         <span class="pH">—</span>
-                        <span class="pA">Az —</span>
-                        <span class="pAlt">Alt —</span>
+                        <span class="pA">— —</span>
+                        <span class="pAlt">— —</span>
                     </div>
                 </div>
                 <button class="navBtn" type="button" disabled title="Pin a body to see details">×</button>

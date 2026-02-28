@@ -17,8 +17,12 @@
         id: ObjId;
         emoji: string;
         name: string;
-        azimuthDeg: number;
-        altitudeDeg: number;
+        primaryDeg: number;
+        secondaryDeg: number;
+        primaryLabel: string;
+        secondaryLabel: string;
+        aboveLabel: string;
+        belowLabel: string;
         house: string;        // E/ENE/...
         visible: boolean;
     }[] = [];
@@ -89,8 +93,12 @@
         id: ObjId;
         emoji: string;
         name: string;
-        azimuthDeg: number;
-        altitudeDeg: number;
+        primaryDeg: number;
+        secondaryDeg: number;
+        primaryLabel: string;
+        secondaryLabel: string;
+        aboveLabel: string;
+        belowLabel: string;
         house: string;
         visible: boolean;
         opacity?: number;
@@ -109,8 +117,12 @@
             id,
             emoji: it.emoji ?? '•',
             name: it.title ?? String(id),
-            azimuthDeg: az,
-            altitudeDeg: alt,
+            primaryDeg: az,
+            secondaryDeg: alt,
+            primaryLabel: 'Az',
+            secondaryLabel: 'Alt',
+            aboveLabel: 'above',
+            belowLabel: 'below',
             house: '—',
             visible: alt >= 0,
             opacity: (it as any).opacity
@@ -148,7 +160,19 @@
     $: rowsClusterEnriched = rowsFromCluster.map(r => {
         const found = allBodies.find(b => b.id === r.id);
         return found
-            ? { ...r, house: found.house, name: found.name, emoji: found.emoji, azimuthDeg: found.azimuthDeg, altitudeDeg: found.altitudeDeg, visible: found.visible }
+            ? {
+                ...r,
+                house: found.house,
+                name: found.name,
+                emoji: found.emoji,
+                primaryDeg: found.primaryDeg,
+                secondaryDeg: found.secondaryDeg,
+                primaryLabel: found.primaryLabel,
+                secondaryLabel: found.secondaryLabel,
+                aboveLabel: found.aboveLabel,
+                belowLabel: found.belowLabel,
+                visible: found.visible
+            }
             : r;
     });
 
@@ -158,8 +182,12 @@
             id: b.id,
             emoji: b.emoji,
             name: b.name,
-            azimuthDeg: b.azimuthDeg,
-            altitudeDeg: b.altitudeDeg,
+            primaryDeg: b.primaryDeg,
+            secondaryDeg: b.secondaryDeg,
+            primaryLabel: b.primaryLabel,
+            secondaryLabel: b.secondaryLabel,
+            aboveLabel: b.aboveLabel,
+            belowLabel: b.belowLabel,
             house: b.house,
             visible: b.visible,
             opacity: undefined
@@ -167,9 +195,9 @@
         : ([] as BodyRow[]);
 
     $: bodyRows = (activeHouse ? rowsFromHouse : (cluster ? rowsClusterEnriched : [])) as BodyRow[];
-    $: bodyRowsSorted = [...bodyRows].sort((a, b) => b.altitudeDeg - a.altitudeDeg);
-    $: aboveRows = bodyRowsSorted.filter(r => r.altitudeDeg >= 0);
-    $: belowRows = bodyRowsSorted.filter(r => r.altitudeDeg < 0);
+    $: bodyRowsSorted = [...bodyRows].sort((a, b) => b.secondaryDeg - a.secondaryDeg);
+    $: aboveRows = bodyRowsSorted.filter(r => r.secondaryDeg >= 0);
+    $: belowRows = bodyRowsSorted.filter(r => r.secondaryDeg < 0);
 
     // Pinned row snapshot (always from allBodies)
     $: pinnedRow = pinnedBodyId ? allBodies.find(b => b.id === pinnedBodyId) ?? null : null;
@@ -272,13 +300,13 @@
                         </div>
 
                         <div class="kv">
-                            <span class="k">Az</span>
-                            <span class="v">{fmtDeg(pinnedRow.azimuthDeg)}</span>
+                            <span class="k">{pinnedRow.primaryLabel}</span>
+                            <span class="v">{fmtDeg(pinnedRow.primaryDeg)}</span>
                         </div>
 
                         <div class="kv">
-                            <span class="k">Alt</span>
-                            <span class="v">{fmtDeg(pinnedRow.altitudeDeg)}</span>
+                            <span class="k">{pinnedRow.secondaryLabel}</span>
+                            <span class="v">{fmtDeg(pinnedRow.secondaryDeg)}</span>
                         </div>
                     </div>
                 {:else}
@@ -323,13 +351,13 @@
                         <div class="m">
                             <div class="t">
                                 <span class="name">{row.name}</span>
-                                <span class="vis ok">above</span>
+                                <span class="vis ok">{row.aboveLabel}</span>
                             </div>
 
                             <div class="d">
-                                <span>Az {fmtDeg(row.azimuthDeg)}</span>
+                                <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                 <span class="sep">•</span>
-                                <span>Alt {fmtDeg(row.altitudeDeg)}</span>
+                                <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
                             </div>
                         </div>
 
@@ -361,13 +389,13 @@
                         <div class="m">
                             <div class="t">
                                 <span class="name">{row.name}</span>
-                                <span class="vis bad">below</span>
+                                <span class="vis bad">{row.belowLabel}</span>
                             </div>
 
                             <div class="d">
-                                <span>Az {fmtDeg(row.azimuthDeg)}</span>
+                                <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                 <span class="sep">•</span>
-                                <span>Alt {fmtDeg(row.altitudeDeg)}</span>
+                                <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
                             </div>
                         </div>
 
