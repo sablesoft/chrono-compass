@@ -121,6 +121,7 @@
         class="root"
         bind:this={el}
         data-tooltip-root="1"
+        role="tooltip"
         style={`left:${posX}px; top:${posY}px;`}
         on:mouseenter={onEnter}
         on:mouseleave={onLeave}

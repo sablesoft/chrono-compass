@@ -1,4 +1,5 @@
 <!-- src/components/Cycle.svelte -->
+<!--suppress HtmlUnknownTag -->
 <script lang="ts">
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
@@ -762,6 +763,7 @@
 
                         <g class="marker"
                            data-marker="1"
+                           role="presentation"
                            transform={`translate(${p.x} ${p.y})`}
                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}>
@@ -953,11 +955,11 @@
                     <LocationPicker
                             value={wheelLoc}
                             locked={observer.locked}
-                            onChange={(loc, meta) => {
+                            onChange={(loc) => {
                             onUserActivity();
                                 const patch: Partial<WheelObserverState> = {
-                                    locationId: meta.savedId,
-                                    locked: meta.lockOnApply ? true : observer.locked
+                                    locationId: loc.id,
+                                    locked: true
                                 };
                                 dbg.log?.('Cycle.location.apply', { patch, wheelId });
                                 if (!wheelId) return;
@@ -1130,6 +1132,7 @@
     }
     .rowFill :global(> *) { margin: 0; }
 
+    /*noinspection CssUnusedSymbol*/
     .infoRow :global(.face) {
         background: transparent !important;
         border: 0 !important;
@@ -1218,8 +1221,7 @@
         font-weight: 900;
     }
 
-    .spokeHit:hover .roleEmojiOnLabel,
-    .spokeHit:hover .roleEmojiOnSpoke{
+    .spokeHit:hover .roleEmojiOnLabel{
         opacity: 1;
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }

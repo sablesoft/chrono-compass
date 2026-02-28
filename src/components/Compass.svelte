@@ -41,6 +41,7 @@
     export let selectedTs: number;
     export let location: Location;
     export let onUserActivity: () => void = () => {};
+    $: void selectedTs;
 
     const dbg = debug('COMPASS', '🧭');
 
@@ -347,6 +348,22 @@
         dbg.log('Cluster Activate', c);
     }
 
+    function centerClickEvent(target: EventTarget | null): MouseEvent | null {
+        if (!(target instanceof Element)) return null;
+        const r = target.getBoundingClientRect();
+        return new MouseEvent('click', {
+            clientX: r.left + r.width / 2,
+            clientY: r.top + r.height / 2,
+        });
+    }
+
+    function handleHouseKeydown(e: KeyboardEvent, houseTip: MomentTip) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        const ev = centerClickEvent(e.currentTarget);
+        if (ev) tip.openMomentNow(ev, houseTip);
+    }
+
     const tip = useTooltip({
         isCoarsePointer: () => isCoarsePointer,
         onActivateCluster: (c) => handleMarkerActivate(c),
@@ -365,12 +382,20 @@
         <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
+                     role="button"
+                     tabindex="0"
                      on:click={(e) => {
                       const t = e.target;
                       if (!(t instanceof Element)) return clearPinned();
                       if (t.closest('[data-marker], [data-tooltip-root]')) return;
                       clearPinned();
                     }}
+                     on:keydown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        clearPinned();
+                      }
+                     }}
                      aria-label="Compass Wheel">
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                     <circle cx={cx} cy={cy} r={rHorizon} fill="none" class="horizon" />
@@ -410,6 +435,7 @@
                                 on:click={(e) => tip.openMomentNow(e, houseTip)}
                                 on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
                                 on:mouseleave={() => tip.hoverLeave(houseKey)}
+                                on:keydown={(e) => handleHouseKeydown(e, houseTip)}
                         >
                             <line
                                     x1={p1.x} y1={p1.y}
@@ -455,6 +481,8 @@
                         {@const o = c.opacity ?? 1}
 
                         <g class="marker"
+                           role="button"
+                           tabindex="0"
                            class:pinnedMark={clusterContainsPinned(c)}
                            data-marker="1"
                            transform={`translate(${p.x} ${p.y})`}
@@ -468,9 +496,16 @@
                                     togglePin(id);
                                     tip.openClusterNow(e, c);
                                   } else {
-                                    tip.openClusterNow(e, c);
+                                   tip.openClusterNow(e, c);
                                   }
                                 }}
+                           on:keydown={(e) => {
+                               if (e.key === 'Enter' || e.key === ' ') {
+                                   e.preventDefault();
+                                   const id = clusterSingleBodyId(c);
+                                   if (id) togglePin(id);
+                               }
+                           }}
                            on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
@@ -494,7 +529,6 @@
                                     stroke="currentColor"
                                     stroke-opacity={isCluster ? 0.35 : 0.55}
                                     stroke-width={isCluster ? 2.5 : 2}
-                                    paint-order="stroke"
                                     style="pointer-events:none"
                             >
                                 {c.count === 1 ? c.emoji : c.label}
@@ -531,12 +565,12 @@
                 <LocationPicker
                         value={wheelLoc}
                         locked={observer.locked}
-                        onChange={(loc, meta) => {
+                        onChange={(loc) => {
                           onUserActivity();
 
                           const patch: Partial<WheelObserverState> = {
-                            locationId: meta.savedId,
-                            locked: meta.lockOnApply ? true : observer.locked
+                            locationId: loc.id,
+                            locked: true
                           };
 
                           dbg.log?.('Compass.location.apply', { patch });
@@ -683,10 +717,6 @@
 
     .spoke { cursor: pointer; user-select: none; }
 
-    .navBtn.danger:hover:not(:disabled) {
-        border-color: color-mix(in oklab, var(--accent-red), transparent 45%);
-        background: color-mix(in oklab, var(--accent-red), transparent 86%);
-    }
     .marker.pinnedMark circle {
         stroke-opacity: 1;
         stroke-width: 5;
@@ -742,6 +772,7 @@
     }
     .rowFill :global(> *) { margin: 0; }
     /* Убираем "внутреннюю карточку" у пикеров */
+    /*noinspection CssUnusedSymbol*/
     .infoRow :global(.face) {
         background: transparent !important;
         border: 0 !important;
@@ -769,6 +800,7 @@
         filter: drop-shadow(0 0 8px color-mix(in oklab, var(--fg), transparent 55%));
     }
     .markerGlyph {
+        paint-order: stroke;
         filter:
                 drop-shadow(0 0 2px color-mix(in oklab, var(--bg), transparent 0%))
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));

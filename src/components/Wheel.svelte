@@ -368,6 +368,22 @@
         tip.closeNow();
     }
 
+    function centerClickEvent(target: EventTarget | null): MouseEvent | null {
+        if (!(target instanceof Element)) return null;
+        const r = target.getBoundingClientRect();
+        return new MouseEvent('click', {
+            clientX: r.left + r.width / 2,
+            clientY: r.top + r.height / 2,
+        });
+    }
+
+    function handleMarkerKeydown(e: KeyboardEvent, c: MarkerCluster) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        const ev = centerClickEvent(e.currentTarget);
+        if (ev) tip.handleClusterClick(ev, c);
+    }
+
     const tip = useTooltip({
         isCoarsePointer: () => isCoarsePointer,
         onActivateCluster: (c) => handleMarkerActivate(c),
@@ -616,9 +632,12 @@
 
                         <g
                                 class="marker"
+                                role="button"
+                                tabindex="0"
                                 data-marker="1"
                                 transform={`translate(${p.x} ${p.y})`}
                                 on:click={(e) => tip.handleClusterClick(e, c)}
+                                on:keydown={(e) => handleMarkerKeydown(e, c)}
                                 on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
                                 on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
                                 on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}

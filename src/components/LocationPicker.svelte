@@ -25,8 +25,7 @@
 
     export let onToggleLock: ((next: boolean) => void) | null = null;
 
-    type ChangeMeta = { savedId: string; lockOnApply?: boolean };
-    export let onChange: ((loc: Location, meta: ChangeMeta) => void) | null = null;
+    export let onChange: ((loc: Location) => void) | null = null;
 
     let faceLoc: Location;
     $: faceLoc = value ?? $currentLocation;
@@ -47,6 +46,7 @@
     let tzDraft = '';
     let tzSearch = '';
     let filteredTz: string[] = [];
+    const formId = `loc-${Math.random().toString(36).slice(2, 8)}`;
 
     const COORD_DP = 3;
 
@@ -168,7 +168,7 @@
         const loc: Location = { id: savedId, lat, lon, tz, label };
 
         if (onChange) {
-            onChange(loc, { savedId, lockOnApply: value !== null });
+            onChange(loc);
         } else {
             currentLocationId.set(savedId);
         }
@@ -210,6 +210,13 @@
         if (e.key === 'Escape') {
             e.preventDefault();
             close('esc');
+        }
+    }
+
+    function onOverlayKeyDown(e: KeyboardEvent) {
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+            e.preventDefault();
+            close('overlay');
         }
     }
 
@@ -260,14 +267,20 @@
 
 {#if open}
     <Portal target="body">
-        <div class="overlay" on:click={(e) => { if (e.target === e.currentTarget) close('overlay'); }}>
+        <div
+                class="overlay"
+                role="button"
+                tabindex="0"
+                aria-label="Close location picker"
+                on:click={(e) => { if (e.target === e.currentTarget) close('overlay'); }}
+                on:keydown={onOverlayKeyDown}
+        >
             <div class="modal"
                     bind:this={modalEl}
                     tabindex="-1"
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Location picker"
-                    on:click|stopPropagation>
+                    aria-label="Location picker">
                 <header class="modalTop">
                     <div class="modalTitle">Location</div>
                     <button class="x" type="button" aria-label="Close" on:click={() => close('x')}>×</button>
@@ -276,8 +289,8 @@
                 <div class="modalBody">
                     <div class="row2">
                         <div class="field">
-                            <label class="lbl">Saved</label>
-                            <select class="sel" bind:value={selectedId} on:change={onPickChange}>
+                            <label class="lbl" for={`${formId}-saved`}>Saved</label>
+                            <select id={`${formId}-saved`} class="sel" bind:value={selectedId} on:change={onPickChange}>
                                 <option value="" disabled>{$savedLocations.length ? 'Pick…' : 'No saved locations'}</option>
                                 {#each $savedLocations as p}
                                     <option value={p.id}>{p.label} · {getOffsetLabel(p.tz)}</option>
@@ -286,23 +299,24 @@
                         </div>
 
                         <div class="field">
-                            <label class="lbl">Name</label>
-                            <input class="inp" bind:value={labelDraft} />
+                            <label class="lbl" for={`${formId}-name`}>Name</label>
+                            <input id={`${formId}-name`} class="inp" bind:value={labelDraft} />
                         </div>
                     </div>
 
                     <div class="row3">
                         <div class="field">
-                            <label class="lbl">Lat</label>
-                            <input class="inp" bind:value={latDraft} inputmode="decimal" />
+                            <label class="lbl" for={`${formId}-lat`}>Lat</label>
+                            <input id={`${formId}-lat`} class="inp" bind:value={latDraft} inputmode="decimal" />
                         </div>
                         <div class="field">
-                            <label class="lbl">Lon</label>
-                            <input class="inp" bind:value={lonDraft} inputmode="decimal" />
+                            <label class="lbl" for={`${formId}-lon`}>Lon</label>
+                            <input id={`${formId}-lon`} class="inp" bind:value={lonDraft} inputmode="decimal" />
                         </div>
                         <div class="field">
-                            <label class="lbl">TZ</label>
+                            <label class="lbl" for={`${formId}-tz-system`}>TZ</label>
                             <button
+                                    id={`${formId}-tz-system`}
                                     class="miniBtn"
                                     type="button"
                                     title="Use system time zone"
@@ -391,8 +405,6 @@
         user-select: none;
         height: auto;
     }
-
-    .seg + .seg { border-left: 1px solid var(--btn-border); }
 
     .seg:hover {
         outline: none;

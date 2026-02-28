@@ -1,4 +1,5 @@
 <!-- src/components/Tooltip.svelte -->
+<!--suppress HtmlUnknownTag -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip } from '../lib/wheel/wheel';
@@ -102,12 +103,11 @@
             bind:this={el}
             style={`left:${left}px; top:${top}px;`}
             role="dialog"
+            tabindex="-1"
             aria-label="Details"
             on:mouseenter={onMouseEnter}
             on:mouseleave={onMouseLeave}
             on:wheel|stopPropagation
-            on:click|stopPropagation
-            on:mousedown|stopPropagation
     >
         <!-- ========== MomentTip mode ========== -->
         {#if moment}
@@ -161,7 +161,7 @@
                     </button>
                 </div>
             {:else}
-                <div class="list" tabindex="0" on:wheel|stopPropagation={stop}>
+                <div class="list" on:wheel|stopPropagation={stop}>
                     {#each items as it (it.id)}
                         <button
                                 type="button"

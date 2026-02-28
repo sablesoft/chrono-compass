@@ -1,4 +1,5 @@
 <!-- src/components/CompassTooltip.svelte -->
+<!--suppress HtmlUnknownTag -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/wheel';
@@ -206,12 +207,11 @@
             bind:this={el}
             style={`left:${left}px; top:${top}px;`}
             role="dialog"
+            tabindex="-1"
             aria-label="Compass details"
             on:mouseenter={onMouseEnter}
             on:mouseleave={onMouseLeave}
             on:wheel|stopPropagation
-            on:click|stopPropagation
-            on:mousedown|stopPropagation
     >
         <header class="head">
             <div class="headLeft">
@@ -484,8 +484,6 @@
     .m { min-width: 0; display: grid; gap: 2px; }
     .t { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .t .name { font-size: 13px; font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-
-    .houseTag { font-size: 11px; font-weight: 900; letter-spacing: 0.08em; opacity: 0.8; }
 
     .vis {
         font-size: 10px;

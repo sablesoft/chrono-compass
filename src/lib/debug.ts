@@ -1,5 +1,5 @@
 // src/lib/debug.ts
-import { envBool } from './env';
+import { envBool, type EnvKey } from './env';
 
 export type DebugApi = {
     enabled: boolean;
@@ -15,7 +15,7 @@ function camelToSnakeUpper(s: string): string {
         .toUpperCase();
 }
 
-const KNOWN_CHANNELS: Record<string, string> = {
+const KNOWN_CHANNELS: Readonly<Record<string, EnvKey>> = {
     APP: 'DEBUG_APP',
     LOCATION: 'DEBUG_LOCATION',
     COMPASS: 'DEBUG_COMPASS',

@@ -49,6 +49,7 @@
     const docsState = docs.state;
 
     let open = false;
+    const formId = `wheel-picker-${Math.random().toString(36).slice(2, 8)}`;
 
     let required: readonly RoleName[] = [];
 
@@ -372,6 +373,16 @@
         }
     }
 
+    function setObserverLocation(loc: Location) {
+        observerDraft = { locationId: loc.id, locked: true };
+        pickedSavedId = '';
+    }
+
+    function setObserverLock(next: boolean) {
+        observerDraft = { locationId: observerDraft.locationId, locked: next };
+        pickedSavedId = '';
+    }
+
     let observerDraft: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
     let observerLoc: Location | null = null;
     let lastGlobalLocId = '';
@@ -387,7 +398,7 @@
 
         if (needsObserverUi) {
             if (!observerDraft.locked) {
-                observerDraft = { ...observerDraft, locationId: g };
+                observerDraft = { locationId: g, locked: false };
             }
         } else {
             observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
@@ -431,13 +442,13 @@
     $: canAddNow = !!type && hasAll;
 </script>
 
-<section class="panel addWheel"
-         class:open={open}
-         role="button"
-         tabindex="0"
-         aria-label="Add wheel"
-         on:click={() => { if (!open) openForm(); }}
-         on:keydown={handlePanelKeydown}>
+<div class="panel addWheel"
+     class:open={open}
+     role="button"
+     tabindex="0"
+     aria-label="Add wheel"
+     on:click={() => { if (!open) openForm(); }}
+     on:keydown={handlePanelKeydown}>
     {#if !open}
         <div class="plusWrap" aria-hidden="true">
             <div class="plusCircle">
@@ -445,7 +456,7 @@
             </div>
         </div>
     {:else}
-        <header class="top" on:click|stopPropagation>
+        <header class="top">
             <div class="left">
                 <div class="title">Add Wheel</div>
                 <div class="sub">Build a wheel and drop it onto the board</div>
@@ -457,11 +468,12 @@
             </div>
         </header>
 
-        <div class="form" on:click|stopPropagation>
+        <div class="form">
             <!-- Saved selector -->
             <div class="row">
-                <label class="lbl">Saved</label>
+                <label class="lbl" for={`${formId}-saved`}>Saved</label>
                 <select
+                        id={`${formId}-saved`}
                         class="sel"
                         bind:value={pickedSavedId}
                         on:change={handlePickSaved}
@@ -478,8 +490,8 @@
 
             <!-- Type selector -->
             <div class="row">
-                <label class="lbl">Type</label>
-                <select class="sel" bind:value={type} on:change={(e) => initForType(selectValue(e))}>
+                <label class="lbl" for={`${formId}-type`}>Type</label>
+                <select id={`${formId}-type`} class="sel" bind:value={type} on:change={(e) => initForType(selectValue(e))}>
                     <option value="">—</option>
                     {#each ALL_TYPES as t (t)}
                         <option value={t}>{typeLabel(t)}</option>
@@ -492,27 +504,21 @@
                     <LocationPicker
                             value={observerLoc}
                             locked={observerDraft.locked}
-                            onChange={(loc, meta) => {
+                            onChange={(loc) => {
                             onUserActivity();
-
-                            const globalId = ($currentLocationId || DEFAULT_LOCATION_ID);
-                            const isDifferentFromGlobal = loc.id !== globalId;
-                            const shouldLock = meta.lockOnApply === true || isDifferentFromGlobal;
-
-                            observerDraft = { locationId: meta.savedId, locked: shouldLock };
-                            pickedSavedId = '';
+                            setObserverLocation(loc);
                         }}
                             onToggleLock={(next) => {
                             onUserActivity();
-                            observerDraft = { ...observerDraft, locked: next };
-                            pickedSavedId = '';
+                            setObserverLock(next);
                         }}
                     />
                 {/if}
 
                 <div class="row">
-                    <label class="lbl">Name</label>
+                    <label class="lbl" for={`${formId}-name`}>Name</label>
                     <input
+                            id={`${formId}-name`}
                             class="inp"
                             type="text"
                             placeholder="-"
@@ -523,8 +529,10 @@
 
                 {#if selects.looker.length > 0}
                     <div class="row">
-                        <label class="lbl">looker</label>
+                        <label class="lbl" for={`${formId}-looker`}>looker</label>
+                        <!--suppress HtmlUnknownAttribute -->
                         <select
+                                id={`${formId}-looker`}
                                 class="sel"
                                 value={values.looker ?? ''}
                                 disabled={selects.looker.length === 1}
@@ -540,8 +548,10 @@
 
                 {#if selects.focus.length > 0}
                     <div class="row">
-                        <label class="lbl">focus</label>
+                        <label class="lbl" for={`${formId}-focus`}>focus</label>
+                        <!--suppress HtmlUnknownAttribute -->
                         <select
+                                id={`${formId}-focus`}
                                 class="sel"
                                 value={values.focus ?? ''}
                                 disabled={selects.focus.length === 1}
@@ -557,10 +567,11 @@
 
                 {#if selects.target.length > 0}
                     <div class="row">
-                        <label class="lbl">target</label>
+                        <label class="lbl" for={`${formId}-target`}>target</label>
 
                         {#if multiTarget}
                             <select
+                                    id={`${formId}-target`}
                                     class="sel selMulti"
                                     multiple
                                     on:change={(e) => setTargets(selectValues(e))}
@@ -572,7 +583,9 @@
                                 {/each}
                             </select>
                         {:else}
+                            <!--suppress HtmlUnknownAttribute -->
                             <select
+                                    id={`${formId}-target`}
                                     class="sel"
                                     value={(values.target[0] ?? '')}
                                     disabled={selects.target.length === 1}
@@ -603,7 +616,7 @@
             {/if}
         </div>
     {/if}
-</section>
+</div>
 
 <DocsModal
         open={$docsState.open}

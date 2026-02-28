@@ -37,7 +37,7 @@
 {#if open}
     <div class="backdrop" on:click={close} aria-hidden="true"></div>
 
-    <section class="modal" role="dialog" aria-modal="true" aria-label={title}>
+    <div class="modal" role="dialog" aria-modal="true" aria-label={title}>
         <header class="head">
             <div class="hleft">
                 <div class="htitle">{title}</div>
@@ -58,7 +58,7 @@
             {/if}
             <button class="btn" type="button" on:click={close}>Close</button>
         </footer>
-    </section>
+    </div>
 {/if}
 
 <style>

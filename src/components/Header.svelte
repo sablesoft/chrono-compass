@@ -9,7 +9,6 @@
     import { cycles, setCycles } from '../lib/stores/cycle';
     import {getCycleOptions} from "../lib/cycle/meta";
     import type {CycleKind} from "../lib/stores/cycle";
-    import CollectionControl from "./CollectionControl.svelte";
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
 
     $: cycleItems = getCycleOptions([
@@ -33,14 +32,8 @@
 
     import type { Location } from '../lib/location/types';
 
-    type ChangeMeta = {
-        savedId: string;
-        lockOnApply?: boolean;
-    };
-
     function handleGlobalLocationChange(
-        loc: Location,
-        meta: ChangeMeta
+        loc: Location
     ) {
         const id = upsertSavedLocation({
                 lat: loc.lat,
@@ -111,7 +104,7 @@
         margin-left: 5px;
     }
 
-    .logo svg {
+    .logo :global(svg) {
         width: 100%;
         height: 100%;
         fill: currentColor;

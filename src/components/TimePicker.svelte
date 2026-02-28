@@ -149,7 +149,10 @@
     // wheel mode: реактивно из props
     $: if (value != null) {
         live = !!value.live;
-        currentTs = ms((value as any).ts ?? Date.now());
+        const liveTs = liveNowTs;
+        currentTs = live && liveTs !== null && Number.isFinite(liveTs)
+            ? ms(liveTs)
+            : ms((value as any).ts ?? Date.now());
         recomputeStateAndTimers();
     }
 
@@ -305,6 +308,7 @@
     }
 
     /* 🔥 MomentControl — принудительно компактный */
+    /*noinspection CssUnusedSymbol*/
     :global(.mc-seg.compact) {
         min-width: 0 !important;
         width: 44px !important;
@@ -313,20 +317,24 @@
     }
 
     /* если внутри MomentControl есть подписи — прячем (не повредит, если классов нет) */
+    /*noinspection CssUnusedSymbol*/
     :global(.mc-seg.compact .label),
     :global(.mc-seg.compact .text) {
         display: none;
     }
 
     /* state colors */
+    /*noinspection CssUnusedSymbol*/
     .state.LIVE {
         color: color-mix(in oklab, var(--accent-live), var(--fg) 30%);
         background: color-mix(in oklab, var(--btn-bg), var(--accent-live) 18%);
     }
+    /*noinspection CssUnusedSymbol*/
     .state.FUTURE {
         color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%);
         background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 22%);
     }
+    /*noinspection CssUnusedSymbol*/
     .state.PAST {
         color: color-mix(in oklab, var(--accent-blue), var(--fg) 35%);
         background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 18%);
@@ -353,6 +361,7 @@
         .iconBtn {
             width: 36px;
         }
+        /*noinspection CssUnusedSymbol*/
         :global(.mc-seg.compact) {
             width: 40px !important;
         }

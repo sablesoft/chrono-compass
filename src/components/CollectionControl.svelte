@@ -300,7 +300,6 @@
                                         {#if editingId === c.id}
                                             <input class="nameEdit"
                                                     bind:value={editName}
-                                                    autofocus
                                                     on:keydown={(e) => {
                                                        if (e.key === 'Enter') { e.preventDefault(); commitEdit(); }
                                                        if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
@@ -398,7 +397,6 @@
                                     class="newName"
                                     placeholder="New collection name…"
                                     bind:value={newName}
-                                    autofocus
                                     on:keydown={(e) => {
                   if (e.key === 'Enter') { e.preventDefault(); commitCreate(); }
                   if (e.key === 'Escape') { e.preventDefault(); cancelCreate(); }
@@ -428,19 +426,6 @@
 
 <style>
     /* button in header */
-    .cc-btn{
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
-        border-radius: 14px;
-        border: 1px solid var(--panel-border);
-        background: var(--btn-bg);
-        color: inherit;
-        cursor: pointer;
-        user-select: none;
-        min-height: 40px;
-    }
     .badge{
         width: 12px;
         height: 12px;

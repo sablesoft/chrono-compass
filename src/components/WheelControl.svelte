@@ -121,7 +121,7 @@
     $: hasAllRolesOk = usedRoles.every(r => hasRoleValue(spec, r, effectiveDraftRoles[r]));
     $: isDirty = !shallowEqualRoles(roles, effectiveDraftRoles) || (title ?? '') !== (draftTitle ?? '');
 
-    // Update: applies to THIS board wheel instance (baseId). Duplicates are allowed on board -> no "exists" checks.
+    // Update: applies to THIS board-wheel instance (baseId). Duplicates are allowed on board -> no "exists" checks.
     let canUpdate = false;
     $: canUpdate = hasAllRolesOk && draftCompatible && isDirty;
 
@@ -452,7 +452,19 @@
 </div>
 
 {#if open}
-    <div class="overlay" role="presentation" on:click={() => closeModal('cancel')}>
+    <div
+            class="overlay"
+            role="button"
+            tabindex="0"
+            aria-label="Close wheel picker"
+            on:click={(e) => { if (e.target === e.currentTarget) closeModal('cancel'); }}
+            on:keydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal('cancel');
+                }
+            }}
+    >
         <div
                 class="modal"
                 role="dialog"
@@ -460,7 +472,6 @@
                 aria-label="Wheel picker"
                 tabindex="-1"
                 bind:this={modalEl}
-                on:click|stopPropagation
         >
             <header class="modalTop">
                 <div class="modalTitle">Wheel Control</div>

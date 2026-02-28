@@ -38,6 +38,7 @@
     let repeatEndMode: RepeatEnd['mode'] = 'never';
     let repeatUntilLocal = ''; // строка для datetime-local, если решишь его ставить (или date)
     let repeatCount = 1;
+    const formId = `moment-${Math.random().toString(36).slice(2, 8)}`;
 
     let momentCycles: CycleKind[] = [];
 
@@ -293,7 +294,7 @@
 
 {#if open}
     <Portal target="body">
-        <div class="mc-backdrop" on:click={close}></div>
+        <button type="button" class="mc-backdrop" aria-label="Close moment editor" on:click={close}></button>
 
         <div class="mc-modal" role="dialog" aria-modal="true" on:keydown={onKeydown} tabindex="0">
             <header class="mc-head">
@@ -303,8 +304,8 @@
 
             <div class="mc-body">
                 <div class="row">
-                    <label>Collection</label>
-                    <select bind:value={collectionId}>
+                    <label for={`${formId}-collection`}>Collection</label>
+                    <select id={`${formId}-collection`} bind:value={collectionId}>
                         {#each state.collections as c (c.id)}
                             <option value={c.id}>{c.name}</option>
                         {/each}
@@ -343,9 +344,9 @@
                     {#if repeatOn}
                         <div class="repeatAccordion" role="group" aria-label="Repeat options">
                             <div class="repeatRow">
-                                <label class="mini">Every</label>
+                                <label class="mini" for={`${formId}-repeat-every`}>Every</label>
                                 <div class="repeatEvery">
-                                    <input class="num" type="number" min="1" max="999" bind:value={repeatEvery} />
+                                    <input id={`${formId}-repeat-every`} class="num" type="number" min="1" max="999" bind:value={repeatEvery} />
                                     <select bind:value={repeatUnit}>
                                         <option value="year">year</option>
                                         <option value="month">month</option>
@@ -359,8 +360,8 @@
 
                             {#if repeatUnit === 'month' || repeatUnit === 'year'}
                                 <div class="repeatRow">
-                                    <label class="mini">On day</label>
-                                    <select bind:value={repeatOnDay}>
+                                    <label class="mini" for={`${formId}-repeat-on-day`}>On day</label>
+                                    <select id={`${formId}-repeat-on-day`} bind:value={repeatOnDay}>
                                         <option value="clamp">clamp to last day</option>
                                         <option value="same">same day, otherwise skip</option>
                                         {#if repeatUnit === 'month'}
@@ -371,9 +372,9 @@
                             {/if}
 
                             <div class="repeatRow">
-                                <label class="mini">End</label>
+                                <label class="mini" for={`${formId}-repeat-end`}>End</label>
                                 <div class="repeatEnd">
-                                    <select bind:value={repeatEndMode}>
+                                    <select id={`${formId}-repeat-end`} bind:value={repeatEndMode}>
                                         <option value="never">never</option>
                                         <option value="until">until date</option>
                                         <option value="count">after N times</option>
@@ -442,13 +443,13 @@
                 </div>
 
                 <div class="row">
-                    <label>Title</label>
-                    <input bind:value={title} placeholder="E.g. 'John HB'" />
+                    <label for={`${formId}-title`}>Title</label>
+                    <input id={`${formId}-title`} bind:value={title} placeholder="E.g. 'John HB'" />
                 </div>
 
                 <div class="row">
-                    <label>Description</label>
-                    <textarea bind:value={description} rows="4" placeholder="Notes…"></textarea>
+                    <label for={`${formId}-description`}>Description</label>
+                    <textarea id={`${formId}-description`} bind:value={description} rows="4" placeholder="Notes…"></textarea>
                 </div>
             </div>
 
@@ -471,6 +472,11 @@
 <style>
     .mc-backdrop{
         position: fixed; inset: 0;
+        border: 0;
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        padding: 0;
         background: rgba(0,0,0,.45);
         z-index: 1000;
     }
@@ -525,7 +531,6 @@
         gap: 12px;
     }
     .row{ display: grid; gap: 6px; }
-    .row.two{ grid-template-columns: 1fr 1fr; gap: 10px; }
 
     label{
         font-size: 13px;
@@ -567,9 +572,6 @@
         opacity: .65;
     }
 
-    @media (max-width: 520px){
-        .row.two{ grid-template-columns: 1fr; }
-    }
     @media (max-width: 520px){
         .emojiGrid{ grid-template-columns: repeat(6, 1fr); }
     }
@@ -669,12 +671,6 @@
         padding: 10px 12px;
         color: inherit;
         font-size: 14px;
-    }
-
-    .emojiNote{
-        font-size: 12px;
-        opacity: .65;
-        white-space: nowrap;
     }
 
     /* ограничиваем высоту именно области выбора */
