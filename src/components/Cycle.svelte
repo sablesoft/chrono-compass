@@ -102,6 +102,12 @@
     $: effTs = $effState.ts;
     $: globalTs = $effState.globalTs;
     $: localLiveNowTs = $effState.localLiveNowTs;
+    $: {
+        void time?.live;
+        void time?.locked;
+        void time?.ts;
+        eff.refresh('Cycle.timeChanged');
+    }
 
     // If observer isn't locked -> keep it synced to passed-in location (ONLY for horizon wheels)
     $: {

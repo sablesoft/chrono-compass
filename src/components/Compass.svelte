@@ -107,7 +107,14 @@
     const effState = eff.state; // store
     $: effTs = $effState.ts;
     $: globalTs = $effState.globalTs;
+    $: globalLive = $effState.globalLive;
     $: localLiveNowTs = $effState.localLiveNowTs;
+    $: {
+        void time?.live;
+        void time?.locked;
+        void time?.ts;
+        eff.refresh('Compass.timeChanged');
+    }
 
     // If observer isn't locked -> keep it synced to passed-in location
     $: {
@@ -196,7 +203,7 @@
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
     let orbitNodesVisible: OrbitNodeUi[] = [];
-    let showOrbits = false;
+    let showOrbits = true;
     let showOrbitNodesAny = true;
     let showOrbitNodesRegular = false;
     let showOrbitNodesSeam = true;
@@ -1696,7 +1703,12 @@
                         }}
                         onToggleLock={(next) => {
                           onUserActivity();
-                          boardApi.updateWheelTime(wheelId, { locked: next }, 'Compass.time.lock');
+                          const patch: Partial<WheelTimeState> = next
+                              ? { locked: true }
+                              : (globalLive
+                                  ? { locked: false, live: true }
+                                  : { locked: false, live: false, ts: globalTs });
+                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.lock');
                         }}/>
             </div>
         </div>
