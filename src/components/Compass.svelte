@@ -1,6 +1,7 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
     import { onDestroy } from 'svelte';
+    import { get } from 'svelte/store';
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useTooltip } from '../lib/wheel/ui/useTooltip';
@@ -179,6 +180,7 @@
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
+        nodeStyle?: string;
     };
     let orbitNodes: Array<{
         key: string;
@@ -190,12 +192,21 @@
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
         ts: number;
+        nodeStyle?: string;
     }> = [];
+    let orbitNodesAll: OrbitNodeUi[] = [];
+    let orbitNodesVisible: OrbitNodeUi[] = [];
     let showOrbits = false;
+    let showOrbitNodesAny = true;
+    let showOrbitNodesRegular = false;
+    let showOrbitNodesSeam = true;
+    let showOrbitNodesSynod = true;
+    let showOrbitNodesBind = true;
     let activeSpokeCode: string | null = null;
     let lastResolvedTs = NaN;
     let markerTweenRaf = 0;
     let markerTweenToken = 0;
+    let pendingNodeSnap: { bodyId: ObjId; ts: number; code?: string } | null = null;
 
     let pinnedBodyId: ObjId | null = null;
 
@@ -208,12 +219,71 @@
         showOrbits = !showOrbits;
     }
 
+    function toggleOrbitNodesAny() {
+        showOrbitNodesAny = !showOrbitNodesAny;
+    }
+
+    function toggleOrbitNodesRegular() {
+        showOrbitNodesRegular = !showOrbitNodesRegular;
+    }
+
+    function toggleOrbitNodesSeam() {
+        showOrbitNodesSeam = !showOrbitNodesSeam;
+    }
+
+    function toggleOrbitNodesSynod() {
+        showOrbitNodesSynod = !showOrbitNodesSynod;
+    }
+
+    function toggleOrbitNodesBind() {
+        showOrbitNodesBind = !showOrbitNodesBind;
+    }
+
+    function orbitNodeGroup(node: { nodeStyle?: string }): 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' {
+        if (node.nodeStyle === 'cycle-boundary') return 'boundary';
+        if (node.nodeStyle === 'seam') return 'seam';
+        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min') return 'bind';
+        if (node.nodeStyle === 'synod-n' || node.nodeStyle === 'synod-w' || node.nodeStyle === 'synod-s') return 'synod';
+        return 'regular';
+    }
+
+    function shouldShowOrbitNode(node: { nodeStyle?: string }): boolean {
+        const g = orbitNodeGroup(node);
+        if (g === 'boundary') return true;
+        if (!showOrbitNodesAny) return false;
+        if (g === 'regular') return showOrbitNodesRegular;
+        if (g === 'seam') return showOrbitNodesSeam;
+        if (g === 'synod') return showOrbitNodesSynod;
+        if (g === 'bind') return showOrbitNodesBind;
+        return true;
+    }
+
+    $: orbitNodesVisible = orbitNodes.filter((n) => {
+        const g = orbitNodeGroup(n);
+        if (g === 'boundary') return true;
+        if (!showOrbitNodesAny) return false;
+        if (g === 'regular') return showOrbitNodesRegular;
+        if (g === 'seam') return showOrbitNodesSeam;
+        if (g === 'synod') return showOrbitNodesSynod;
+        if (g === 'bind') return showOrbitNodesBind;
+        return true;
+    });
+
     function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke' | 'seam'; code: string }) {
         activeSpokeCode = node.source === 'spoke' ? node.code : null;
     }
 
     function clearActiveSpoke() {
         activeSpokeCode = null;
+    }
+
+    function parseOrbitNodeDesc(desc: string | undefined): { bodyId: ObjId; code?: string } | null {
+        if (typeof desc !== 'string' || !desc.startsWith('orbit-node:')) return null;
+        const parts = desc.split(':');
+        const bodyId = parts[1] as ObjId | undefined;
+        const code = parts[2];
+        if (!bodyId) return null;
+        return { bodyId, code };
     }
 
     function stopMarkerTween() {
@@ -483,30 +553,38 @@
                 continue;
             }
 
-            // If this segment crosses horizon ring, insert an interpolated node at orbit=1
-            // so solid/dashed switch happens exactly on horizon boundary.
+            // Prefer seam node provided by solver (exact style switch anchor).
+            // Fallback: interpolate seam at orbit=1 between neighbors.
             let seamPoint = prev;
-            const o0 = prev.orbit;
-            const o1 = p.orbit;
-            const crossesHorizon =
-                Number.isFinite(o0) &&
-                Number.isFinite(o1) &&
-                ((o0 <= 1 && o1 > 1) || (o1 <= 1 && o0 > 1)) &&
-                o0 !== o1;
+            const seamBase =
+                (p.source === 'seam' ? p : null) ??
+                (prev.source === 'seam' ? prev : null);
 
-            if (crossesHorizon) {
-                const uRaw = (1 - o0) / (o1 - o0);
-                const u = Math.max(0, Math.min(1, uRaw));
-                const ts = prev.ts + (p.ts - prev.ts) * u;
-                seamPoint = {
-                    ...prev,
-                    ts,
-                    orbit: 1,
-                    angleDeg: lerpAngleShortest(prev.angleDeg, p.angleDeg, u),
-                    azimuthDeg: prev.azimuthDeg + (p.azimuthDeg - prev.azimuthDeg) * u,
-                    altitudeDeg: 0,
-                    visible: curVisible
-                };
+            if (seamBase) {
+                seamPoint = { ...seamBase, visible: curVisible };
+            } else {
+                const o0 = prev.orbit;
+                const o1 = p.orbit;
+                const crossesHorizon =
+                    Number.isFinite(o0) &&
+                    Number.isFinite(o1) &&
+                    ((o0 <= 1 && o1 > 1) || (o1 <= 1 && o0 > 1)) &&
+                    o0 !== o1;
+
+                if (crossesHorizon) {
+                    const uRaw = (1 - o0) / (o1 - o0);
+                    const u = Math.max(0, Math.min(1, uRaw));
+                    const ts = prev.ts + (p.ts - prev.ts) * u;
+                    seamPoint = {
+                        ...prev,
+                        ts,
+                        orbit: 1,
+                        angleDeg: lerpAngleShortest(prev.angleDeg, p.angleDeg, u),
+                        azimuthDeg: prev.azimuthDeg + (p.azimuthDeg - prev.azimuthDeg) * u,
+                        altitudeDeg: 0,
+                        visible: curVisible
+                    };
+                }
             }
 
             out.push({ visible: curVisible, pts: [...curPts, seamPoint] });
@@ -593,6 +671,14 @@
                 const hasStartEdge = c.members.some((m) => Math.abs(m.ts - bodyMinTs) <= edgeTsEps);
                 const hasEndEdge = c.members.some((m) => Math.abs(m.ts - bodyMaxTs) <= edgeTsEps);
                 const isSeamCluster = hasStartEdge && hasEndEdge;
+                const tags = Array.from(new Set(c.members.flatMap((m) => m.tip.tags ?? [])));
+                const styleFromMembers = c.members.find((m) => m.nodeStyle === 'cycle-boundary')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'synod-n')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'synod-w')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'synod-s')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'bind-max')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'bind-min')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'seam')?.nodeStyle;
 
                 const pickTsList = isSeamCluster
                     ? [bodyMinTs, bodyMaxTs]
@@ -600,9 +686,11 @@
                 const rep = c.rep;
                 out.push({
                     ...rep,
+                    nodeStyle: styleFromMembers ?? rep.nodeStyle,
                     tip: {
                         ...rep.tip,
-                        pickTsList
+                        pickTsList,
+                        tags
                     }
                 });
             }
@@ -611,9 +699,47 @@
         return out;
     }
 
-    function handleMarkerPick(ts0: number) {
+    function applyPendingNodeSnap(targets: CompassTargetState[]): CompassTargetState[] {
+        if (!pendingNodeSnap) return targets;
+        const snap = pendingNodeSnap;
+        let applied = false;
+
+        const out = targets.map((t) => {
+            if (t.id !== snap.bodyId) return t;
+            const track = t.orbitTrack ?? [];
+            if (!track.length) return t;
+
+            const pool = snap.code ? track.filter((p) => p.code === snap.code) : track;
+            const xs = pool.length ? pool : track;
+            const nearest = xs
+                .slice()
+                .sort((a, b) => Math.abs(a.ts - snap.ts) - Math.abs(b.ts - snap.ts))[0];
+            const p = nearest ?? sampleTrackAtTs(track, snap.ts);
+            if (!p) return t;
+
+            applied = true;
+            return {
+                ...t,
+                angleDeg: p.angleDeg,
+                orbit: p.orbit,
+                azimuthDeg: p.azimuthDeg,
+                altitudeDeg: p.altitudeDeg,
+                visible: !!p.visible
+            };
+        });
+
+        if (applied) pendingNodeSnap = null;
+        return out;
+    }
+
+    function handleMarkerPick(ts0: number, bodyId?: ObjId, code?: string) {
         if (!Number.isFinite(ts0)) return;
         onUserActivity();
+        const tipMoment = get(tipState).moment;
+        const parsed = parseOrbitNodeDesc(tipMoment?.desc);
+        const snapBody = bodyId ?? parsed?.bodyId;
+        const snapCode = code ?? parsed?.code;
+        if (snapBody) pendingNodeSnap = { bodyId: snapBody, ts: ts0, code: snapCode };
 
         if (time.locked) {
             if (wheelId) {
@@ -628,6 +754,13 @@
         }
 
         tip.closeNow();
+    }
+
+    function orbitNodeRadiusVB(node: { nodeStyle?: string }): number {
+        if (node.nodeStyle) {
+            return VB * 0.007;
+        }
+        return VB * 0.005;
     }
 
     // ------------------------------------------------------------
@@ -680,6 +813,15 @@
         const wdeg = azimuthToWheelAngleDeg(az);
         const i = nearestSpokeByAngle(wdeg);
         return labels[i] ?? '—';
+    }
+
+    function fmtNodeDeg(x: number): string {
+        return Number.isFinite(x) ? `${x.toFixed(1)}°` : '—';
+    }
+
+    function fmtNodeDistAu(x: number): string {
+        if (!Number.isFinite(x)) return '—';
+        return `${x.toFixed(3)} AU`;
     }
 
     // ------------------------------------------------------------
@@ -819,7 +961,8 @@
             return;
         }
 
-        lastTargets = (res.bodies as CompassTargetState[]) ?? [];
+        const solvedTargets = (res.bodies as CompassTargetState[]) ?? [];
+        lastTargets = applyPendingNodeSnap(solvedTargets);
         animateDisplayTargets(lastResolvedTs, ts, lastTargets);
         lastResolvedTs = ts;
     }
@@ -871,10 +1014,37 @@
             const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
             const emoji = b?.emoji ?? '•';
             const name = b?.name?.en ?? String(t.id);
+            const isSystemWheel = wheel?.wheelType === 'system';
+            const distanceLabel = typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
+                ? (t as any).distanceLabel
+                : 'Dist';
             return (t.orbitTrack ?? [])
                 .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
+                const house = houseLabelForAzimuth(p.azimuthDeg);
+                const primaryLabel = isSystemWheel ? 'Phase' : 'Az';
+                const primaryDeg = isSystemWheel ? Number((p as any).phaseDeg ?? NaN) : p.azimuthDeg;
+                const secondaryLabel = isSystemWheel ? 'Ecl' : 'Alt';
+                const secondaryDeg = p.altitudeDeg;
+                const stateLabel = isSystemWheel
+                    ? (secondaryDeg >= 0 ? 'North' : 'South')
+                    : (secondaryDeg >= 0 ? 'Above' : 'Below');
+                const distAu = Number((p as any).distanceAu);
+                const metaParts = [
+                    `House ${house}`,
+                    `${primaryLabel} ${fmtNodeDeg(primaryDeg)}`,
+                    `${secondaryLabel} ${fmtNodeDeg(secondaryDeg)}`,
+                    stateLabel,
+                    Number.isFinite(distAu) ? `${distanceLabel} ${fmtNodeDistAu(distAu)}` : ''
+                ].filter((x) => !!x);
+                const metaText = metaParts.join(' • ');
+                const copyParts = [
+                    `${emoji} ${name} orbit node (${p.code})`,
+                    ...metaParts,
+                    ...(Array.isArray(p.tags) ? p.tags.map((t) => `Tag ${t}`) : []),
+                    `ts ${Math.round(p.ts)}`
+                ];
                 return {
                     key: `orbit-node:${t.id}:${p.index}:${p.ts}`,
                     x: xy.x,
@@ -884,23 +1054,31 @@
                     code: p.code,
                     source: p.source,
                     ts: p.ts,
+                    nodeStyle: p.nodeStyle,
                     tip: {
                         label: `${emoji} ${name} orbit node (${p.code})`,
                         ts: p.ts,
-                        desc: `orbit-node:${t.id}:${p.code}`
+                        desc: `orbit-node:${t.id}:${p.code}`,
+                        tags: p.tags,
+                        metaParts,
+                        metaText,
+                        copyText: copyParts.join(' | ')
                     } satisfies MomentTip
                 };
             });
         })
-        .filter((n) => {
+        ;
+
+        const mergedNodes = dedupeOrbitNodesByBody(rawNodes);
+        orbitNodesAll = mergedNodes;
+
+        return mergedNodes.filter((n) => {
             const bp = bodyPos.get(n.bodyId);
             if (!bp) return true;
             const dx = n.x - bp.x;
             const dy = n.y - bp.y;
             return Math.hypot(dx, dy) > BODY_MARKER_HIDE_RADIUS_VB;
         });
-
-        return dedupeOrbitNodesByBody(rawNodes);
     })();
 
     // table rows for tooltip / pinned row
@@ -912,6 +1090,23 @@
         const isSystemWheel = wheel?.wheelType === 'system';
         const primaryDeg = isSystemWheel ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg;
         const secondaryDeg = t.altitudeDeg;
+        const bodyR = orbitToRadiusVB(t.orbit);
+        const bodyXY = polarToXY(bodyR, t.angleDeg);
+
+        const activeNode = orbitNodesAll
+            .filter((n) => n.bodyId === t.id)
+            .map((n) => ({
+                node: n,
+                d: Math.hypot(n.x - bodyXY.x, n.y - bodyXY.y)
+            }))
+            .filter((x) => x.d <= BODY_MARKER_HIDE_RADIUS_VB)
+            .sort((a, b) => {
+                const aSpoke = a.node.source === 'spoke' ? 1 : 0;
+                const bSpoke = b.node.source === 'spoke' ? 1 : 0;
+                if (aSpoke !== bSpoke) return bSpoke - aSpoke;
+                if (a.d !== b.d) return a.d - b.d;
+                return a.node.ts - b.node.ts;
+            })[0]?.node?.tip ?? null;
 
         return {
             id: t.id,
@@ -928,7 +1123,8 @@
             aboveLabel: isSystemWheel ? 'north' : 'above',
             belowLabel: isSystemWheel ? 'south' : 'below',
             house,
-            visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true
+            visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true,
+            activeNode
         };
     });
 
@@ -1028,7 +1224,7 @@
         const best = candidates.reduce((acc, cur) =>
             Math.abs(cur.ts - effTs) < Math.abs(acc.ts - effTs) ? cur : acc
         );
-        handleMarkerPick(best.ts);
+        handleMarkerPick(best.ts, best.bodyId, best.code);
     }
 
     const tip = useTooltip({
@@ -1185,25 +1381,32 @@
                     {/each}
 
                     {#if pinnedBodyId}
-                        {#each orbitNodes as n (n.key)}
+                        {#each orbitNodesVisible as n (n.key)}
                             {#if n.bodyId === pinnedBodyId}
                                 <circle
                                         class="orbitNode"
                                         class:dim={!n.visible}
                                         class:pinnedNode={pinnedBodyId === n.bodyId}
+                                        class:bindMaxNode={n.nodeStyle === 'bind-max'}
+                                        class:bindMinNode={n.nodeStyle === 'bind-min'}
+                                        class:cycleBoundaryNode={n.nodeStyle === 'cycle-boundary'}
+                                        class:seamNode={n.nodeStyle === 'seam'}
+                                        class:synodNNode={n.nodeStyle === 'synod-n'}
+                                        class:synodWNode={n.nodeStyle === 'synod-w'}
+                                        class:synodSNode={n.nodeStyle === 'synod-s'}
                                         data-marker="1"
                                         role="button"
                                         tabindex="0"
                                         aria-label={n.tip.label}
                                         cx={n.x}
                                         cy={n.y}
-                                        r={VB * 0.005}
+                                        r={orbitNodeRadiusVB(n)}
                                         on:click={(e) => tip.openMomentNow(e, n.tip)}
                                         on:dblclick={(e) => {
                                             if ((n.tip.pickTsList?.length ?? 0) > 1) return;
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            handleMarkerPick(n.tip.ts);
+                                            handleMarkerPick(n.tip.ts, n.bodyId, n.code);
                                         }}
                                         on:mouseenter={(e) => {
                                             activateSpokeFromOrbitNode(n);
@@ -1302,15 +1505,81 @@
                 <div class="compassNav">
                     <button
                             class="orbitToggle navBtn"
+                            class:off={!showOrbits}
                             type="button"
                             title={showOrbits ? 'Hide orbits' : 'Show orbits'}
                             aria-label={showOrbits ? 'Hide orbits' : 'Show orbits'}
                             aria-pressed={showOrbits}
                             on:click={toggleOrbits}
                     >
-                        {showOrbits ? '◉' : '○'}
+                        ≋
                     </button>
+
+                    {#if pinnedBodyId}
+                        <button
+                                class="nodeToggle navBtn nodeAll"
+                                class:off={!showOrbitNodesAny}
+                                type="button"
+                                title={showOrbitNodesAny ? 'Hide all nodes (except cycle boundary)' : 'Show nodes'}
+                                aria-label={showOrbitNodesAny ? 'Hide all nodes (except cycle boundary)' : 'Show nodes'}
+                                aria-pressed={showOrbitNodesAny}
+                                on:click|stopPropagation={toggleOrbitNodesAny}
+                        >
+                            {showOrbitNodesAny ? '◉' : '○'}
+                        </button>
+                    {/if}
                 </div>
+
+                {#if pinnedBodyId}
+                    <div class="nodeNav">
+                        <button
+                                class="nodeToggle navBtn nodeSeam"
+                                class:off={!showOrbitNodesSeam}
+                                type="button"
+                                title="Toggle seam nodes"
+                                aria-label="Toggle seam nodes"
+                                aria-pressed={showOrbitNodesSeam}
+                                on:click|stopPropagation={toggleOrbitNodesSeam}
+                        >
+                            ⊗
+                        </button>
+                        <button
+                                class="nodeToggle navBtn nodeRegular"
+                                class:off={!showOrbitNodesRegular}
+                                type="button"
+                                title="Toggle regular nodes"
+                                aria-label="Toggle regular nodes"
+                                aria-pressed={showOrbitNodesRegular}
+                                on:click|stopPropagation={toggleOrbitNodesRegular}
+                        >
+                            •
+                        </button>
+                        {#if wheel?.wheelType === 'system'}
+                            <button
+                                    class="nodeToggle navBtn nodeSynod"
+                                    class:off={!showOrbitNodesSynod}
+                                    type="button"
+                                    title="Toggle synod nodes"
+                                    aria-label="Toggle synod nodes"
+                                    aria-pressed={showOrbitNodesSynod}
+                                    on:click|stopPropagation={toggleOrbitNodesSynod}
+                            >
+                                S
+                            </button>
+                            <button
+                                    class="nodeToggle navBtn nodeBind"
+                                    class:off={!showOrbitNodesBind}
+                                    type="button"
+                                    title="Toggle bind nodes"
+                                    aria-label="Toggle bind nodes"
+                                    aria-pressed={showOrbitNodesBind}
+                                    on:click|stopPropagation={toggleOrbitNodesBind}
+                            >
+                                B
+                            </button>
+                        {/if}
+                    </div>
+                {/if}
             </div>
 
             {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
@@ -1627,12 +1896,48 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        align-items: end;
+    }
+    .nodeNav {
+        position: absolute;
+        right: 0;
+        bottom: 18px;
+        display: grid;
+        grid-template-columns: repeat(2, 30px);
+        gap: 6px;
     }
     .orbitToggle {
         width: 34px;
         height: 34px;
         font-size: 17px;
         line-height: 1;
+    }
+    .orbitToggle.off {
+        opacity: 0.5;
+    }
+    .nodeToggle {
+        width: 30px;
+        height: 30px;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .nodeToggle.off {
+        opacity: 0.5;
+    }
+    .nodeToggle.nodeAll {
+        color: color-mix(in oklab, var(--fg), white 8%);
+    }
+    .nodeToggle.nodeRegular {
+        color: color-mix(in oklab, var(--fg), white 8%);
+    }
+    .nodeToggle.nodeSeam {
+        color: color-mix(in oklab, #ff5a6e, white 8%);
+    }
+    .nodeToggle.nodeSynod {
+        color: color-mix(in oklab, #b991ff, white 8%);
+    }
+    .nodeToggle.nodeBind {
+        color: color-mix(in oklab, #40a8ff, white 8%);
     }
     .orbitCurve {
         fill: none;
@@ -1672,6 +1977,34 @@
         stroke-opacity: 0.85;
         stroke-width: 1.7;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
+    }
+    .orbitNode.bindMaxNode {
+        fill: color-mix(in oklab, #40a8ff, white 22%);
+        stroke: color-mix(in oklab, #40a8ff, black 35%);
+    }
+    .orbitNode.bindMinNode {
+        fill: color-mix(in oklab, #e0a600, white 20%);
+        stroke: color-mix(in oklab, #e0a600, black 35%);
+    }
+    .orbitNode.cycleBoundaryNode {
+        fill: color-mix(in oklab, #61d87a, white 20%);
+        stroke: color-mix(in oklab, #61d87a, black 32%);
+    }
+    .orbitNode.seamNode {
+        fill: color-mix(in oklab, #ff5a6e, white 16%);
+        stroke: color-mix(in oklab, #ff5a6e, black 36%);
+    }
+    .orbitNode.synodNNode {
+        fill: color-mix(in oklab, #b991ff, white 18%);
+        stroke: color-mix(in oklab, #b991ff, black 35%);
+    }
+    .orbitNode.synodWNode {
+        fill: color-mix(in oklab, #b991ff, white 18%);
+        stroke: color-mix(in oklab, #b991ff, black 35%);
+    }
+    .orbitNode.synodSNode {
+        fill: color-mix(in oklab, #b991ff, white 18%);
+        stroke: color-mix(in oklab, #b991ff, black 35%);
     }
     .padding-right {
         padding-right: 2px;

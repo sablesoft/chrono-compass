@@ -55,6 +55,14 @@ function pseudoAzimuthFromWheelAngle(angleDeg: number): number {
     return norm360(angleDeg + 90);
 }
 
+function systemPhaseDeg(inst: { thetaModDeg: number }): number {
+    return norm360(inst.thetaModDeg);
+}
+
+function systemAngleDeg(inst: { thetaModDeg: number }): number {
+    return synodPhaseToWheelAngleDeg(systemPhaseDeg(inst));
+}
+
 function toEngineBody(id: ObjId): any {
     return (Astronomy as any).Body?.[id as any] ?? (Astronomy as any).Body?.Sun;
 }
@@ -106,7 +114,23 @@ async function resolveSynodSpokesForTarget(
         dbg: input.dbg
     });
     if (cached && cached.kind === 'cycle' && cached.ok) {
-        return cached.spokes as CycleSpoke<SynodMeta>[];
+        const xs = cached.spokes as CycleSpoke<SynodMeta>[];
+        const hasExactTs = xs.every((s) => Number.isFinite(Number((s as any)?.meta?.exactTs)));
+        if (hasExactTs) return xs;
+
+        // Legacy cached synod rows may miss meta.exactTs.
+        // Recompute directly and prefer fresh spokes with exact timestamps.
+        const fresh = solveSynodWheel({
+            wheelType: 'synod',
+            ts: input.ts,
+            location: input.location,
+            dbg: input.dbg,
+            looker,
+            focus,
+            target
+        } as WheelInput<'synod'>);
+        if (fresh.ok) return fresh.spokes as CycleSpoke<SynodMeta>[];
+        return xs;
     }
 
     const direct = solveSynodWheel({
@@ -220,22 +244,44 @@ function buildTrackFromSynodSpokes(
 
     const out: SystemTrackPoint[] = [];
     for (const s of spokes) {
-        const inst = synodInstantAt(looker, focus, target, s.ts);
+        const exactTsRaw = Number(s.meta?.exactTs);
+        const nodeTs = Number.isFinite(exactTsRaw) ? exactTsRaw : s.ts;
+        const inst = synodInstantAt(looker, focus, target, nodeTs);
         if (!inst) continue;
-        const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
+        const eclLat = eclipticLatitudeDegAt(focus, target, nodeTs);
+        // Keep spoke nodes exactly on spoke angles even if cached ts is minute-rounded.
+        const spokePhaseDeg = 90 + (360 * (s.index ?? 0)) / 16;
+        const spokeAngleDeg = synodPhaseToWheelAngleDeg(spokePhaseDeg);
+        const spokePhaseNormDeg = norm360(spokePhaseDeg);
+        const isCycleBoundary = (s.code === 'E');
+        const boundaryTags = isCycleBoundary
+            ? ['cycle start', 'synod E', 'waxing quadrature', 'first quarter']
+            : undefined;
+        const synodStyle = s.code === 'N'
+            ? 'synod-n'
+            : (s.code === 'W'
+                ? 'synod-w'
+                : (s.code === 'S' ? 'synod-s' : undefined));
+        const synodTags = s.code === 'N'
+            ? ['synod N', 'opposition', 'full phase']
+            : (s.code === 'W'
+                ? ['synod W', 'waning quadrature', 'last quarter']
+                : (s.code === 'S' ? ['synod S', 'conjunction', 'new phase'] : undefined));
         out.push({
-            ts: s.ts,
+            ts: nodeTs,
             index: s.index,
             code: s.code,
-            azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
+            azimuthDeg: pseudoAzimuthFromWheelAngle(spokeAngleDeg),
             altitudeDeg: eclLat,
-            angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
+            angleDeg: spokeAngleDeg,
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'spoke',
-            phaseDeg: inst.phaseDeg,
+            phaseDeg: spokePhaseNormDeg,
             distanceAu: inst.distanceAu,
-            focusDistAu: inst.focusDistAu
+            focusDistAu: inst.focusDistAu,
+            nodeStyle: isCycleBoundary ? 'cycle-boundary' : synodStyle,
+            tags: isCycleBoundary ? boundaryTags : synodTags
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -272,7 +318,7 @@ function solveTsForTargetUnwrappedAngle(opts: {
     const diffAtTs = (ts: number): number | null => {
         const inst = synodInstantAt(looker, focus, target, ts);
         if (!inst) return null;
-        const a = synodPhaseToWheelAngleDeg(inst.phaseDeg);
+        const a = systemAngleDeg(inst);
         const branch = Math.round((targetUnwrapped - a) / 360);
         return (a + 360 * branch) - targetUnwrapped;
     };
@@ -358,13 +404,13 @@ function densifyTrackByAngleGap(
                 ts: tsMid,
                 index: a.index,
                 code: a.code,
-                azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
+                azimuthDeg: pseudoAzimuthFromWheelAngle(systemAngleDeg(inst)),
                 altitudeDeg: eclLat,
-                angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
+                angleDeg: systemAngleDeg(inst),
                 orbit: NaN,
                 visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
                 source: 'cycle',
-                phaseDeg: inst.phaseDeg,
+                phaseDeg: systemPhaseDeg(inst),
                 distanceAu: inst.distanceAu,
                 focusDistAu: inst.focusDistAu
             });
@@ -391,20 +437,28 @@ function buildTrackFromBindSpokes(
         const dist = Number(s.meta?.distanceAu);
         const distanceAu = Number.isFinite(dist) && dist > 0 ? dist : inst.distanceAu;
         const eclLat = eclipticLatitudeDegAt(focus, target, s.ts);
+        const bindIsMax = s.code === 'N';
+        const bindIsMin = s.code === 'S';
+        const nodeStyle = bindIsMax ? 'bind-max' : (bindIsMin ? 'bind-min' : undefined);
+        const tags = bindIsMax
+            ? ['N-bind', 'max distance']
+            : (bindIsMin ? ['S-bind', 'min distance'] : undefined);
 
         out.push({
             ts: s.ts,
             index: s.index,
             code: s.code,
-            azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
+            azimuthDeg: pseudoAzimuthFromWheelAngle(systemAngleDeg(inst)),
             altitudeDeg: eclLat,
-            angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
+            angleDeg: systemAngleDeg(inst),
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'cycle',
-            phaseDeg: inst.phaseDeg,
+            phaseDeg: systemPhaseDeg(inst),
             distanceAu,
-            focusDistAu: inst.focusDistAu
+            focusDistAu: inst.focusDistAu,
+            nodeStyle,
+            tags
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -474,15 +528,17 @@ function computeSystemStyleSeams(opts: {
             ts,
             index: a.index,
             code: 'PL',
-            azimuthDeg: pseudoAzimuthFromWheelAngle(synodPhaseToWheelAngleDeg(inst.phaseDeg)),
+            azimuthDeg: pseudoAzimuthFromWheelAngle(systemAngleDeg(inst)),
             altitudeDeg: 0,
-            angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
+            angleDeg: systemAngleDeg(inst),
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'seam',
-            phaseDeg: inst.phaseDeg,
+            phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
-            focusDistAu: inst.focusDistAu
+            focusDistAu: inst.focusDistAu,
+            nodeStyle: 'seam',
+            tags: ['seam', 'ecliptic crossing']
         });
     }
 
@@ -608,8 +664,8 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
         return {
             id,
-            angleDeg: synodPhaseToWheelAngleDeg(inst.phaseDeg),
-            phaseDeg: inst.phaseDeg,
+            angleDeg: systemAngleDeg(inst),
+            phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
             orbitTrack

@@ -18,6 +18,8 @@ export type CompassTrackPoint = {
     orbit: number;
     visible: boolean;
     source?: 'cycle' | 'spoke' | 'seam';
+    nodeStyle?: string;
+    tags?: string[];
 };
 
 export type CompassTargetState = {
@@ -93,7 +95,8 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
         const alt = Number(s.meta?.altitudeDeg);
         const orbit = Number(s.meta?.orbit);
         if (!Number.isFinite(az) || !Number.isFinite(alt) || !Number.isFinite(orbit)) continue;
-
+        const isCycleBoundary = s.code === 'E';
+        const tags = isCycleBoundary ? ['cycle start', 'rising horizon crossing'] : undefined;
         out.push({
             ts: s.ts,
             index: s.index,
@@ -103,7 +106,9 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
             angleDeg: azimuthToWheelAngleDeg(az),
             orbit,
             visible: alt >= 0,
-            source: 'cycle'
+            source: 'cycle',
+            nodeStyle: isCycleBoundary ? 'cycle-boundary' : undefined,
+            tags
         });
     }
     return out;
@@ -344,7 +349,9 @@ function computeHorizonStyleSeams(opts: {
             angleDeg: azimuthToWheelAngleDeg(inst.azimuthDeg),
             orbit: 1,
             visible: inst.altitudeDeg >= 0,
-            source: 'seam'
+            source: 'seam',
+            nodeStyle: 'seam',
+            tags: ['seam', 'horizon crossing']
         });
     }
 

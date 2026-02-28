@@ -70,6 +70,7 @@ export type SynodMeta = {
     distanceAu: number;
     distanceKm: number;
     focusDistAu: number;
+    exactTs?: number;
 };
 
 type SolveOpts = {
@@ -825,6 +826,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
                 distanceAu: rAu,
                 distanceKm: rKm,
                 focusDistAu: isFiniteNumber(r?.dL) ? r!.dL : NaN,
+                exactTs: tSolve,
             },
         };
     }

@@ -27,6 +27,7 @@
         belowLabel: string;
         house: string;        // E/ENE/...
         visible: boolean;
+        activeNode?: MomentTip | null;
     }[] = [];
 
     export let pinnedBodyId: ObjId | null = null;
@@ -84,7 +85,25 @@
 
     function fmtDistAu(x: number) {
         if (!Number.isFinite(x)) return '—';
+        const AU_KM = 149_597_870.7;
+        const absAu = Math.abs(x);
+        if (absAu < 0.005) {
+            const km = x * AU_KM;
+            const absKm = Math.abs(km);
+            if (absKm >= 1_000_000_000) return `${(km / 1_000_000_000).toFixed(3)}B km`;
+            if (absKm >= 1_000_000) return `${(km / 1_000_000).toFixed(3)}M km`;
+            if (absKm >= 1_000) return `${(km / 1_000).toFixed(3)}K km`;
+            return `${km.toFixed(1)} km`;
+        }
         return `${x.toFixed(3)} AU`;
+    }
+
+    function titleCaseWords(text: string): string {
+        return text
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ');
     }
 
     // Compass spokes: E, ENE, ..., ESE (16)
@@ -162,7 +181,55 @@
         return ts;
     }
 
-    $: momentPickTs = pickTsListForMoment(moment);
+    $: clusterSingleId = (() => {
+        if (!cluster || cluster.count !== 1) return null;
+        const it = cluster.items?.[0];
+        if (!it) return null;
+        const raw = String(it.baseId ?? '');
+        return (raw.startsWith('body:') ? raw.slice(5) : raw) as ObjId;
+    })();
+    $: clusterNodeMoment = (!moment && clusterSingleId)
+        ? (allBodies.find((b) => b.id === clusterSingleId)?.activeNode ?? null)
+        : null;
+    $: displayMoment = moment ?? clusterNodeMoment;
+
+    $: momentPickTs = pickTsListForMoment(displayMoment);
+    $: momentTags = Array.isArray(displayMoment?.tags)
+        ? displayMoment.tags.filter((t) => typeof t === 'string' && t.trim().length > 0)
+        : [];
+    $: momentMetaText = typeof displayMoment?.metaText === 'string' && displayMoment.metaText.trim().length > 0
+        ? displayMoment.metaText
+        : '';
+    $: momentMetaParts = Array.isArray(displayMoment?.metaParts)
+        ? displayMoment.metaParts.filter((t) => typeof t === 'string' && t.trim().length > 0)
+        : (momentMetaText ? momentMetaText.split(' • ').map((t) => t.trim()).filter(Boolean) : []);
+    $: momentTagsUi = momentTags.map((t) => titleCaseWords(t));
+    $: momentMetaPartsUi = momentMetaParts.map((p) => titleCaseWords(p));
+    $: momentCopyText = typeof displayMoment?.copyText === 'string' && displayMoment.copyText.trim().length > 0
+        ? displayMoment.copyText
+        : momentMetaText;
+
+    async function copyMomentMeta() {
+        const text = momentCopyText;
+        if (!text) return;
+        try {
+            if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+        } catch {}
+
+        if (typeof document === 'undefined') return;
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', 'true');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch {}
+        document.body.removeChild(ta);
+    }
 
     $: activeHouse = isHouseMoment(moment) ? (moment!.desc!.slice('house:'.length) || moment!.label) : null;
 
@@ -242,6 +309,10 @@
         ?? moment?.label
         ?? '—';
 
+    $: nodeMomentText = (isOrbitNodeMoment(displayMoment) && Number.isFinite(displayMoment?.ts))
+        ? formatDateTime(displayMoment!.ts)
+        : '';
+
     function clickBody(row: BodyRow) {
         onTogglePin(row.id);
     }
@@ -285,20 +356,69 @@
                         <span class="muted">House bodies</span>
                     {:else if cluster}
                         <span class="muted">{cluster.count} {cluster.count === 1 ? 'body' : 'objects'}</span>
-                    {:else if moment?.ts}
-                        <span class="muted">{formatDateTime(moment.ts)}</span>
-                    {/if}
-                </div>
+                {:else if displayMoment?.ts}
+                        <span class="muted">{formatDateTime(displayMoment.ts)}</span>
+                {/if}
             </div>
+        </div>
 
             <div class="headRight">
                 {#if pinnedBodyId}
                     <button class="navBtn miniBtn" type="button" disabled title="Soon: jump to this spoke in the future">↻</button>
                     <button class="navBtn miniBtn" type="button" disabled title="Soon: jump to this spoke in the past">↺</button>
                 {/if}
+                {#if !isHouseMoment(displayMoment) && momentPickTs.length === 1}
+                    <button
+                            class="navBtn miniBtn topIconBtn"
+                            type="button"
+                            title="Go to this moment"
+                            aria-label="Go to this moment"
+                            on:click={() => onPickTs(momentPickTs[0])}
+                    >↪</button>
+                {:else if !isHouseMoment(displayMoment) && momentPickTs.length > 1}
+                    {#each momentPickTs as ts, i (`pick-top:${ts}:${i}`)}
+                        <button
+                                class="navBtn miniBtn topIconBtn"
+                                type="button"
+                                title={`Go to ${formatDateTime(ts)}`}
+                                aria-label={`Go to ${formatDateTime(ts)}`}
+                                on:click={() => onPickTs(pickTargetTs(ts, i, momentPickTs.length))}
+                        >◷</button>
+                    {/each}
+                {/if}
+                {#if isOrbitNodeMoment(displayMoment) && momentCopyText}
+                    <button
+                            class="navBtn miniBtn topIconBtn"
+                            type="button"
+                            title="Copy meta"
+                            aria-label="Copy meta"
+                            on:click={copyMomentMeta}
+                    >⧉</button>
+                {/if}
                 <button class="navBtn close" type="button" aria-label="Close" on:click={onClose}>×</button>
             </div>
         </header>
+
+        <div class="topExtras">
+            {#if nodeMomentText}
+                <div class="nodeMoment">{nodeMomentText}</div>
+            {/if}
+            {#if momentTags.length > 0}
+                <div class="tagRow">
+                    {#each momentTagsUi as tag (`tag:${tag}`)}
+                        <span class="momentTag">{tag}</span>
+                    {/each}
+                </div>
+            {/if}
+
+            {#if isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0}
+                <div class="metaTagRow">
+                    {#each momentMetaPartsUi as p (`meta:${p}`)}
+                        <span class="metaTag">{p}</span>
+                    {/each}
+                </div>
+            {/if}
+        </div>
 
         {#if pinnedBodyId}
             <section class="pinned">
@@ -340,18 +460,6 @@
         <section class="list">
             <div class="listHead">
                 <div class="label">Bodies</div>
-
-                {#if !isHouseMoment(moment) && momentPickTs.length === 1}
-                    <button class="go" type="button" on:click={() => onPickTs(momentPickTs[0])}>Go to this moment</button>
-                {:else if !isHouseMoment(moment) && momentPickTs.length > 1}
-                    <div class="goGroup">
-                        {#each momentPickTs as ts, i (`pick:${ts}:${i}`)}
-                            <button class="go" type="button" on:click={() => onPickTs(pickTargetTs(ts, i, momentPickTs.length))}>
-                                Go to {formatDateTime(ts)}
-                            </button>
-                        {/each}
-                    </div>
-                {/if}
             </div>
 
             {#if bodyRowsSorted.length === 0}
@@ -471,9 +579,31 @@
     .headRight {
         display: flex;
         gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .topIconBtn {
+        min-width: 34px;
+        height: 34px;
+        padding: 0;
+        display: inline-grid;
+        place-items: center;
+        font-size: 15px;
+        line-height: 1;
     }
 
     .muted { opacity: 0.75; }
+
+    .topExtras {
+        padding: 10px 12px 0;
+        display: grid;
+        gap: 8px;
+    }
+    .nodeMoment {
+        font-size: 12px;
+        opacity: 0.85;
+        padding: 0 2px;
+    }
 
     .pinned {
         padding: 10px 12px;
@@ -507,7 +637,7 @@
     .listHead {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         gap: 10px;
         padding: 0 2px 10px;
     }
@@ -519,21 +649,39 @@
         opacity: 0.8;
     }
 
-    .go {
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        background: color-mix(in oklab, var(--fg), transparent 92%);
-        color: var(--fg);
-        border-radius: 10px;
-        padding: 6px 10px;
-        cursor: pointer;
-        font-size: 12px;
-        font-weight: 700;
-    }
-    .go:hover { background: color-mix(in oklab, var(--fg), transparent 90%); }
-    .goGroup {
-        display: grid;
+    .tagRow {
+        display: flex;
+        flex-wrap: wrap;
         gap: 6px;
-        justify-items: end;
+        padding: 0 2px 10px;
+    }
+    .momentTag {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        background: color-mix(in oklab, var(--fg), transparent 93%);
+        opacity: 0.9;
+        white-space: nowrap;
+    }
+    .metaTagRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 0 2px 10px;
+    }
+    .metaTag {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        background: color-mix(in oklab, var(--fg), transparent 93%);
+        opacity: 0.9;
+        white-space: nowrap;
     }
 
     .empty { padding: 10px 6px; font-size: 12px; opacity: 0.75; }

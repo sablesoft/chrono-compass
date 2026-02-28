@@ -23,6 +23,10 @@ export type MomentTip = {
     ts: number;
     desc?: string;
     pickTsList?: number[];
+    tags?: string[];
+    metaText?: string;
+    metaParts?: string[];
+    copyText?: string;
 };
 
 export const SPOKES = 16;
