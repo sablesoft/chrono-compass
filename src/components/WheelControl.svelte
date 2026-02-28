@@ -294,6 +294,20 @@
         pickedSavedKey = '';
     }
 
+    function toggleDraftTarget(id: ObjId) {
+        if (!multiTarget) return;
+        const has = draftTargets.includes(id);
+        const picked = has
+            ? draftTargets.filter((x) => x !== id)
+            : [...draftTargets, id];
+
+        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+        const t = normalized.target;
+        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+        draftRoles = { ...normalized, target: draftRoles.target };
+        pickedSavedKey = '';
+    }
+
     function updateExisting() {
         if (!canUpdate) return;
 
@@ -535,24 +549,26 @@
                 </div>
 
                 {#each usedRoles as r (r)}
-                    <div class="row">
-                        <label class="lbl" for={roleId(r)}>{r}</label>
-
+                    <div class="row" class:multiRow={r === 'target' && multiTarget}>
                         {#if r === 'target' && multiTarget}
-                            <select
-                                    id={roleId(r)}
-                                    class="sel selMulti"
-                                    multiple
-                                    on:input={handleTargetsChange}
-                                    on:change={handleTargetsChange}
-                            >
+                            <div class="lbl" id={`${roleId(r)}_label`}>{r}</div>
+                            <div class="checks" role="group" aria-labelledby={`${roleId(r)}_label`}>
                                 {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
-                                    <option value={id} selected={draftTargets.includes(id)}>
-                                        {bodyLabel(id)}
-                                    </option>
+                                    {@const checked = draftTargets.includes(id)}
+                                    <label class="checkItem" class:checked={checked}>
+                                        <input
+                                                class="checkInput"
+                                                type="checkbox"
+                                                checked={checked}
+                                                on:change={() => toggleDraftTarget(id)}
+                                        />
+                                        <span class="checkBox" aria-hidden="true"></span>
+                                        <span class="checkText">{bodyLabel(id)}</span>
+                                    </label>
                                 {/each}
-                            </select>
+                            </div>
                         {:else}
+                            <label class="lbl" for={roleId(r)}>{r}</label>
                             <select id={roleId(r)} class="sel" on:change={(e) => handleRoleChange(r, e)}>
                                 <option value="" selected={(effectiveDraftRoles[r] ?? '') === ''}>—</option>
                                 {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
@@ -687,6 +703,9 @@
         align-items: center;
         gap: 10px;
     }
+    .row.multiRow {
+        align-items: start;
+    }
     .row > * { min-width: 0; }
 
     .lbl {
@@ -746,9 +765,71 @@
         background: color-mix(in oklab, var(--accent-red), transparent 86%);
     }
 
-    .selMulti {
-        min-height: 120px;
+    .checks {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+        border-radius: 12px;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--btn-bg), transparent 10%);
+        padding: 10px;
+    }
+    .checkItem {
+        position: relative;
+        display: grid;
+        grid-template-columns: 16px 1fr;
+        align-items: center;
+        gap: 8px;
         padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
+        background: color-mix(in oklab, var(--btn-bg), transparent 18%);
+        cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    }
+    .checkItem:hover {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 8%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        transform: translateY(-1px);
+    }
+    .checkItem.checked {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 35%);
+        background: color-mix(in oklab, var(--accent-live), transparent 88%);
+    }
+    .checkInput {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+    .checkBox {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
+        background: color-mix(in oklab, var(--bg), white 6%);
+        box-sizing: border-box;
+        display: inline-block;
+        position: relative;
+    }
+    .checkItem.checked .checkBox {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 20%);
+        background: color-mix(in oklab, var(--accent-live), transparent 35%);
+    }
+    .checkItem.checked .checkBox::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 5px;
+        height: 9px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(40deg);
+    }
+    .checkText {
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 1.2;
     }
 
     .inp:focus-visible, .sel:focus-visible {
