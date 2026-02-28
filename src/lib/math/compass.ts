@@ -358,6 +358,48 @@ function computeHorizonStyleSeams(opts: {
     return out.sort((x, y) => x.ts - y.ts);
 }
 
+function computeZenithNadirNodes(track: CompassTrackPoint[] | undefined): CompassTrackPoint[] {
+    if (!track?.length) return [];
+
+    const xs = track.filter((p) =>
+        Number.isFinite(p.ts) &&
+        Number.isFinite(p.azimuthDeg) &&
+        Number.isFinite(p.altitudeDeg) &&
+        Number.isFinite(p.orbit)
+    );
+    if (!xs.length) return [];
+
+    let zenith = xs[0];
+    let nadir = xs[0];
+    for (const p of xs) {
+        if (p.altitudeDeg > zenith.altitudeDeg || (p.altitudeDeg === zenith.altitudeDeg && p.ts < zenith.ts)) {
+            zenith = p;
+        }
+        if (p.altitudeDeg < nadir.altitudeDeg || (p.altitudeDeg === nadir.altitudeDeg && p.ts < nadir.ts)) {
+            nadir = p;
+        }
+    }
+
+    const out: CompassTrackPoint[] = [
+        {
+            ...zenith,
+            code: 'ZN',
+            source: 'spoke',
+            nodeStyle: 'zenith',
+            tags: ['zenith', 'max altitude']
+        },
+        {
+            ...nadir,
+            code: 'ND',
+            source: 'spoke',
+            nodeStyle: 'nadir',
+            tags: ['nadir', 'min altitude']
+        }
+    ];
+
+    return out;
+}
+
 function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
     if (!points?.length) return points;
 
@@ -468,7 +510,8 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 location: loc,
                 track: baseTrack
             });
-            const orbitTrack = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack, ...seamTrack]);
+            const zenithNadirTrack = computeZenithNadirNodes(baseTrack);
+            const orbitTrack = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack, ...seamTrack, ...zenithNadirTrack]);
 
             return {
                 id,

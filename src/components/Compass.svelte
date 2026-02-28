@@ -242,7 +242,7 @@
     function orbitNodeGroup(node: { nodeStyle?: string }): 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' {
         if (node.nodeStyle === 'cycle-boundary') return 'boundary';
         if (node.nodeStyle === 'seam') return 'seam';
-        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min') return 'bind';
+        if (node.nodeStyle === 'bind-max' || node.nodeStyle === 'bind-min' || node.nodeStyle === 'zenith' || node.nodeStyle === 'nadir') return 'bind';
         if (node.nodeStyle === 'synod-n' || node.nodeStyle === 'synod-w' || node.nodeStyle === 'synod-s') return 'synod';
         return 'regular';
     }
@@ -678,6 +678,8 @@
                     ?? c.members.find((m) => m.nodeStyle === 'synod-s')?.nodeStyle
                     ?? c.members.find((m) => m.nodeStyle === 'bind-max')?.nodeStyle
                     ?? c.members.find((m) => m.nodeStyle === 'bind-min')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'zenith')?.nodeStyle
+                    ?? c.members.find((m) => m.nodeStyle === 'nadir')?.nodeStyle
                     ?? c.members.find((m) => m.nodeStyle === 'seam')?.nodeStyle;
 
                 const pickTsList = isSeamCluster
@@ -1389,6 +1391,8 @@
                                         class:pinnedNode={pinnedBodyId === n.bodyId}
                                         class:bindMaxNode={n.nodeStyle === 'bind-max'}
                                         class:bindMinNode={n.nodeStyle === 'bind-min'}
+                                        class:zenithNode={n.nodeStyle === 'zenith'}
+                                        class:nadirNode={n.nodeStyle === 'nadir'}
                                         class:cycleBoundaryNode={n.nodeStyle === 'cycle-boundary'}
                                         class:seamNode={n.nodeStyle === 'seam'}
                                         class:synodNNode={n.nodeStyle === 'synod-n'}
@@ -1985,6 +1989,14 @@
     .orbitNode.bindMinNode {
         fill: color-mix(in oklab, #e0a600, white 20%);
         stroke: color-mix(in oklab, #e0a600, black 35%);
+    }
+    .orbitNode.zenithNode {
+        fill: color-mix(in oklab, #e0a600, white 20%);
+        stroke: color-mix(in oklab, #e0a600, black 35%);
+    }
+    .orbitNode.nadirNode {
+        fill: color-mix(in oklab, #40a8ff, white 22%);
+        stroke: color-mix(in oklab, #40a8ff, black 35%);
     }
     .orbitNode.cycleBoundaryNode {
         fill: color-mix(in oklab, #61d87a, white 20%);
