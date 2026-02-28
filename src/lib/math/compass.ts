@@ -40,6 +40,40 @@ export type CompassTargetState = {
 
 const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
 
+function formatCycleDurationTag(ms: number): string {
+    if (!Number.isFinite(ms) || ms <= 0) return '';
+    let leftMin = Math.round(ms / 60_000);
+    const MIN_PER_HOUR = 60;
+    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
+    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
+    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
+
+    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
+    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
+    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
+    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
+    const min = leftMin;
+
+    const parts: string[] = [];
+    if (year) parts.push(`${year}y`);
+    if (month) parts.push(`${month}mo`);
+    if (day) parts.push(`${day}d`);
+    if (hour) parts.push(`${hour}h`);
+    if (min || parts.length === 0) parts.push(`${min}m`);
+    return `cycle duration ${parts.join(' ')}`;
+}
+
+function cycleDurationMsFromSpokes(spokes: CycleSpoke<HorizonMeta>[]): number | null {
+    if (!spokes.length) return null;
+    const xs = spokes.slice().sort((a, b) => a.ts - b.ts);
+    const boundary = xs.filter((s) => s.code === 'E' || s.code === 'E_next' || s.index === 0 || s.index === 16);
+    if (boundary.length >= 2) {
+        const d = boundary[boundary.length - 1].ts - boundary[0].ts;
+        if (d > 0) return d;
+    }
+    return null;
+}
+
 function bodyEmoji(id: ObjId): string {
     const b = (objects as any)[id] as { emoji?: string } | undefined;
     return b?.emoji ?? '•';
@@ -89,6 +123,7 @@ async function resolveHorizonSpokesForTarget(input: WheelInput, target: ObjId): 
 function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefined): CompassTrackPoint[] | undefined {
     if (!spokes?.length) return undefined;
 
+    const cycleDurationTag = formatCycleDurationTag(cycleDurationMsFromSpokes(spokes) ?? NaN);
     const out: CompassTrackPoint[] = [];
     for (const s of spokes) {
         const az = Number(s.meta?.azimuthDeg);
@@ -96,7 +131,9 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
         const orbit = Number(s.meta?.orbit);
         if (!Number.isFinite(az) || !Number.isFinite(alt) || !Number.isFinite(orbit)) continue;
         const isCycleBoundary = s.code === 'E';
-        const tags = isCycleBoundary ? ['cycle start', 'rising horizon crossing'] : undefined;
+        const tags = isCycleBoundary
+            ? ['cycle start', 'rising horizon crossing', ...(cycleDurationTag ? [cycleDurationTag] : [])]
+            : undefined;
         out.push({
             ts: s.ts,
             index: s.index,

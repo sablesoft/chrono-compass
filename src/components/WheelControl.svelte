@@ -259,14 +259,26 @@
         const v = (value || '') as ObjId;
         if (role === 'target' && multiTarget) return;
 
-        draftRoles = { ...draftRoles, [role]: (v ? v : null) };
-        draftRoles = normalizeRolesForType(spec, draftRoles);
+        const picked = (v ? v : null) as ObjId | null;
+        const base = { ...draftRoles, [role]: picked };
 
         if (multiTarget) {
-            const normalized = normalizeRolesForType(spec, { ...draftRoles, target: draftTargets });
-            const t = normalized.target;
-            draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+            let normalized = normalizeRolesForType(spec, { ...base, target: draftTargets });
+            let t = normalized.target;
+            let nextTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+
+            // If picked single-role gets nulled by current targets,
+            // keep the picked role and reset targets to recover.
+            if (picked && normalized[role] !== picked) {
+                normalized = normalizeRolesForType(spec, { ...base, target: [] });
+                t = normalized.target;
+                nextTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+            }
+
+            draftTargets = nextTargets;
             draftRoles = { ...normalized, target: draftRoles.target };
+        } else {
+            draftRoles = normalizeRolesForType(spec, base);
         }
 
         pickedSavedKey = '';

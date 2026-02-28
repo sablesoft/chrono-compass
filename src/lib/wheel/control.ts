@@ -86,8 +86,12 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
 
     // все кандидаты по этой роли из всех RoleSet
     const all = new Set<ObjId>();
+    const allOrdered: ObjId[] = [];
     for (const rs of spec.roles) {
-        for (const b of roleArray(rs, role)) all.add(b);
+        for (const b of roleArray(rs, role)) {
+            if (!all.has(b)) allOrdered.push(b);
+            all.add(b);
+        }
     }
 
     const filtered: ObjId[] = [];
@@ -117,7 +121,8 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
                     // массив возможен только для target; если внезапно массив в другой роли — считаем несовместимым
                     if (!(r === 'target' && isMultiTarget(spec))) return false;
                     const arr = v as ObjId[];
-                    if (arr.length === 0) return false;
+                    // Empty multi-target should not constrain other roles.
+                    if (arr.length === 0) continue;
                     if (!arr.every(id => allowed.includes(id))) return false;
                 } else {
                     if (!allowed.includes(v as ObjId)) return false;
@@ -142,7 +147,9 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
         }
     }
 
-    return order;
+    // If current draft is incompatible and filtering produced no options,
+    // keep all role candidates visible so user can recover.
+    return order.length > 0 ? order : allOrdered;
 }
 
 export function normalizeRolesForType(spec: WheelSpec, roles: WheelRolesState): WheelRolesState {

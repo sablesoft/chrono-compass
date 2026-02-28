@@ -15,6 +15,38 @@ import { eqToEcl } from './vector';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
 
+function formatCycleDurationTag(ms: number): string {
+    if (!Number.isFinite(ms) || ms <= 0) return '';
+    let leftMin = Math.round(ms / 60_000);
+    const MIN_PER_HOUR = 60;
+    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
+    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
+    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
+
+    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
+    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
+    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
+    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
+    const min = leftMin;
+
+    const parts: string[] = [];
+    if (year) parts.push(`${year}y`);
+    if (month) parts.push(`${month}mo`);
+    if (day) parts.push(`${day}d`);
+    if (hour) parts.push(`${hour}h`);
+    if (min || parts.length === 0) parts.push(`${min}m`);
+    return `cycle duration ${parts.join(' ')}`;
+}
+
+function cycleDurationMsFromSynodSpokes(spokes: CycleSpoke<SynodMeta>[]): number | null {
+    if (!spokes.length) return null;
+    const xs = spokes.slice().sort((a, b) => a.ts - b.ts);
+    const boundary = xs.filter((s) => s.code === 'E' || s.code === 'E_next' || s.index === 0 || s.index === 16);
+    if (boundary.length < 2) return null;
+    const d = boundary[boundary.length - 1].ts - boundary[0].ts;
+    return d > 0 ? d : null;
+}
+
 export type SystemTrackPoint = CompassTrackPoint & {
     phaseDeg: number;
     distanceAu: number;
@@ -242,6 +274,7 @@ function buildTrackFromSynodSpokes(
 ): SystemTrackPoint[] | undefined {
     if (!spokes?.length) return undefined;
 
+    const cycleDurationTag = formatCycleDurationTag(cycleDurationMsFromSynodSpokes(spokes) ?? NaN);
     const out: SystemTrackPoint[] = [];
     for (const s of spokes) {
         const exactTsRaw = Number(s.meta?.exactTs);
@@ -255,7 +288,7 @@ function buildTrackFromSynodSpokes(
         const spokePhaseNormDeg = norm360(spokePhaseDeg);
         const isCycleBoundary = (s.code === 'E');
         const boundaryTags = isCycleBoundary
-            ? ['cycle start', 'synod E', 'waxing quadrature', 'first quarter']
+            ? ['cycle start', 'synod E', 'waxing quadrature', 'first quarter', ...(cycleDurationTag ? [cycleDurationTag] : [])]
             : undefined;
         const synodStyle = s.code === 'N'
             ? 'synod-n'
