@@ -1049,7 +1049,6 @@
                     : (secondaryDeg >= 0 ? 'Above' : 'Below');
                 const distAu = Number((p as any).distanceAu);
                 const metaParts = [
-                    `House ${house}`,
                     `${primaryLabel} ${fmtNodeDeg(primaryDeg)}`,
                     `${secondaryLabel} ${fmtNodeDeg(secondaryDeg)}`,
                     stateLabel,

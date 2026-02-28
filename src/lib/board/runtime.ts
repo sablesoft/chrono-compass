@@ -31,6 +31,7 @@ export type CycleSpoke<TMeta = any> = {
     code: SpokeKey;
     index: number;
     meta: TMeta;
+    tags?: string[];
 };
 
 // 16 + 1

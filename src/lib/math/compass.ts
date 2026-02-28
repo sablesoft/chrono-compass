@@ -40,40 +40,6 @@ export type CompassTargetState = {
 
 const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
 
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function cycleDurationMsFromSpokes(spokes: CycleSpoke<HorizonMeta>[]): number | null {
-    if (!spokes.length) return null;
-    const xs = spokes.slice().sort((a, b) => a.ts - b.ts);
-    const boundary = xs.filter((s) => s.code === 'E' || s.code === 'E_next' || s.index === 0 || s.index === 16);
-    if (boundary.length >= 2) {
-        const d = boundary[boundary.length - 1].ts - boundary[0].ts;
-        if (d > 0) return d;
-    }
-    return null;
-}
-
 function bodyEmoji(id: ObjId): string {
     const b = (objects as any)[id] as { emoji?: string } | undefined;
     return b?.emoji ?? '•';
@@ -82,6 +48,20 @@ function bodyEmoji(id: ObjId): string {
 function bodyNameEn(id: ObjId): string {
     const b = (objects as any)[id] as { name?: { en?: string } } | undefined;
     return b?.name?.en ?? String(id);
+}
+
+function uniqueTags(tags: Array<string | null | undefined>): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of tags) {
+        if (typeof raw !== 'string') continue;
+        const tag = raw.trim();
+        if (!tag) continue;
+        if (seen.has(tag)) continue;
+        seen.add(tag);
+        out.push(tag);
+    }
+    return out;
 }
 
 /**
@@ -123,17 +103,14 @@ async function resolveHorizonSpokesForTarget(input: WheelInput, target: ObjId): 
 function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefined): CompassTrackPoint[] | undefined {
     if (!spokes?.length) return undefined;
 
-    const cycleDurationTag = formatCycleDurationTag(cycleDurationMsFromSpokes(spokes) ?? NaN);
     const out: CompassTrackPoint[] = [];
     for (const s of spokes) {
         const az = Number(s.meta?.azimuthDeg);
         const alt = Number(s.meta?.altitudeDeg);
         const orbit = Number(s.meta?.orbit);
         if (!Number.isFinite(az) || !Number.isFinite(alt) || !Number.isFinite(orbit)) continue;
-        const isCycleBoundary = s.code === 'E';
-        const tags = isCycleBoundary
-            ? ['cycle start', 'rising horizon crossing', ...(cycleDurationTag ? [cycleDurationTag] : [])]
-            : undefined;
+        const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
+        const isCycleBoundary = s.code === 'E' || s.code === 'E_next';
         out.push({
             ts: s.ts,
             index: s.index,
@@ -145,7 +122,7 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
             visible: alt >= 0,
             source: 'cycle',
             nodeStyle: isCycleBoundary ? 'cycle-boundary' : undefined,
-            tags
+            tags: tags.length ? tags : undefined
         });
     }
     return out;
@@ -307,7 +284,8 @@ function computeSpokeIntersectionsAboveHorizon(opts: {
                     angleDeg: spokeBase,
                     orbit: final.inst.orbit,
                     visible: final.inst.visible,
-                    source: 'spoke'
+                    source: 'spoke',
+                    tags: uniqueTags([`${spokeCode}-horizon`, 'above horizon'])
                 });
             }
         }
@@ -376,6 +354,8 @@ function computeHorizonStyleSeams(opts: {
         const ts = (lo + hi) * 0.5;
         const inst = computeHorizonInstant({ ts, looker, target, location });
         if (!inst) continue;
+        const rising = !a.visible && b.visible;
+        const nodalTag = rising ? 'E-nodal' : 'W-nodal';
 
         pushUnique({
             ts,
@@ -388,7 +368,7 @@ function computeHorizonStyleSeams(opts: {
             visible: inst.altitudeDeg >= 0,
             source: 'seam',
             nodeStyle: 'seam',
-            tags: ['seam', 'horizon crossing']
+            tags: uniqueTags([nodalTag, 'horizon crossing'])
         });
     }
 
@@ -423,14 +403,14 @@ function computeZenithNadirNodes(track: CompassTrackPoint[] | undefined): Compas
             code: 'ZN',
             source: 'spoke',
             nodeStyle: 'zenith',
-            tags: ['zenith', 'max altitude']
+            tags: uniqueTags(['zenith', 'max altitude', 'above horizon'])
         },
         {
             ...nadir,
             code: 'ND',
             source: 'spoke',
             nodeStyle: 'nadir',
-            tags: ['nadir', 'min altitude']
+            tags: uniqueTags(['nadir', 'min altitude', 'below horizon'])
         }
     ];
 

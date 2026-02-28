@@ -15,36 +15,18 @@ import { eqToEcl } from './vector';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
 
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function cycleDurationMsFromSynodSpokes(spokes: CycleSpoke<SynodMeta>[]): number | null {
-    if (!spokes.length) return null;
-    const xs = spokes.slice().sort((a, b) => a.ts - b.ts);
-    const boundary = xs.filter((s) => s.code === 'E' || s.code === 'E_next' || s.index === 0 || s.index === 16);
-    if (boundary.length < 2) return null;
-    const d = boundary[boundary.length - 1].ts - boundary[0].ts;
-    return d > 0 ? d : null;
+function uniqueTags(tags: Array<string | null | undefined>): string[] {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of tags) {
+        if (typeof raw !== 'string') continue;
+        const tag = raw.trim();
+        if (!tag) continue;
+        if (seen.has(tag)) continue;
+        seen.add(tag);
+        out.push(tag);
+    }
+    return out;
 }
 
 export type SystemTrackPoint = CompassTrackPoint & {
@@ -274,7 +256,6 @@ function buildTrackFromSynodSpokes(
 ): SystemTrackPoint[] | undefined {
     if (!spokes?.length) return undefined;
 
-    const cycleDurationTag = formatCycleDurationTag(cycleDurationMsFromSynodSpokes(spokes) ?? NaN);
     const out: SystemTrackPoint[] = [];
     for (const s of spokes) {
         const exactTsRaw = Number(s.meta?.exactTs);
@@ -286,20 +267,13 @@ function buildTrackFromSynodSpokes(
         const spokePhaseDeg = 90 + (360 * (s.index ?? 0)) / 16;
         const spokeAngleDeg = synodPhaseToWheelAngleDeg(spokePhaseDeg);
         const spokePhaseNormDeg = norm360(spokePhaseDeg);
-        const isCycleBoundary = (s.code === 'E');
-        const boundaryTags = isCycleBoundary
-            ? ['cycle start', 'synod E', 'waxing quadrature', 'first quarter', ...(cycleDurationTag ? [cycleDurationTag] : [])]
-            : undefined;
+        const isCycleBoundary = (s.code === 'E' || s.code === 'E_next');
         const synodStyle = s.code === 'N'
             ? 'synod-n'
             : (s.code === 'W'
                 ? 'synod-w'
                 : (s.code === 'S' ? 'synod-s' : undefined));
-        const synodTags = s.code === 'N'
-            ? ['synod N', 'opposition', 'full phase']
-            : (s.code === 'W'
-                ? ['synod W', 'waning quadrature', 'last quarter']
-                : (s.code === 'S' ? ['synod S', 'conjunction', 'new phase'] : undefined));
+        const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
         out.push({
             ts: nodeTs,
             index: s.index,
@@ -314,7 +288,7 @@ function buildTrackFromSynodSpokes(
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
             nodeStyle: isCycleBoundary ? 'cycle-boundary' : synodStyle,
-            tags: isCycleBoundary ? boundaryTags : synodTags
+            tags: tags.length ? tags : undefined
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -473,9 +447,7 @@ function buildTrackFromBindSpokes(
         const bindIsMax = s.code === 'N';
         const bindIsMin = s.code === 'S';
         const nodeStyle = bindIsMax ? 'bind-max' : (bindIsMin ? 'bind-min' : undefined);
-        const tags = bindIsMax
-            ? ['N-bind', 'max distance']
-            : (bindIsMin ? ['S-bind', 'min distance'] : undefined);
+        const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
 
         out.push({
             ts: s.ts,
@@ -491,7 +463,7 @@ function buildTrackFromBindSpokes(
             distanceAu,
             focusDistAu: inst.focusDistAu,
             nodeStyle,
-            tags
+            tags: tags.length ? tags : undefined
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -556,6 +528,8 @@ function computeSystemStyleSeams(opts: {
         const inst = synodInstantAt(looker, focus, target, ts);
         if (!inst) continue;
         const eclLat = eclipticLatitudeDegAt(focus, target, ts);
+        const northbound = fLo < 0 && fHi > 0;
+        const nodalTag = northbound ? 'E-nodal' : 'W-nodal';
 
         pushUnique({
             ts,
@@ -571,7 +545,7 @@ function computeSystemStyleSeams(opts: {
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
             nodeStyle: 'seam',
-            tags: ['seam', 'ecliptic crossing']
+            tags: uniqueTags([nodalTag, 'ecliptic crossing'])
         });
     }
 

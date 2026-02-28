@@ -8,6 +8,7 @@ import { getWheelEntry, resolveWheelMeta } from './registry';
 import type {CacheWheelLike} from "../cycle/types";
 
 type SolveCtx = { ts: number; location?: any; dbg?: any };
+const TAGGED_CYCLE_TYPES = new Set<string>(['horizon', 'synod', 'bind']);
 
 function dbgApi(dbg: any) {
     const log = dbg?.log ?? (() => {});
@@ -27,6 +28,12 @@ function toCacheWheelLike(w: BoardWheel | CacheWheelLike): CacheWheelLike {
         roles: anyw.roles ?? {},
         observer: anyw.observer, // может быть undefined у виртуальных
     };
+}
+
+function needsSpokeTagBackfill(wheelType: string, spokes: any[]): boolean {
+    if (!TAGGED_CYCLE_TYPES.has(String(wheelType))) return false;
+    if (!Array.isArray(spokes) || spokes.length === 0) return true;
+    return spokes.some((s) => !Array.isArray(s?.tags) || s.tags.length === 0);
 }
 
 async function solveRaw(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): Promise<WheelSolveResult> {
@@ -64,6 +71,17 @@ export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: Solv
     try {
         const hit = await getCycle(wheelLike, ctx.ts);
         if (hit) {
+            if (needsSpokeTagBackfill(String(wheelLike.wheelType), hit.spokes as any[])) {
+                const recomputed = await solveRaw(wheel, { ...ctx, dbg });
+                if (recomputed && (recomputed as any).kind === 'cycle' && (recomputed as any).ok) {
+                    try {
+                        await putCycleSolved(wheelLike, recomputed as CycleSolveResult);
+                    } catch (e) {
+                        dbg.log('resolveWheel.cache.put(backfill) failed', e);
+                    }
+                    return recomputed as any;
+                }
+            }
             return { ok: true, kind: 'cycle', ts: ctx.ts, spokes: hit.spokes } as any;
         }
     } catch (e) {
