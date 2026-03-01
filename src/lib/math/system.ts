@@ -300,54 +300,6 @@ async function collectBindSpokesInWindow(
     return out.sort((a, b) => a.ts - b.ts);
 }
 
-async function collectNodalSpokesInWindow(
-    input: WheelInput,
-    target: ObjId,
-    startTs: number,
-    endTs: number
-): Promise<CycleSpoke<NodalMeta>[]> {
-    if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return [];
-
-    const out: CycleSpoke<NodalMeta>[] = [];
-    const seenCycles = new Set<string>();
-    const seenSpokes = new Set<string>();
-    const RANGE_EPS_MS = 60_000;
-
-    const CYCLE_SHIFT_EPS_MS = 1_500;
-    const MAX_CYCLES = 320;
-    let probe = startTs + CYCLE_SHIFT_EPS_MS;
-
-    for (let i = 0; i < MAX_CYCLES; i++) {
-        const spokes = await resolveNodalSpokesForTarget(input, target, probe);
-        if (!spokes?.length) break;
-
-        const sorted = spokes.slice().sort((a, b) => a.index - b.index);
-        const s0 = sorted.find((s) => s.index === 0);
-        const s16 = sorted.find((s) => s.index === 16);
-        if (!s0 || !s16 || !(s16.ts > s0.ts)) break;
-
-        const cycleKey = `${Math.round(s0.ts)}:${Math.round(s16.ts)}`;
-        if (seenCycles.has(cycleKey)) break;
-        seenCycles.add(cycleKey);
-
-        for (const s of sorted) {
-            if (s.ts < (startTs - RANGE_EPS_MS) || s.ts > (endTs + RANGE_EPS_MS)) continue;
-            const key = `${s.index}:${Math.round(s.ts)}`;
-            if (seenSpokes.has(key)) continue;
-            seenSpokes.add(key);
-            out.push(s);
-        }
-
-        if (s16.ts >= endTs) break;
-
-        const nextProbe = s16.ts + CYCLE_SHIFT_EPS_MS;
-        if (!(nextProbe > probe)) break;
-        probe = nextProbe;
-    }
-
-    return out.sort((a, b) => a.ts - b.ts);
-}
-
 function buildTrackFromSynodSpokes(
     spokes: CycleSpoke<SynodMeta>[] | undefined,
     looker: ObjId,
@@ -716,9 +668,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const bindSpokes = hasSynodWindow
             ? await collectBindSpokesInWindow(input, focus, id, synodStart, synodEnd)
             : [];
-        const nodalSpokes = hasSynodWindow
-            ? await collectNodalSpokesInWindow(input, id, synodStart, synodEnd)
-            : [];
+        const nodalSpokes = await resolveNodalSpokesForTarget(input, id, ts) ?? [];
         const bindTrack = buildTrackFromBindSpokes(bindSpokes, looker, focus, id);
         const nodalTrack = buildTrackFromNodalSpokes(nodalSpokes, looker, focus, id);
 
