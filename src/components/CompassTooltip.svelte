@@ -2,7 +2,7 @@
 <!--suppress HtmlUnknownTag -->
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
-    import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/wheel';
+    import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/types';
     import type { ObjId } from '../lib/catalog';
     import { formatDateTime } from '../lib/format';
     import {clamp, norm360} from "../lib/math/helpers";

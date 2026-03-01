@@ -143,15 +143,6 @@ export function toggleLive() {
     else startLive();
 }
 
-/**
- * Замок глобального времени (кнопка в TimePicker).
- * ВАЖНО: он блокирует “внешние” изменения глобального времени (от колёс),
- * но НЕ должен мешать изменению глобального времени из хедера/пикера.
- */
-export function setGlobalTimeLocked(next: boolean) {
-    globalTime.update((s) => ({ ...s, locked: !!next }));
-}
-
 export function toggleGlobalTimeLock() {
     globalTime.update((s) => ({ ...s, locked: !s.locked }));
 }

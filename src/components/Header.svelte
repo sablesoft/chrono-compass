@@ -5,31 +5,7 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
-    import DropdownButton from './DropdownButton.svelte';
-    import { cycles, setCycles } from '../lib/stores/cycle';
-    import {getCycleOptions} from "../lib/cycle/meta";
-    import type {CycleKind} from "../lib/stores/cycle";
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
-
-    $: cycleItems = getCycleOptions([
-        // 'diurnal',
-        // 'lunarSynodic',
-        // 'lunarAnomalistic',
-        // 'lunarDraconic',
-        'solarTropical',
-        // 'solarAnomalistic',
-        'plato'
-    ]).map(o => ({
-        value: o.kind,
-        label: o.label,
-        title: o.title,
-        disabled: o.disabled
-    }));
-
-    function handleCyclesChange(next: string[]) {
-        setCycles(next as CycleKind[]);
-    }
-
     import type { Location } from '../lib/location/types';
 
     function handleGlobalLocationChange(
@@ -58,19 +34,6 @@
                 value={null}
                 locked={false}
                 onChange={handleGlobalLocationChange}/>
-    </div>
-<!--    <div class="slot">-->
-<!--        <CollectionControl />-->
-<!--    </div>-->
-    <div class="slot cycles">
-        <DropdownButton
-                showSummary={false}
-                label="Legacy Cycles"
-                items={cycleItems}
-                value={$cycles}
-                onChange={handleCyclesChange}
-                buttonClass="seg cyclesBtn"
-        />
     </div>
     <div class="actions">
         <ThemeSwitcher />
@@ -125,14 +88,6 @@
         font-size: 34px;
         font-weight: 850;
         opacity: .95;
-    }
-    .slot.cycles {
-        display:flex;
-        align-items:stretch;
-    }
-    .slot.cycles :global(button) {
-        border-radius: 18px;
-        padding: 0 12px 6px;
     }
 
     .actions{ margin-left:auto; display:flex; gap:10px; align-items:center; }

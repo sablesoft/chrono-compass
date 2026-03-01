@@ -12,28 +12,18 @@ export type PointerAnimInput = {
     cycleKey: string;
 };
 
-export type PointerAnimCommand =
-    | { kind: 'sync' }
-    | { kind: 'fullTurn'; dir: -1 | 1; landAngleDeg: number; onDoneResetTo?: number };
-
-type Raf = (cb: () => void) => number;
 type OnUpdate = (s: PointerAnimState) => void;
 
 export class PointerAnimator {
     private state: PointerAnimState = { angleDeg: 0, noTransition: false, isAnimating: false };
     private lastCycleKey = '';
     private needsWrapFix = false;
-    private runId = 0;
 
     constructor(private onUpdate: OnUpdate = () => {}) {}
 
     private notify() {
         // важно: отдаём копию, чтобы снаружи не трогали внутренности
         this.onUpdate({ ...this.state });
-    }
-
-    get(): PointerAnimState {
-        return { ...this.state };
     }
 
     applyInput(input: PointerAnimInput) {
@@ -49,85 +39,13 @@ export class PointerAnimator {
             // On first frame of a new cycle window, do not force motion direction.
             // This prevents choosing a wrong angle branch right after E+ -> E jump.
             const dirForNormalize: -1 | 0 | 1 = cycleChanged ? 0 : timeDir;
-            const next = this.normalizeByDirection(base, cur, dirForNormalize);
-            this.state.angleDeg = next;
+            this.state.angleDeg = this.normalizeByDirection(base, cur, dirForNormalize);
 
             if (Math.abs(this.state.angleDeg) > 2000) this.needsWrapFix = true;
             if (cycleChanged) this.needsWrapFix = true;
 
             this.notify();
         }
-    }
-
-    play(cmd: PointerAnimCommand, animMs: number, raf: Raf, done: () => void) {
-        const myRun = ++this.runId;
-
-        if (cmd.kind === 'sync') {
-            this.wrapFix(raf);
-            done();
-            return;
-        }
-
-        if (cmd.kind !== 'fullTurn') return;
-
-        const turn = -360 * cmd.dir;
-        const current = this.wrapTo360Like(this.state.angleDeg);
-        const land = this.normalizeNearest(cmd.landAngleDeg, current);
-        const target = land + turn;
-
-        this.state.isAnimating = true;
-
-        // Фаза 1: старт без transition
-        this.state.noTransition = true;
-        this.state.angleDeg = current;
-        this.notify();
-
-        // Фаза 2: включить transition (кадр)
-        raf(() => {
-            if (this.runId !== myRun) return;
-
-            this.state.noTransition = false;
-            this.notify();
-
-            // Фаза 3: задать target (кадр)
-            raf(() => {
-                if (this.runId !== myRun) return;
-
-                this.state.angleDeg = target;
-                this.notify();
-
-                const resetTo = cmd.onDoneResetTo;
-
-                window.setTimeout(() => {
-                    if (this.runId !== myRun) return;
-
-                    this.state.isAnimating = false;
-
-                    if (typeof resetTo === 'number') {
-                        this.state.noTransition = true;
-                        this.state.angleDeg = resetTo;
-                        this.notify();
-
-                        raf(() => raf(() => {
-                            if (this.runId !== myRun) return;
-                            this.state.noTransition = false;
-                            this.needsWrapFix = false;
-                            this.notify();
-                            done();
-                        }));
-                        return;
-                    }
-
-                    if (this.needsWrapFix) {
-                        this.wrapFix(raf);
-                        this.needsWrapFix = false;
-                    }
-
-                    this.notify();
-                    done();
-                }, animMs + 20);
-            });
-        });
     }
 
     private normalizeNearest(baseAngle: number, current: number) {
@@ -149,20 +67,6 @@ export class PointerAnimator {
             t += 360 * wantSign;
         }
         return t;
-    }
-
-    private wrapFix(raf: Raf) {
-        const wrapped = this.wrapTo360Like(this.state.angleDeg);
-        if (Math.abs(wrapped - this.state.angleDeg) < 1e-6) return;
-
-        this.state.noTransition = true;
-        this.state.angleDeg = wrapped;
-        this.notify();
-
-        raf(() => raf(() => {
-            this.state.noTransition = false;
-            this.notify();
-        }));
     }
 
     private wrapTo360Like(a: number) {

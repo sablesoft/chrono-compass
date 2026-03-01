@@ -7,6 +7,8 @@ import { solveHorizonWheel } from './math/horizon';
 import { solveSynodWheel } from "./math/synod";
 import { solveSystemWheel } from './math/system';
 import { solveNodalWheel } from './math/nodal';
+import { solveSeasonWheel } from './math/season';
+import { solvePlatoWheel } from './math/plato';
 
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
@@ -128,5 +130,37 @@ function registerWheels() {
         solve: (input) => solveNodalWheel(input as any),
     } satisfies WheelRegistryEntry<'nodal'>);
 
-    // TODO остальные...
+    // season...
+    registerWheel({
+        type: 'season',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'season',
+            ts: ctx.ts,
+            location: ctx.location,
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker,
+            focus: (wheel.roles as any)?.focus,
+            target: (wheel.roles as any)?.target,
+        }),
+        solve: (input) => solveSeasonWheel(input as any),
+    } satisfies WheelRegistryEntry<'season'>);
+
+    // plato...
+    registerWheel({
+        type: 'plato',
+        ui: 'cycle',
+        makeInput: (wheel, ctx) => ({
+            wheelType: 'plato',
+            ts: ctx.ts,
+            location: ctx.location,
+            dbg: ctx.dbg,
+
+            looker: (wheel.roles as any)?.looker,
+            focus: (wheel.roles as any)?.focus,
+            target: (wheel.roles as any)?.target,
+        }),
+        solve: (input) => solvePlatoWheel(input as any),
+    } satisfies WheelRegistryEntry<'plato'>);
 }

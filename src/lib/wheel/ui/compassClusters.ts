@@ -1,5 +1,5 @@
 // src/lib/wheel/compassClusters.ts
-import type { MarkerItem, MarkerCluster } from '../wheel';
+import type { MarkerItem, MarkerCluster } from '../types';
 import {norm360} from "../../math/helpers";
 
 function toSignedAngle(deg0_360: number): number {
@@ -24,7 +24,7 @@ function finiteNumber(x: unknown): x is number {
  * Было раньше: 4/3 ≈ 1.333 (довольно агрессивно).
  * Хочешь реже сливать: 1.15 / 1.10 / 1.00
  */
-export const CLUSTER_DISTANCE_FACTOR = 0.75;
+const CLUSTER_DISTANCE_FACTOR = 0.75;
 
 export function compassClusters(
     items: MarkerItem[],

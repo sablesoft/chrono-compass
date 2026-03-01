@@ -59,6 +59,5 @@ export function useWheelResponsive() {
         bindWrap: (el: HTMLDivElement | null) => { wrapEl = el; },
         get size() { return size; },
         get isCoarsePointer() { return isCoarsePointer; },
-        recomputeWheelSize
     };
 }

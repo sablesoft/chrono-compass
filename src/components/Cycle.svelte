@@ -34,7 +34,7 @@
 
     import { setSelectedTs } from '../lib/time/store';
 
-    import type { MarkerCluster } from '../lib/wheel/wheel';
+    import type { MarkerCluster } from '../lib/wheel/types';
     import { typeLabel } from '../lib/wheel/control';
 
     // ------------------------------------------------------------

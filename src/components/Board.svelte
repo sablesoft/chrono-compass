@@ -3,23 +3,15 @@
     import { boardItems } from '../lib/board/store';
     import { flip } from 'svelte/animate';
     import { currentLocationId, resolveLocationById } from '../lib/location/store';
-    import { CYCLE_META } from '../lib/cycle/meta';
     import { getWheelEntry } from '../lib/board/registry';
 
     import WheelPicker from "./WheelPicker.svelte";
     import Compass from './Compass.svelte';
-    import Wheel from './Wheel.svelte';
     import Cycle from './Cycle.svelte';
 
     import type {WheelObserverState} from "../lib/wheel/types";
     import type {BoardWheel} from "../lib/board/types";
-
-    // TODO - legacy wheel cycles
-    import { cycles } from '../lib/stores/cycle';
     import {DEFAULT_LOCATION_ID} from "../lib/location/types";
-
-    export let lat: number;
-    export let lon: number;
     export let selectedTs: number;
 
     const compCache = new Map<string, any>();
@@ -45,12 +37,6 @@
         const id = obs.locked ? obs.locationId : globalLocId;
         return { w, loc: resolveLocationById(id) };
     });
-
-    // TODO - legacy wheel cycles
-    $: cyclesOrdered = ($cycles ?? [])
-        .slice()
-        .sort((a, b) => CYCLE_META[a].order - CYCLE_META[b].order);
-
     $: itemsViewWithComp = itemsView.map((row) => ({
         ...row,
         Comp: pickComponentStable(row.w)
@@ -62,11 +48,6 @@
         <div class="cell" animate:flip={{ duration: 500 }}>
             <svelte:component this={row.Comp} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
         </div>
-    {/each}
-
-    <!-- TODO - старый список cycles — временно оставляем -->
-    {#each cyclesOrdered as kind (kind)}
-        <Wheel kind={kind} lat={lat} lon={lon} selectedTs={selectedTs}/>
     {/each}
     <WheelPicker/>
 </section>

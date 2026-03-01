@@ -6,7 +6,7 @@ import { isLive, selectedTs, startLive } from '../../time/store';
 import { ms } from '../../format';
 import { isFiniteNumber } from '../../math/helpers';
 
-export type NowPointerDbg = {
+type NowPointerDbg = {
     log?: (...args: any[]) => void;
     warn?: (...args: any[]) => void;
     error?: (...args: any[]) => void;

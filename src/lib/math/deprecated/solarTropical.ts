@@ -1,8 +1,8 @@
 // src/lib/cycle/solarTropical.ts
-import type { Anchors } from '../wheel/spokes';
+import type { Anchors } from '../../wheel/spokes';
 import { angleFromAnchors } from './angle';
-import { ms } from '../format';
-import { debug } from '../debug';
+import { ms } from '../../format';
+import { debug } from '../../debug';
 
 const dbg = debug('solarTropical', '♉');
 const { group, log, warn } = dbg;

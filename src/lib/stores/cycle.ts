@@ -1,6 +1,6 @@
 // src/lib/stores/cycle.ts
-import { writable, derived } from 'svelte/store';
-export const CYCLE_KINDS = ['diurnal', 'lunarSynodic', 'lunarAnomalistic', 'lunarDraconic', 'solarTropical', 'solarAnomalistic', 'plato'] as const;
+import { writable } from 'svelte/store';
+export const CYCLE_KINDS = [ 'solarTropical', 'plato'] as const;
 
 export type CycleKind = typeof CYCLE_KINDS[number];
 
@@ -14,7 +14,7 @@ function uniq<T>(arr: T[]) {
     return Array.from(new Set(arr));
 }
 
-export function isCycleKind(x: unknown): x is CycleKind {
+function isCycleKind(x: unknown): x is CycleKind {
     return typeof x === 'string' && CYCLE_KINDS.includes(x as CycleKind);
 }
 
@@ -39,16 +39,5 @@ function saveState(s: CyclesState) {
     localStorage.setItem(LS_KEY, JSON.stringify(s));
 }
 
-export const cyclesState = writable<CyclesState>(loadState());
+const cyclesState = writable<CyclesState>(loadState());
 cyclesState.subscribe(saveState);
-
-// ───────────────── selectors ─────────────────
-
-export const cycles = derived(cyclesState, s => s.cycles);
-
-// ───────────────── actions ─────────────────
-
-export function setCycles(cycles: CycleKind[]) {
-    cyclesState.update(s => ({ ...s, cycles: normalizeCycles(cycles) }));
-}
-

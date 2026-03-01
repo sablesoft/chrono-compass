@@ -293,11 +293,6 @@
         setRole(role, cur === id ? '' : id);
     }
 
-    function handleRoleChange(role: RoleName, e: Event) {
-        const el = e.currentTarget as HTMLSelectElement | null;
-        setRole(role, el?.value ?? '');
-    }
-
     function toggleDraftTarget(id: ObjId) {
         if (multiTarget) {
             const has = draftTargets.includes(id);

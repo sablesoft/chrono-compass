@@ -2,9 +2,14 @@ import type { WheelSpec } from '../types';
 
 export const season = {
     type: 'season',
+    ready: true,
     requiredRoles: {
         'focus' : ['engine_body'],
         'target' : ['engine_body']
+    },
+    ui: {
+        'focus': 'center',
+        'target': 'pointer',
     },
     roles: [
         // Sun Season: Earth
@@ -13,9 +18,9 @@ export const season = {
             target: ['Earth']
         },
         // Earth Season: Moon (minimal MVP allowance; meaning is “axis of Moon relative to Earth”)
-        {
-            focus: ['Earth'],
-            target: ['Moon']
-        }
+        // {
+        //     focus: ['Earth'],
+        //     target: ['Moon']
+        // }
     ]
 } satisfies Extract<WheelSpec, { type: 'season' }>;

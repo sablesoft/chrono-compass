@@ -1,8 +1,8 @@
 // src/lib/cycle/angle.ts
 
-import type { Anchors } from '../wheel/spokes';
-import {type SpokeKey, SPOKES_ORDER} from '../wheel/types';
-import {clamp} from "../math/helpers";
+import type { Anchors } from '../../wheel/spokes';
+import {type SpokeKey, SPOKES_ORDER} from '../../wheel/types';
+import {clamp} from "../helpers";
 
 function segProgress(ts: number, a0: number, a1: number) {
     if (a1 === a0) return 0;

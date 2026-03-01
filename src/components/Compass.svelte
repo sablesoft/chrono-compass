@@ -19,7 +19,7 @@
     import { objects, wheels } from '../lib/catalog';
     import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelSpec } from '../lib/catalog';
 
-    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/wheel';
+    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/types';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
 
     import { boardApi } from '../lib/board/store';
@@ -246,10 +246,6 @@
         showOrbitNodesBind = !showOrbitNodesBind;
     }
 
-    function toggleOrbitNodesZenithNadir() {
-        showOrbitNodesZenithNadir = !showOrbitNodesZenithNadir;
-    }
-
     type OrbitNodeGroup = 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' | 'zenithNadir';
 
     function nodeTagsOf(node: { tip?: MomentTip }): string[] {
@@ -298,18 +294,6 @@
         const tags = nodeTagsOf(node);
         const classes = Array.from(new Set(tags.map(tagToCssClass).filter(Boolean)));
         return classes.join(' ');
-    }
-
-    function shouldShowOrbitNode(node: { tip?: MomentTip }): boolean {
-        const g = orbitNodeGroup(node);
-        if (g === 'boundary') return true;
-        if (!showOrbitNodesAny) return false;
-        if (g === 'regular') return showOrbitNodesRegular;
-        if (g === 'seam') return showOrbitNodesSeam;
-        if (g === 'synod') return showOrbitNodesSynod;
-        if (g === 'bind') return showOrbitNodesBind;
-        if (g === 'zenithNadir') return showOrbitNodesZenithNadir;
-        return true;
     }
 
     $: orbitNodesVisible = orbitNodes.filter((n) => {
@@ -1169,7 +1153,6 @@
                 .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
-                const house = houseLabelForAzimuth(p.azimuthDeg);
                 const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
                 const nextSynodBoundaryTs = (t.orbitTrack ?? [])
                     .filter((q) => q.source === 'spoke' && q.code === 'E_next' && Number.isFinite(q.ts))
@@ -2103,11 +2086,6 @@
         right: -2px;
         bottom: 20px;
     }
-    .nodeSpacer {
-        width: 30px;
-        height: 30px;
-        pointer-events: none;
-    }
     .orbitToggle {
         width: 34px;
         height: 34px;
@@ -2141,9 +2119,6 @@
     .nodeToggle.nodeBind {
         color: color-mix(in oklab, #40a8ff, white 8%);
     }
-    .nodeToggle.nodeZenithNadir {
-        color: color-mix(in oklab, #e0a600, #40a8ff 45%);
-    }
     .orbitCurve {
         fill: none;
         stroke: currentColor;
@@ -2162,6 +2137,8 @@
         stroke-width: 2.8;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
+
+    /*noinspection CssUnusedSymbol*/
     .orbitNode {
         fill: color-mix(in oklab, var(--fg), var(--bg) 20%);
         fill-opacity: 0.9;
@@ -2169,45 +2146,55 @@
         stroke-width: 1.5;
         cursor: pointer;
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode:focus,
     .orbitNode:focus-visible {
         outline: none;
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.dim {
         fill-opacity: 0.55;
         stroke-opacity: 0.55;
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.pinnedNode {
         fill-opacity: 0.92;
         stroke-opacity: 0.85;
         stroke-width: 1.7;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-max-distance {
         fill: color-mix(in oklab, #40a8ff, white 22%);
         stroke: color-mix(in oklab, #40a8ff, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-min-distance {
         fill: color-mix(in oklab, #e0a600, white 20%);
         stroke: color-mix(in oklab, #e0a600, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-mid-distance {
         fill: color-mix(in oklab, #63c3ff, white 18%);
         stroke: color-mix(in oklab, #63c3ff, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-zenith {
         fill: color-mix(in oklab, #e0a600, white 20%);
         stroke: color-mix(in oklab, #e0a600, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-nadir {
         fill: color-mix(in oklab, #40a8ff, white 22%);
         stroke: color-mix(in oklab, #40a8ff, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-cycle-start,
     .orbitNode.tg-cycle-end {
         fill: color-mix(in oklab, #61d87a, white 20%);
         stroke: color-mix(in oklab, #61d87a, black 32%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-e-nodal,
     .orbitNode.tg-w-nodal,
     .orbitNode.tg-n-nodal,
@@ -2219,14 +2206,17 @@
         fill: color-mix(in oklab, #ff5a6e, white 16%);
         stroke: color-mix(in oklab, #ff5a6e, black 36%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-n-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-w-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }
+    /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-s-synod {
         fill: color-mix(in oklab, #b991ff, white 18%);
         stroke: color-mix(in oklab, #b991ff, black 35%);

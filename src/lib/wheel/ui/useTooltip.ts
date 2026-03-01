@@ -1,7 +1,7 @@
 // src/lib/wheel/ui/useTooltip.ts
 import { onDestroy, onMount } from 'svelte';
 import { writable } from 'svelte/store';
-import type { MarkerCluster, MomentTip } from '../wheel';
+import type { MarkerCluster, MomentTip } from '../types';
 
 export type TooltipState = {
     open: boolean;
@@ -127,22 +127,6 @@ export function useTooltip(args: {
         state.set({ open: false, x: 0, y: 0, moment: null, cluster: null });
     }
 
-    // click по маркеру: coarse = toggle tooltip, fine = activate
-    function handleClusterClick(e: MouseEvent, c: MarkerCluster) {
-        if (args.isCoarsePointer()) {
-            clearHideTimer();
-            clearHoverTimer();
-            state.update(s => {
-                const same = s.open && s.cluster?.id === c.id;
-                return same
-                    ? { open: false, x: 0, y: 0, moment: null, cluster: null }
-                    : { open: true, x: e.clientX, y: e.clientY, moment: null, cluster: c };
-            });
-            return;
-        }
-        args.onActivateCluster(c);
-    }
-
     function handleGlobalPointerDown(e: PointerEvent | MouseEvent) {
         let isOpen = false;
         state.update(s => { isOpen = s.open; return s; });
@@ -183,6 +167,5 @@ export function useTooltip(args: {
         scheduleClose,
         keepOpen,
         closeNow,
-        handleClusterClick,
     };
 }

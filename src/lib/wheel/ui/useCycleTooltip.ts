@@ -132,21 +132,6 @@ export function useCycleTooltip(args: {
         state.set({ open: false, x: 0, y: 0, payload: null });
     }
 
-    function handleMarkerClick(e: MouseEvent, marker: CycleTipMarker) {
-        if (args.isCoarsePointer()) {
-            clearHideTimer();
-            clearHoverTimer();
-            state.update(s => {
-                const same = s.open && (s.payload?.kind === 'marker') && (s.payload.id === marker.id);
-                return same
-                    ? { open: false, x: 0, y: 0, payload: null }
-                    : { open: true, x: e.clientX, y: e.clientY, payload: marker };
-            });
-            return;
-        }
-        args.onActivateMarker?.(marker);
-    }
-
     function handleGlobalPointerDown(e: PointerEvent | MouseEvent) {
         let isOpen = false;
         state.update(s => { isOpen = s.open; return s; });
@@ -179,7 +164,6 @@ export function useCycleTooltip(args: {
         move,
         scheduleClose,
         keepOpen,
-        closeNow,
-        handleMarkerClick,
+        closeNow
     };
 }

@@ -103,11 +103,6 @@
         return head + (title.length ? title : specText);
     }
 
-    function selectValue(e: Event): string {
-        const t = e.currentTarget;
-        return t instanceof HTMLSelectElement ? t.value : '';
-    }
-
     function openForm() {
         onUserActivity();
         open = true;

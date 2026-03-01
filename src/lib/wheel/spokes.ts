@@ -151,17 +151,3 @@ export function buildSpokeTimes(a: Anchors) {
 
     return base;
 }
-
-export function nearestSpokeByTime(ts: number, times: number[]) {
-    // times length 17, use 0..15
-    let bestI = 0;
-    let bestD = Infinity;
-    for (let i = 0; i < 16; i++) {
-        const d = Math.abs(ts - times[i]);
-        if (d < bestD) {
-            bestD = d;
-            bestI = i;
-        }
-    }
-    return bestI;
-}
