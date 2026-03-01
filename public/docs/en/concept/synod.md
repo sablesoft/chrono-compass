@@ -143,7 +143,7 @@ Conceptually valid if supported by the engine.
 
 Synod Wheel is not:
 
-* a distance cycle (Bind / Range)
+* a distance cycle (Bind)
 * a horizon visibility cycle (Horizon)
 * a directional snapshot (Compass)
 * an illumination or brightness model

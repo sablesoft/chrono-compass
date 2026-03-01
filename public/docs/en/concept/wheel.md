@@ -291,28 +291,6 @@ Orbital binding cycles describing the changing distance between a target body an
 
 ---
 
-### Range Wheels
-
-Distance relations describing proximity between a looker body and a target body without orbital binding.
-
-**Required attributes:**
-  - looker
-  - target
-
-  → [range-wheel.md](range-wheel.md)
-
-  *Examples:*  
-  `Earth Range: Mars`  
-  (looker: Earth, target: Mars)
-
-  `Mars Range: Venus`  
-  (looker: Mars, target: Venus)
-
-  `Saturn Range: Earth`  
-  (looker: Saturn, target: Earth)
-
----
-
 ### Season Wheels
 
 Axial-orbital cycles describing the orientation of a target body’s rotational axis relative to its focus body.
@@ -321,7 +299,7 @@ Axial-orbital cycles describing the orientation of a target body’s rotational 
   - focus
   - target
 
-  → [season-wheel.md](season-wheel.md)
+  → [season.md](season.md)
 
   *Examples:*  
   `Sun Season: Earth`  
@@ -359,7 +337,7 @@ A Nodal Wheel is well-defined only if:
 - focus
 - target
 
-→ [nodal-wheel.md](nodal-wheel.md)
+→ [nodal.md](nodal.md)
 
 *Examples:*  
 `Sun Nodal: Earth – Moon`  
@@ -383,7 +361,7 @@ Cycles describing axial precession of a target body relative to an external refe
   - looker
   - target
 
-  → [plato-wheel.md](plato-wheel.md)
+  → [plato.md](plato.md)
 
   *Examples:*  
   `Galaxy Plato: Earth`  

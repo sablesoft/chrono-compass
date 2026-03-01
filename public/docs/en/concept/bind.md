@@ -123,17 +123,6 @@ It describes **orbital breathing**.
 
 ---
 
-## How Bind differs from Range Wheel
-
-**Range Wheel** describes distance between a looker and a target without assuming gravitational binding.
-
-**Bind Wheel** describes distance inside a gravitational system where the focus is structurally central.
-
-Range is relational and perspective-based.
-Bind is structural and orbital.
-
----
-
 ## Geometry mapping
 
 Bind Wheel maps **distance to angular phase**.

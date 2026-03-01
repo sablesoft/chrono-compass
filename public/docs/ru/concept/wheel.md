@@ -284,28 +284,6 @@ Horizon Wheel существует для конкретного target толь
 
 ---
 
-### Range Wheels
-
-Отношения расстояния, описывающие близость target к looker без орбитальной связи.
-
-**Требуемые атрибуты:**
-- looker
-- target
-
-→ [range.md](range.md)
-
-*Примеры:*  
-`Earth Range: Mars`  
-(looker: Земля, target: Марс)
-
-`Mars Range: Venus`  
-(looker: Марс, target: Венера)
-
-`Saturn Range: Earth`  
-(looker: Сатурн, target: Земля)
-
----
-
 ### Season Wheels
 
 Осево-орбитальные циклы, описывающие ориентацию оси вращения target относительно focus.
@@ -352,7 +330,7 @@ Horizon Wheel существует для конкретного target толь
 - focus
 - target
 
-→ [nodal-wheel.md](nodal-wheel.md)
+→ [nodal.md](nodal.md)
 
 *Примеры:*  
 `Sun Nodal: Earth – Moon`  
@@ -376,7 +354,7 @@ Horizon Wheel существует для конкретного target толь
 - looker
 - target
 
-→ [plato-wheel.md](plato-wheel.md)
+→ [plato.md](plato.md)
 
 *Примеры:*  
 `Galaxy Plato: Earth`  
