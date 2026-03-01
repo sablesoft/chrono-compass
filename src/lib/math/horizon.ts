@@ -608,16 +608,18 @@ function horizonSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number
     const durTag = code === 'E' ? formatCycleDurationTag(cycleDurationMs) : '';
     return uniqueTags([
         codeTag,
-        index < 8 ? 'above horizon' : null,
-        index > 8 ? 'below horizon' : null,
-        index === 8 ? 'horizon crossing' : null,
+        code === 'N' ? 'N-horizon' : null,
+        code === 'S' ? 'S-horizon' : null,
+        index < 8 && index > 0 ? 'above horizon' : null,
+        index > 8 && index < 16 ? 'below horizon' : null,
         code === 'E' ? 'cycle start' : null,
-        code === 'E' ? 'rising horizon crossing' : null,
-        code === 'E' ? 'E-nodal' : null,
-        code === 'W' ? 'setting horizon crossing' : null,
-        code === 'W' ? 'W-nodal' : null,
+        code === 'E' ? 'rising horizon' : null,
+        code === 'W' ? 'W-horizon' : null,
+        code === 'W' ? 'setting horizon' : null,
         code === 'N' ? 'max altitude' : null,
+        code === 'N' ? 'zenith' : null,
         code === 'S' ? 'min altitude' : null,
+        code === 'S' ? 'nadir' : null,
         durTag || null,
     ]);
 }

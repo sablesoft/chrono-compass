@@ -261,6 +261,14 @@
 
     function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
         if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
+        if (wheel?.wheelType === 'compass') {
+            if (
+                hasNodeTag(tags, 'N-horizon') ||
+                hasNodeTag(tags, 'W-horizon') ||
+                hasNodeTag(tags, 'S-horizon')
+            ) return 'seam';
+            return 'regular';
+        }
         if (
             hasNodeTag(tags, 'E-nodal') ||
             hasNodeTag(tags, 'W-nodal') ||
@@ -269,7 +277,6 @@
         ) return 'seam';
         if (hasNodeTag(tags, 'max distance') || hasNodeTag(tags, 'min distance') || hasNodeTag(tags, 'mid distance')) return 'bind';
         if (hasNodeTag(tags, 'N-synod') || hasNodeTag(tags, 'W-synod') || hasNodeTag(tags, 'S-synod')) return 'synod';
-        if (hasNodeTag(tags, 'zenith') || hasNodeTag(tags, 'nadir')) return 'zenithNadir';
         return 'regular';
     }
 
@@ -1077,7 +1084,8 @@
                 .filter((v): v is number => Number.isFinite(v));
             const trackMinTs = trackTs.length ? Math.min(...trackTs) : NaN;
             const trackMaxTs = trackTs.length ? Math.max(...trackTs) : NaN;
-            return (t.orbitTrack ?? [])
+            const nodeTrack = (t.orbitTrack ?? []).filter((p) => !(wheel?.wheelType === 'compass' && p.source === 'seam'));
+            return nodeTrack
                 .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
@@ -1104,14 +1112,10 @@
                 const primaryDeg = isSystemWheel ? Number((p as any).phaseDeg ?? NaN) : p.azimuthDeg;
                 const secondaryLabel = isSystemWheel ? 'Ecl' : 'Alt';
                 const secondaryDeg = p.altitudeDeg;
-                const stateLabel = isSystemWheel
-                    ? (secondaryDeg >= 0 ? 'North' : 'South')
-                    : (secondaryDeg >= 0 ? 'Above' : 'Below');
                 const distAu = Number((p as any).distanceAu);
                 const metaParts = [
                     `${primaryLabel} ${fmtNodeDeg(primaryDeg)}`,
                     `${secondaryLabel} ${fmtNodeDeg(secondaryDeg)}`,
-                    stateLabel,
                     Number.isFinite(distAu) ? `${distanceLabel} ${fmtNodeDistAu(distAu)}` : ''
                 ].filter((x) => !!x);
                 const metaText = metaParts.join(' • ');
@@ -1121,8 +1125,9 @@
                     ...(Array.isArray(p.tags) ? p.tags.map((t) => `Tag ${t}`) : []),
                     `ts ${Math.round(p.ts)}`
                 ];
+                const keyTags = pointTags.length ? pointTags.join(',') : 'no-tags';
                 return {
-                    key: `orbit-node:${t.id}:${p.index}:${p.ts}`,
+                    key: `orbit-node:${t.id}:${p.code}:${p.source ?? 'cycle'}:${p.index}:${p.ts}:${keyTags}`,
                     x: xy.x,
                     y: xy.y,
                     visible: p.visible,
@@ -1602,28 +1607,16 @@
                 {#if pinnedBodyId}
                     {#if wheel?.wheelType === 'compass'}
                         <div class="nodeNav nodeNavCompass">
-                            <span class="nodeSpacer" aria-hidden="true"></span>
-                            <button
-                                    class="nodeToggle navBtn nodeZenithNadir"
-                                    class:off={!showOrbitNodesZenithNadir}
-                                    type="button"
-                                    title="Toggle zenith and nadir nodes"
-                                    aria-label="Toggle zenith and nadir nodes"
-                                    aria-pressed={showOrbitNodesZenithNadir}
-                                    on:click|stopPropagation={toggleOrbitNodesZenithNadir}
-                            >
-                                ZN
-                            </button>
                             <button
                                     class="nodeToggle navBtn nodeSeam"
                                     class:off={!showOrbitNodesSeam}
                                     type="button"
-                                    title="Toggle nodals"
-                                    aria-label="Toggle nodals"
+                                    title="Toggle horizon nodes"
+                                    aria-label="Toggle horizon nodes"
                                     aria-pressed={showOrbitNodesSeam}
                                     on:click|stopPropagation={toggleOrbitNodesSeam}
                             >
-                                N
+                                H
                             </button>
                             <button
                                     class="nodeToggle navBtn nodeRegular"
@@ -2131,7 +2124,11 @@
     .orbitNode.tg-e-nodal,
     .orbitNode.tg-w-nodal,
     .orbitNode.tg-n-nodal,
-    .orbitNode.tg-s-nodal {
+    .orbitNode.tg-s-nodal,
+    .orbitNode.tg-e-horizon,
+    .orbitNode.tg-w-horizon,
+    .orbitNode.tg-n-horizon,
+    .orbitNode.tg-s-horizon {
         fill: color-mix(in oklab, #ff5a6e, white 16%);
         stroke: color-mix(in oklab, #ff5a6e, black 36%);
     }

@@ -282,7 +282,7 @@ function computeSpokeIntersectionsAboveHorizon(opts: {
                     orbit: final.inst.orbit,
                     visible: final.inst.visible,
                     source: 'spoke',
-                    tags: uniqueTags([`${spokeCode}-horizon`, 'above horizon'])
+                    tags: uniqueTags([`${spokeCode}-spoke`, 'above horizon'])
                 });
             }
         }
@@ -352,7 +352,7 @@ function computeHorizonStyleSeams(opts: {
         const inst = computeHorizonInstant({ ts, looker, target, location });
         if (!inst) continue;
         const rising = !a.visible && b.visible;
-        const nodalTag = rising ? 'E-nodal' : 'W-nodal';
+        const seamTag = rising ? 'E-horizon' : 'W-horizon';
 
         pushUnique({
             ts,
@@ -364,7 +364,7 @@ function computeHorizonStyleSeams(opts: {
             orbit: 1,
             visible: inst.altitudeDeg >= 0,
             source: 'seam',
-            tags: uniqueTags([nodalTag, 'horizon crossing', rising ? 'cycle end' : null])
+            tags: uniqueTags([seamTag, 'horizon crossing', rising ? 'cycle end' : null])
         });
     }
 
@@ -430,8 +430,17 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
         return d;
     };
 
+    const pointGroup = (x: CompassTrackPoint): 'boundary' | 'horizon' | 'regular' => {
+        const tags = Array.isArray(x.tags) ? x.tags : [];
+        if (tags.includes('cycle start') || tags.includes('cycle end')) return 'boundary';
+        if (tags.includes('N-horizon') || tags.includes('W-horizon') || tags.includes('S-horizon')) return 'horizon';
+        return 'regular';
+    };
+
     for (const p of sorted) {
+        const pGroup = pointGroup(p);
         const hitIdx = merged.findIndex((m) =>
+            pointGroup(m) === pGroup &&
             Math.abs(m.ts - p.ts) <= TS_EPS &&
             angDist(m.angleDeg, p.angleDeg) <= ANG_EPS &&
             Math.abs(m.orbit - p.orbit) <= ORBIT_EPS
@@ -447,7 +456,14 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
         const prevBoundary = isBoundaryCode(prev.code);
         const pBoundary = isBoundaryCode(p.code);
 
-        const rank = (x: CompassTrackPoint) => {
+        const rank = (x: CompassTrackPoint, group: 'boundary' | 'horizon' | 'regular') => {
+            // For horizon key nodes (N/W/S), prefer non-seam points so they remain visible
+            // in UI where seam-only helper points may be filtered out.
+            if (group === 'horizon') {
+                if (x.source === 'spoke') return 3;
+                if (x.source === 'cycle') return 2;
+                return 1; // seam
+            }
             if (x.source === 'seam') return 3;
             if (x.source === 'spoke') return 2;
             return 1;
@@ -458,7 +474,7 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
             continue;
         }
 
-        if (rank(p) > rank(prev)) {
+        if (rank(p, pGroup) > rank(prev, pGroup)) {
             merged[hitIdx] = p;
         }
     }
