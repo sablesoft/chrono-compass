@@ -1756,6 +1756,14 @@
                         pinnedBodyId={pinnedBodyId}
                         onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}
+                        onAddRelatedWheel={(input) => {
+                          onUserActivity();
+                          if (wheelId) {
+                            boardApi.addWheelBefore(wheelId, input, 'Compass.related.addBefore');
+                          } else {
+                            boardApi.addWheel(input, 'Compass.related.add');
+                          }
+                        }}
                         onMouseEnter={tip.keepOpen}
                         onMouseLeave={tip.scheduleClose}
                         onClose={tip.closeNow}

@@ -415,6 +415,21 @@ export const profilesApi = {
         return list;
     },
 
+    listActiveWheels(): SavedWheel[] {
+        const ap = get(activeProfile);
+        const list = (ap.data.wheels ?? []).slice();
+
+        list.sort((a, b) => {
+            const af = !!a.favorite;
+            const bf = !!b.favorite;
+            if (af !== bf) return af ? -1 : 1;
+            return b.updatedAt - a.updatedAt;
+        });
+
+        dbg.log('api.listActiveWheels', { profileId: ap.id, count: list.length });
+        return list;
+    },
+
     // ---------------------------
     // Board snapshot (profile <-> board)
     // ---------------------------

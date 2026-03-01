@@ -259,6 +259,56 @@ export const boardApi = {
         });
     },
 
+    /**
+     * Create a NEW wheel instance and insert it before another board wheel.
+     * If beforeId is missing, appends to the end.
+     */
+    addWheelBefore(
+        beforeId: string,
+        input: {
+            wheelType: WheelType;
+            title?: string;
+            roles?: WheelRolesState;
+            observer?: WheelObserverState;
+            time?: WheelTimeState;
+            size?: number;
+        },
+        reason = 'addWheelBefore'
+    ): string {
+        return dbg.group('boardApi.addWheelBefore', () => {
+            const cur = get(boardState).items
+                .slice()
+                .sort((a, b) => a.order - b.order);
+
+            const wheelType = input.wheelType;
+            const roles = (input.roles ?? ({} as WheelRolesState)) as WheelRolesState;
+
+            const observer = normalizeWheelObserver(input.observer ?? DEFAULT_OBSERVER, DEFAULT_LOCATION_ID);
+            const time = normalizeWheelTime(input.time ?? DEFAULT_TIME);
+
+            const id = nanoid();
+            const item: BoardWheel = {
+                id,
+                wheelType,
+                title: (input.title ?? '').toString(),
+                roles,
+                observer,
+                time,
+                order: 0,
+                size: input.size
+            };
+
+            const at = cur.findIndex((x) => x.id === beforeId);
+            const insertAt = at >= 0 ? at : cur.length;
+            cur.splice(insertAt, 0, item);
+
+            const next = cur.map((x, i) => ({ ...x, order: i }));
+            dbg.log('boardApi.addWheelBefore.ok', { id, wheelType, beforeId, insertAt, reason });
+            setItems(next, reason);
+            return id;
+        });
+    },
+
     removeWheelById(id: string, reason = 'removeWheelById') {
         dbg.group('boardApi.removeWheelById', () => {
             const cur = get(boardState).items;

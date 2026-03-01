@@ -4,8 +4,10 @@
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/types';
     import type { ObjId } from '../lib/catalog';
+    import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
     import {clamp, norm360} from "../lib/math/helpers";
+    import RelatedWheels from './RelatedWheels.svelte';
 
     export let x = 0;
     export let y = 0;
@@ -34,6 +36,13 @@
     export let onTogglePin: (bodyId: ObjId) => void = () => {};
 
     export let onPickTs: (ts: number) => void = () => {};
+    export let onAddRelatedWheel: (input: {
+        wheelType: SavedWheel['type'];
+        title: string;
+        roles: SavedWheel['roles'];
+        observer?: SavedWheel['observer'];
+        time?: SavedWheel['time'];
+    }) => void = () => {};
     export let onMouseEnter: () => void = () => {};
     export let onMouseLeave: () => void = () => {};
     export let onClose: () => void = () => {};
@@ -317,6 +326,17 @@
         onTogglePin(row.id);
     }
 
+    function handleRelatedWheelPicked(input: {
+        wheelType: SavedWheel['type'];
+        title: string;
+        roles: SavedWheel['roles'];
+        observer?: SavedWheel['observer'];
+        time?: SavedWheel['time'];
+    }) {
+        onAddRelatedWheel(input);
+        onClose();
+    }
+
     $: hasContent = !!moment || !!cluster;
 
     onMount(() => {
@@ -422,36 +442,18 @@
 
         {#if pinnedBodyId}
             <section class="pinned">
-                <div class="pinnedTitle">Pinned</div>
-
                 {#if pinnedRow}
-                    <div class="pinnedRow">
-                        <div class="emo">{pinnedRow.emoji}</div>
-                        <div class="name">{pinnedRow.name}</div>
-
-                        <div class="kv">
-                            <span class="k">House</span>
-                            <span class="v">{pinnedRow.house}</span>
-                        </div>
-
-                        <div class="kv">
-                            <span class="k">{pinnedRow.primaryLabel}</span>
-                            <span class="v">{fmtDeg(pinnedRow.primaryDeg)}</span>
-                        </div>
-
-                        <div class="kv">
-                            <span class="k">{pinnedRow.secondaryLabel}</span>
-                            <span class="v">{fmtDeg(pinnedRow.secondaryDeg)}</span>
-                        </div>
-
-                        <div class="kv">
-                            <span class="k">{pinnedRow.distanceLabel}</span>
-                            <span class="v">{fmtDistAu(pinnedRow.distanceAu)}</span>
-                        </div>
+                    <div class="pinnedRow" title="Pinned body">
+                        <span class="prefix">Pinned: </span>
+                        <span class="pin">{pinnedRow.emoji}</span>
+                        <span class="pinName">{pinnedRow.name}</span>
+                        <span class="pinSpoke">{pinnedRow.house}</span>
                     </div>
                 {:else}
                     <div class="pinnedRow muted">
-                        Pinned body is not in targets.
+                        <span class="pin">📌</span>
+                        <span class="pinName">Pinned body is not in targets.</span>
+                        <span class="pinSpoke">—</span>
                     </div>
                 {/if}
             </section>
@@ -466,35 +468,37 @@
                 <div class="empty">No bodies here.</div>
             {:else}
                 {#each aboveRows as row (row.id)}
-                    <button
-                            type="button"
-                            class="item"
-                            class:pinned={pinnedBodyId === row.id}
-                            on:click={() => clickBody(row)}
-                            title="Click to pin/unpin"
-                            style={`opacity:${row.opacity ?? 1}`}
-                    >
-                        <div class="l"><span class="emoji">{row.emoji}</span></div>
+                    <div class="itemWrap" style={`opacity:${row.opacity ?? 1}`}>
+                        <button
+                                type="button"
+                                class="item"
+                                on:click={() => clickBody(row)}
+                                title="Click to pin/unpin"
+                        >
+                            <div class="l"><span class="emoji">{row.emoji}</span></div>
 
-                        <div class="m">
-                            <div class="t">
-                                <span class="name">{row.name}</span>
-                                <span class="vis ok">{row.aboveLabel}</span>
+                            <div class="m">
+                                <div class="t">
+                                    <span class="name">{row.name}</span>
+                                    <span class="vis ok">{row.aboveLabel}</span>
+                                </div>
+
+                                <div class="d">
+                                    <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
+                                    <span class="sep">•</span>
+                                    <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                    <span class="sep">•</span>
+                                    <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                </div>
                             </div>
+                        </button>
 
-                            <div class="d">
-                                <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
-                                <span class="sep">•</span>
-                                <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                <span class="sep">•</span>
-                                <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
-                            </div>
-                        </div>
-
-                        <div class="r">
-                            <span class="mini" title="Soon: related wheels" aria-hidden="true">⎈</span>
-                        </div>
-                    </button>
+                        <RelatedWheels
+                                objId={row.id}
+                                pinnedId={pinnedBodyId}
+                                onPickWheel={handleRelatedWheelPicked}
+                        />
+                    </div>
                 {/each}
 
                 {#if aboveRows.length > 0 && belowRows.length > 0}
@@ -506,35 +510,37 @@
                 {/if}
 
                 {#each belowRows as row (row.id)}
-                    <button
-                            type="button"
-                            class="item below"
-                            class:pinned={pinnedBodyId === row.id}
-                            on:click={() => clickBody(row)}
-                            title="Click to pin/unpin"
-                            style={`opacity:${row.opacity ?? 0.65}`}
-                    >
-                        <div class="l"><span class="emoji">{row.emoji}</span></div>
+                    <div class="itemWrap" style={`opacity:${row.opacity ?? 0.65}`}>
+                        <button
+                                type="button"
+                                class="item below"
+                                on:click={() => clickBody(row)}
+                                title="Click to pin/unpin"
+                        >
+                            <div class="l"><span class="emoji">{row.emoji}</span></div>
 
-                        <div class="m">
-                            <div class="t">
-                                <span class="name">{row.name}</span>
-                                <span class="vis bad">{row.belowLabel}</span>
+                            <div class="m">
+                                <div class="t">
+                                    <span class="name">{row.name}</span>
+                                    <span class="vis bad">{row.belowLabel}</span>
+                                </div>
+
+                                <div class="d">
+                                    <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
+                                    <span class="sep">•</span>
+                                    <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                    <span class="sep">•</span>
+                                    <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                </div>
                             </div>
+                        </button>
 
-                            <div class="d">
-                                <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
-                                <span class="sep">•</span>
-                                <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                <span class="sep">•</span>
-                                <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
-                            </div>
-                        </div>
-
-                        <div class="r">
-                            <span class="mini" title="Soon: related wheels" aria-hidden="true">⎈</span>
-                        </div>
-                    </button>
+                        <RelatedWheels
+                                objId={row.id}
+                                pinnedId={pinnedBodyId}
+                                onPickWheel={handleRelatedWheelPicked}
+                        />
+                    </div>
                 {/each}
             {/if}
         </section>
@@ -606,31 +612,49 @@
     }
 
     .pinned {
-        padding: 10px 12px;
+        padding: 6px 12px;
         border-bottom: 1px solid color-mix(in oklab, var(--fg), transparent 90%);
-        background: color-mix(in oklab, var(--fg), transparent 96%);
+        background: color-mix(in oklab, var(--fg), transparent 97%);
     }
-    .pinnedTitle {
-        font-size: 11px;
+    .pinnedRow {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        align-items: center;
+        min-height: 24px;
+        min-width: 0;
+    }
+    .prefix {
+        font-size: 12px;
+        white-space: nowrap;
+        padding-right: 10px;
+    }
+    .pin {
+        font-size: 14px;
+        width: 16px;
+        text-align: center;
+        flex: 0 0 auto;
+    }
+    .pinName {
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+    .pinSpoke {
+        margin-left: auto;
+        flex: 0 0 auto;
+        font-size: 10px;
         font-weight: 800;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        opacity: 0.8;
-        margin-bottom: 8px;
+        opacity: 0.85;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        border-radius: 999px;
+        padding: 1px 6px;
     }
-    .pinnedRow {
-        display: grid;
-        grid-template-columns: 26px 1fr auto auto auto auto;
-        gap: 10px;
-        align-items: center;
-        min-width: 0;
-    }
-    .emo { font-size: 18px; text-align: center; }
-    .name { font-weight: 750; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-    .kv { display: grid; gap: 1px; }
-    .k { font-size: 10px; opacity: 0.65; text-transform: uppercase; letter-spacing: 0.08em; }
-    .v { font-size: 12px; font-weight: 700; white-space: nowrap; }
 
     .list { padding: 10px 10px 12px; overflow: auto; }
 
@@ -651,29 +675,30 @@
 
     .empty { padding: 10px 6px; font-size: 12px; opacity: 0.75; }
 
+    .itemWrap {
+        margin-bottom: 4px;
+        position: relative;
+    }
+
     .item {
         width: 100%;
         text-align: left;
         display: grid;
-        grid-template-columns: 30px 1fr 28px;
+        grid-template-columns: 30px 1fr;
         gap: 10px;
-        padding: 8px 8px;
+        padding: 8px 36px 8px 8px;
         border-radius: 12px;
         border: 1px solid transparent;
         background: transparent;
         color: var(--fg);
         cursor: pointer;
         transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
-        margin-bottom: 6px;
+        margin-bottom: 0;
     }
     .item:hover {
         background: color-mix(in oklab, var(--fg), transparent 93%);
         border-color: color-mix(in oklab, var(--fg), transparent 86%);
         transform: translateY(-0.5px);
-    }
-    .item.pinned {
-        border-color: color-mix(in oklab, var(--accent-live), transparent 55%);
-        background: color-mix(in oklab, var(--accent-live), transparent 92%);
     }
     .item.below { opacity: 0.8; }
 
@@ -698,9 +723,6 @@
 
     .d { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sep { margin: 0 6px; opacity: 0.6; }
-
-    .r { display: grid; place-items: center; }
-    .mini { opacity: 0.45; font-size: 14px; }
 
     .horizonSep {
         display: grid;
