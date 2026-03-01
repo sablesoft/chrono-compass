@@ -613,6 +613,7 @@ function horizonSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number
         index < 8 && index > 0 ? 'above horizon' : null,
         index > 8 && index < 16 ? 'below horizon' : null,
         code === 'E' ? 'cycle start' : null,
+        code === 'E_next' ? 'cycle end' : null,
         code === 'E' ? 'rising horizon' : null,
         code === 'W' ? 'W-horizon' : null,
         code === 'W' ? 'setting horizon' : null,

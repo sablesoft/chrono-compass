@@ -213,6 +213,7 @@
     let markerTweenRaf = 0;
     let markerTweenToken = 0;
     let pendingNodeSnap: { bodyId: ObjId; ts: number; code?: string } | null = null;
+    const NEXT_CYCLE_PICK_EPS_MS = 15_000;
 
     let pinnedBodyId: ObjId | null = null;
 
@@ -682,9 +683,55 @@
         for (const [, bodyNodes] of byBody) {
             const regularNodes = bodyNodes.filter((n) => orbitNodeGroup(n) === 'regular');
             const specialNodes = bodyNodes.filter((n) => orbitNodeGroup(n) !== 'regular');
+            const boundaryNodes = specialNodes.filter((n) => orbitNodeGroup(n) === 'boundary');
+            const otherSpecialNodes = specialNodes.filter((n) => orbitNodeGroup(n) !== 'boundary');
 
-            // Keep all special nodes (nodal/synod/bind/boundary/zenith-nadir) as-is.
-            out.push(...specialNodes);
+            // Keep all non-boundary special nodes as-is.
+            out.push(...otherSpecialNodes);
+
+            // Merge only overlapping boundary nodes (E / E+) into one marker with both moments.
+            if (boundaryNodes.length) {
+                const sortedBoundary = boundaryNodes.slice().sort((a, b) => a.ts - b.ts);
+                const bClusters: Array<{ rep: OrbitNodeUi; members: OrbitNodeUi[] }> = [];
+                for (const n of sortedBoundary) {
+                    let hit: { rep: OrbitNodeUi; members: OrbitNodeUi[] } | null = null;
+                    let bestDist = Number.POSITIVE_INFINITY;
+                    for (const c of bClusters) {
+                        const d = Math.hypot(n.x - c.rep.x, n.y - c.rep.y);
+                        if (d <= ORBIT_NODE_MERGE_RADIUS_VB && d < bestDist) {
+                            hit = c;
+                            bestDist = d;
+                        }
+                    }
+                    if (!hit) {
+                        bClusters.push({ rep: n, members: [n] });
+                        continue;
+                    }
+                    hit.members.push(n);
+                    if (n.ts < hit.rep.ts) hit.rep = n;
+                }
+
+                for (const c of bClusters) {
+                    if (c.members.length === 1) {
+                        out.push(c.members[0]);
+                        continue;
+                    }
+                    const tsList = Array.from(new Set(c.members.map((m) => m.ts)))
+                        .filter((v) => Number.isFinite(v))
+                        .sort((a, b) => a - b);
+                    const tags = Array.from(new Set(c.members.flatMap((m) => m.tip.tags ?? [])));
+                    const rep = c.rep;
+                    out.push({
+                        ...rep,
+                        key: `${rep.key}:boundary-merged`,
+                        tip: {
+                            ...rep.tip,
+                            tags,
+                            pickTsList: tsList.length ? tsList : [rep.ts]
+                        }
+                    });
+                }
+            }
 
             if (!regularNodes.length) continue;
 
@@ -792,19 +839,33 @@
         const tipMoment = get(tipState).moment;
         const parsed = parseOrbitNodeDesc(tipMoment?.desc);
         const snapBody = bodyId ?? parsed?.bodyId;
-        const snapCode = code ?? parsed?.code;
-        if (snapBody) pendingNodeSnap = { bodyId: snapBody, ts: ts0, code: snapCode };
+        const baseCode = code ?? parsed?.code;
+
+        const pickTsList = (tipMoment?.pickTsList ?? [])
+            .filter((x): x is number => Number.isFinite(x))
+            .sort((a, b) => a - b);
+        const lastPickTs = pickTsList.length ? pickTsList[pickTsList.length - 1] : NaN;
+        const hasCycleEndTag = Array.isArray(tipMoment?.tags) && tipMoment.tags.includes('cycle end');
+        const shouldStepToNextCycle =
+            baseCode === 'E_next' ||
+            baseCode === 'E+' ||
+            (Number.isFinite(lastPickTs) && Math.abs(ts0 - lastPickTs) <= 1_000) ||
+            (pickTsList.length <= 1 && hasCycleEndTag);
+
+        const pickedTs = shouldStepToNextCycle ? (ts0 + NEXT_CYCLE_PICK_EPS_MS) : ts0;
+        const snapCode = shouldStepToNextCycle ? 'E' : baseCode;
+        if (snapBody) pendingNodeSnap = { bodyId: snapBody, ts: pickedTs, code: snapCode };
 
         if (time.locked) {
             if (wheelId) {
                 boardApi.updateWheelTime(
                     wheelId,
-                    { live: false, ts: ts0, locked: true },
+                    { live: false, ts: pickedTs, locked: true },
                     'Compass.tip.goLocked'
                 );
             }
         } else {
-            setSelectedTs(ts0);
+            setSelectedTs(pickedTs);
         }
 
         tip.closeNow();
