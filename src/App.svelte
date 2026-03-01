@@ -9,16 +9,11 @@
 
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
 
-  let lat = -23.22;
-  let lon = -44.72;
-
   let resetUiId = 0;
   let unsubLoc: (() => void) | null = null;
 
   onMount(() => {
     unsubLoc = currentLocation.subscribe((v) => {
-      lat = v.lat;
-      lon = v.lon;
       resetUiId += 1;
     });
 
@@ -39,7 +34,7 @@
 <main>
   <div class="container">
     <Header />
-    <Board lat={lat} lon={lon} selectedTs={$selectedTsStore} />
+    <Board selectedTs={$selectedTsStore} />
   </div>
 </main>
 

@@ -1,7 +1,7 @@
 import * as Astronomy from 'astronomy-engine';
 import { objects } from '../catalog';
 import type { ObjId } from '../catalog';
-import type { MarkerItem } from '../wheel/wheel';
+import type { MarkerItem } from '../wheel/types';
 
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';

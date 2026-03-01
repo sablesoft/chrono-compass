@@ -5,7 +5,6 @@ import { compass } from './compass';
 import { horizon } from './horizon';
 import { synod } from './synod';
 import { bind } from './bind';
-import { range } from './range';
 import { season } from './season';
 import { nodal } from './nodal';
 import { plato } from './plato';
@@ -23,7 +22,6 @@ export const wheels: WheelsCatalog = {
     system,
     bind,
     synod,
-    range,
     season,
     nodal,
     plato,

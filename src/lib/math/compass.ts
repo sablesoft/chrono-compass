@@ -1,7 +1,7 @@
 // src/lib/math/compass.ts
 import { objects } from '../catalog';
 import type { ObjId } from '../catalog';
-import type { MarkerItem } from '../wheel/wheel'; // если путь у тебя другой — скажи, поправлю
+import type { MarkerItem } from '../wheel/types'; // если путь у тебя другой — скажи, поправлю
 
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';

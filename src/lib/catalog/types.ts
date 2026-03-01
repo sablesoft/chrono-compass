@@ -101,7 +101,6 @@ export type WheelType =
     | 'horizon'
     | 'synod'
     | 'bind'
-    | 'range'
     | 'season'
     | 'nodal'
     | 'plato'
@@ -194,7 +193,6 @@ export type HorizonRoleSet = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looke
 export type SynodRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
 export type NodalRoleSet   = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
 export type BindRoleSet    = RequireRoles<RoleSetOf<'focus' | 'target'>, 'focus' | 'target'>;
-export type RangeRoleSet   = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
 export type SeasonRoleSet  = RequireRoles<RoleSetOf<'focus' | 'target'>, 'focus' | 'target'>;
 export type PlatoRoleSet   = RequireRoles<RoleSetOf<'looker' | 'target'>, 'looker' | 'target'>;
 export type SystemRoleSet  = RequireRoles<RoleSetOf<'looker' | 'focus' | 'target'>, 'looker' | 'focus' | 'target'>;
@@ -225,7 +223,6 @@ export type WheelSpec =
     | WheelSpecBase<'horizon', HorizonRoleSet>
     | WheelSpecBase<'synod', SynodRoleSet>
     | WheelSpecBase<'bind', BindRoleSet>
-    | WheelSpecBase<'range', RangeRoleSet>
     | WheelSpecBase<'season', SeasonRoleSet>
     | WheelSpecBase<'nodal', NodalRoleSet>
     | WheelSpecBase<'plato', PlatoRoleSet>
