@@ -201,7 +201,19 @@
     let solveReason = '';
     let spokes: CycleSpoke[] = [];
     let solvePending = false;
-    $: showLoadingOverlay = solvePending;
+    $: solveRolesKey = JSON.stringify((wheel as any)?.roles ?? {});
+    $: solveLocationKey = String((isHorizon ? wheelLoc?.id : '') ?? '');
+    $: solveConfigReady = !!wheel && !!wheelId && (!isHorizon || !!wheelLoc);
+    $: solveConfigKey = `${wheelId ?? ''}|${wheel?.wheelType ?? ''}|${solveRolesKey}|${solveLocationKey}`;
+    $: solveRunKey = `${solveConfigKey}|${Number.isFinite(effTs) ? effTs : 'NaN'}`;
+
+    let solveDoneForConfig = false;
+    let solveDoneConfigKey = '';
+    $: if (solveDoneConfigKey !== solveConfigKey) {
+        solveDoneConfigKey = solveConfigKey;
+        solveDoneForConfig = false;
+    }
+    $: showLoadingOverlay = solveConfigReady && (solvePending || !solveDoneForConfig);
 
     let ensureRunId = 0;
 
@@ -218,6 +230,7 @@
 
         if (!wheel || !wheelId) {
             solveReason = 'No wheel';
+            solveDoneForConfig = true;
             if (ensureRunId === myRun) solvePending = false;
             return;
         }
@@ -235,6 +248,7 @@
 
             if (!res || (res as any).kind !== 'cycle') {
                 solveReason = 'Not a cycle result';
+                solveDoneForConfig = true;
                 return;
             }
 
@@ -244,16 +258,19 @@
 
             // обновляем спицы, только когда пришёл валидный ответ
             spokes = sortSpokes(r.spokes ?? []);
+            solveDoneForConfig = true;
         } catch (e: any) {
             if (ensureRunId !== myRun) return;
             solveReason = e?.message ?? 'Solve failed';
+            solveDoneForConfig = true;
         } finally {
             if (ensureRunId === myRun) solvePending = false;
         }
     }
 
     $: {
-        void ensureCycleForTs(effTs);
+        void solveRunKey;
+        if (solveConfigReady) void ensureCycleForTs(effTs);
     }
 
     // ------------------------------------------------------------

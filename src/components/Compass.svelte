@@ -1046,14 +1046,22 @@
     // ------------------------------------------------------------
     // Solve via unified dispatcher (async, race-safe)
     // ------------------------------------------------------------
-    let ensureRunId = 0;
-    let solvePending = false;
-    $: showLoadingOverlay = solvePending;
     $: solveTargetsKey = JSON.stringify(asBodyIdArray((roles as any)?.target));
     $: solveLookerKey = String(asBodyIdOrNull((roles as any)?.looker) ?? '');
     $: solveFocusKey = String(asBodyIdOrNull((roles as any)?.focus) ?? '');
     $: solveLocationKey = String(wheelLoc?.id ?? '');
     $: solveDepsKey = `${wheelId ?? ''}|${wheel?.wheelType ?? ''}|${solveLookerKey}|${solveFocusKey}|${solveTargetsKey}|${solveLocationKey}`;
+    $: solveInputReady = !!wheel && !!wheelLoc && asBodyIdArray((roles as any)?.target).length > 0 && wheelLat != null && wheelLon != null;
+
+    let ensureRunId = 0;
+    let solvePending = false;
+    let solveDoneForKey = false;
+    let solveDoneKey = '';
+    $: if (solveDoneKey !== solveDepsKey) {
+        solveDoneKey = solveDepsKey;
+        solveDoneForKey = false;
+    }
+    $: showLoadingOverlay = solveInputReady && (solvePending || !solveDoneForKey);
 
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
@@ -1066,6 +1074,7 @@
             markerClusters = [];
             lastTargets = [];
             displayTargets = [];
+            solveDoneForKey = true;
             if (ensureRunId === myRun) solvePending = false;
             return;
         }
@@ -1085,6 +1094,7 @@
                 markerClusters = [];
                 lastTargets = [];
                 displayTargets = [];
+                solveDoneForKey = true;
                 return;
             }
 
@@ -1092,6 +1102,7 @@
             lastTargets = applyPendingNodeSnap(solvedTargets);
             animateDisplayTargets(lastResolvedTs, ts, lastTargets);
             lastResolvedTs = ts;
+            solveDoneForKey = true;
         } finally {
             if (ensureRunId === myRun) solvePending = false;
         }
