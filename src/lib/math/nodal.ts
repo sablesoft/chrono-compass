@@ -337,9 +337,9 @@ function findLatitudeCrossingMs(opts: {
 
 function findNearestAscendingBefore(latAt: (t: number) => number, ts: number): number | null {
     const base = 45 * DAY_MS;
-    for (let k = 0; k < 11; k++) {
-        const window = base * Math.pow(2, k);
-        const step = clamp(window / 1200, 15 * 60_000, 12 * 60 * 60_000);
+    const maxWindow = 800 * 365 * DAY_MS;
+    for (let window = base; window <= maxWindow; window *= 2) {
+        const step = clamp(window / 2400, 15 * 60_000, 3 * DAY_MS);
         const hit = findLatitudeCrossingMs({
             t0: ts - window,
             t1: ts,
@@ -356,12 +356,13 @@ function findNearestAscendingBefore(latAt: (t: number) => number, ts: number): n
 
 function findNearestAscendingAfter(latAt: (t: number) => number, ts: number): number | null {
     const base = 45 * DAY_MS;
-    for (let k = 0; k < 11; k++) {
-        const window = base * Math.pow(2, k);
-        const step = clamp(window / 1200, 15 * 60_000, 12 * 60 * 60_000);
+    const maxWindow = 800 * 365 * DAY_MS;
+    const start = ts + 1000;
+    for (let window = base; window <= maxWindow; window *= 2) {
+        const step = clamp(window / 2400, 15 * 60_000, 3 * DAY_MS);
         const hit = findLatitudeCrossingMs({
-            t0: ts,
-            t1: ts + window,
+            t0: start,
+            t1: start + window,
             latAt,
             rising: true,
             mode: 'first',

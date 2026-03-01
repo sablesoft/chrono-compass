@@ -200,6 +200,8 @@
     let solveOk = false;
     let solveReason = '';
     let spokes: CycleSpoke[] = [];
+    let solvePending = false;
+    $: showLoadingOverlay = solvePending;
 
     let ensureRunId = 0;
 
@@ -209,36 +211,45 @@
 
     async function ensureCycleForTs(ts: number) {
         const myRun = ++ensureRunId;
+        solvePending = true;
 
         solveOk = false;
         solveReason = '';
 
         if (!wheel || !wheelId) {
             solveReason = 'No wheel';
+            if (ensureRunId === myRun) solvePending = false;
             return;
         }
 
-        const ctx = {
-            ts,
-            location: isHorizon ? wheelLoc : undefined,
-            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log },
-        };
+        try {
+            const ctx = {
+                ts,
+                location: isHorizon ? wheelLoc : undefined,
+                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log },
+            };
 
-        const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
+            const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
 
-        if (ensureRunId !== myRun) return;
+            if (ensureRunId !== myRun) return;
 
-        if (!res || (res as any).kind !== 'cycle') {
-            solveReason = 'Not a cycle result';
-            return;
+            if (!res || (res as any).kind !== 'cycle') {
+                solveReason = 'Not a cycle result';
+                return;
+            }
+
+            const r: any = res;
+            solveOk = !!r.ok;
+            solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
+
+            // обновляем спицы, только когда пришёл валидный ответ
+            spokes = sortSpokes(r.spokes ?? []);
+        } catch (e: any) {
+            if (ensureRunId !== myRun) return;
+            solveReason = e?.message ?? 'Solve failed';
+        } finally {
+            if (ensureRunId === myRun) solvePending = false;
         }
-
-        const r: any = res;
-        solveOk = !!r.ok;
-        solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
-
-        // обновляем спицы, только когда пришёл валидный ответ
-        spokes = sortSpokes(r.spokes ?? []);
     }
 
     $: {
@@ -1064,6 +1075,12 @@
             </div>
         </div>
     </div>
+
+    {#if showLoadingOverlay}
+        <div class="wheel-loading-overlay" aria-live="polite" aria-busy="true">
+            <div class="wheel-loading-spinner" aria-hidden="true"></div>
+        </div>
+    {/if}
 </section>
 
 <DocsModal
@@ -1084,6 +1101,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+        position: relative;
     }
     .wrap {
         width: 100%;

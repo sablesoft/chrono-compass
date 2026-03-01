@@ -1047,6 +1047,8 @@
     // Solve via unified dispatcher (async, race-safe)
     // ------------------------------------------------------------
     let ensureRunId = 0;
+    let solvePending = false;
+    $: showLoadingOverlay = solvePending;
     $: solveTargetsKey = JSON.stringify(asBodyIdArray((roles as any)?.target));
     $: solveLookerKey = String(asBodyIdOrNull((roles as any)?.looker) ?? '');
     $: solveFocusKey = String(asBodyIdOrNull((roles as any)?.focus) ?? '');
@@ -1055,6 +1057,7 @@
 
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
+        solvePending = true;
 
         const targets = asBodyIdArray((roles as any)?.target);
         // const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
@@ -1063,30 +1066,35 @@
             markerClusters = [];
             lastTargets = [];
             displayTargets = [];
+            if (ensureRunId === myRun) solvePending = false;
             return;
         }
 
-        const ctx = {
-            ts,
-            location: wheelLoc,
-            dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
-        };
+        try {
+            const ctx = {
+                ts,
+                location: wheelLoc,
+                dbg: { log: dbg.log, warn: dbg.log, error: dbg.log }
+            };
 
-        const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
+            const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
 
-        if (ensureRunId !== myRun) return;
+            if (ensureRunId !== myRun) return;
 
-        if (!res || res.kind !== 'compass' || !res.ok) {
-            markerClusters = [];
-            lastTargets = [];
-            displayTargets = [];
-            return;
+            if (!res || res.kind !== 'compass' || !res.ok) {
+                markerClusters = [];
+                lastTargets = [];
+                displayTargets = [];
+                return;
+            }
+
+            const solvedTargets = (res.bodies as CompassTargetState[]) ?? [];
+            lastTargets = applyPendingNodeSnap(solvedTargets);
+            animateDisplayTargets(lastResolvedTs, ts, lastTargets);
+            lastResolvedTs = ts;
+        } finally {
+            if (ensureRunId === myRun) solvePending = false;
         }
-
-        const solvedTargets = (res.bodies as CompassTargetState[]) ?? [];
-        lastTargets = applyPendingNodeSnap(solvedTargets);
-        animateDisplayTargets(lastResolvedTs, ts, lastTargets);
-        lastResolvedTs = ts;
     }
 
     $: {
@@ -1844,6 +1852,12 @@
             {/if}
         </div>
     </div>
+
+    {#if showLoadingOverlay}
+        <div class="wheel-loading-overlay" aria-live="polite" aria-busy="true">
+            <div class="wheel-loading-spinner" aria-hidden="true"></div>
+        </div>
+    {/if}
 </section>
 
 <DocsModal
@@ -1864,6 +1878,7 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+        position: relative;
     }
     .wrap {
         width: 100%;
