@@ -12,6 +12,7 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import WheelHeader from './WheelHeader.svelte';
+    import WheelInfoBlock from './WheelInfoBlock.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
@@ -44,6 +45,9 @@
     export let selectedTs: number;
     export let location: Location;
     export let onUserActivity: () => void = () => {};
+    export let dragEnabled = false;
+    export let onCardDragStart: (e: DragEvent) => void = () => {};
+    export let onCardDragEnd: () => void = () => {};
     $: void selectedTs;
 
     const dbg = debug('COMPASS', '🧭');
@@ -1383,14 +1387,129 @@
     onDestroy(() => {
         stopMarkerTween();
     });
+
+    $: showVisualSection = wheel?.view?.showVisual !== false;
+    $: showInfoSection = wheel?.view?.showInfo !== false;
+
+    function toggleVisualSection() {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showVisual: !showVisualSection } },
+            'Compass.toggleVisualSection'
+        );
+    }
+
+    function toggleInfoSection() {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showInfo: !showInfoSection } },
+            'Compass.toggleInfoSection'
+        );
+    }
+
+    function handleCompassInfoRowPick(id: string) {
+        if (id === 'pinned' && pinnedRow) {
+            clearPinned();
+        }
+    }
+
+    $: pinnedPrimaryText = pinnedRow
+        ? `${pinnedRow.primaryLabel} ${pinnedRow.primaryDeg.toFixed(1)}°`
+        : '— —';
+    $: pinnedSecondaryText = pinnedRow
+        ? `${pinnedRow.secondaryLabel} ${pinnedRow.secondaryDeg.toFixed(1)}°`
+        : '— —';
+    $: compassInfoChips = pinnedRow
+        ? [{
+            id: 'pinned',
+            clickable: true,
+            title: 'Unpin body',
+            ariaLabel: 'Unpin body',
+            text: `${pinnedRow.emoji} ${pinnedRow.name} • ${pinnedRow.house} • ${pinnedPrimaryText} • ${pinnedSecondaryText}`,
+            label: `${pinnedRow.emoji} ${pinnedRow.name}`,
+            value: `${pinnedRow.house} • ${pinnedPrimaryText} • ${pinnedSecondaryText}`,
+            kind: 'accent'
+        }]
+        : [];
 </script>
 
 <section class="panel">
-    <WheelHeader wheel={wheel} onDocs={docs.openDocs} onClose={closeCompass}/>
+    <WheelHeader
+            wheel={wheel}
+            onDocs={docs.openDocs}
+            onClose={closeCompass}
+            dragEnabled={dragEnabled}
+            onDragStart={onCardDragStart}
+            onDragEnd={onCardDragEnd}
+            visualOpen={showVisualSection}
+            infoOpen={showInfoSection}
+            onToggleVisual={toggleVisualSection}
+            onToggleInfo={toggleInfoSection}
+    />
+
+    <div class="headerBottom" class:twoCols={isCompassWheelType}>
+        {#if isCompassWheelType}
+            <div class="pickerRow">
+                <div class="rowFill">
+                    <LocationPicker
+                            value={wheelLoc}
+                            locked={observer.locked}
+                            onChange={(loc) => {
+                              onUserActivity();
+
+                              const patch: Partial<WheelObserverState> = {
+                                locationId: loc.id,
+                                locked: true
+                              };
+
+                              dbg.log?.('Compass.location.apply', { patch });
+                              boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
+                            }}
+                            onToggleLock={(next) => {
+                              onUserActivity();
+                              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
+                            }}/>
+                </div>
+            </div>
+        {/if}
+
+        <div class="pickerRow">
+            <div class="rowFill">
+                <TimePicker
+                        value={time}
+                        locked={time.locked}
+                        liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
+                        onChange={(next, meta) => {
+                          onUserActivity();
+
+                          const patch: Partial<WheelTimeState> =
+                            next.live
+                              ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                              : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+
+                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
+                        }}
+                        onToggleLock={(next) => {
+                          onUserActivity();
+                          const patch: Partial<WheelTimeState> = next
+                              ? { locked: true }
+                              : (globalLive
+                                  ? { locked: false, live: true }
+                                  : { locked: false, live: false, ts: globalTs });
+                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.lock');
+                        }}/>
+            </div>
+        </div>
+    </div>
 
     <!-- WHEEL SVG -->
-    <div class="wrap" bind:this={wrapEl}>
-        <section class="wheelPanel">
+    {#if showVisualSection}
+        <div class="wrap" bind:this={wrapEl}>
+            <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
                      role="button"
@@ -1769,91 +1888,14 @@
                         onClose={tip.closeNow}
                 />
             {/if}
-        </section>
-    </div>
+            </section>
+        </div>
+    {/if}
 
     <!-- INFO -->
-    <div class="info">
-        {#if isCompassWheelType}
-            <div class="padding-right">
-                <div class="rowFill">
-                    <LocationPicker
-                            value={wheelLoc}
-                            locked={observer.locked}
-                            onChange={(loc) => {
-                              onUserActivity();
-
-                              const patch: Partial<WheelObserverState> = {
-                                locationId: loc.id,
-                                locked: true
-                              };
-
-                              dbg.log?.('Compass.location.apply', { patch });
-                              boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
-                            }}
-                            onToggleLock={(next) => {
-                              onUserActivity();
-                              boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
-                            }}/>
-                </div>
-            </div>
-        {/if}
-
-        <div class="padding-right">
-            <div class="rowFill">
-                <TimePicker
-                        value={time}
-                        locked={time.locked}
-                        liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
-                        onChange={(next, meta) => {
-                          onUserActivity();
-
-                          const patch: Partial<WheelTimeState> =
-                            next.live
-                              ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                              : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-
-                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
-                        }}
-                        onToggleLock={(next) => {
-                          onUserActivity();
-                          const patch: Partial<WheelTimeState> = next
-                              ? { locked: true }
-                              : (globalLive
-                                  ? { locked: false, live: true }
-                                  : { locked: false, live: false, ts: globalTs });
-                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.lock');
-                        }}/>
-            </div>
-        </div>
-
-        <div class="infoRow pinnedRow" class:emptyPinned={!pinnedRow}>
-            {#if pinnedRow}
-                <div class="rowFill">
-                    <div class="pinnedLine" title="Pinned body">
-                        <span class="pE">{pinnedRow.emoji}</span>
-                        <span class="pN">{pinnedRow.name}</span>
-                        <span class="pH">{pinnedRow.house}</span>
-                        <span class="pA">{pinnedRow.primaryLabel} {pinnedRow.primaryDeg.toFixed(1)}°</span>
-                        <span class="pAlt">{pinnedRow.secondaryLabel} {pinnedRow.secondaryDeg.toFixed(1)}°</span>
-                    </div>
-                </div>
-
-                <button class="hb" type="button" title="Unpin" on:click={clearPinned}>×</button>
-            {:else}
-                <div class="rowFill">
-                    <div class="pinnedLine muted" title="No pinned body">
-                        <span class="pE">📌</span>
-                        <span class="pN">No pinned body</span>
-                        <span class="pH">—</span>
-                        <span class="pA">— —</span>
-                        <span class="pAlt">— —</span>
-                    </div>
-                </div>
-                <button class="navBtn" type="button" disabled title="Pin a body to see details">×</button>
-            {/if}
-        </div>
-    </div>
+    {#if showInfoSection}
+        <WheelInfoBlock chips={compassInfoChips} onChipClick={handleCompassInfoRowPick} />
+    {/if}
 
     {#if showLoadingOverlay}
         <div class="wheel-loading-overlay" aria-live="polite" aria-busy="true">
@@ -1875,7 +1917,7 @@
         border: 1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 18px;
-        padding: 14px;
+        padding: 12px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -1887,6 +1929,16 @@
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
+    }
+    .headerBottom {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+        margin-bottom: 10px;
+    }
+    .headerBottom.twoCols {
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        align-items: stretch;
     }
 
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
@@ -1977,11 +2029,6 @@
         opacity: 0.55;
     }
 
-    .pinnedLine.muted .pH {
-        background: transparent;
-        border: 2px dashed color-mix(in oklab, var(--fg), transparent 80%);
-    }
-
     .pinnedLine {
         display: grid !important;
         grid-template-columns: auto 1fr auto auto auto;
@@ -2000,6 +2047,23 @@
         display: block;
     }
 
+    .pickerRow {
+        display: grid;
+        grid-template-columns: 1fr;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 6px;
+        border-radius: 10px;
+        box-sizing: border-box;
+        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
+        box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg), transparent 90%);
+    }
+    @media (max-width: 980px) {
+        .headerBottom.twoCols {
+            grid-template-columns: 1fr;
+        }
+    }
+
     /* ключевой момент: тянем корневой DOM-элемент компонента */
     .rowFill :global(> *) {
         width: 100%;
@@ -2009,7 +2073,7 @@
     .rowFill :global(> *) { margin: 0; }
     /* Убираем "внутреннюю карточку" у пикеров */
     /*noinspection CssUnusedSymbol*/
-    .infoRow :global(.face) {
+    .pickerRow :global(.face) {
         background: transparent !important;
         border: 0 !important;
         /*border-radius: 0 !important;*/

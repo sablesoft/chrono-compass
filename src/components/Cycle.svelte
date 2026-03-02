@@ -17,6 +17,7 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import WheelHeader from './WheelHeader.svelte';
+    import WheelInfoBlock from './WheelInfoBlock.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
@@ -44,6 +45,9 @@
     export let selectedTs: number;
     export let location: Location;
     export let onUserActivity: () => void = () => {};
+    export let dragEnabled = false;
+    export let onCardDragStart: (e: DragEvent) => void = () => {};
+    export let onCardDragEnd: () => void = () => {};
 
     const dbg = debug('CYCLE', '🌀');
 
@@ -681,13 +685,187 @@
     // Markers (stub)
     let markerClusters: MarkerCluster[] = [];
     markerClusters = [];
+
+    $: showVisualSection = wheel?.view?.showVisual !== false;
+    $: showInfoSection = wheel?.view?.showInfo !== false;
+
+    function toggleVisualSection() {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showVisual: !showVisualSection } },
+            'Cycle.toggleVisualSection'
+        );
+    }
+
+    function toggleInfoSection() {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showInfo: !showInfoSection } },
+            'Cycle.toggleInfoSection'
+        );
+    }
+
+    function handleInfoRowPick(id: string) {
+        if (id === 'spoke') {
+            const t = spokeTimes?.[activeSpokeIndex];
+            if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
+            return;
+        }
+        if (id === 'begin') {
+            if (Number.isFinite(cycleBeginTs)) jumpTo(cycleBeginTs, 'cycleBegin');
+            return;
+        }
+        if (id === 'end') {
+            const t = resolveSpokePickTs(16);
+            if (Number.isFinite(t)) jumpTo(t, 'cycleEndNext');
+        }
+    }
+
+    function orderInfoChips<T extends { id: string }>(chips: T[], order: string[] | undefined): T[] {
+        if (!Array.isArray(order) || order.length === 0) return chips;
+        const map = new Map(chips.map((c) => [c.id, c]));
+        const out: T[] = [];
+        const seen = new Set<string>();
+        for (const id of order) {
+            const hit = map.get(id);
+            if (!hit || seen.has(id)) continue;
+            out.push(hit);
+            seen.add(id);
+        }
+        for (const c of chips) {
+            if (seen.has(c.id)) continue;
+            out.push(c);
+        }
+        return out;
+    }
+
+    function handleInfoChipReorder(ids: string[]) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { infoChipOrder: ids } },
+            'Cycle.reorderInfoChips'
+        );
+    }
+
+    $: cycleInfoChips = [
+        {
+            id: 'spoke',
+            clickable: true,
+            disabled: !solveOk,
+            title: solveOk ? `Go to ${activeSpokeLabel}` : solveReason || 'Solve failed',
+            ariaLabel: `Go to ${activeSpokeLabel}`,
+            text: `Spoke ${activeSpokeLabel} • ${solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}`,
+            label: `Spoke ${activeSpokeLabel}`,
+            value: solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data'),
+            kind: 'default'
+        },
+        {
+            id: 'begin',
+            clickable: true,
+            disabled: !solveOk,
+            title: 'Go to Begin (E)',
+            ariaLabel: 'Go to Begin (E)',
+            text: `Begin E • ${solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data')}`,
+            label: 'Begin E',
+            value: solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data'),
+            kind: 'accent'
+        },
+        {
+            id: 'end',
+            clickable: true,
+            disabled: !solveOk,
+            title: 'Go to End (E+)',
+            ariaLabel: 'Go to End (E+)',
+            text: `End E+ • ${solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data')}`,
+            label: 'End E+',
+            value: solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data'),
+            kind: 'accent'
+        },
+        {
+            id: 'duration',
+            text: `Duration • ${solveOk ? cycleDurationHuman : '—'}`,
+            label: 'Duration',
+            value: solveOk ? cycleDurationHuman : '—',
+            kind: 'muted'
+        }
+    ];
+    $: cycleInfoChipsOrdered = orderInfoChips(cycleInfoChips, wheel?.view?.infoChipOrder);
 </script>
 
 <section class="panel">
-    <WheelHeader wheel={wheel} onDocs={docs.openDocs} onClose={closeCycle}/>
+    <WheelHeader
+            wheel={wheel}
+            onDocs={docs.openDocs}
+            onClose={closeCycle}
+            dragEnabled={dragEnabled}
+            onDragStart={onCardDragStart}
+            onDragEnd={onCardDragEnd}
+            visualOpen={showVisualSection}
+            infoOpen={showInfoSection}
+            onToggleVisual={toggleVisualSection}
+            onToggleInfo={toggleInfoSection}
+    />
 
-    <div class="wrap" bind:this={wrapEl}>
-        <section class="wheelPanel">
+    <div class="headerBottom" class:twoCols={isHorizon}>
+        {#if isHorizon}
+            <div class="pickerRow">
+                <div class="rowFill">
+                    <LocationPicker
+                            value={wheelLoc}
+                            locked={observer.locked}
+                            onChange={(loc) => {
+                            onUserActivity();
+                                const patch: Partial<WheelObserverState> = {
+                                    locationId: loc.id,
+                                    locked: true
+                                };
+                                dbg.log?.('Cycle.location.apply', { patch, wheelId });
+                                if (!wheelId) return;
+                                boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
+                            }}
+                            onToggleLock={(next) => {
+                                onUserActivity();
+                                if (!wheelId) return;
+                                boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
+                            }}
+                    />
+                </div>
+            </div>
+        {/if}
+
+        <div class="pickerRow">
+            <div class="rowFill">
+                <TimePicker
+                        value={time}
+                        locked={time.locked}
+                        liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
+                        onChange={(next, meta) => {
+                            onUserActivity();
+                            const patch: Partial<WheelTimeState> =
+                                next.live
+                                    ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                                    : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+                            if (!wheelId) return;
+                            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
+                        }}
+                        onToggleLock={(next) => {
+                            onUserActivity();
+                            if (!wheelId) return;
+                            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
+                        }}
+                />
+            </div>
+        </div>
+    </div>
+
+    {#if showVisualSection}
+        <div class="wrap" bind:this={wrapEl}>
+            <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
@@ -963,135 +1141,18 @@
                         onLeave={tip.scheduleClose}
                 />
             {/if}
-        </section>
-    </div>
-
-    <div class="info">
-        <div class="infoRow">
-            <button
-                    class="infoLine"
-                    type="button"
-                    title={solveOk ? `Go to ${activeSpokeLabel}` : solveReason || 'Solve failed'}
-                    disabled={!solveOk}
-                    on:click={() => {
-                    const t = spokeTimes?.[activeSpokeIndex];
-                    if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
-                }}>
-                <div class="infoLabel">
-                    <span class="labelText">Spoke</span>
-                    <span class="chip">{activeSpokeLabel}</span>
-                </div>
-                <div class="infoValue">{solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}</div>
-            </button>
+            </section>
         </div>
+    {/if}
 
-        <div class="infoRow">
-            <div
-                    class="infoLine"
-                    role="button"
-                    tabindex="0"
-                    aria-label="Go to Begin (E)"
-                    class:disabledLine={!solveOk}
-                    on:click={() => Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin')}
-                    on:keydown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
-                        e.preventDefault();
-                        Number.isFinite(cycleBeginTs) && jumpTo(cycleBeginTs, 'cycleBegin');
-                    }
-                }}>
-                <div class="infoLabel">
-                    <span class="labelText">Begin</span>
-                    <span class="chip">E</span>
-                </div>
-                <div class="infoValue">{solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data')}</div>
-            </div>
-        </div>
-
-        <div class="infoRow">
-            <div
-                    class="infoLine"
-                    role="button"
-                    tabindex="0"
-                    aria-label="Go to End (E+)"
-                    class:disabledLine={!solveOk}
-                    on:click={() => {
-                    const t = resolveSpokePickTs(16);
-                    Number.isFinite(t) && jumpTo(t, 'cycleEndNext');
-                }}
-                    on:keydown={(e) => {
-                    if ((e.key === 'Enter' || e.key === ' ') && solveOk) {
-                        e.preventDefault();
-                        const t = resolveSpokePickTs(16);
-                        Number.isFinite(t) && jumpTo(t, 'cycleEndNext');
-                    }
-                }}>
-                <div class="infoLabel">
-                    <span class="labelText">End</span>
-                    <span class="chip">E+</span>
-                </div>
-                <div class="infoValue">{solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data')}</div>
-            </div>
-        </div>
-
-        <div class="infoRow">
-            <div class="infoLine staticLine">
-                <div class="infoLabel">
-                    <span class="labelText">Duration</span>
-                </div>
-                <div class="infoValue">{solveOk ? cycleDurationHuman : '—'}</div>
-            </div>
-        </div>
-
-        {#if isHorizon}
-            <div class="padding-right">
-                <div class="rowFill">
-                    <LocationPicker
-                            value={wheelLoc}
-                            locked={observer.locked}
-                            onChange={(loc) => {
-                            onUserActivity();
-                                const patch: Partial<WheelObserverState> = {
-                                    locationId: loc.id,
-                                    locked: true
-                                };
-                                dbg.log?.('Cycle.location.apply', { patch, wheelId });
-                                if (!wheelId) return;
-                                boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
-                            }}
-                            onToggleLock={(next) => {
-                                onUserActivity();
-                                if (!wheelId) return;
-                                boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
-                            }}
-                    />
-                </div>
-            </div>
-        {/if}
-
-        <div class="padding-right">
-            <div class="rowFill">
-                <TimePicker
-                        value={time}
-                        locked={time.locked}
-                        liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
-                        onChange={(next, meta) => {
-                            onUserActivity();
-                            const patch: Partial<WheelTimeState> =
-                                next.live
-                                    ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                                    : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-                            if (!wheelId) return;
-                            boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
-                        }}
-                        onToggleLock={(next) => {
-                            onUserActivity();
-                            if (!wheelId) return;
-                            boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
-                        }}
-                />
-            </div>
-        </div>
-    </div>
+    {#if showInfoSection}
+        <WheelInfoBlock
+                chips={cycleInfoChipsOrdered}
+                onChipClick={handleInfoRowPick}
+                onReorder={handleInfoChipReorder}
+                reorderEnabled={true}
+        />
+    {/if}
 
     {#if showLoadingOverlay}
         <div class="wheel-loading-overlay" aria-live="polite" aria-busy="true">
@@ -1113,7 +1174,7 @@
         border: 1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 18px;
-        padding: 14px;
+        padding: 12px;
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -1125,6 +1186,16 @@
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
+    }
+    .headerBottom {
+        display: grid;
+        gap: 6px;
+        margin-top: 8px;
+        margin-bottom: 10px;
+    }
+    .headerBottom.twoCols {
+        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        align-items: stretch;
     }
     .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
     .wheelBox {
@@ -1210,20 +1281,13 @@
         will-change: transform;
     }
 
-    .info {
+    .rowFill{
+        min-width: 0;
         width: 100%;
-        max-width: 100%;
-        font-size: 18px;
-        line-height: 1.75;
-        opacity: 0.82;
-        display: grid;
-        gap: 2px;
-        margin-top: auto;   /* вот это магия “прилипни вниз” */
-        min-height: 0;
-        overflow: auto;
+        display: block;
     }
 
-    .infoRow {
+    .pickerRow {
         display: grid;
         grid-template-columns: 1fr;
         align-items: center;
@@ -1234,10 +1298,10 @@
         background: color-mix(in oklab, var(--panel), var(--fg) 2%);
         box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg), transparent 90%);
     }
-    .rowFill{
-        min-width: 0;
-        width: 100%;
-        display: block;
+    @media (max-width: 980px) {
+        .headerBottom.twoCols {
+            grid-template-columns: 1fr;
+        }
     }
 
     .rowFill :global(> *) {
@@ -1248,62 +1312,10 @@
     .rowFill :global(> *) { margin: 0; }
 
     /*noinspection CssUnusedSymbol*/
-    .infoRow :global(.face) {
+    .pickerRow :global(.face) {
         background: transparent !important;
         border: 0 !important;
         box-shadow: none !important;
-    }
-    .infoLine{
-        display: grid;
-        grid-template-columns: 130px 1fr; /* ← фиксируешь “левую” колонку */
-        align-items: center;
-        gap: 10px;
-        padding: 4px 8px;
-        background: transparent;
-        border: none;
-    }
-
-    .infoLine:not(.staticLine){
-        cursor: pointer;
-    }
-
-    .infoLine:not(.staticLine):hover{
-        background: rgba(255,255,255,0.05);
-    }
-
-    .disabledLine{
-        opacity: 0.55;
-        cursor: default;
-        pointer-events: none;
-    }
-
-    .infoLabel{
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .labelText{
-        font-weight: 700;
-        opacity: 0.9;
-    }
-
-    .chip{
-        font-weight: 700;
-        font-size: 0.85em;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: rgba(255,255,255,0.06);
-        border: 1px solid rgba(255,255,255,0.08);
-        opacity: 0.85;
-    }
-
-    .infoValue{
-        text-align: right;        /* ← чтобы даты ровно по правому краю */
-        font-variant-numeric: tabular-nums; /* ← ровные цифры, сильный win */
-        opacity: 0.9;
-        min-width: 0;
     }
 
     .roleEmoji{
@@ -1361,8 +1373,5 @@
     .cycleDown {
         width: 34px;
         height: 34px;
-    }
-    .padding-right {
-        padding-right: 2px;
     }
 </style>

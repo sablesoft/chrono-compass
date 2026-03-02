@@ -8,9 +8,18 @@ import type { WheelRolesState } from '../wheel/control';
 
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 
-import type { BoardWheel } from './types';
+import type { BoardWheel, BoardWheelView } from './types';
 import { DEFAULT_LOCATION_ID } from '../location/types';
 import { DEFAULT_TIME } from '../time/types';
+import {
+    BOARD_DEFAULT_H,
+    BOARD_DEFAULT_W,
+    BOARD_GRID_COLUMNS,
+    buildLayoutForIds,
+    insertAtFirstFit,
+    moveAndCompact,
+    normalizeRect
+} from './layoutEngine';
 
 export type BoardState = {
     items: BoardWheel[];
@@ -19,8 +28,34 @@ export type BoardState = {
 
 const dbg = debug('board', '👤');
 const KEY = 'chrono:board';
+export const DEFAULT_WHEEL_CARD_SIZE = 560;
 
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
+const DEFAULT_VIEW: BoardWheelView = { showVisual: true, showInfo: true, infoChipOrder: [] };
+
+function normalizeInfoChipOrder(input: unknown): string[] {
+    if (!Array.isArray(input)) return [];
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const raw of input) {
+        if (typeof raw !== 'string') continue;
+        const id = raw.trim();
+        if (!id || seen.has(id)) continue;
+        seen.add(id);
+        out.push(id);
+    }
+    return out;
+}
+
+function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWheelView {
+    const base = fallback ?? DEFAULT_VIEW;
+    const src = (input && typeof input === 'object') ? (input as Record<string, unknown>) : {};
+    return {
+        showVisual: src.showVisual !== false,
+        showInfo: src.showInfo !== false,
+        infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder)
+    };
+}
 
 function now(): number {
     return Date.now();
@@ -121,7 +156,9 @@ function normalizeBoard(input: any): BoardState {
                     observer,
                     time,
                     order: Number.isFinite(x.order) ? (x.order as number) : i,
-                    size: Number.isFinite(x.size) ? (x.size as number) : undefined
+                    size: Number.isFinite(x.size) ? (x.size as number) : DEFAULT_WHEEL_CARD_SIZE,
+                    layout: normalizeRect((x as any).layout, BOARD_GRID_COLUMNS),
+                    view: normalizeWheelView((x as any)?.view)
                 };
             });
 
@@ -129,6 +166,12 @@ function normalizeBoard(input: any): BoardState {
         let items = normalizeOrder(parsedItems);
         items = dedupeWheelItemsById(items);
         items = normalizeOrder(items);
+        {
+            const ids = items.map((x) => x.id);
+            const existing = new Map(items.map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)]));
+            const packed = buildLayoutForIds(ids, existing, BOARD_GRID_COLUMNS);
+            items = items.map((x) => ({ ...x, layout: packed.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS) }));
+        }
 
         const out: BoardState = {
             items,
@@ -194,7 +237,21 @@ type WheelPatch = {
     observer?: Partial<WheelObserverState>;
     time?: Partial<WheelTimeState>;
     size?: number;
+    layout?: Partial<NonNullable<BoardWheel['layout']>>;
+    view?: Partial<NonNullable<BoardWheel['view']>>;
 };
+
+function sortByLayoutThenOrder(items: BoardWheel[]): BoardWheel[] {
+    return items.slice().sort((a, b) => {
+        const ay = Number.isFinite(a.layout?.y) ? Number(a.layout?.y) : Number.MAX_SAFE_INTEGER;
+        const by = Number.isFinite(b.layout?.y) ? Number(b.layout?.y) : Number.MAX_SAFE_INTEGER;
+        if (ay !== by) return ay - by;
+        const ax = Number.isFinite(a.layout?.x) ? Number(a.layout?.x) : Number.MAX_SAFE_INTEGER;
+        const bx = Number.isFinite(b.layout?.x) ? Number(b.layout?.x) : Number.MAX_SAFE_INTEGER;
+        if (ax !== bx) return ax - bx;
+        return a.order - b.order;
+    });
+}
 
 export const boardApi = {
     get(): BoardState {
@@ -248,10 +305,21 @@ export const boardApi = {
                 observer,
                 time,
                 order,
-                size: input.size
+                size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
+                layout: undefined,
+                view: normalizeWheelView(null)
             };
 
             cur.push(item);
+            {
+                const existing = new Map(
+                    cur
+                        .filter((x) => x.id !== id)
+                        .map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)])
+                );
+                const withNew = insertAtFirstFit(existing, id, { w: BOARD_DEFAULT_W, h: BOARD_DEFAULT_H }, BOARD_GRID_COLUMNS);
+                for (const x of cur) x.layout = withNew.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS);
+            }
 
             dbg.log('boardApi.addWheel.ok', { id, wheelType, order, reason });
             setItems(cur, reason);
@@ -295,12 +363,23 @@ export const boardApi = {
                 observer,
                 time,
                 order: 0,
-                size: input.size
+                size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
+                layout: undefined,
+                view: normalizeWheelView(null)
             };
 
             const at = cur.findIndex((x) => x.id === beforeId);
             const insertAt = at >= 0 ? at : cur.length;
             cur.splice(insertAt, 0, item);
+            {
+                const existing = new Map(
+                    cur
+                        .filter((x) => x.id !== id)
+                        .map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)])
+                );
+                const withNew = insertAtFirstFit(existing, id, { w: BOARD_DEFAULT_W, h: BOARD_DEFAULT_H }, BOARD_GRID_COLUMNS);
+                for (const x of cur) x.layout = withNew.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS);
+            }
 
             const next = cur.map((x, i) => ({ ...x, order: i }));
             dbg.log('boardApi.addWheelBefore.ok', { id, wheelType, beforeId, insertAt, reason });
@@ -343,6 +422,12 @@ export const boardApi = {
 
             const title: string = patch.title !== undefined ? String(patch.title ?? '') : prev.title;
             const size: number | undefined = patch.size !== undefined ? patch.size : prev.size;
+            const layout = patch.layout
+                ? normalizeRect({ ...(prev.layout ?? {}), ...(patch.layout as any) }, BOARD_GRID_COLUMNS)
+                : prev.layout;
+            const view = patch.view
+                ? normalizeWheelView({ ...(prev.view ?? DEFAULT_VIEW), ...(patch.view as any) }, prev.view ?? DEFAULT_VIEW)
+                : normalizeWheelView(prev.view ?? DEFAULT_VIEW);
 
             cur[idx] = {
                 ...prev,
@@ -351,8 +436,21 @@ export const boardApi = {
                 observer,
                 time,
                 title,
-                size
+                size,
+                layout,
+                view
             };
+
+            if (patch.layout) {
+                const ordered = sortByLayoutThenOrder(cur);
+                const ids = ordered.map((x) => x.id);
+                const packed = buildLayoutForIds(
+                    ids,
+                    new Map(cur.map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)])),
+                    BOARD_GRID_COLUMNS
+                );
+                for (const x of cur) x.layout = packed.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS);
+            }
 
             dbg.log('updateWheelById.ok', { id, reason });
             setItems(cur, reason);
@@ -387,7 +485,9 @@ export const boardApi = {
                     roles,
                     observer,
                     time,
-                    size: x.size,
+                    size: Number.isFinite(x.size) ? x.size : DEFAULT_WHEEL_CARD_SIZE,
+                    layout: normalizeRect((x as any).layout, BOARD_GRID_COLUMNS),
+                    view: normalizeWheelView((x as any)?.view),
                     order: i
                 };
             });
@@ -396,10 +496,8 @@ export const boardApi = {
         });
     },
 
-    moveWheelById(id: string, dir: -1 | 1, opts?: { carouselWrap?: boolean }, reason = 'moveWheelById') {
+    moveWheelById(id: string, dir: -1 | 1, _opts?: { carouselWrap?: boolean }, reason = 'moveWheelById') {
         dbg.group('boardApi.moveWheelById', () => {
-            const carouselWrap = opts?.carouselWrap === true;
-
             const cur = get(boardState).items
                 .slice()
                 .sort((a, b) => a.order - b.order);
@@ -407,34 +505,89 @@ export const boardApi = {
             const n = cur.length;
             if (n < 2) return;
 
-            const from = cur.findIndex((x) => x.id === id);
-            if (from < 0) {
+            const visual = cur
+                .slice()
+                .sort((a, b) => {
+                    const ay = Number.isFinite(a.layout?.y) ? Number(a.layout?.y) : Number.MAX_SAFE_INTEGER;
+                    const by = Number.isFinite(b.layout?.y) ? Number(b.layout?.y) : Number.MAX_SAFE_INTEGER;
+                    if (ay !== by) return ay - by;
+                    const ax = Number.isFinite(a.layout?.x) ? Number(a.layout?.x) : Number.MAX_SAFE_INTEGER;
+                    const bx = Number.isFinite(b.layout?.x) ? Number(b.layout?.x) : Number.MAX_SAFE_INTEGER;
+                    if (ax !== bx) return ax - bx;
+                    return a.order - b.order;
+                });
+
+            const from = visual.findIndex((x) => x.id === id);
+            if (from < 0 || !visual[from]) {
                 dbg.warn('moveWheelById.notFound', { id, reason });
                 return;
             }
 
             let to = from + dir;
-
-            // wrap logic
-            if (to < 0) {
-                to = carouselWrap ? Math.max(0, n - 2) : n - 1;
-            } else if (to >= n) {
-                to = carouselWrap ? Math.min(n - 1, 1) : 0;
-            }
+            if (to < 0) to = n - 1;
+            else if (to >= n) to = 0;
 
             if (to === from) {
-                dbg.log('moveWheelById.noop', { id, from, to, dir, carouselWrap, reason });
+                dbg.log('moveWheelById.noop', { id, from, to, dir, reason });
                 return;
             }
 
-            const a = cur[from];
-            const b = cur[to];
+            const fromItem = visual[from];
+            const toItem = visual[to];
+            const fromRect = normalizeRect(fromItem.layout, BOARD_GRID_COLUMNS);
+            const toRect = normalizeRect(toItem.layout, BOARD_GRID_COLUMNS);
 
-            const next = cur.slice();
-            next[from] = { ...a, order: b.order };
-            next[to] = { ...b, order: a.order };
+            const next = cur.map((x) => {
+                if (x.id === fromItem.id) return { ...x, layout: toRect };
+                if (x.id === toItem.id) return { ...x, layout: fromRect };
+                return x;
+            });
 
-            dbg.log('moveWheelById.move', { id, from, to, dir, carouselWrap, reason });
+            const order = visual.map((x) => x.id);
+            const packed = buildLayoutForIds(
+                order,
+                new Map(next.map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)])),
+                BOARD_GRID_COLUMNS
+            );
+
+            const packedNext = next.map((x) => ({ ...x, layout: packed.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS) }));
+
+            dbg.log('moveWheelById.moveByLayout', { id, from, to, dir, reason });
+            setItems(packedNext, reason);
+        });
+    },
+
+    moveWheelLayoutTo(id: string, patch: Partial<BoardWheel['layout']>, reason = 'moveWheelLayoutTo') {
+        dbg.group('boardApi.moveWheelLayoutTo', () => {
+            const cur = get(boardState).items.slice();
+            const idx = cur.findIndex((x) => x.id === id);
+            if (idx < 0) return;
+
+            const order = cur.map((x) => x.id);
+            const existing = new Map(cur.map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)]));
+            const nextMap = moveAndCompact(existing, id, patch as any, order, BOARD_GRID_COLUMNS);
+
+            const next = cur.map((x) => ({ ...x, layout: nextMap.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS) }));
+            setItems(next, reason);
+        });
+    },
+
+    swapWheelLayoutById(aId: string, bId: string, reason = 'swapWheelLayoutById') {
+        dbg.group('boardApi.swapWheelLayoutById', () => {
+            if (!aId || !bId || aId === bId) return;
+            const cur = get(boardState).items.slice();
+            const a = cur.find((x) => x.id === aId);
+            const b = cur.find((x) => x.id === bId);
+            if (!a || !b) return;
+
+            const aRect = normalizeRect(a.layout, BOARD_GRID_COLUMNS);
+            const bRect = normalizeRect(b.layout, BOARD_GRID_COLUMNS);
+
+            const next = cur.map((x) => {
+                if (x.id === aId) return { ...x, layout: bRect };
+                if (x.id === bId) return { ...x, layout: aRect };
+                return x;
+            });
 
             setItems(next, reason);
         });

@@ -32,6 +32,7 @@
     let live = false;
 
     let timeState: TimeState = 'PAST';
+    let timeStateBadge = 'Past';
 
     // FUTURE watcher (как было)
     let futureTimer: ReturnType<typeof setInterval> | null = null;
@@ -39,6 +40,7 @@
     let localNowSec = 0;
 
     let pickerEl: HTMLInputElement | null = null;
+    let showActions = false;
 
     function clearFutureTimer() {
         if (futureTimer) { clearInterval(futureTimer); futureTimer = null; }
@@ -83,6 +85,11 @@
         else timeState = 'PAST';
     }
 
+    $: timeStateBadge =
+        timeState === 'LIVE'
+            ? 'Now'
+            : (timeState === 'FUTURE' ? 'Fut' : 'Past');
+
     function emitToggleLock(next: boolean) {
         if (onToggleLock) onToggleLock(next);
         else toggleGlobalTimeLock(); // fallback for global mode
@@ -112,6 +119,7 @@
         pickerEl.value = toLocalInputValue(currentTs);
         if (typeof (pickerEl as any).showPicker === 'function') (pickerEl as any).showPicker();
         else pickerEl.click();
+        showActions = false;
     }
 
     function toggleLiveClick(e: MouseEvent) {
@@ -124,6 +132,12 @@
         e.preventDefault();
         e.stopPropagation();
         emitToggleLock(!locked);
+    }
+
+    function toggleActionsPanel(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        showActions = !showActions;
     }
 
     // ✅ source of truth
@@ -164,17 +178,23 @@
 
 <div class="wrap">
     <div class="face">
-        <span class="seg state {timeState}">{timeState}</span>
+        <span class="seg state {timeState}" title={timeState}>{timeStateBadge}</span>
 
-        <span class="seg timeText" title="Selected time">
-          {formatDateTime(currentTs)}
-        </span>
-
-        <button class="seg iconBtn" type="button" title="Pick date & time" on:click={openPicker}>
-            🗓️
+        <button
+                class="seg timeText timeTextBtn"
+                type="button"
+                title="Selected time (click to toggle actions)"
+                on:click={toggleActionsPanel}
+        >
+            {formatDateTime(currentTs)}
         </button>
 
-        <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
+        {#if showActions}
+            <button class="seg iconBtn" type="button" title="Pick date & time" on:click={openPicker}>
+                🗓️
+            </button>
+            <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
+        {/if}
 
         <button
                 class="seg nowBtn"
@@ -265,10 +285,10 @@
 
     /* компактные фикс-ширины */
     .state {
-        width: 72px;
-        font-size: 13px;
+        width: 54px;
+        font-size: 11px;
         font-weight: 1000;
-        letter-spacing: 0.08em;
+        letter-spacing: 0.03em;
         text-transform: uppercase;
     }
 
@@ -276,7 +296,7 @@
         flex: 1 1 auto;           /* ✅ занимает остаток */
         min-width: 0;             /* ✅ включает ellipsis */
         width: auto;              /* ✅ убираем фикс */
-        font-size: 15px;
+        font-size: 13px;
         font-weight: 850;
         letter-spacing: 0.01em;
         font-variant-numeric: tabular-nums;
@@ -284,19 +304,23 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+    .timeTextBtn {
+        cursor: pointer;
+        text-align: left;
+    }
 
     .iconBtn {
-        width: 40px;
+        width: 36px;
         padding: 0;
         cursor: pointer;
-        font-size: 18px;
+        font-size: 16px;
         line-height: 1;
     }
 
     .nowBtn {
-        width: 34px;
+        width: 30px;
         padding: 0;
-        font-size: 18px;
+        font-size: 16px;
         font-weight: 900;
         line-height: 1;
         cursor: pointer;
@@ -326,8 +350,8 @@
     /* state colors */
     /*noinspection CssUnusedSymbol*/
     .state.LIVE {
-        color: color-mix(in oklab, var(--accent-live), var(--fg) 30%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-live) 18%);
+        color: color-mix(in oklab, #3fcf66, white 6%);
+        background: color-mix(in oklab, var(--btn-bg), #3fcf66 28%);
     }
     /*noinspection CssUnusedSymbol*/
     .state.FUTURE {
@@ -351,19 +375,19 @@
 
     @media (max-width: 520px) {
         .state {
-            width: 60px;
-            font-size: 12px;
+            width: 48px;
+            font-size: 10px;
         }
         .timeText {
             width: 140px;
-            font-size: 14px;
+            font-size: 12px;
         }
         .iconBtn {
-            width: 36px;
+            width: 32px;
         }
         /*noinspection CssUnusedSymbol*/
         :global(.mc-seg.compact) {
-            width: 40px !important;
+            width: 36px !important;
         }
     }
 </style>

@@ -423,19 +423,18 @@
             {#if nodeMomentText}
                 <div class="nodeMoment">{nodeMomentText}</div>
             {/if}
-            {#if momentTags.length > 0}
+            {#if momentTags.length > 0 || (isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0)}
                 <div class="ui-tag-row">
+                    {#if momentTags.length > 0}
                     {#each momentTagsUi as tag, i (`tag:${tag}:${i}`)}
                         <span class="ui-tag">{tag}</span>
                     {/each}
-                </div>
-            {/if}
-
-            {#if isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0}
-                <div class="ui-tag-row">
+                    {/if}
+                    {#if isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0}
                     {#each momentMetaPartsUi as p, i (`meta:${p}:${i}`)}
                         <span class="ui-tag">{p}</span>
                     {/each}
+                    {/if}
                 </div>
             {/if}
         </div>
@@ -551,8 +550,8 @@
     .tip {
         position: fixed;
         z-index: 50;
-        width: min(420px, calc(100vw - 16px));
-        max-height: min(420px, calc(100vh - 16px));
+        width: min(460px, calc(100vw - 16px));
+        max-height: min(460px, calc(100vh - 16px));
         color: var(--fg);
         background: color-mix(in oklab, var(--bg), black 10%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);

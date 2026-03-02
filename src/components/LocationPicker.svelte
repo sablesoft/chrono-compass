@@ -214,6 +214,7 @@
     }
 
     function onOverlayKeyDown(e: KeyboardEvent) {
+        if (e.currentTarget !== e.target) return;
         if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
             e.preventDefault();
             close('overlay');
@@ -384,7 +385,7 @@
     }
 
     .left {
-        padding: 6px 10px;
+        padding: 6px 9px;
         gap: 8px;
         min-width: 0;
         flex: 1 1 auto;
@@ -397,7 +398,7 @@
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 6px 10px;
+        padding: 6px 8px;
         min-width: 0;
         display: inline-flex;
         align-items: center;
@@ -418,7 +419,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         font-weight: 850;
-        font-size: 15px;
+        font-size: 13px;
         letter-spacing: 0.01em;
         opacity: 0.95;
     }
@@ -428,11 +429,11 @@
         opacity: 0.8;
         font-weight: 850;
         white-space: nowrap;
-        font-size: 13px;
+        font-size: 11px;
         letter-spacing: 0.04em;
     }
 
-    .tzSeg { width: 58px; justify-content: center; padding: 6px 8px; }
+    .tzSeg { width: 52px; justify-content: center; padding: 6px 6px; }
 
     .overlay {
         position: fixed;

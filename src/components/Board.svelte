@@ -1,9 +1,11 @@
 <!--src/component/Board.svelte -->
 <script lang="ts">
-    import { boardItems } from '../lib/board/store';
+    import { onDestroy, onMount } from 'svelte';
+    import { boardApi, boardItems } from '../lib/board/store';
     import { flip } from 'svelte/animate';
-    import { currentLocationId, resolveLocationById } from '../lib/location/store';
+    import { currentLocationId, resolveLocationById, savedLocations } from '../lib/location/store';
     import { getWheelEntry } from '../lib/board/registry';
+    import { BOARD_GRID_COLUMNS, BOARD_DEFAULT_W, nextFreeRect, normalizeRect } from '../lib/board/layoutEngine';
 
     import WheelPicker from "./WheelPicker.svelte";
     import Compass from './Compass.svelte';
@@ -13,8 +15,22 @@
     import type {BoardWheel} from "../lib/board/types";
     import {DEFAULT_LOCATION_ID} from "../lib/location/types";
     export let selectedTs: number;
+    const GRID_COL_GAP = 13;
+    const GRID_ROW_GAP = 13;
+    const GRID_ROW_UNIT = 6;
 
     const compCache = new Map<string, any>();
+    let packedEl: HTMLElement | null = null;
+    let pickerEl: HTMLElement | null = null;
+    let packedWidth = 0;
+    let isDesktop = false;
+    let mqDesktop: MediaQueryList | null = null;
+    let onDesktopChange: (() => void) | null = null;
+    let ro: ResizeObserver | null = null;
+    let dragWheelId: string | null = null;
+    const cellEls = new Map<string, HTMLElement>();
+    let syncRaf = 0;
+    let pickerContentHeight = 220;
 
     function pickComponentStable(w: BoardWheel) {
         const id = w.id;
@@ -30,9 +46,25 @@
 
     // стабильный порядок на всякий — boardItems уже отсортирован, но лучше не надеяться
     $: globalLocId = $currentLocationId;
-    $: items = ($boardItems ?? []).slice().sort((a, b) => a.order - b.order);
+    function coord(v: unknown): number {
+        return Number.isFinite(v) ? Number(v) : Number.MAX_SAFE_INTEGER;
+    }
 
+    $: items = ($boardItems ?? []).slice().sort((a, b) => {
+        const ay = coord(a.layout?.y);
+        const by = coord(b.layout?.y);
+        if (ay !== by) return ay - by;
+
+        const ax = coord(a.layout?.x);
+        const bx = coord(b.layout?.x);
+        if (ax !== bx) return ax - bx;
+
+        return a.order - b.order;
+    });
+
+    $: savedTick = $savedLocations;
     $: itemsView = items.map((w) => {
+        void savedTick;
         const obs = (w.observer as WheelObserverState) ?? { locationId: DEFAULT_LOCATION_ID, locked: false };
         const id = obs.locked ? obs.locationId : globalLocId;
         return { w, loc: resolveLocationById(id) };
@@ -41,34 +73,288 @@
         ...row,
         Comp: pickComponentStable(row.w)
     }));
+
+    function updateDesktopMode() {
+        isDesktop = !!mqDesktop?.matches;
+    }
+
+    function recomputePackedWidth() {
+        packedWidth = packedEl?.clientWidth ?? 0;
+    }
+
+    function rowsFromHeight(px: number): number {
+        const step = GRID_ROW_UNIT + GRID_ROW_GAP;
+        return Math.max(1, Math.ceil((Math.max(0, px) + GRID_ROW_GAP) / step));
+    }
+
+    function scheduleHeightSync() {
+        if (syncRaf) cancelAnimationFrame(syncRaf);
+        syncRaf = requestAnimationFrame(syncHeightsToLayout);
+    }
+
+    function syncHeightsToLayout() {
+        syncRaf = 0;
+        if (!isDesktop) return;
+
+        for (const row of itemsViewWithComp) {
+            const el = cellEls.get(row.w.id);
+            if (!el) continue;
+            const content = el.firstElementChild as HTMLElement | null;
+            const hPx = content?.offsetHeight ?? el.offsetHeight;
+            const h = rowsFromHeight(hPx);
+            const cur = itemRect(row.w).h;
+            if (Math.abs(cur - h) >= 1) {
+                boardApi.updateWheelById(row.w.id, { layout: { h } }, 'Board.syncLayoutHeight');
+            }
+        }
+
+        if (pickerEl) {
+            const content = pickerEl.firstElementChild as HTMLElement | null;
+            pickerContentHeight = content?.offsetHeight ?? pickerEl.offsetHeight;
+        }
+    }
+
+    function bindCellEl(id: string, el: HTMLElement | null) {
+        if (el) {
+            cellEls.set(id, el);
+            scheduleHeightSync();
+            return;
+        }
+        cellEls.delete(id);
+    }
+
+    onMount(() => {
+        if ('matchMedia' in window) {
+            mqDesktop = window.matchMedia('(min-width: 980px)');
+            updateDesktopMode();
+            onDesktopChange = () => updateDesktopMode();
+            if ('addEventListener' in mqDesktop) mqDesktop.addEventListener('change', onDesktopChange);
+            else (mqDesktop as any).addListener(onDesktopChange);
+        }
+
+        if ('ResizeObserver' in window) {
+            ro = new ResizeObserver(() => {
+                recomputePackedWidth();
+                scheduleHeightSync();
+            });
+            if (packedEl) ro.observe(packedEl);
+        }
+
+        queueMicrotask(recomputePackedWidth);
+        queueMicrotask(scheduleHeightSync);
+    });
+
+    onDestroy(() => {
+        if (syncRaf) cancelAnimationFrame(syncRaf);
+        if (ro && packedEl) ro.unobserve(packedEl);
+        if (ro && pickerEl) ro.unobserve(pickerEl);
+        for (const [, el] of cellEls) {
+            if (ro) ro.unobserve(el);
+        }
+        ro?.disconnect();
+        if (!mqDesktop || !onDesktopChange) return;
+        if ('removeEventListener' in mqDesktop) mqDesktop.removeEventListener('change', onDesktopChange);
+        else (mqDesktop as any).removeListener(onDesktopChange);
+    });
+
+    $: unitPxRaw = packedWidth > 0
+        ? (packedWidth - GRID_COL_GAP * (BOARD_GRID_COLUMNS - 1)) / BOARD_GRID_COLUMNS
+        : 24;
+    $: unitPx = Math.max(12, unitPxRaw);
+    $: pickerRows = rowsFromHeight(pickerContentHeight);
+
+    function itemRect(w: BoardWheel) {
+        return normalizeRect(w.layout, BOARD_GRID_COLUMNS);
+    }
+
+    $: layoutMap = new Map(items.map((w) => [w.id, itemRect(w)]));
+    $: pickerRect = nextFreeRect(layoutMap, { w: BOARD_DEFAULT_W, h: pickerRows }, BOARD_GRID_COLUMNS);
+
+    function gridPlace(rect: { x: number; y: number; w: number; h: number }): string {
+        const colStart = rect.x + 1;
+        const rowStart = rect.y + 1;
+        return `grid-column:${colStart} / span ${rect.w}; grid-row:${rowStart} / span ${rect.h};`;
+    }
+
+    function dragStartWheel(id: string, e: DragEvent) {
+        dragWheelId = id;
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        dt.setData('text/plain', id);
+        dt.effectAllowed = 'move';
+    }
+
+    function dragEndWheel() {
+        dragWheelId = null;
+    }
+
+    function dropToWheel(targetId: string, e: DragEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!dragWheelId || dragWheelId === targetId) return;
+        boardApi.swapWheelLayoutById(dragWheelId, targetId, 'Board.dropToWheelSwap');
+        dragWheelId = null;
+        scheduleHeightSync();
+    }
+
+    function dropToGrid(e: DragEvent) {
+        e.preventDefault();
+        if (!dragWheelId || !packedEl) return;
+        const rect = packedEl.getBoundingClientRect();
+        const colStep = unitPx + GRID_COL_GAP;
+        const rowStep = GRID_ROW_UNIT + GRID_ROW_GAP;
+        const rx = Math.max(0, e.clientX - rect.left);
+        const ry = Math.max(0, e.clientY - rect.top);
+        const x = Math.floor(rx / colStep);
+        const y = Math.floor(ry / rowStep);
+        boardApi.moveWheelLayoutTo(dragWheelId, { x, y }, 'Board.dropToGrid');
+        dragWheelId = null;
+        scheduleHeightSync();
+    }
+
+    function observeCell(node: HTMLElement, id: string) {
+        bindCellEl(id, node);
+        const target = (node.firstElementChild as HTMLElement | null) ?? node;
+        if (ro) ro.observe(target);
+        return {
+            destroy() {
+                bindCellEl(id, null);
+                if (ro) ro.unobserve(target);
+            }
+        };
+    }
+
+    function observePicker(node: HTMLElement) {
+        pickerEl = node;
+        if (ro) ro.observe(node);
+        scheduleHeightSync();
+        return {
+            destroy() {
+                if (ro) ro.unobserve(node);
+                if (pickerEl === node) pickerEl = null;
+            }
+        };
+    }
+
+    $: {
+        void isDesktop;
+        void packedWidth;
+        void itemsViewWithComp.length;
+        if (isDesktop) queueMicrotask(scheduleHeightSync);
+    }
 </script>
 
-<section class="grid">
-    {#each itemsViewWithComp as row (row.w.id)}
-        <div class="cell" animate:flip={{ duration: 500 }}>
-            <svelte:component this={row.Comp} wheel={row.w} selectedTs={selectedTs} location={row.loc} />
+{#if isDesktop}
+    <section
+            class="packedGrid"
+            bind:this={packedEl}
+            role="presentation"
+            style={`--col-gap:${GRID_COL_GAP}px; --row-gap:${GRID_ROW_GAP}px; --col-unit:${unitPx}px; --row-unit:${GRID_ROW_UNIT}px;`}
+            on:dragover|preventDefault
+            on:drop={dropToGrid}
+    >
+        {#each itemsViewWithComp as row (row.w.id)}
+            {@const rect = itemRect(row.w)}
+            <div
+                    class="cell packedCell"
+                    use:observeCell={row.w.id}
+                    role="presentation"
+                    animate:flip={{ duration: 250 }}
+                    style={gridPlace(rect)}
+            >
+                <div
+                        class="packedSurface"
+                        role="presentation"
+                        on:dragover|preventDefault
+                        on:drop={(e) => dropToWheel(row.w.id, e)}
+                >
+                    <svelte:component
+                            this={row.Comp}
+                            wheel={row.w}
+                            selectedTs={selectedTs}
+                            location={row.loc}
+                            dragEnabled={true}
+                            onCardDragStart={(e: DragEvent) => dragStartWheel(row.w.id, e)}
+                            onCardDragEnd={dragEndWheel}
+                    />
+                </div>
+            </div>
+        {/each}
+
+        <div class="pickerCell" use:observePicker style={gridPlace(pickerRect)}>
+            <WheelPicker/>
         </div>
-    {/each}
-    <WheelPicker/>
-</section>
+    </section>
+{:else}
+    <section class="grid">
+        {#each itemsViewWithComp as row (row.w.id)}
+            <div class="cell" animate:flip={{ duration: 500 }}>
+                <svelte:component
+                        this={row.Comp}
+                        wheel={row.w}
+                        selectedTs={selectedTs}
+                        location={row.loc}
+                        dragEnabled={false}
+                        onCardDragStart={() => {}}
+                        onCardDragEnd={() => {}}
+                />
+            </div>
+        {/each}
+        <WheelPicker/>
+    </section>
+{/if}
 
 <style>
+    .packedGrid {
+        display: grid;
+        position: relative;
+        z-index: 1;
+        padding-top: 12px;
+        column-gap: var(--col-gap);
+        row-gap: var(--row-gap);
+        grid-template-columns: repeat(24, minmax(0, 1fr));
+        grid-auto-rows: var(--row-unit);
+        align-items: start;
+    }
+    .packedCell {
+        position: relative;
+        min-width: 0;
+        pointer-events: none;
+    }
+    .packedSurface {
+        pointer-events: auto;
+        position: relative;
+    }
+    .packedSurface > :global(*) {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+    .pickerCell {
+        min-width: 0;
+    }
     .grid {
         display: grid;
         gap: 13px;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        align-items: stretch; /* важно */
+        grid-template-columns: 1fr;
+        align-items: start;
     }
     .grid > .cell {
-        display: flex;
-        align-items: stretch;
-        min-width: 0;
+        display: block;
+        width: 100%;
     }
 
     .grid > .cell > :global(*) {
-        flex: 1 1 auto;
-        min-height: 0;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        display: block;
     }
-    @media (min-width: 980px) { .grid { grid-template-columns: 1fr 1fr; } }
-    @media (min-width: 1400px) { .grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+    @media (min-width: 980px) {
+        .grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 1400px) {
+        .grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
 </style>

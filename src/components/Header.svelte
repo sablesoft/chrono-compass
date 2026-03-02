@@ -53,8 +53,8 @@
         border-bottom: 1px solid var(--panel-border);
 
         /* небольшой padding, если нужно */
-        padding-top: 6px;
-        padding-bottom: 6px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         backdrop-filter: blur(6px);
         background: color-mix(in oklab, var(--bg), transparent 10%);
     }
@@ -64,19 +64,27 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-left: 5px;
+        overflow: hidden;
+        pointer-events: none;
     }
 
     .logo :global(svg) {
         width: 100%;
         height: 100%;
         fill: currentColor;
+        display: block;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    .logo :global(*) {
+        pointer-events: none;
     }
     .bar {
         display:flex;
         align-items:center;
-        gap:14px;
-        padding:15px 10px;
+        gap:10px;
+        padding: 8px 6px;
         border:1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 16px;

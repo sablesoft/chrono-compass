@@ -448,7 +448,9 @@ export const profilesApi = {
                 observer: (x as any).observer,
                 time: (x as any).time,
                 order: (x as any).order,
-                size: (x as any).size
+                size: (x as any).size,
+                layout: (x as any).layout,
+                view: (x as any).view
             })) as any as BoardWheel[];
 
             dbg.log('in', { profileId: ap.id, count: board.length });
@@ -479,7 +481,9 @@ export const profilesApi = {
                 roles: x.roles,
                 observer: x.observer,
                 time: x.time,
-                size: x.size
+                size: x.size,
+                layout: x.layout,
+                view: x.view
             }));
 
             boardApi.setFromSnapshot(items as any, 'loadBoardFromProfile');

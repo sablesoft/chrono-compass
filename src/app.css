@@ -217,7 +217,7 @@ button:focus-visible {
 .ui-tag-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 3px;
   padding: 0 2px 10px;
 }
 
