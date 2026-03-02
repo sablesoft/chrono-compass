@@ -2,7 +2,7 @@
 import { onDestroy, onMount } from 'svelte';
 import { get, writable } from 'svelte/store';
 
-import { isLive, selectedTs, startLive } from '../../time/store';
+import { selectedTs } from '../../time/store';
 import { ms } from '../../format';
 import { isFiniteNumber } from '../../math/helpers';
 
@@ -34,19 +34,10 @@ export function useCycleNowPointer(
 
     function tick(reason: string) {
         nowTs = ms(Date.now());
-        const live = get(isLive);
-
-        // Сейчас-pointer нужен как "Go LIVE" — показываем ТОЛЬКО когда global live=false
-        if (live) {
-            state.set({ show: false, angleDeg: null, displayAngle: 0 });
-            lastAngle = 0;
-            dbg?.log?.('[NOW] tick', { reason, live, show: false, why: 'isLive=true' });
-            return;
-        }
 
         const win = getWindow();
         if (!win || !isFiniteNumber(win.start) || !isFiniteNumber(win.end) || !(win.end > win.start)) {
-            dbg?.warn?.('[NOW] tick', { reason, live, show: get(state).show, why: 'no/invalid window', win });
+            dbg?.warn?.('[NOW] tick', { reason, show: get(state).show, why: 'no/invalid window', win });
             return; // <-- КЛЮЧ: не сбрасываем показ стрелки из-за transient null
         }
 
@@ -54,7 +45,7 @@ export function useCycleNowPointer(
         if (!inside) {
             state.set({ show: false, angleDeg: null, displayAngle: 0 });
             lastAngle = 0;
-            dbg?.log?.('[NOW] tick', { reason, live, inside, show: false });
+            dbg?.log?.('[NOW] tick', { reason, inside, show: false });
             return;
         }
 
@@ -76,7 +67,6 @@ export function useCycleNowPointer(
 
         dbg?.log?.('[NOW] tick', {
             reason,
-            live,
             window: { start: win.start, end: win.end },
             nowTs,
             inside,
@@ -107,14 +97,10 @@ export function useCycleNowPointer(
         tick(reason);
     }
 
-    let unsubLive: (() => void) | null = null;
     let unsubSelected: (() => void) | null = null;
 
     onMount(() => {
         startTicker();
-
-        // Дёргаем тик на любые изменения режима live
-        unsubLive = isLive.subscribe(() => tick('isLive'));
 
         // КЛЮЧЕВОЕ: selectedTs меняется на клик по спице (setSelectedTs),
         // значит мы гарантированно тикаем сразу, не ждём минуту.
@@ -123,9 +109,8 @@ export function useCycleNowPointer(
 
     onDestroy(() => {
         clearTimers();
-        unsubLive?.(); unsubLive = null;
         unsubSelected?.(); unsubSelected = null;
     });
 
-    return { state, startLive, refresh };
+    return { state, refresh };
 }

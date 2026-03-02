@@ -32,7 +32,6 @@
     let live = false;
 
     let timeState: TimeState = 'PAST';
-    let timeStateBadge = 'Past';
 
     // FUTURE watcher (как было)
     let futureTimer: ReturnType<typeof setInterval> | null = null;
@@ -85,10 +84,11 @@
         else timeState = 'PAST';
     }
 
-    $: timeStateBadge =
-        timeState === 'LIVE'
-            ? 'Now'
-            : (timeState === 'FUTURE' ? 'Fut' : 'Past');
+    function timeStateBadgeLabel(state: TimeState): string {
+        if (state === 'LIVE') return 'Now';
+        if (state === 'FUTURE') return 'Fut';
+        return 'Past';
+    }
 
     function emitToggleLock(next: boolean) {
         if (onToggleLock) onToggleLock(next);
@@ -178,7 +178,7 @@
 
 <div class="wrap">
     <div class="face">
-        <span class="seg state {timeState}" title={timeState}>{timeStateBadge}</span>
+        <span class="seg state {timeState}" title={timeState}>{timeStateBadgeLabel(timeState)}</span>
 
         <button
                 class="seg timeText timeTextBtn"
@@ -193,7 +193,10 @@
             <button class="seg iconBtn" type="button" title="Pick date & time" on:click={openPicker}>
                 🗓️
             </button>
-            <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
+            <!-- TODO: Re-enable moment save control when save-moment flow is implemented. -->
+            {#if false}
+                <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
+            {/if}
         {/if}
 
         <button

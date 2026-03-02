@@ -33,7 +33,7 @@
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
     import { type WheelObserverState, type WheelTimeState, type SpokeKey } from '../lib/wheel/types';
 
-    import { setSelectedTs } from '../lib/time/store';
+    import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
     import type { MarkerCluster } from '../lib/wheel/types';
     import { typeLabel } from '../lib/wheel/control';
@@ -362,7 +362,7 @@
     let nowDisplayAngle = 0;
     let hideNowPointerByWindowLag = false;
 
-    $: showNowPointer = $nowState.show;
+    $: showNowPointer = $nowState.show && !time.live;
     $: nowDisplayAngle = $nowState.displayAngle;
     $: {
         const w = cycleWindowFromSpokes();
@@ -603,13 +603,38 @@
     function jumpTo(ts0: number, reason = 'jump') {
         if (!Number.isFinite(ts0)) return;
         onUserActivity();
+        const pickedTs = ms(ts0);
         dbg.log(`${wheel?.wheelType} ${reason}`, {
             from: new Date(selectedTs).toISOString(),
-            to: new Date(ms(ts0)).toISOString(),
+            to: new Date(pickedTs).toISOString(),
             wheelId,
         });
-        setSelectedTs(ms(ts0));
+        if (time.locked) {
+            if (wheelId) {
+                boardApi.updateWheelTime(
+                    wheelId,
+                    { live: false, ts: pickedTs, locked: true },
+                    `Cycle.${reason}.goLocked`
+                );
+            }
+        } else {
+            setSelectedTs(pickedTs);
+        }
         now.refresh?.(`user:${reason}`);
+    }
+
+    function goLiveFromNowPointer() {
+        onUserActivity();
+        if (time.locked) {
+            if (!wheelId) return;
+            boardApi.updateWheelTime(
+                wheelId,
+                { live: true, locked: true },
+                'Cycle.nowPointer.goLockedLive'
+            );
+            return;
+        }
+        startGlobalLive();
     }
 
     const SHIFT_EPS_MS = 1500;
@@ -1072,11 +1097,11 @@
                                     role="button"
                                     tabindex="0"
                                     aria-label="Go LIVE (now)"
-                                    on:click|stopPropagation={now.startLive}
+                                    on:click|stopPropagation={goLiveFromNowPointer}
                                     on:keydown|stopPropagation={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
-                                            now.startLive();
+                                            goLiveFromNowPointer();
                                         }
                                     }} />
                         </g>
