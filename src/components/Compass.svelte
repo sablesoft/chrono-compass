@@ -1428,13 +1428,49 @@
         }
     }
 
+    function orderInfoChips<T extends { id: string }>(chips: T[], order: string[] | undefined): T[] {
+        if (!Array.isArray(order) || order.length === 0) return chips;
+        const map = new Map(chips.map((c) => [c.id, c]));
+        const out: T[] = [];
+        const seen = new Set<string>();
+        for (const id of order) {
+            const hit = map.get(id);
+            if (!hit || seen.has(id)) continue;
+            out.push(hit);
+            seen.add(id);
+        }
+        for (const c of chips) {
+            if (seen.has(c.id)) continue;
+            out.push(c);
+        }
+        return out;
+    }
+
+    function handleCompassChipReorder(ids: string[]) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { infoChipOrder: ids } },
+            'Compass.reorderInfoChips'
+        );
+    }
+
+    function handleCompassChipConfigure(next: { selectedIds: string[]; labels: Record<string, string> }) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { infoChipSelected: next.selectedIds, infoChipLabels: next.labels } },
+            'Compass.configureInfoChips'
+        );
+    }
+
     $: pinnedPrimaryText = pinnedRow
         ? `${pinnedRow.primaryLabel} ${pinnedRow.primaryDeg.toFixed(1)}°`
         : '— —';
     $: pinnedSecondaryText = pinnedRow
         ? `${pinnedRow.secondaryLabel} ${pinnedRow.secondaryDeg.toFixed(1)}°`
         : '— —';
-    $: compassInfoChips = pinnedRow
+    $: compassInfoChipsBase = pinnedRow
         ? [{
             id: 'pinned',
             clickable: true,
@@ -1446,6 +1482,26 @@
             kind: 'accent'
         }]
         : [];
+    $: compassInfoLabels = wheel?.view?.infoChipLabels ?? {};
+    $: compassInfoChipsOrderedAll = orderInfoChips(compassInfoChipsBase, wheel?.view?.infoChipOrder);
+    $: compassSelectedIds = (wheel?.view?.infoChipSelected?.length ?? 0) > 0
+        ? (wheel?.view?.infoChipSelected ?? [])
+        : compassInfoChipsOrderedAll.map((x) => x.id);
+    $: compassSelectedSet = new Set(compassSelectedIds);
+    $: compassInfoChips = compassInfoChipsOrderedAll
+        .filter((c) => compassSelectedSet.has(c.id))
+        .map((c) => {
+            const userLabel = String(compassInfoLabels[c.id] ?? '').trim();
+            return userLabel ? { ...c, label: userLabel } : c;
+        });
+    $: compassAllChipsForEditor = compassInfoChipsOrderedAll.map((c) => ({
+        id: c.id,
+        systemLabel: c.label ?? c.id,
+        value: c.value ?? '—',
+        selected: compassSelectedSet.has(c.id),
+        userLabel: compassInfoLabels[c.id] ?? '',
+        isDefault: true
+    }));
 </script>
 
 <section class="panel">
@@ -1920,7 +1976,14 @@
 
     <!-- INFO -->
     {#if showInfoSection}
-        <WheelInfoBlock chips={compassInfoChips} onChipClick={handleCompassInfoRowPick} />
+        <WheelInfoBlock
+                chips={compassInfoChips}
+                allChips={compassAllChipsForEditor}
+                onChipClick={handleCompassInfoRowPick}
+                onReorder={handleCompassChipReorder}
+                onConfigure={handleCompassChipConfigure}
+                reorderEnabled={true}
+        />
     {/if}
 
     {#if showLoadingOverlay}

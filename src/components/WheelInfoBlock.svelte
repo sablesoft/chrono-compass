@@ -12,11 +12,29 @@
         dim?: boolean;
     };
 
+    type WheelInfoConfigRow = {
+        id: string;
+        systemLabel: string;
+        value: string;
+        selected: boolean;
+        userLabel?: string;
+        isDefault?: boolean;
+    };
+
     export let chips: WheelInfoChip[] = [];
+    export let allChips: WheelInfoConfigRow[] = [];
     export let onChipClick: (id: string) => void = () => {};
     export let onReorder: (ids: string[]) => void = () => {};
+    export let onConfigure: (next: { selectedIds: string[]; labels: Record<string, string> }) => void = () => {};
     export let reorderEnabled = true;
+
     let dragChipId: string | null = null;
+    let showEditButton = false;
+    let showEditor = false;
+    let touchMode = false;
+
+    let draftSelected = new Set<string>();
+    let draftLabels: Record<string, string> = {};
 
     function resolveChipParts(chip: WheelInfoChip): { label: string; value: string } {
         if (chip.label && chip.value) return { label: chip.label, value: chip.value };
@@ -76,9 +94,113 @@
         dragChipId = null;
         onReorder(next);
     }
+
+    function ensureTouchMode() {
+        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+            touchMode = false;
+            return;
+        }
+        touchMode = window.matchMedia('(hover: none), (pointer: coarse)').matches;
+    }
+
+    function onBlockEnter() {
+        if (!touchMode) showEditButton = true;
+    }
+
+    function onBlockLeave() {
+        if (!touchMode) showEditButton = false;
+    }
+
+    function onBlockClick() {
+        if (touchMode) showEditButton = !showEditButton;
+    }
+
+    function onBlockKeydown(e: KeyboardEvent) {
+        if (!touchMode) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            showEditButton = !showEditButton;
+        }
+    }
+
+    function openEditor() {
+        draftSelected = new Set(allChips.filter((r) => r.selected).map((r) => r.id));
+        draftLabels = {};
+        for (const row of allChips) {
+            const value = String(row.userLabel ?? '').trim();
+            if (value) draftLabels[row.id] = value;
+        }
+        showEditor = true;
+    }
+
+    function closeEditor() {
+        showEditor = false;
+    }
+
+    function toggleSelected(id: string) {
+        if (draftSelected.has(id)) draftSelected.delete(id);
+        else draftSelected.add(id);
+        draftSelected = new Set(draftSelected);
+    }
+
+    function updateDraftLabel(id: string, e: Event) {
+        const target = e.currentTarget;
+        if (!(target instanceof HTMLInputElement)) return;
+        draftLabels = { ...draftLabels, [id]: target.value };
+    }
+
+    function applyEditor() {
+        const selectedIds = allChips
+            .map((r) => r.id)
+            .filter((id) => draftSelected.has(id));
+
+        const labels: Record<string, string> = {};
+        for (const row of allChips) {
+            const value = String(draftLabels[row.id] ?? '').trim();
+            if (!value) continue;
+            labels[row.id] = value;
+        }
+
+        onConfigure({ selectedIds, labels });
+        showEditor = false;
+    }
+
+    function resetToDefaults() {
+        const defaultIds = allChips
+            .filter((row) => row.isDefault)
+            .map((row) => row.id);
+
+        const selectedIds = defaultIds.length > 0
+            ? defaultIds
+            : allChips.map((row) => row.id);
+
+        onConfigure({ selectedIds, labels: {} });
+        showEditor = false;
+    }
+
+    $: ensureTouchMode();
 </script>
 
-<div class="infoBlock">
+<div
+        class="infoBlock"
+        role="button"
+        aria-label="Info chips block"
+        tabindex="0"
+        on:mouseenter={onBlockEnter}
+        on:mouseleave={onBlockLeave}
+        on:click={onBlockClick}
+        on:keydown={onBlockKeydown}
+>
+    {#if showEditButton}
+        <button
+                type="button"
+                class="editBtn navBtn"
+                title="Edit info chips"
+                aria-label="Edit info chips"
+                on:click|stopPropagation={openEditor}
+        >✎</button>
+    {/if}
+
     <div class="chipGrid">
     {#each chips as chip (chip.id)}
         <div
@@ -129,6 +251,68 @@
     <slot />
 </div>
 
+{#if showEditor}
+    <div class="editorOverlay" role="button" tabindex="0" aria-label="Close chip editor" on:click={closeEditor} on:keydown={(e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            closeEditor();
+        }
+    }}>
+        <div
+                class="editorModal"
+                role="dialog"
+                tabindex="-1"
+                aria-modal="true"
+                aria-label="Wheel info chips"
+                on:click|stopPropagation
+                on:keydown|stopPropagation
+        >
+            <header class="editorHead">
+                <div class="editorTitle">Info chips</div>
+                <button type="button" class="navBtn" on:click={closeEditor}>×</button>
+            </header>
+
+            <div class="editorList">
+                {#if allChips.length === 0}
+                    <div class="editorEmpty">No info rows available for this wheel.</div>
+                {/if}
+                {#each allChips as row (row.id)}
+                    <div class="editorRow">
+                        <div class="col sys" title={row.systemLabel}>
+                            {row.systemLabel}
+                            {#if row.isDefault}
+                                <span class="defMark">default</span>
+                            {/if}
+                        </div>
+                        <input
+                                class="col user"
+                                type="text"
+                                placeholder="Custom label"
+                                value={draftLabels[row.id] ?? ''}
+                                on:input={(e) => updateDraftLabel(row.id, e)}
+                        />
+                        <div class="col val" title={row.value}>{row.value}</div>
+                        <label class="col pick">
+                            <input
+                                    type="checkbox"
+                                    checked={draftSelected.has(row.id)}
+                                    on:change={() => toggleSelected(row.id)}
+                            />
+                            <span>{draftSelected.has(row.id) ? 'Selected' : 'Hidden'}</span>
+                        </label>
+                    </div>
+                {/each}
+            </div>
+
+            <footer class="editorFoot">
+                <button type="button" class="navBtn" on:click={resetToDefaults}>Reset</button>
+                <button type="button" class="navBtn" on:click={closeEditor}>Cancel</button>
+                <button type="button" class="navBtn" on:click={applyEditor}>Apply</button>
+            </footer>
+        </div>
+    </div>
+{/if}
+
 <style>
     .infoBlock {
         width: 100%;
@@ -138,6 +322,17 @@
         margin-top: auto;
         min-height: 0;
         overflow: auto;
+        position: relative;
+    }
+
+    .editBtn {
+        position: absolute;
+        bottom: 2px;
+        right: 2px;
+        z-index: 3;
+        height: 28px;
+        min-width: 34px;
+        padding: 0 8px;
     }
 
     .chipGrid {
@@ -229,5 +424,108 @@
         display: block;
         font-weight: 800;
         opacity: 0.96;
+    }
+
+    .editorOverlay {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        background: rgba(0, 0, 0, 0.5);
+        display: grid;
+        place-items: center;
+        padding: 12px;
+    }
+
+    .editorModal {
+        width: min(860px, 96vw);
+        max-height: min(82vh, 880px);
+        overflow: auto;
+        border-radius: 14px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        background: color-mix(in oklab, var(--panel), black 6%);
+        box-shadow: 0 16px 56px rgba(0, 0, 0, 0.4);
+        display: grid;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .editorHead,
+    .editorFoot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .editorTitle {
+        font-size: 14px;
+        font-weight: 800;
+    }
+
+    .editorList {
+        display: grid;
+        gap: 8px;
+    }
+    .editorEmpty {
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
+        background: color-mix(in oklab, var(--fg), transparent 95%);
+        opacity: 0.8;
+        font-size: 12px;
+    }
+
+    .editorRow {
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr) auto;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
+        background: color-mix(in oklab, var(--fg), transparent 95%);
+    }
+
+    .col {
+        min-width: 0;
+        font-size: 12px;
+    }
+
+    .col.sys,
+    .col.val {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-variant-numeric: tabular-nums;
+    }
+    .defMark {
+        margin-left: 6px;
+        font-size: 10px;
+        opacity: 0.65;
+    }
+
+    .col.user {
+        width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
+        border-radius: 8px;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--btn-bg), transparent 8%);
+        color: inherit;
+        padding: 6px 8px;
+    }
+
+    .col.pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 760px) {
+        .editorRow {
+            grid-template-columns: 1fr;
+            gap: 6px;
+        }
     }
 </style>

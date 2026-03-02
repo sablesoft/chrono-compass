@@ -31,7 +31,21 @@ const KEY = 'chrono:board';
 export const DEFAULT_WHEEL_CARD_SIZE = 560;
 
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
-const DEFAULT_VIEW: BoardWheelView = { showVisual: true, showInfo: true, showPickers: true, infoChipOrder: [] };
+const DEFAULT_VIEW: BoardWheelView = {
+    showVisual: true,
+    showInfo: true,
+    showPickers: true,
+    infoChipOrder: [],
+    infoChipSelected: [],
+    infoChipLabels: {}
+};
+
+function defaultInfoChipSelectedForWheel(wheelType: WheelType): string[] {
+    if (wheelType === 'compass' || wheelType === 'system' || wheelType === 'galaxy') {
+        return ['pinned'];
+    }
+    return ['spoke', 'begin', 'end', 'duration'];
+}
 
 function normalizeInfoChipOrder(input: unknown): string[] {
     if (!Array.isArray(input)) return [];
@@ -47,6 +61,20 @@ function normalizeInfoChipOrder(input: unknown): string[] {
     return out;
 }
 
+function normalizeInfoChipLabels(input: unknown): Record<string, string> {
+    if (!input || typeof input !== 'object') return {};
+    const src = input as Record<string, unknown>;
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(src)) {
+        const id = String(k || '').trim();
+        if (!id || typeof v !== 'string') continue;
+        const label = v.trim();
+        if (!label) continue;
+        out[id] = label;
+    }
+    return out;
+}
+
 function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWheelView {
     const base = fallback ?? DEFAULT_VIEW;
     const src = (input && typeof input === 'object') ? (input as Record<string, unknown>) : {};
@@ -54,7 +82,9 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
         showVisual: src.showVisual !== false,
         showInfo: src.showInfo !== false,
         showPickers: src.showPickers !== false,
-        infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder)
+        infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder),
+        infoChipSelected: normalizeInfoChipOrder(src.infoChipSelected ?? base.infoChipSelected),
+        infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels)
     };
 }
 
@@ -308,7 +338,9 @@ export const boardApi = {
                 order,
                 size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
                 layout: undefined,
-                view: normalizeWheelView(null)
+                view: normalizeWheelView({
+                    infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
+                })
             };
 
             cur.push(item);
@@ -366,7 +398,9 @@ export const boardApi = {
                 order: 0,
                 size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
                 layout: undefined,
-                view: normalizeWheelView(null)
+                view: normalizeWheelView({
+                    infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
+                })
             };
 
             const at = cur.findIndex((x) => x.id === beforeId);

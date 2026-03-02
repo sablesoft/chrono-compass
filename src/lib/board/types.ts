@@ -9,6 +9,8 @@ export type BoardWheelView = {
     showInfo: boolean;
     showPickers?: boolean;
     infoChipOrder?: string[];
+    infoChipSelected?: string[];
+    infoChipLabels?: Record<string, string>;
 };
 
 export type BoardWheel = {

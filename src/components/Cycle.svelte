@@ -788,7 +788,16 @@
         );
     }
 
-    $: cycleInfoChips = [
+    function handleInfoChipConfigure(next: { selectedIds: string[]; labels: Record<string, string> }) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { infoChipSelected: next.selectedIds, infoChipLabels: next.labels } },
+            'Cycle.configureInfoChips'
+        );
+    }
+
+    $: cycleInfoChipsBase = [
         {
             id: 'spoke',
             clickable: true,
@@ -830,7 +839,26 @@
             kind: 'muted'
         }
     ];
-    $: cycleInfoChipsOrdered = orderInfoChips(cycleInfoChips, wheel?.view?.infoChipOrder);
+    $: cycleInfoLabels = wheel?.view?.infoChipLabels ?? {};
+    $: cycleInfoChipsOrderedAll = orderInfoChips(cycleInfoChipsBase, wheel?.view?.infoChipOrder);
+    $: cycleSelectedIds = (wheel?.view?.infoChipSelected?.length ?? 0) > 0
+        ? (wheel?.view?.infoChipSelected ?? [])
+        : cycleInfoChipsOrderedAll.map((x) => x.id);
+    $: cycleSelectedSet = new Set(cycleSelectedIds);
+    $: cycleInfoChipsOrdered = cycleInfoChipsOrderedAll
+        .filter((c) => cycleSelectedSet.has(c.id))
+        .map((c) => {
+            const userLabel = String(cycleInfoLabels[c.id] ?? '').trim();
+            return userLabel ? { ...c, label: userLabel } : c;
+        });
+    $: cycleAllChipsForEditor = cycleInfoChipsOrderedAll.map((c) => ({
+        id: c.id,
+        systemLabel: c.label ?? c.id,
+        value: c.value ?? '—',
+        selected: cycleSelectedSet.has(c.id),
+        userLabel: cycleInfoLabels[c.id] ?? '',
+        isDefault: true
+    }));
 </script>
 
 <section class="panel">
@@ -1199,8 +1227,10 @@
     {#if showInfoSection}
         <WheelInfoBlock
                 chips={cycleInfoChipsOrdered}
+                allChips={cycleAllChipsForEditor}
                 onChipClick={handleInfoRowPick}
                 onReorder={handleInfoChipReorder}
+                onConfigure={handleInfoChipConfigure}
                 reorderEnabled={true}
         />
     {/if}
