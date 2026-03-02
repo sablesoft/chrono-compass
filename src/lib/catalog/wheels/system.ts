@@ -6,7 +6,7 @@ export const system = {
     multiTarget: true,
     nodes: {
         seam: ['E-nodal', 'W-nodal', 'N-nodal', 'S-nodal'],
-        bind: ['N-bind', 'S-bind', 'E-bind', 'E_plus-bind', 'W-bind'],
+        bind: ['N-bind', 'S-bind', 'E-bind', 'E_next-bind', 'W-bind'],
         synod: ['N-synod', 'W-synod', 'S-synod']
     },
     ui: {

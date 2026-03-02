@@ -34,8 +34,8 @@ import {
 } from 'astronomy-engine';
 
 import type { ObjId } from '../catalog';
+import { cycleSpokeTags } from '../catalog/tags';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
-import type { SpokeKey } from '../wheel/types';
 import { SPOKES_ORDER } from '../wheel/types';
 import {AU_KM, clamp, lerp, norm360} from './helpers';
 import type { Location } from '../location/types';
@@ -566,65 +566,6 @@ function mkSpoke(index: number, ts: number, obs: Observer, target: ObjId): Cycle
     };
 }
 
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function uniqueTags(tags: Array<string | null | undefined>): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of tags) {
-        if (typeof raw !== 'string') continue;
-        const tag = raw.trim();
-        if (!tag) continue;
-        if (seen.has(tag)) continue;
-        seen.add(tag);
-        out.push(tag);
-    }
-    return out;
-}
-
-function horizonSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number): string[] {
-    const codeTag = code === 'E_next' ? null : `${code}-horizon`;
-    const durTag = code === 'E' ? formatCycleDurationTag(cycleDurationMs) : '';
-    return uniqueTags([
-        codeTag,
-        code === 'N' ? 'N-horizon' : null,
-        code === 'S' ? 'S-horizon' : null,
-        index < 8 && index > 0 ? 'above horizon' : null,
-        index > 8 && index < 16 ? 'below horizon' : null,
-        code === 'E' ? 'cycle start' : null,
-        code === 'E_next' ? 'cycle end' : null,
-        code === 'E' ? 'rising horizon' : null,
-        code === 'W' ? 'W-horizon' : null,
-        code === 'W' ? 'setting horizon' : null,
-        code === 'N' ? 'max altitude' : null,
-        code === 'N' ? 'zenith' : null,
-        code === 'S' ? 'min altitude' : null,
-        code === 'S' ? 'nadir' : null,
-        durTag || null,
-    ]);
-}
-
 /**
  * Finds t in [t0, t1] such that altitude(t) ~= targetAltDeg.
  * Requires that targetAltDeg is bracketed by altitude at endpoints (sign change in f).
@@ -815,7 +756,6 @@ export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResul
         });
     };
 
-    const cycleDurationMs = E_next - E;
     for (let i = 0; i <= 16; i++) {
         let t: number | null = null;
 
@@ -857,7 +797,7 @@ export function solveHorizonWheel(input: WheelInput<'horizon'>): CycleSolveResul
         }
 
         const spoke = mkSpoke(i, t, obs, target);
-        spoke.tags = horizonSpokeTags(spoke.code, i, cycleDurationMs);
+        spoke.tags = cycleSpokeTags('horizon', spoke.code);
         spokes.push(spoke);
     }
 

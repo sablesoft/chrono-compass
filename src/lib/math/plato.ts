@@ -1,18 +1,12 @@
 import type { CycleSolveResult, CycleSpoke, WheelInput } from '../board/runtime';
 import type { ObjId } from '../catalog';
+import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 import { buildSpokeTimes, type Anchors } from '../wheel/spokes';
 import { isFiniteNumber } from './helpers';
 import { getPlatoAnchors } from './deprecated/plato';
 
 type PlatoMeta = Record<string, never>;
-
-function platoSpokeTags(code: string): string[] {
-    const tags: string[] = [];
-    if (code !== 'E_next') tags.push(`${code}-plato`);
-    if (code === 'E') tags.push('cycle start', 'cycle end');
-    return tags;
-}
 
 function toTargetId(target: ObjId | ObjId[]): ObjId | null {
     if (Array.isArray(target)) return (target[0] as ObjId | undefined) ?? null;
@@ -33,7 +27,7 @@ function anchorsToSpokes(a: Anchors): CycleSpoke<PlatoMeta>[] | null {
             ts,
             code,
             index: i,
-            tags: platoSpokeTags(code),
+            tags: cycleSpokeTags('plato', code),
             meta: {},
         });
     }
@@ -70,4 +64,3 @@ export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<Pl
         spokes,
     };
 }
-

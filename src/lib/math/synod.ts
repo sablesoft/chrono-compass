@@ -59,7 +59,7 @@ import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import type { ObjId, ObjKind, ReferenceMeta } from '../catalog';
 import { objects } from '../catalog';
-import type { SpokeKey } from '../wheel/types';
+import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 
 import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp, norm360, toSigned180 } from './helpers';
@@ -107,61 +107,6 @@ function roundToMinuteMonotonic(t: number[]): number[] {
         if (out[i] < out[i - 1]) out[i] = out[i - 1];
     }
     return out;
-}
-
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function uniqueTags(tags: Array<string | null | undefined>): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of tags) {
-        if (typeof raw !== 'string') continue;
-        const tag = raw.trim();
-        if (!tag) continue;
-        if (seen.has(tag)) continue;
-        seen.add(tag);
-        out.push(tag);
-    }
-    return out;
-}
-
-function synodSpokeTags(code: SpokeKey, durationTag: string): string[] {
-    const codeTag = code === 'E_next' ? null : `${code}-synod`;
-    return uniqueTags([
-        codeTag,
-        code === 'E' ? 'cycle start' : null,
-        code === 'E' ? 'cycle end' : null,
-        code === 'E' ? 'first quarter' : null,
-        code === 'E' ? 'waxing quadrature' : null,
-        code === 'N' ? 'opposition' : null,
-        code === 'N' ? 'full phase' : null,
-        code === 'W' ? 'last quarter' : null,
-        code === 'W' ? 'waning quadrature' : null,
-        code === 'S' ? 'conjunction' : null,
-        code === 'S' ? 'new phase' : null,
-        code === 'E' ? durationTag : null,
-    ]);
 }
 
 // ---------------------------
@@ -865,8 +810,6 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     // Final output times (rounded)
     const tOut = roundToMinuteMonotonic(tExact);
 
-    const cycleDurationTag = formatCycleDurationTag(tE2 - tE);
-
     function mkSpoke(i: number): CycleSpoke<SynodMeta> {
         const tSolve = tExact[i];
         const tDisplay = tOut[i];
@@ -881,7 +824,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
             ts: tDisplay,
             code,
             index: i,
-            tags: synodSpokeTags(code, cycleDurationTag),
+            tags: cycleSpokeTags('synod', code),
             meta: {
                 distanceAu: rAu,
                 distanceKm: rKm,

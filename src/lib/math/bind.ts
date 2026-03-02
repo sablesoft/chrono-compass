@@ -15,7 +15,7 @@
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import type { ObjId } from '../catalog';
-import type { SpokeKey } from '../wheel/types';
+import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 
 import { findExtremumInWindowGold, fmt} from './extrema';
@@ -41,59 +41,6 @@ function nearEq(a: number, b: number, epsAbs: number, epsRel: number) {
     const d = Math.abs(a - b);
     const s = Math.max(1, Math.abs(a), Math.abs(b));
     return d <= Math.max(epsAbs, epsRel * s);
-}
-
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function uniqueTags(tags: Array<string | null | undefined>): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of tags) {
-        if (typeof raw !== 'string') continue;
-        const tag = raw.trim();
-        if (!tag) continue;
-        if (seen.has(tag)) continue;
-        seen.add(tag);
-        out.push(tag);
-    }
-    return out;
-}
-
-function bindSpokeTags(code: SpokeKey, index: number, durationTag: string): string[] {
-    const isExtremum = code === 'N' || code === 'S';
-    const isAxisMidpoint = code === 'E' || code === 'W';
-    const codeTag = code === 'E_next' ? null : `${code}-bind`;
-    return uniqueTags([
-        codeTag,
-        !isExtremum && (index <= 4 || index >= 13) ? 'distance rising' : null,
-        !isExtremum && (index >= 5 && index <= 12) ? 'distance falling' : null,
-        isAxisMidpoint ? 'mid distance' : null,
-        code === 'N' ? 'max distance' : null,
-        code === 'S' ? 'min distance' : null,
-        code === 'E' ? 'cycle start' : null,
-        code === 'E' ? durationTag : null,
-    ]);
 }
 
 // --- Position / distance providers ---
@@ -292,15 +239,13 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
         return (t0 + t1) / 2;
     }
 
-    let cycleDurationTag = '';
-
     function mkSpoke(i: number, tSolved: number, rAu: number): CycleSpoke<BindMeta> {
         const code = SPOKES_ORDER[i] ?? (i === 16 ? 'E_next' : 'E');
         return {
             ts: tSolved,
             code,
             index: i,
-            tags: bindSpokeTags(code, i, cycleDurationTag),
+            tags: cycleSpokeTags('bind', code),
             meta: { distanceAu: rAu, distanceKm: rAu * AU_KM },
         };
     }
@@ -611,8 +556,6 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
     const rN = N.v;
     const rS = S.v;
     const rE2 = (S.v + N_next.v) / 2;
-    cycleDurationTag = formatCycleDurationTag(E_next_t - E_t);
-
     function solveOnInc(t0: number, t1: number, r: number) {
         return solveOn(t0, t1, true, r);
     }

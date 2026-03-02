@@ -2,9 +2,9 @@ import * as Astronomy from 'astronomy-engine';
 
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { objects } from '../catalog';
+import { cycleSpokeTags } from '../catalog/tags';
 import type { ObjId, ObjKind, ReferenceMeta } from '../catalog';
 import { SPOKES_ORDER } from '../wheel/types';
-import type { SpokeKey } from '../wheel/types';
 import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp } from './helpers';
 import { refUnit } from './vector';
 
@@ -184,67 +184,6 @@ function nodalLatitudeDeg(model: NodalModel, target: ObjId, ts: number): number 
 function targetDistanceAu(originBody: ObjId, target: ObjId, ts: number): number {
     const r = relativeVec(originBody, target, ts);
     return r ? norm(r) : NaN;
-}
-
-function uniqueTags(tags: Array<string | null | undefined>): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    for (const raw of tags) {
-        if (typeof raw !== 'string') continue;
-        const tag = raw.trim();
-        if (!tag) continue;
-        if (seen.has(tag)) continue;
-        seen.add(tag);
-        out.push(tag);
-    }
-    return out;
-}
-
-function formatCycleDurationTag(ms: number): string {
-    if (!Number.isFinite(ms) || ms <= 0) return '';
-    let leftMin = Math.round(ms / 60_000);
-    const MIN_PER_HOUR = 60;
-    const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-    const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-    const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-    const year = Math.floor(leftMin / MIN_PER_YEAR); leftMin -= year * MIN_PER_YEAR;
-    const month = Math.floor(leftMin / MIN_PER_MONTH); leftMin -= month * MIN_PER_MONTH;
-    const day = Math.floor(leftMin / MIN_PER_DAY); leftMin -= day * MIN_PER_DAY;
-    const hour = Math.floor(leftMin / MIN_PER_HOUR); leftMin -= hour * MIN_PER_HOUR;
-    const min = leftMin;
-
-    const parts: string[] = [];
-    if (year) parts.push(`${year}y`);
-    if (month) parts.push(`${month}mo`);
-    if (day) parts.push(`${day}d`);
-    if (hour) parts.push(`${hour}h`);
-    if (min || parts.length === 0) parts.push(`${min}m`);
-    return `cycle duration ${parts.join(' ')}`;
-}
-
-function nodalSpokeTags(code: SpokeKey, index: number, cycleDurationMs: number): string[] {
-    const codeTag = code === 'E_next' ? null : `${code}-nodal`;
-    const durTag = code === 'E' ? formatCycleDurationTag(cycleDurationMs) : '';
-    const isSideNorth = index >= 1 && index <= 7;
-    const isSideSouth = index >= 9 && index <= 15;
-
-    return uniqueTags([
-        codeTag,
-        code === 'E' ? 'cycle start' : null,
-        code === 'E' ? 'cycle end' : null,
-        (code === 'E' || code === 'E_next') ? 'E-nodal' : null,
-        (code === 'E' || code === 'E_next') ? 'ascending node' : null,
-        code === 'W' ? 'W-nodal' : null,
-        code === 'W' ? 'descending node' : null,
-        code === 'N' ? 'max latitude' : null,
-        code === 'N' ? 'north apex' : null,
-        code === 'S' ? 'min latitude' : null,
-        code === 'S' ? 'south nadir' : null,
-        isSideNorth ? 'north side' : null,
-        isSideSouth ? 'south side' : null,
-        durTag || null,
-    ]);
 }
 
 function refineCrossingBisection(fAt: (t: number) => number, t0: number, t1: number, epsMs = 1000): number | null {
@@ -434,7 +373,7 @@ function findTimeAtLatitudeMs(opts: {
     return refineCrossingBisection(f, t0, t1, refineEpsMs);
 }
 
-function buildSpoke(index: number, ts: number, model: NodalModel, target: ObjId, cycleDurationMs: number): CycleSpoke<NodalMeta> {
+function buildSpoke(index: number, ts: number, model: NodalModel, target: ObjId): CycleSpoke<NodalMeta> {
     const code = SPOKES_ORDER[index] ?? (index === 16 ? 'E_next' : 'E');
     const lat = nodalLatitudeDeg(model, target, ts);
     const distAu = targetDistanceAu(model.originBody, target, ts);
@@ -442,7 +381,7 @@ function buildSpoke(index: number, ts: number, model: NodalModel, target: ObjId,
         ts,
         code,
         index,
-        tags: nodalSpokeTags(code, index, cycleDurationMs),
+        tags: cycleSpokeTags('nodal', code),
         meta: {
             nodalLatitudeDeg: lat,
             targetDistanceAu: distAu,
@@ -539,7 +478,6 @@ export function solveNodalWheel(input: WheelInput<'nodal'>): CycleSolveResult<No
         return fail('Nodal wheel: invalid nodal latitude values at anchors');
     }
 
-    const cycleDurationMs = eNext - e;
     const spokes: CycleSpoke<NodalMeta>[] = [];
 
     for (let i = 0; i <= 16; i++) {
@@ -569,7 +507,7 @@ export function solveNodalWheel(input: WheelInput<'nodal'>): CycleSolveResult<No
         }
 
         if (!isFiniteNumber(t)) return fail(`Nodal wheel: failed to solve spoke[${i}]`);
-        spokes.push(buildSpoke(i, t, model, target, cycleDurationMs));
+        spokes.push(buildSpoke(i, t, model, target));
     }
 
     for (let i = 1; i < spokes.length; i++) {
