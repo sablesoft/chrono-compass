@@ -4,6 +4,9 @@ export const compass = {
     type: 'compass',
     ready: true,
     multiTarget: true,
+    nodes: {
+        seam: ['N-horizon', 'W-horizon', 'S-horizon']
+    },
     requiredRoles: {
         'looker' : ['engine_body'],
         'target' : ['engine_body']

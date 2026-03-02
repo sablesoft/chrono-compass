@@ -4,6 +4,11 @@ export const system = {
     type: 'system',
     ready: true,
     multiTarget: true,
+    nodes: {
+        seam: ['E-nodal', 'W-nodal', 'N-nodal', 'S-nodal'],
+        bind: ['N-bind', 'S-bind', 'E-bind', 'E_plus-bind', 'W-bind'],
+        synod: ['N-synod', 'W-synod', 'S-synod']
+    },
     ui: {
         'focus': 'center',
         'looker': 'S',

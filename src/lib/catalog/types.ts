@@ -165,6 +165,15 @@ export type EmojiPlacementInput = EmojiPlacement | readonly EmojiPlacement[];
 
 export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacementInput>>;
 
+export type WheelTagDef = {
+    value: string;
+    defaultEnabled: boolean;
+    spokes: SpokeCode[];
+};
+
+export type WheelNodeGroup = 'synod' | 'bind' | 'seam' | 'zenithNadir';
+export type WheelNodeGroups = Partial<Record<WheelNodeGroup, string[]>>;
+
 /* =============================================================================
    Role values/selects
    ============================================================================= */
@@ -206,6 +215,7 @@ type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     type: TType;
     ready?: boolean;
     ui?: WheelUI<RS>;
+    tags?: WheelTagDef[];
 
     // combos
     roles: RoleCombo<RS, TType>[];
@@ -214,19 +224,27 @@ type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     requiredRoles: RequiredRoles<RS>;
 } & (MT extends true ? { multiTarget: true } : {});
 
+type CompassWheelSpec = WheelSpecBase<'compass', CompassRoleSet, true> & {
+    nodes?: WheelNodeGroups;
+};
+
+type SystemWheelSpec = WheelSpecBase<'system', SystemRoleSet, true> & {
+    nodes?: WheelNodeGroups;
+};
+
 /* =============================================================================
    WheelSpec union
    ============================================================================= */
 
 export type WheelSpec =
-    | WheelSpecBase<'compass', CompassRoleSet, true>
+    | CompassWheelSpec
     | WheelSpecBase<'horizon', HorizonRoleSet>
     | WheelSpecBase<'synod', SynodRoleSet>
     | WheelSpecBase<'bind', BindRoleSet>
     | WheelSpecBase<'season', SeasonRoleSet>
     | WheelSpecBase<'nodal', NodalRoleSet>
     | WheelSpecBase<'plato', PlatoRoleSet>
-    | WheelSpecBase<'system', SystemRoleSet, true>
+    | SystemWheelSpec
     | WheelSpecBase<'galaxy', GalaxyRoleSet, true>;
 
 

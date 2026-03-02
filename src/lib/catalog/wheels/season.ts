@@ -3,6 +3,12 @@ import type { WheelSpec } from '../types';
 export const season = {
     type: 'season',
     ready: true,
+    tags: [
+        { value: 'north solstice', defaultEnabled: true, spokes: ['N'] },
+        { value: 'south solstice', defaultEnabled: true, spokes: ['S'] },
+        { value: 'west equinox', defaultEnabled: true, spokes: ['W'] },
+        { value: 'east equinox', defaultEnabled: true, spokes: ['E', 'E_next'] },
+    ],
     requiredRoles: {
         'focus' : ['engine_body'],
         'target' : ['engine_body']

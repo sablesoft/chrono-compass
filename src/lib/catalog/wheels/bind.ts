@@ -5,6 +5,21 @@ import { DAY_MS } from '../../math/helpers';
 export const bind = {
     type: 'bind',
     ready: true,
+    tags: [
+            { value: 'max distance', defaultEnabled: true, spokes: ['N'] },
+            { value: 'min distance', defaultEnabled: true, spokes: ['S'] },
+            { value: 'mid distance', defaultEnabled: true, spokes: ['E', 'E_next', 'W'] },
+            {
+                value: 'distance rising',
+                defaultEnabled: true,
+                spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE']
+            },
+            {
+                value: 'distance falling',
+                defaultEnabled: true,
+                spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW']
+            }
+    ],
     ui: {
         focus: 'center',
         target: 'pointer',
