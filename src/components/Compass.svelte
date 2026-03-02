@@ -205,6 +205,7 @@
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
     let orbitNodesVisible: OrbitNodeUi[] = [];
+    let hasPinnedSeamNodes = false;
     let showOrbits = true;
     let showOrbitNodesAny = true;
     let showOrbitNodesRegular = false;
@@ -314,6 +315,10 @@
         if (g === 'zenithNadir') return showOrbitNodesZenithNadir;
         return true;
     });
+
+    $: hasPinnedSeamNodes = !!pinnedBodyId && orbitNodesAll.some(
+        (n) => n.bodyId === pinnedBodyId && orbitNodeGroup(n) === 'seam'
+    );
 
     function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke' | 'seam'; code: string }) {
         activeSpokeCode = node.source === 'spoke' ? node.code : null;
@@ -1926,17 +1931,19 @@
                         </div>
                     {:else}
                         <div class="nodeNav">
-                            <button
-                                    class="nodeToggle navBtn nodeSeam"
-                                    class:off={!showOrbitNodesSeam}
-                                    type="button"
-                                    title="Toggle nodals"
-                                    aria-label="Toggle nodals"
-                                    aria-pressed={showOrbitNodesSeam}
-                                    on:click|stopPropagation={toggleOrbitNodesSeam}
-                            >
-                                N
-                            </button>
+                            {#if hasPinnedSeamNodes}
+                                <button
+                                        class="nodeToggle navBtn nodeSeam"
+                                        class:off={!showOrbitNodesSeam}
+                                        type="button"
+                                        title="Toggle nodals"
+                                        aria-label="Toggle nodals"
+                                        aria-pressed={showOrbitNodesSeam}
+                                        on:click|stopPropagation={toggleOrbitNodesSeam}
+                                >
+                                    N
+                                </button>
+                            {/if}
                             <button
                                     class="nodeToggle navBtn nodeRegular"
                                     class:off={!showOrbitNodesRegular}

@@ -117,6 +117,9 @@ function helioVec(id: ObjId, ts: number): { x: number; y: number; z: number } | 
 }
 
 function eclipticLatitudeDegAt(focus: ObjId, target: ObjId, ts: number): number {
+    // Keep Earth's heliocentric path exactly on the ecliptic baseline in system wheel.
+    if (focus === 'Sun' && target === 'Earth') return 0;
+
     const pF = helioVec(focus, ts);
     const pT = helioVec(target, ts);
     if (!pF || !pT) return NaN;
