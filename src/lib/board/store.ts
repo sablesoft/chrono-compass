@@ -31,7 +31,7 @@ const KEY = 'chrono:board';
 export const DEFAULT_WHEEL_CARD_SIZE = 560;
 
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
-const DEFAULT_VIEW: BoardWheelView = { showVisual: true, showInfo: true, infoChipOrder: [] };
+const DEFAULT_VIEW: BoardWheelView = { showVisual: true, showInfo: true, showPickers: true, infoChipOrder: [] };
 
 function normalizeInfoChipOrder(input: unknown): string[] {
     if (!Array.isArray(input)) return [];
@@ -53,6 +53,7 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
     return {
         showVisual: src.showVisual !== false,
         showInfo: src.showInfo !== false,
+        showPickers: src.showPickers !== false,
         infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder)
     };
 }

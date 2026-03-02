@@ -372,7 +372,8 @@
         display: inline-flex;
         align-items: stretch;
         border-radius: 12px;
-        border: 1px solid var(--btn-border);
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        background: color-mix(in oklab, var(--fg), transparent 93%);
         overflow: hidden;
         min-width: 0;
         cursor: pointer;
@@ -434,6 +435,25 @@
     }
 
     .tzSeg { width: 52px; justify-content: center; padding: 6px 6px; }
+
+    .ui-lock {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: stretch;
+        min-width: 34px;
+        margin: 0 !important;
+        padding: 0 8px !important;
+        border: 0 !important;
+        border-left: 1px solid var(--btn-border) !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+    }
+    .ui-lock:hover:not(:disabled) {
+        transform: none !important;
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%) !important;
+    }
 
     .overlay {
         position: fixed;

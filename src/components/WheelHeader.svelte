@@ -11,8 +11,10 @@
     export let onDragEnd: () => void = () => {};
     export let visualOpen = true;
     export let infoOpen = true;
+    export let pickersOpen = true;
     export let onToggleVisual: (() => void) | null = null;
     export let onToggleInfo: (() => void) | null = null;
+    export let onTogglePickers: (() => void) | null = null;
     $: wheelId = wheel?.id ?? '';
 </script>
 
@@ -54,6 +56,14 @@
                 aria-pressed={infoOpen}
                 on:click={() => onToggleInfo?.()}
         >☰</button>
+        <button
+                type="button"
+                class="navBtn toggleBtn"
+                class:off={!pickersOpen}
+                title={pickersOpen ? 'Hide wheel pickers' : 'Show wheel pickers'}
+                aria-pressed={pickersOpen}
+                on:click={() => onTogglePickers?.()}
+        >⌚</button>
         {#if onDocs}
             <button type="button" class="navBtn" title="Docs" on:click={() => onDocs?.()}>i</button>
         {/if}
@@ -67,7 +77,7 @@
         align-items: flex-start;
         justify-content: space-between;
         gap: 12px;
-        padding-bottom: 10px;
+        padding-bottom: 8px;
     }
     .left { display: flex; gap: 10px; min-width: 0; align-items: flex-start; }
     .right { display: flex; gap: 10px; }

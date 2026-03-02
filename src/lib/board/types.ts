@@ -7,6 +7,7 @@ import type { BoardLayoutRect } from './layoutEngine';
 export type BoardWheelView = {
     showVisual: boolean;
     showInfo: boolean;
+    showPickers?: boolean;
     infoChipOrder?: string[];
 };
 

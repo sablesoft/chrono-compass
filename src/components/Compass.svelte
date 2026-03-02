@@ -1390,6 +1390,7 @@
 
     $: showVisualSection = wheel?.view?.showVisual !== false;
     $: showInfoSection = wheel?.view?.showInfo !== false;
+    $: showPickersSection = wheel?.view?.showPickers !== false;
 
     function toggleVisualSection() {
         onUserActivity();
@@ -1408,6 +1409,16 @@
             wheelId,
             { view: { showInfo: !showInfoSection } },
             'Compass.toggleInfoSection'
+        );
+    }
+
+    function togglePickersSection() {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showPickers: !showPickersSection } },
+            'Compass.togglePickersSection'
         );
     }
 
@@ -1447,12 +1458,45 @@
             onDragEnd={onCardDragEnd}
             visualOpen={showVisualSection}
             infoOpen={showInfoSection}
+            pickersOpen={showPickersSection}
             onToggleVisual={toggleVisualSection}
             onToggleInfo={toggleInfoSection}
+            onTogglePickers={togglePickersSection}
     />
 
+    {#if showPickersSection}
+    <section class="pickersBlock" aria-label="Wheel pickers">
+    <div class="sectionSep headerSep" aria-hidden="true"></div>
     <div class="headerBottom" class:twoCols={isCompassWheelType}>
-        {#if isCompassWheelType}
+            <div class="pickerRow">
+                <div class="rowFill">
+                    <TimePicker
+                            value={time}
+                            locked={time.locked}
+                            liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
+                            onChange={(next, meta) => {
+                              onUserActivity();
+
+                              const patch: Partial<WheelTimeState> =
+                                next.live
+                                  ? { live: true, locked: meta.lockOnApply ? true : time.locked }
+                                  : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
+
+                              boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
+                            }}
+                            onToggleLock={(next) => {
+                              onUserActivity();
+                              const patch: Partial<WheelTimeState> = next
+                                  ? { locked: true }
+                                  : (globalLive
+                                      ? { locked: false, live: true }
+                                      : { locked: false, live: false, ts: globalTs });
+                              boardApi.updateWheelTime(wheelId, patch, 'Compass.time.lock');
+                            }}/>
+                </div>
+            </div>
+
+            {#if isCompassWheelType}
             <div class="pickerRow">
                 <div class="rowFill">
                     <LocationPicker
@@ -1475,36 +1519,14 @@
                             }}/>
                 </div>
             </div>
-        {/if}
-
-        <div class="pickerRow">
-            <div class="rowFill">
-                <TimePicker
-                        value={time}
-                        locked={time.locked}
-                        liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
-                        onChange={(next, meta) => {
-                          onUserActivity();
-
-                          const patch: Partial<WheelTimeState> =
-                            next.live
-                              ? { live: true, locked: meta.lockOnApply ? true : time.locked }
-                              : { live: false, ts: next.ts ?? Date.now(), locked: meta.lockOnApply ? true : time.locked };
-
-                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
-                        }}
-                        onToggleLock={(next) => {
-                          onUserActivity();
-                          const patch: Partial<WheelTimeState> = next
-                              ? { locked: true }
-                              : (globalLive
-                                  ? { locked: false, live: true }
-                                  : { locked: false, live: false, ts: globalTs });
-                          boardApi.updateWheelTime(wheelId, patch, 'Compass.time.lock');
-                        }}/>
-            </div>
-        </div>
+            {/if}
     </div>
+    </section>
+    {/if}
+
+    {#if showVisualSection || showInfoSection}
+        <div class="sectionSep" aria-hidden="true"></div>
+    {/if}
 
     <!-- WHEEL SVG -->
     {#if showVisualSection}
@@ -1892,6 +1914,10 @@
         </div>
     {/if}
 
+    {#if showVisualSection && showInfoSection}
+        <div class="sectionSep" aria-hidden="true"></div>
+    {/if}
+
     <!-- INFO -->
     {#if showInfoSection}
         <WheelInfoBlock chips={compassInfoChips} onChipClick={handleCompassInfoRowPick} />
@@ -1929,22 +1955,42 @@
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
+        padding-block: 10px;
+        box-sizing: border-box;
     }
     .headerBottom {
         display: grid;
         gap: 6px;
-        margin-top: 8px;
+        margin-top: 0;
         margin-bottom: 10px;
     }
+    .pickersBlock {
+        display: grid;
+        gap: 0;
+    }
     .headerBottom.twoCols {
-        grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
         align-items: stretch;
     }
-
-    .wheelPanel { display: grid; gap: 10px; width: 100%; justify-items: center; }
-    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: hidden; position: relative; }
-    .wheelBox svg { width: 100%; height: 100%; display: block; }
-    svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; }
+    .sectionSep {
+        height: 1px;
+        margin: 6px 0 12px;
+        background: color-mix(in oklab, var(--fg), transparent 84%);
+    }
+    .sectionSep.headerSep {
+        margin: 4px 0 8px;
+    }
+    .wheelPanel {
+        display: grid;
+        gap: 10px;
+        width: 100%;
+        justify-items: center;
+        padding-inline: 8px;
+        box-sizing: border-box;
+    }
+    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: visible; position: relative; }
+    .wheelBox svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; overflow: visible; }
     svg:focus,
     svg:focus-visible {
         outline: none;
@@ -2050,13 +2096,12 @@
     .pickerRow {
         display: grid;
         grid-template-columns: 1fr;
-        align-items: center;
-        gap: 10px;
-        padding: 4px 6px;
-        border-radius: 10px;
-        box-sizing: border-box;
-        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
-        box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--fg), transparent 90%);
+        align-items: stretch;
+        gap: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
     }
     @media (max-width: 980px) {
         .headerBottom.twoCols {
@@ -2073,12 +2118,7 @@
     .rowFill :global(> *) { margin: 0; }
     /* Убираем "внутреннюю карточку" у пикеров */
     /*noinspection CssUnusedSymbol*/
-    .pickerRow :global(.face) {
-        background: transparent !important;
-        border: 0 !important;
-        /*border-radius: 0 !important;*/
-        box-shadow: none !important;
-    }
+    .pickerRow :global(.face) { margin: 0; }
     /* круг всегда есть, но по умолчанию “почти нет” */
     .spokeHalo {
         stroke-opacity: 0.12;
