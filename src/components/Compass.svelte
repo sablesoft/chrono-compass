@@ -18,7 +18,7 @@
     import { debug } from '../lib/debug';
 
     import { objects, wheels } from '../lib/catalog';
-    import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelSpec } from '../lib/catalog';
+    import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelNodeGroups, WheelSpec } from '../lib/catalog';
 
     import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/types';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
@@ -260,24 +260,27 @@
         return tags.includes(tag);
     }
 
+    function hasAnyNodeTag(tags: string[], groupTags: string[] | undefined): boolean {
+        if (!Array.isArray(groupTags) || groupTags.length === 0) return false;
+        return groupTags.some((tag) => hasNodeTag(tags, tag));
+    }
+
+    function wheelNodeGroupsFromSpec(): WheelNodeGroups | null {
+        if (!spec || typeof spec !== 'object') return null;
+        const raw = (spec as any).nodes;
+        if (!raw || typeof raw !== 'object') return null;
+        return raw as WheelNodeGroups;
+    }
+
     function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
-        if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
-        if (wheel?.wheelType === 'compass') {
-            if (
-                hasNodeTag(tags, 'N-horizon') ||
-                hasNodeTag(tags, 'W-horizon') ||
-                hasNodeTag(tags, 'S-horizon')
-            ) return 'seam';
-            return 'regular';
+        const groups = wheelNodeGroupsFromSpec();
+        if (groups) {
+            if (hasAnyNodeTag(tags, groups.boundary)) return 'boundary';
+            if (hasAnyNodeTag(tags, groups.seam)) return 'seam';
+            if (hasAnyNodeTag(tags, groups.bind)) return 'bind';
+            if (hasAnyNodeTag(tags, groups.synod)) return 'synod';
         }
-        if (
-            hasNodeTag(tags, 'E-nodal') ||
-            hasNodeTag(tags, 'W-nodal') ||
-            hasNodeTag(tags, 'N-nodal') ||
-            hasNodeTag(tags, 'S-nodal')
-        ) return 'seam';
-        if (hasNodeTag(tags, 'max distance') || hasNodeTag(tags, 'min distance') || hasNodeTag(tags, 'mid distance')) return 'bind';
-        if (hasNodeTag(tags, 'N-synod') || hasNodeTag(tags, 'W-synod') || hasNodeTag(tags, 'S-synod')) return 'synod';
+        if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
         return 'regular';
     }
 
@@ -673,9 +676,8 @@
             const specialNodes = bodyNodes.filter((n) => orbitNodeGroup(n) !== 'regular');
             const boundaryNodes = specialNodes.filter((n) => orbitNodeGroup(n) === 'boundary');
             const otherSpecialNodes = specialNodes.filter((n) => orbitNodeGroup(n) !== 'boundary');
-
-            // Keep all non-boundary special nodes as-is.
-            out.push(...otherSpecialNodes);
+            const mergedSpecialNodes: OrbitNodeUi[] = [];
+            mergedSpecialNodes.push(...otherSpecialNodes);
 
             // Merge only overlapping boundary nodes (E / E+) into one marker with both moments.
             if (boundaryNodes.length) {
@@ -701,7 +703,7 @@
 
                 for (const c of bClusters) {
                     if (c.members.length === 1) {
-                        out.push(c.members[0]);
+                        mergedSpecialNodes.push(c.members[0]);
                         continue;
                     }
                     const tsList = Array.from(new Set(c.members.map((m) => m.ts)))
@@ -709,7 +711,7 @@
                         .sort((a, b) => a - b);
                     const tags = Array.from(new Set(c.members.flatMap((m) => m.tip.tags ?? [])));
                     const rep = c.rep;
-                    out.push({
+                    mergedSpecialNodes.push({
                         ...rep,
                         key: `${rep.key}:boundary-merged`,
                         tip: {
@@ -721,13 +723,45 @@
                 }
             }
 
-            if (!regularNodes.length) continue;
+            const remainingRegularNodes: OrbitNodeUi[] = [];
+            for (const n of regularNodes) {
+                let hitIndex = -1;
+                let bestDist = Number.POSITIVE_INFINITY;
+                for (let i = 0; i < mergedSpecialNodes.length; i++) {
+                    const s = mergedSpecialNodes[i];
+                    const d = Math.hypot(n.x - s.x, n.y - s.y);
+                    if (d <= ORBIT_NODE_MERGE_RADIUS_VB && d < bestDist) {
+                        bestDist = d;
+                        hitIndex = i;
+                    }
+                }
 
-            const bodyMinTs = Math.min(...regularNodes.map((n) => n.ts));
-            const bodyMaxTs = Math.max(...regularNodes.map((n) => n.ts));
+                if (hitIndex < 0) {
+                    remainingRegularNodes.push(n);
+                    continue;
+                }
+
+                const base = mergedSpecialNodes[hitIndex];
+                const mergedTags = Array.from(new Set([...(base.tip.tags ?? []), ...(n.tip.tags ?? [])]));
+
+                mergedSpecialNodes[hitIndex] = {
+                    ...base,
+                    tip: {
+                        ...base.tip,
+                        tags: mergedTags.length ? mergedTags : undefined
+                    }
+                };
+            }
+
+            out.push(...mergedSpecialNodes);
+
+            if (!remainingRegularNodes.length) continue;
+
+            const bodyMinTs = Math.min(...remainingRegularNodes.map((n) => n.ts));
+            const bodyMaxTs = Math.max(...remainingRegularNodes.map((n) => n.ts));
             const edgeTsEps = 2 * 60_000;
 
-            const sorted = regularNodes.slice().sort((a, b) => {
+            const sorted = remainingRegularNodes.slice().sort((a, b) => {
                 const aSpoke = a.source === 'spoke' ? 1 : 0;
                 const bSpoke = b.source === 'spoke' ? 1 : 0;
                 if (aSpoke !== bSpoke) return bSpoke - aSpoke;
@@ -1389,8 +1423,8 @@
     });
 
     $: showVisualSection = wheel?.view?.showVisual !== false;
-    $: showInfoSection = wheel?.view?.showInfo !== false;
-    $: showPickersSection = wheel?.view?.showPickers !== false;
+    $: showInfoSection = wheel?.view?.showInfo === true;
+    $: showPickersSection = wheel?.view?.showPickers === true;
 
     function toggleVisualSection() {
         onUserActivity();

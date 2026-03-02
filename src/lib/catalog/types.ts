@@ -171,7 +171,7 @@ export type WheelTagDef = {
     spokes: SpokeCode[];
 };
 
-export type WheelNodeGroup = 'synod' | 'bind' | 'seam' | 'zenithNadir';
+export type WheelNodeGroup = 'synod' | 'bind' | 'seam' | 'boundary';
 export type WheelNodeGroups = Partial<Record<WheelNodeGroup, string[]>>;
 
 /* =============================================================================

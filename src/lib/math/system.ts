@@ -14,6 +14,7 @@ import { solveNodalWheel } from './nodal';
 import type { NodalMeta } from './nodal';
 import type { CompassTrackPoint } from './compass';
 import { eqToEcl } from './vector';
+import { system as systemSpec } from '../catalog/wheels/system';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
 
@@ -567,15 +568,25 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
         return d;
     };
 
-    const hasTag = (x: SystemTrackPoint, tag: string): boolean =>
-        Array.isArray(x.tags) && x.tags.includes(tag);
+    const nodeGroups = (() => {
+        const raw = (systemSpec as { nodes?: Record<string, string[]> }).nodes;
+        return {
+            boundary: Array.isArray(raw?.boundary) ? raw.boundary : [],
+            seam: Array.isArray(raw?.seam) ? raw.seam : [],
+            bind: Array.isArray(raw?.bind) ? raw.bind : [],
+            synod: Array.isArray(raw?.synod) ? raw.synod : []
+        };
+    })();
 
-    const pointGroup = (x: SystemTrackPoint): 'boundary' | 'synod' | 'bind' | 'nodal' | 'regular' => {
-        const tags = Array.isArray(x.tags) ? x.tags : [];
-        if (tags.includes('cycle start') || tags.includes('cycle end')) return 'boundary';
-        if (tags.some((t) => /(?:^|-)synod$/.test(t))) return 'synod';
-        if (tags.some((t) => /(?:^|-)bind$/.test(t)) || tags.includes('max distance') || tags.includes('min distance') || tags.includes('mid distance')) return 'bind';
-        if (tags.some((t) => /(?:^|-)nodal$/.test(t))) return 'nodal';
+    const hasAnyTag = (tags: string[], groupTags: string[]): boolean =>
+        groupTags.some((tag) => tags.includes(tag));
+
+    const pointGroup = (x: SystemTrackPoint): 'boundary' | 'seam' | 'synod' | 'bind' | 'regular' => {
+        const tags = Array.isArray(x.tags) ? x.tags.filter((t): t is string => typeof t === 'string') : [];
+        if (hasAnyTag(tags, nodeGroups.boundary)) return 'boundary';
+        if (hasAnyTag(tags, nodeGroups.seam)) return 'seam';
+        if (hasAnyTag(tags, nodeGroups.bind)) return 'bind';
+        if (hasAnyTag(tags, nodeGroups.synod)) return 'synod';
         return 'regular';
     };
 
@@ -595,7 +606,7 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
 
         const prev = merged[hitIdx];
         const isBoundaryPoint = (x: SystemTrackPoint): boolean =>
-            hasTag(x, 'cycle start') || hasTag(x, 'cycle end');
+            pointGroup(x) === 'boundary';
         const prevBoundary = isBoundaryPoint(prev);
         const pBoundary = isBoundaryPoint(p);
 
@@ -616,6 +627,25 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
     }
 
     return merged.sort((a, b) => a.ts - b.ts);
+}
+
+function applySystemBoundaryCycleTags(track: SystemTrackPoint[] | undefined): SystemTrackPoint[] | undefined {
+    if (!track?.length) return track;
+
+    return track.map((p) => {
+        const tags = uniqueTags(Array.isArray(p.tags) ? p.tags : []);
+        if (tags.includes('E-synod')) {
+            tags.push('cycle start');
+        }
+        if (tags.includes('E_next-synod')) {
+            tags.push('cycle end');
+        }
+        const nextTags = uniqueTags(tags);
+        return {
+            ...p,
+            tags: nextTags.length ? nextTags : undefined
+        };
+    });
 }
 
 function normalizeOrbit(distanceAu: number, maxAu: number): number {
@@ -674,7 +704,8 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
         const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? []), ...(nodalTrack ?? [])]);
         const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id);
-        const orbitTrack = mergeTrackPointsPreferSynod(denseTrack);
+        const orbitTrackRaw = mergeTrackPointsPreferSynod(denseTrack);
+        const orbitTrack = applySystemBoundaryCycleTags(orbitTrackRaw);
 
         return {
             id,

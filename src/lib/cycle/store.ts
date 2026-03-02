@@ -50,7 +50,7 @@ export async function putCycleSolved<Meta = any>(
 }
 
 // -----------
-const CYCLE_CACHE_UID = 'cycle-cache-2026-02-28-d';
+const CYCLE_CACHE_UID = 'cycle-cache-2026-03-02-h';
 
 const ENABLE_CYCLE_IDB = envBool('CYCLE_IDB', true);
 const CYCLE_CACHE_EXCLUDED_TYPES = new Set<string>(['compass', 'system']);

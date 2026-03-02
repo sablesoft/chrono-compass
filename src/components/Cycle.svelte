@@ -712,8 +712,8 @@
     markerClusters = [];
 
     $: showVisualSection = wheel?.view?.showVisual !== false;
-    $: showInfoSection = wheel?.view?.showInfo !== false;
-    $: showPickersSection = wheel?.view?.showPickers !== false;
+    $: showInfoSection = wheel?.view?.showInfo === true;
+    $: showPickersSection = wheel?.view?.showPickers === true;
 
     function toggleVisualSection() {
         onUserActivity();

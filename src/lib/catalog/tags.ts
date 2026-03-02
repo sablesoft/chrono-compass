@@ -2,7 +2,7 @@ import { wheels } from './wheels';
 import type { WheelType } from './types';
 import type { SpokeKey } from '../wheel/types';
 
-type CycleTaggedWheelType = Extract<WheelType, 'synod' | 'bind' | 'horizon' | 'nodal' | 'season' | 'plato'>;
+type CycleTaggedWheelType = Extract<WheelType, 'compass' | 'synod' | 'bind' | 'horizon' | 'nodal' | 'season' | 'plato'>;
 
 function uniqueTags(tags: Array<string | null | undefined>): string[] {
     const out: string[] = [];

@@ -33,8 +33,8 @@ export const DEFAULT_WHEEL_CARD_SIZE = 560;
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
 const DEFAULT_VIEW: BoardWheelView = {
     showVisual: true,
-    showInfo: true,
-    showPickers: true,
+    showInfo: false,
+    showPickers: false,
     infoChipOrder: [],
     infoChipSelected: [],
     infoChipLabels: {}
@@ -78,10 +78,16 @@ function normalizeInfoChipLabels(input: unknown): Record<string, string> {
 function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWheelView {
     const base = fallback ?? DEFAULT_VIEW;
     const src = (input && typeof input === 'object') ? (input as Record<string, unknown>) : {};
+    const showInfo = typeof src.showInfo === 'boolean'
+        ? src.showInfo
+        : (base.showInfo === true);
+    const showPickers = typeof src.showPickers === 'boolean'
+        ? src.showPickers
+        : (base.showPickers === true);
     return {
         showVisual: src.showVisual !== false,
-        showInfo: src.showInfo !== false,
-        showPickers: src.showPickers !== false,
+        showInfo,
+        showPickers,
         infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder),
         infoChipSelected: normalizeInfoChipOrder(src.infoChipSelected ?? base.infoChipSelected),
         infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels)
