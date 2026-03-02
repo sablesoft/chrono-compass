@@ -434,8 +434,20 @@ export const boardApi = {
             const cur = get(boardState).items;
             const next = cur.filter((x) => x.id !== id);
 
+            const ordered = sortByLayoutThenOrder(next);
+            const ids = ordered.map((x) => x.id);
+            const packed = buildLayoutForIds(
+                ids,
+                new Map(next.map((x) => [x.id, normalizeRect(x.layout, BOARD_GRID_COLUMNS)])),
+                BOARD_GRID_COLUMNS
+            );
+            const packedNext = next.map((x) => ({
+                ...x,
+                layout: packed.get(x.id) ?? normalizeRect(x.layout, BOARD_GRID_COLUMNS)
+            }));
+
             dbg.log('removeWheelById', { id, before: cur.length, after: next.length, reason });
-            setItems(next, reason);
+            setItems(packedNext, reason);
         });
     },
 
