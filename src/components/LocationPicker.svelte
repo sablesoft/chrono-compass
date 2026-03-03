@@ -46,6 +46,14 @@
     let tzDraft = '';
     let tzSearch = '';
     let filteredTz: string[] = [];
+    let resetSnapshot: {
+        selectedId: string;
+        labelDraft: string;
+        latDraft: string;
+        lonDraft: string;
+        tzDraft: string;
+        tzSearch: string;
+    } | null = null;
     const formId = `loc-${Math.random().toString(36).slice(2, 8)}`;
 
     const COORD_DP = 3;
@@ -109,6 +117,16 @@
         return hit?.id ?? '';
     }
 
+    function findMatchIdByCoords(d: { lat: number; lon: number }) {
+        const lat = roundCoord(d.lat);
+        const lon = roundCoord(d.lon);
+        const hit = $savedLocations.find((p) =>
+            Math.abs(roundCoord(p.lat) - lat) < 1e-9 &&
+            Math.abs(roundCoord(p.lon) - lon) < 1e-9
+        );
+        return hit?.id ?? '';
+    }
+
     $: {
         if (open) {
             const d = parseDraftBasic();
@@ -119,9 +137,19 @@
         }
     }
 
-    function newLoc() {
-        syncDraftFromLocation(faceLoc ?? getGreenwichLocation());
-        selectedId = findMatchId({ lat: faceLoc.lat, lon: faceLoc.lon, tz: faceLoc.tz }) || '';
+    function resetDraft() {
+        if (!resetSnapshot) return;
+        selectedId = resetSnapshot.selectedId;
+        labelDraft = resetSnapshot.labelDraft;
+        latDraft = resetSnapshot.latDraft;
+        lonDraft = resetSnapshot.lonDraft;
+        tzDraft = resetSnapshot.tzDraft;
+        tzSearch = resetSnapshot.tzSearch;
+    }
+
+    function cancel() {
+        resetDraft();
+        close('cancel');
     }
 
     function pickSaved(id: string) {
@@ -148,10 +176,17 @@
         const gps = await tryGetGeolocationOnce();
         if (!gps) return;
 
+        const hitId = findMatchIdByCoords({ lat: gps.lat, lon: gps.lon });
+        if (hitId) {
+            pickSaved(hitId);
+            return;
+        }
+
         labelDraft = (gps.label || 'Current (GPS)').trim();
         latDraft = fmtCoord(gps.lat);
         lonDraft = fmtCoord(gps.lon);
         tzDraft = gps.tz || getSystemTimeZone() || 'UTC';
+        selectedId = '';
     }
 
     function apply() {
@@ -184,6 +219,14 @@
 
         const d = parseDraftBasic();
         selectedId = d ? findMatchId({ lat: d.lat, lon: d.lon, tz: d.tz }) : '';
+        resetSnapshot = {
+            selectedId,
+            labelDraft,
+            latDraft,
+            lonDraft,
+            tzDraft,
+            tzSearch
+        };
 
         document.body.style.overflow = 'hidden';
         queueMicrotask(() => modalEl?.focus());
@@ -191,6 +234,7 @@
 
     function close(reason = 'close') {
         open = false;
+        resetSnapshot = null;
         document.body.style.overflow = '';
         dbg.log?.('close', reason);
     }
@@ -349,13 +393,12 @@
 
                 <footer class="modalBottom">
                     <div class="leftBtns">
-                        <button class="btn ghost" type="button" on:click={newLoc}>Reset</button>
-                        <button class="btn" type="button" on:click={gpsFill} title="Fill from GPS">GPS</button>
                         <button class="btn danger" type="button" on:click={del} disabled={!selectedId}>Delete</button>
+                        <button class="btn" type="button" on:click={gpsFill} title="Find my Location">My Location</button>
                     </div>
 
                     <div class="rightBtns">
-                        <button class="btn ghost" type="button" on:click={() => close('close')}>Close</button>
+                        <button class="btn ghost" type="button" on:click={cancel}>Cancel</button>
                         <button class="btn primary" type="button" on:click={apply}>Apply</button>
                     </div>
                 </footer>
