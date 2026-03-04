@@ -6,18 +6,20 @@ export const bind = {
     type: 'bind',
     ready: true,
     info: [
-        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
-        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
-        { defaultLabel: 'max distance', spokes: ['N'] },
-        { defaultLabel: 'min distance', spokes: ['S'] },
-        { defaultLabel: 'mid distance', spokes: ['E', 'E_next', 'W'] },
+        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*', modal: 'Distance between focus and target in astronomical units (AU).' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', enabled: false, spokes: '*', modal: 'Distance between focus and target in kilometers for precise tracking.' },
+        { defaultLabel: 'max distance', spokes: ['N'], modal: 'Maximum distance marks the spoke where separation between focus and target reaches its local peak in the current bind cycle.' },
+        { defaultLabel: 'min distance', spokes: ['S'], modal: 'Minimum distance marks the spoke where separation between focus and target reaches its local minimum in the current bind cycle.' },
+        { defaultLabel: 'mid distance', spokes: ['E', 'E_next', 'W'], modal: 'Mid distance marks crossings of the cycle midpoint between local minimum and maximum separation.' },
         {
-            defaultLabel: 'distance rising',
-            spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE']
+            defaultLabel: 'distance rising', enabledStatic: false,
+            spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE'],
+            modal: 'This moment belongs to the interval where distance is increasing from minimum toward maximum.'
         },
         {
-            defaultLabel: 'distance falling',
-            spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW']
+            defaultLabel: 'distance falling', enabledStatic: false,
+            spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW'],
+            modal: 'This moment belongs to the interval where distance is decreasing from maximum toward minimum.'
         }
     ],
     ui: {

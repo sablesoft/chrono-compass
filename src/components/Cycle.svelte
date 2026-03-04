@@ -752,6 +752,7 @@
         id: string;
         label: string;
         enabled?: boolean;
+        enabledStatic?: boolean;
         modal?: string;
         metaField?: string;
         format?: string;
@@ -918,6 +919,7 @@
                 id,
                 label,
                 enabled: row.enabled !== false,
+                enabledStatic: typeof row.enabledStatic === 'boolean' ? row.enabledStatic : undefined,
                 modal: typeof row.modal === 'string' ? row.modal : undefined,
                 metaField: row.metaField,
                 format: row.format,
@@ -1065,7 +1067,11 @@
                 enabled: true,
                 dynamic: false,
                 spokes: defaultStaticSpokes(availableSpokeCodes),
-                tags: tagDefs.map((d) => ({ id: d.id, enabled: d.enabled !== false, modal: d.modal }))
+                tags: tagDefs.map((d) => ({
+                    id: d.id,
+                    enabled: typeof d.enabledStatic === 'boolean' ? d.enabledStatic : (d.enabled !== false),
+                    modal: d.modal
+                }))
             }
         ]
     } satisfies CycleInfoConfig;

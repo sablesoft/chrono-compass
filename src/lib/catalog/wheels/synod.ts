@@ -5,17 +5,25 @@ export const synod = {
     type: 'synod',
     ready: true,
     info: [
-        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
-        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
-        { defaultLabel: 'looker dist au', metaField: 'focusDistAu', format: 'au', spokes: '*' },
-        { defaultLabel: 'first quarter', spokes: ['E', "E_next"] },
-        { defaultLabel: 'waxing quadrature', spokes: ['E', "E_next"] },
-        { defaultLabel: 'opposition', spokes: ['N'] },
-        { defaultLabel: 'full phase', spokes: ['N'] },
-        { defaultLabel: 'last quarter', spokes: ['W'] },
-        { defaultLabel: 'waning quadrature', spokes: ['W'] },
-        { defaultLabel: 'conjunction', spokes: ['S'] },
-        { defaultLabel: 'new phase', spokes: ['S'] }
+        { defaultLabel: 'dist au', metaField: 'distanceAu', enabledStatic: false, format: 'au', spokes: '*', modal: 'Distance between focus and target in astronomical units (AU) at each synodic spoke.' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', enabled: false, format: 'km', spokes: '*', modal: 'Distance between focus and target in kilometers at each synodic spoke.' },
+        { defaultLabel: 'looker dist au', metaField: 'focusDistAu', enabled: false, format: 'au', spokes: '*', modal: 'Distance from looker to focus in AU, useful for observer-dependent synodic context.' },
+        { defaultLabel: 'first quarter', spokes: ['E', "E_next"], modal: 'First quarter marks a 90° phase offset in the synodic cycle. It appears at both cycle boundaries in this wheel model.' },
+        { defaultLabel: 'opposition', spokes: ['N'], modal: 'Opposition marks the synodic phase where target and focus are opposite as seen from the looker.' },
+        { defaultLabel: 'full phase', enabledStatic: false, spokes: ['N'], modal: 'Full phase is the peak illumination-side state, typically aligned with opposition in this synodic model.' },
+        { defaultLabel: 'last quarter', spokes: ['W'], modal: 'Last quarter marks the opposite 90° phase offset from first quarter within the synodic cycle.' },
+        { defaultLabel: 'conjunction', spokes: ['S'], modal: 'Conjunction marks synodic alignment of focus and target as seen from the looker.' },
+        { defaultLabel: 'new phase', enabledStatic: false, spokes: ['S'], modal: 'New phase is the minimal illumination-side state, typically aligned with conjunction in this synodic model.' },
+        {
+            defaultLabel: 'waxing', enabledStatic: false,
+            spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE'],
+            modal: 'This moment belongs to the waxing interval, where phase progresses from new toward full.'
+        },
+        {
+            defaultLabel: 'waning', enabledStatic: false,
+            spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW'],
+            modal: 'This moment belongs to the waning interval, where phase progresses from full back toward new.'
+        }
     ],
     requiredRoles: {
         looker: ['engine_body', 'reference'],

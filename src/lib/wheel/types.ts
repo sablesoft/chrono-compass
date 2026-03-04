@@ -21,6 +21,7 @@ export type InfoItem = {
     value?: string;
     modal?: string;
     enabled?: boolean;
+    enabledStatic?: boolean;
     metaField?: string;
     format?: InfoValueFormat;
     spokes?: SpokeKey[] | '*';

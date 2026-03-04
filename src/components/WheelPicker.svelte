@@ -90,6 +90,7 @@
 
     // UI select state (Saved)
     let pickedSavedId = ''; // this is SavedWheel.dedupKey
+    let savedAutoEnabled = true;
 
     function savedLabel(w: SavedWheel): string {
         const t = (w.type ?? '') as string;
@@ -117,6 +118,7 @@
 
     function resetAll() {
         pickedSavedId = '';
+        savedAutoEnabled = true;
         type = null;
         spec = null;
         values = { looker: null, focus: null, target: [] };
@@ -150,6 +152,7 @@
 
         // manual type change clears "picked saved"
         pickedSavedId = '';
+        savedAutoEnabled = true;
 
         type = nextType;
         resetObserverDraftForType(type);
@@ -170,6 +173,7 @@
     function clearTypeSelection() {
         onUserActivity();
         pickedSavedId = '';
+        savedAutoEnabled = true;
         type = null;
         spec = null;
         values = { looker: null, focus: null, target: [] };
@@ -238,6 +242,7 @@
         const el = e.currentTarget as HTMLSelectElement | null;
         const dedupKey = el?.value ?? '';
         pickedSavedId = dedupKey;
+        savedAutoEnabled = dedupKey !== '';
 
         if (!dedupKey) return;
 
@@ -257,6 +262,7 @@
         values = { looker: null, focus: null, target: [] };
         draftTitle = '';
         pickedSavedId = '';
+        savedAutoEnabled = true;
 
         // keep observer/time as-is (type-specific defaults already applied)
         selects = { looker: [], focus: [], target: [] };
@@ -302,7 +308,7 @@
 
         onUserActivity();
 
-        // If there's a matching saved wheel (auto or picked) — use it as the source of truth
+        // Use saved wheel only when it was explicitly picked by user.
         const src = savedToApplyOnAdd;
 
         const finalType: WheelType = (src?.type ?? type) as WheelType;
@@ -449,9 +455,7 @@
             ? resolveLocationById(observerDraft.locationId)
             : null;
 
-    // -------------------------
     // dedupKey for “match saved preset” (NOT board)
-    // -------------------------
     $: cfgDedupKey = (hasAll && type)
         ? makeDedupKey(type, rolesForDedup as any, observerDraft, timeDraft)
         : '';
@@ -462,17 +466,19 @@
             ? (savedList.find(w => w.dedupKey === cfgDedupKey) ?? null)
             : null;
 
-    // what to use on Add: explicit picked > auto matched
+    // what to use on Add:
+    // - explicit picked saved (if selected)
+    // - else auto matched (if auto mode enabled)
     $: pickedSaved =
         pickedSavedId
             ? (savedList.find(w => w.dedupKey === pickedSavedId) ?? null)
             : null;
 
-    $: savedToApplyOnAdd = pickedSaved ?? matchedSaved;
+    $: savedToApplyOnAdd = pickedSaved ?? (savedAutoEnabled ? matchedSaved : null);
 
     // Auto-highlight saved wheel in selector when current config matches a saved preset.
-    // Don’t override a user-picked value; we only fill when empty.
-    $: if (open && !pickedSavedId && cfgDedupKey && savedList.some(w => w.dedupKey === cfgDedupKey)) {
+    // Disabled after explicit selection of empty option.
+    $: if (open && savedAutoEnabled && !pickedSavedId && cfgDedupKey && savedList.some(w => w.dedupKey === cfgDedupKey)) {
         pickedSavedId = cfgDedupKey;
     }
 
@@ -675,7 +681,7 @@
     }
 
     .panel:not(.open) {
-        min-height: clamp(420px, 40vw, 620px);
+        min-height: clamp(480px, 40vw, 620px);
         display: grid;
         place-items: center;
     }
