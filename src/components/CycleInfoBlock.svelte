@@ -60,6 +60,8 @@
 
     let dragChipId: string | null = null;
     let dragContext: string | null = null;
+    let dragEditorRowId: string | null = null;
+    let dragEditorTemplateId: string | null = null;
 
     let showEditButton = false;
     let showEditor = false;
@@ -68,6 +70,9 @@
     let draftConfig: CycleInfoConfig | null = null;
     let templateTabs: Record<string, 'spokes' | 'tags'> = {};
     let modalRowsOpen = new Set<string>();
+    let openEditorSection: 'general' | 'dynamic' | 'static' | null = 'general';
+    let openDynamicTemplateId: string | null = null;
+    let openStaticTemplateId: string | null = null;
     let titleEditTemplateId: string | null = null;
     let titleEditValue = '';
     let titleEditOriginal = '';
@@ -168,11 +173,58 @@
         else onTemplateReorder(context, next);
     }
 
+    function normalizeTagsByEnabled(tags: InfoTagConfig[]): InfoTagConfig[] {
+        const enabled = tags.filter((t) => t.enabled !== false);
+        const disabled = tags.filter((t) => t.enabled === false);
+        return [...enabled, ...disabled];
+    }
+
+    function reorderTemplateDraftTags(templateId: string, fromId: string, toId: string) {
+        if (!draftConfig || fromId === toId) return;
+        draftConfig = {
+            ...draftConfig,
+            templates: draftConfig.templates.map((tpl) => {
+                if (tpl.id !== templateId) return tpl;
+                const ids = tpl.tags.map((t) => t.id);
+                const nextIds = reorderIds(ids, fromId, toId);
+                const map = new Map(tpl.tags.map((t) => [t.id, t]));
+                const reordered = nextIds.map((id) => map.get(id)).filter((x): x is InfoTagConfig => !!x);
+                return { ...tpl, tags: normalizeTagsByEnabled(reordered) };
+            })
+        };
+    }
+
+    function handleEditorRowDragStart(e: DragEvent, templateId: string, rowId: string) {
+        dragEditorTemplateId = templateId;
+        dragEditorRowId = rowId;
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        dt.effectAllowed = 'move';
+        dt.setData('text/plain', `${templateId}:${rowId}`);
+    }
+
+    function handleEditorRowDrop(e: DragEvent, templateId: string, targetRowId: string) {
+        e.preventDefault();
+        if (!dragEditorTemplateId || !dragEditorRowId) return;
+        if (dragEditorTemplateId !== templateId) return;
+        reorderTemplateDraftTags(templateId, dragEditorRowId, targetRowId);
+        dragEditorTemplateId = null;
+        dragEditorRowId = null;
+    }
+
+    function handleEditorRowDragEnd() {
+        dragEditorTemplateId = null;
+        dragEditorRowId = null;
+    }
+
     function openEditor() {
         draftConfig = cloneConfig(config);
         const tabs: Record<string, 'spokes' | 'tags'> = {};
         for (const tpl of config.templates) tabs[tpl.id] = templateTabs[tpl.id] ?? 'tags';
         templateTabs = tabs;
+        openEditorSection = 'general';
+        openDynamicTemplateId = config.templates.find((t) => t.dynamic)?.id ?? null;
+        openStaticTemplateId = config.templates.find((t) => !t.dynamic)?.id ?? null;
         showEditor = true;
     }
 
@@ -228,16 +280,6 @@
         }
     }
 
-    function handleWindowPointerDown(e: PointerEvent) {
-        if (!titleEditTemplateId) return;
-        const target = e.target;
-        if (!(target instanceof Element)) return;
-        if (target.closest('[data-template-title-edit="1"]')) return;
-        if (target.closest('[data-template-title-accept="1"]')) return;
-        if (target.closest('[data-template-title-input="1"]')) return;
-        cancelTemplateTitleEdit();
-    }
-
     function isModalRowOpen(id: string): boolean {
         return modalRowsOpen.has(id);
     }
@@ -247,10 +289,6 @@
         if (next.has(id)) next.delete(id);
         else next.add(id);
         modalRowsOpen = next;
-    }
-
-    function toggleModalRowByPointer(rowId: string) {
-        toggleModalRow(rowId);
     }
 
     function isTagEnabled(tag: InfoTagConfig | undefined): boolean {
@@ -282,23 +320,23 @@
 
     function templateRows(tpl: InfoTemplate, values: Record<string, string>): TagRow[] {
         const sys = new Map(tagDefs.map((d) => [d.id, d]));
-        const rows: TagRow[] = tagDefs.map((d) => ({
-            id: d.id,
-            systemLabel: d.label,
-            value: values[d.id] ?? '—',
-            tag: tpl.tags.find((t) => t.id === d.id),
-            isCustom: false
-        }));
-        for (const t of tpl.tags) {
-            if (sys.has(t.id) && !t.isCustom) continue;
-            rows.push({
-                id: t.id,
-                systemLabel: t.label?.trim() || 'Custom tag',
-                value: '—',
-                tag: t,
-                isCustom: true
-            });
+        const tagsOrdered = normalizeTagsByEnabled(tpl.tags.slice());
+        const ids = tagsOrdered.map((t) => t.id);
+        for (const d of tagDefs) {
+            if (!ids.includes(d.id)) ids.push(d.id);
         }
+        const rows: TagRow[] = ids.map((id) => {
+            const t = tagsOrdered.find((x) => x.id === id);
+            const d = sys.get(id);
+            const isCustom = !!t?.isCustom || !d;
+            return {
+                id,
+                systemLabel: d?.label ?? (t?.label?.trim() || 'Custom tag'),
+                value: values[id] ?? '—',
+                tag: t,
+                isCustom
+            };
+        });
         return rows;
     }
 
@@ -375,15 +413,36 @@
 
     function updateTemplateTag(templateId: string, tagId: string, patch: Partial<InfoTagConfig>) {
         if (!draftConfig) return;
+        const hasEnabledPatch = Object.prototype.hasOwnProperty.call(patch, 'enabled');
         draftConfig = {
             ...draftConfig,
             templates: draftConfig.templates.map((tpl) => {
                 if (tpl.id !== templateId) return tpl;
                 const idx = tpl.tags.findIndex((t) => t.id === tagId);
                 const tags = tpl.tags.slice();
-                if (idx >= 0) tags[idx] = { ...tags[idx], ...patch };
-                else tags.push({ id: tagId, enabled: true, ...patch });
-                return { ...tpl, tags };
+                const current = idx >= 0 ? tags[idx] : { id: tagId, enabled: true };
+                const nextItem: InfoTagConfig = { ...current, ...patch };
+
+                if (idx >= 0) tags.splice(idx, 1);
+                tags.push(nextItem);
+
+                if (hasEnabledPatch) {
+                    const enabled = nextItem.enabled !== false;
+                    const moved = tags.pop();
+                    if (moved) {
+                        if (enabled) {
+                            const firstDisabled = tags.findIndex((t) => t.enabled === false);
+                            const at = firstDisabled >= 0 ? firstDisabled : tags.length;
+                            tags.splice(at, 0, moved);
+                        } else {
+                            const firstDisabled = tags.findIndex((t) => t.enabled === false);
+                            const at = firstDisabled >= 0 ? firstDisabled : tags.length;
+                            tags.splice(at, 0, moved);
+                        }
+                    }
+                }
+
+                return { ...tpl, tags: normalizeTagsByEnabled(tags) };
             })
         };
     }
@@ -407,7 +466,7 @@
             enabled: true,
             dynamic,
             spokes: dynamic ? spokeOptions.slice() : [],
-            tags: tagDefs.map((d) => ({ id: d.id, enabled: true }))
+            tags: normalizeTagsByEnabled(tagDefs.map((d) => ({ id: d.id, enabled: true })))
         };
         draftConfig = { ...draftConfig, templates: [...draftConfig.templates, next] };
         templateTabs = { ...templateTabs, [id]: 'tags' };
@@ -437,6 +496,22 @@
         cancelTemplateTitleEdit();
         onConfigure(defaultConfig);
         showEditor = false;
+    }
+
+    function toggleEditorSection(id: 'general' | 'dynamic' | 'static') {
+        openEditorSection = openEditorSection === id ? null : id;
+    }
+
+    function toggleTemplatePanel(dynamic: boolean, templateId: string) {
+        if (dynamic) openDynamicTemplateId = openDynamicTemplateId === templateId ? null : templateId;
+        else openStaticTemplateId = openStaticTemplateId === templateId ? null : templateId;
+    }
+
+    function handleTemplateHeadKeydown(e: KeyboardEvent, dynamic: boolean, templateId: string) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleTemplatePanel(dynamic, templateId);
+        }
     }
 
     $: if (titleEditTemplateId && titleEditInput) {
@@ -624,8 +699,6 @@
     {/if}
 </div>
 
-<svelte:window on:pointerdown={handleWindowPointerDown} />
-
 {#if showEditor && draftConfig}
     <div class="editorOverlay" role="button" tabindex="0" aria-label="Close editor" on:click={closeEditor} on:keydown={(e) => {
         if (e.key === 'Escape') {
@@ -642,13 +715,19 @@
             <div class="editorList">
                 <section class="editorSection">
                     <div class="editorSectionHead">
-                        <div class="editorSectionTitle">General</div>
-                        <div class="editorSectionActions">
-                            <button type="button" class="toggleBtn" on:click={() => draftConfig && (draftConfig = { ...draftConfig, general: { ...draftConfig.general, enabled: !draftConfig.general.enabled } })}>
+                        <button type="button" class="editorSectionToggle" aria-expanded={openEditorSection === 'general'} on:click={() => toggleEditorSection('general')}>
+                            <span class="editorSectionTitle">General</span>
+                            <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'general' ? '▾' : '▸'}</span>
+                        </button>
+                        <div class="editorHeadActions">
+                            <button type="button" class="toggleBtn" on:click|stopPropagation={() => draftConfig && (draftConfig = { ...draftConfig, general: { ...draftConfig.general, enabled: !draftConfig.general.enabled } })}>
                                 {draftConfig.general.enabled ? 'On' : 'Off'}
                             </button>
-                            <button type="button" class="toggleBtn" on:click={addGeneralCustomTag}>+ Tag</button>
                         </div>
+                    </div>
+                    {#if openEditorSection === 'general'}
+                    <div class="editorSectionActions">
+                        <button type="button" class="toggleBtn" on:click={addGeneralCustomTag}>+ Tag</button>
                     </div>
                     {#if generalRows(draftConfig).length === 0}
                         <div class="editorEmpty">No general tags.</div>
@@ -666,7 +745,7 @@
                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                 </label>
                                 <div class="rowActions">
-                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                     {#if row.isCustom}
                                         <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralCustomTag(row.id)}>×</button>
                                     {/if}
@@ -679,11 +758,16 @@
                             {/if}
                         </div>
                     {/each}
+                    {/if}
                 </section>
 
                 <section class="editorSection">
-                    <div class="editorSectionHead">
-                        <div class="editorSectionTitle">Dynamic templates</div>
+                    <button type="button" class="editorSectionHead editorSectionToggle" aria-expanded={openEditorSection === 'dynamic'} on:click={() => toggleEditorSection('dynamic')}>
+                        <span class="editorSectionTitle">Dynamic templates</span>
+                        <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'dynamic' ? '▾' : '▸'}</span>
+                    </button>
+                    {#if openEditorSection === 'dynamic'}
+                    <div class="editorSectionActions">
                         <button type="button" class="toggleBtn" on:click={() => addTemplate(true)}>Add template</button>
                     </div>
                     {#if draftConfig.templates.filter((t) => t.dynamic).length === 0}
@@ -691,7 +775,7 @@
                     {/if}
                     {#each draftConfig.templates.filter((t) => t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
-                            <div class="templateHead" data-template-title-editor={tpl.id}>
+                            <div class="templateHead" data-template-title-editor={tpl.id} role="button" tabindex="0" aria-expanded={openDynamicTemplateId === tpl.id} on:click={() => toggleTemplatePanel(true, tpl.id)} on:keydown={(e) => handleTemplateHeadKeydown(e, true, tpl.id)}>
                                 <div class="templateTitleGroup">
                                     {#if isTemplateTitleEditing(tpl.id)}
                                         <input
@@ -702,21 +786,24 @@
                                             value={titleEditValue}
                                             on:input={handleTemplateTitleInput}
                                             on:keydown={handleTemplateTitleKeydown}
+                                            on:blur={cancelTemplateTitleEdit}
+                                            on:click|stopPropagation
                                         />
                                     {:else}
                                         <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
                                     {/if}
                                     {#if isTemplateTitleEditing(tpl.id)}
-                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:click={applyTemplateTitleEdit}>✓</button>
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:pointerdown|preventDefault on:click|stopPropagation={applyTemplateTitleEdit}>✓</button>
                                     {:else}
-                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click={() => beginTemplateTitleEdit(tpl)}>✎</button>
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click|stopPropagation={() => beginTemplateTitleEdit(tpl)}>✎</button>
                                     {/if}
                                 </div>
                                 <div class="templateActions">
-                                    <button type="button" class="toggleBtn" on:click={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
-                                    <button type="button" class="toggleBtn" on:click={() => removeTemplate(tpl.id)}>Remove</button>
+                                    <button type="button" class="toggleBtn" on:click|stopPropagation={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
+                                    <button type="button" class="toggleBtn" on:click|stopPropagation={() => removeTemplate(tpl.id)}>Remove</button>
                                 </div>
                             </div>
+                            {#if openDynamicTemplateId === tpl.id}
                             <div class="templateTabs">
                                 <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'spokes'} on:click={() => setTemplateTab(tpl.id, 'spokes')}>Spokes</button>
                                 <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'tags'} on:click={() => setTemplateTab(tpl.id, 'tags')}>Tags</button>
@@ -741,7 +828,16 @@
                                     {#each templateRows(tpl, currentValues) as row (row.id)}
                                         {@const rowKey = `${tpl.id}:${row.id}`}
                                         <div class="editorRowWrap">
-                                            <div class="editorRow">
+                                            <div
+                                                class="editorRow"
+                                                role="listitem"
+                                                class:dragging={dragEditorTemplateId === tpl.id && dragEditorRowId === row.id}
+                                                draggable="true"
+                                                on:dragstart={(e) => handleEditorRowDragStart(e, tpl.id, row.id)}
+                                                on:dragend={handleEditorRowDragEnd}
+                                                on:dragover|preventDefault
+                                                on:drop={(e) => handleEditorRowDrop(e, tpl.id, row.id)}
+                                            >
                                                 <div class="col sys">{row.systemLabel}</div>
                                                 <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
                                                 <div class="col val">{row.value}</div>
@@ -751,7 +847,7 @@
                                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                                 </label>
                                                 <div class="rowActions">
-                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                                 </div>
                                             </div>
                                             {#if isModalRowOpen(rowKey)}
@@ -763,13 +859,19 @@
                                     {/each}
                                 </div>
                             {/if}
+                            {/if}
                         </div>
                     {/each}
+                    {/if}
                 </section>
 
                 <section class="editorSection">
-                    <div class="editorSectionHead">
-                        <div class="editorSectionTitle">Static templates</div>
+                    <button type="button" class="editorSectionHead editorSectionToggle" aria-expanded={openEditorSection === 'static'} on:click={() => toggleEditorSection('static')}>
+                        <span class="editorSectionTitle">Static templates</span>
+                        <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'static' ? '▾' : '▸'}</span>
+                    </button>
+                    {#if openEditorSection === 'static'}
+                    <div class="editorSectionActions">
                         <button type="button" class="toggleBtn" on:click={() => addTemplate(false)}>Add template</button>
                     </div>
                     {#if draftConfig.templates.filter((t) => !t.dynamic).length === 0}
@@ -777,7 +879,7 @@
                     {/if}
                     {#each draftConfig.templates.filter((t) => !t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
-                            <div class="templateHead" data-template-title-editor={tpl.id}>
+                            <div class="templateHead" data-template-title-editor={tpl.id} role="button" tabindex="0" aria-expanded={openStaticTemplateId === tpl.id} on:click={() => toggleTemplatePanel(false, tpl.id)} on:keydown={(e) => handleTemplateHeadKeydown(e, false, tpl.id)}>
                                 <div class="templateTitleGroup">
                                     {#if isTemplateTitleEditing(tpl.id)}
                                         <input
@@ -788,25 +890,32 @@
                                             value={titleEditValue}
                                             on:input={handleTemplateTitleInput}
                                             on:keydown={handleTemplateTitleKeydown}
+                                            on:blur={cancelTemplateTitleEdit}
+                                            on:click|stopPropagation
                                         />
                                     {:else}
                                         <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
                                     {/if}
                                     {#if isTemplateTitleEditing(tpl.id)}
-                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:click={applyTemplateTitleEdit}>✓</button>
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:pointerdown|preventDefault on:click|stopPropagation={applyTemplateTitleEdit}>✓</button>
                                     {:else}
-                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click={() => beginTemplateTitleEdit(tpl)}>✎</button>
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click|stopPropagation={() => beginTemplateTitleEdit(tpl)}>✎</button>
                                     {/if}
                                 </div>
                                 <div class="templateActions">
-                                    <button type="button" class="toggleBtn" on:click={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
-                                    <button type="button" class="toggleBtn" on:click={() => addTemplateCustomTag(tpl.id)}>+ Tag</button>
-                                    <button type="button" class="toggleBtn" on:click={() => removeTemplate(tpl.id)}>Remove</button>
+                                    <button type="button" class="toggleBtn" on:click|stopPropagation={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
+                                    <button type="button" class="toggleBtn" on:click|stopPropagation={() => removeTemplate(tpl.id)}>Remove</button>
                                 </div>
                             </div>
+                            {#if openStaticTemplateId === tpl.id}
                             <div class="templateTabs">
-                                <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'spokes'} on:click={() => setTemplateTab(tpl.id, 'spokes')}>Spokes</button>
-                                <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'tags'} on:click={() => setTemplateTab(tpl.id, 'tags')}>Tags</button>
+                                <div class="templateTabsLeft">
+                                    <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'spokes'} on:click={() => setTemplateTab(tpl.id, 'spokes')}>Spokes</button>
+                                    <button type="button" class:active={(templateTabs[tpl.id] ?? 'tags') === 'tags'} on:click={() => setTemplateTab(tpl.id, 'tags')}>Tags</button>
+                                </div>
+                                <div class="templateTabsRight">
+                                    <button type="button" class="toggleBtn" on:click={() => addTemplateCustomTag(tpl.id)}>+ Tag</button>
+                                </div>
                             </div>
                             {#if (templateTabs[tpl.id] ?? 'tags') === 'spokes'}
                                 <div class="spokePickGrid">
@@ -828,7 +937,16 @@
                                     {#each templateRows(tpl, staticValues) as row (row.id)}
                                         {@const rowKey = `${tpl.id}:${row.id}`}
                                         <div class="editorRowWrap">
-                                            <div class="editorRow">
+                                            <div
+                                                class="editorRow"
+                                                role="listitem"
+                                                class:dragging={dragEditorTemplateId === tpl.id && dragEditorRowId === row.id}
+                                                draggable="true"
+                                                on:dragstart={(e) => handleEditorRowDragStart(e, tpl.id, row.id)}
+                                                on:dragend={handleEditorRowDragEnd}
+                                                on:dragover|preventDefault
+                                                on:drop={(e) => handleEditorRowDrop(e, tpl.id, row.id)}
+                                            >
                                                 <div class="col sys">{row.systemLabel}</div>
                                                 <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
                                                 <div class="col val">{row.value}</div>
@@ -838,7 +956,7 @@
                                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                                 </label>
                                                 <div class="rowActions">
-                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                                     {#if row.isCustom}
                                                         <button type="button" class="miniBtn dangerBtn" on:click={() => removeTemplateCustomTag(tpl.id, row.id)}>×</button>
                                                     {/if}
@@ -853,8 +971,10 @@
                                     {/each}
                                 </div>
                             {/if}
+                            {/if}
                         </div>
                     {/each}
+                    {/if}
                 </section>
             </div>
 
@@ -965,7 +1085,7 @@
     .chipWrap {
         display: inline-flex;
         align-items: stretch;
-        cursor: grab;
+        cursor: default;
     }
 
     .chipWrap.dragging {
@@ -1079,14 +1199,41 @@
         gap: 8px;
     }
 
+    .editorHeadActions {
+        display: inline-flex;
+        gap: 6px;
+    }
+
+    .editorSectionToggle {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .editorSectionToggle:focus,
+    .editorSectionToggle:focus-visible {
+        outline: none;
+        box-shadow: none;
+    }
+
     .editorSectionTitle {
         font-size: 13px;
         font-weight: 800;
     }
 
+    .editorSectionChevron {
+        opacity: 0.75;
+        font-size: 12px;
+    }
+
     .editorSectionActions {
         display: flex;
         gap: 6px;
+        justify-content: flex-end;
     }
 
     .editorEmpty {
@@ -1107,6 +1254,11 @@
         border-radius: 9px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
+        cursor: grab;
+    }
+
+    .editorRow.dragging {
+        opacity: 0.55;
     }
 
     .editorRowWrap {
@@ -1220,21 +1372,23 @@
 
     .toggleBtn,
     .miniBtn {
-        height: 26px;
-        min-width: 48px;
-        padding: 0 10px;
+        height: 28px;
+        min-width: 56px;
+        padding: 0 11px;
         white-space: nowrap;
         border-radius: 999px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 12%);
         color: var(--fg);
         font-weight: 700;
+        font-size: 12px;
+        line-height: 1;
         cursor: pointer;
     }
 
     .miniBtn {
-        min-width: 28px;
-        padding: 0 6px;
+        min-width: 36px;
+        padding: 0 9px;
     }
 
     .modalBtn {
@@ -1258,6 +1412,13 @@
         display: flex;
         align-items: center;
         gap: 10px;
+        cursor: pointer;
+    }
+
+    .templateHead:focus,
+    .templateHead:focus-visible {
+        outline: none;
+        box-shadow: none;
     }
 
     .templateTitleGroup {
@@ -1306,8 +1467,20 @@
     }
 
     .templateTabs {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+
+    .templateTabsLeft {
         display: inline-flex;
         gap: 6px;
+    }
+
+    .templateTabsRight {
+        margin-left: auto;
+        display: inline-flex;
     }
 
     .templateTabs button {
@@ -1315,8 +1488,12 @@
         background: color-mix(in oklab, var(--panel), transparent 8%);
         color: var(--fg);
         border-radius: 999px;
-        padding: 2px 10px;
+        min-height: 28px;
+        min-width: 56px;
+        padding: 0 11px;
         font-size: 12px;
+        font-weight: 700;
+        line-height: 1;
         cursor: pointer;
     }
 
@@ -1399,6 +1576,10 @@
     .templateTags {
         display: grid;
         gap: 8px;
+        max-height: 360px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding-right: 2px;
     }
 
     .modalBody {

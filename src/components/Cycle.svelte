@@ -1031,7 +1031,7 @@
 
     $: cycleInfoDefsBase = Array.isArray((spec as any)?.info) ? ((spec as any).info as InfoItem[]) : [];
     $: cycleInfoMomentDef = [{ defaultLabel: 'moment', metaField: 'ts', format: 'dateTime', spokes: '*' } satisfies InfoItem];
-    $: cycleInfoDefs = [...cycleInfoDefsBase, ...cycleInfoMomentDef, ...buildSpokeTypeInfoItems(wheel?.wheelType)];
+    $: cycleInfoDefs = [...cycleInfoMomentDef, ...cycleInfoDefsBase, ...buildSpokeTypeInfoItems(wheel?.wheelType)];
     $: tagDefs = buildTagDefs(cycleInfoDefs);
     $: tagDefById = new Map(tagDefs.map((d) => [d.id, d]));
     $: availableSpokeCodes = SPOKES_ORDER.filter((code) => spokes.some((s) => s.code === code));
@@ -1520,12 +1520,12 @@
                     generalDefs={generalDefs}
                     currentValues={currentValues}
                     staticValues={staticValues}
-                    onSpokeClick={handleSpokePick}
-                    onGeneralReorder={handleGeneralReorder}
-                    onTemplateReorder={handleTemplateReorder}
-                    onConfigure={applyInfoConfig}
-                    reorderEnabled={true}
-            />
+                onSpokeClick={handleSpokePick}
+                onGeneralReorder={handleGeneralReorder}
+                onTemplateReorder={handleTemplateReorder}
+                onConfigure={applyInfoConfig}
+                reorderEnabled={false}
+        />
         </div>
     {/if}
 
