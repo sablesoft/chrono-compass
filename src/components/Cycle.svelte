@@ -378,13 +378,48 @@
         const baseTags = Array.isArray((s as any)?.tags) ? (s as any).tags : [];
         const extraTags = extraTagsBySpoke.get(s?.code as SpokeKey) ?? [];
         const tags = uniqueStrings([...baseTags, ...extraTags]);
+        const items = (() => {
+            if (!s) return [];
+            const meta = spokeInfoMeta(s);
+            const out: Array<{ id?: string; label: string; value?: string; modal?: string }> = [];
+            const seen = new Set<string>();
+
+            for (const def of tagDefs) {
+                if (!tagApplies(def, s.code)) continue;
+                const key = def.id || def.label;
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                const value = tagValueForDef(def, meta);
+                out.push({
+                    id: def.id,
+                    label: def.label,
+                    value,
+                    modal: def.modal
+                });
+            }
+
+            for (const raw of tags) {
+                const key = tagIdFromLabel(raw);
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                const def = tagDefById.get(key);
+                out.push({
+                    id: key,
+                    label: titleCaseLabel(raw),
+                    modal: def?.modal
+                });
+            }
+
+            return out;
+        })();
         return {
             kind: 'spoke',
             code: String(code),
             ts,
             pickTs: Number.isFinite(pickTs) ? pickTs : undefined,
             meta: (s as any)?.meta,
-            tags: tags.length ? tags : undefined
+            tags: tags.length ? tags : undefined,
+            items: items.length ? items : undefined
         };
     }
 
@@ -396,6 +431,11 @@
         const ts = Number.isFinite(t) ? t : NaN;
 
         return { kind: 'boundary', from, to, ts };
+    }
+
+    function canShowCycleTooltip(p: CycleTipPayload): boolean {
+        if (p.kind === 'marker') return p.moments.length > 0;
+        return Array.isArray(p.items) && p.items.length > 0;
     }
 
     // ------------------------------------------------------------
@@ -1250,9 +1290,17 @@
                            role="button"
                            tabindex="0"
                            aria-label={`House boundary ${i + 1}`}
-                           on:click={(e) => tip.openNow(e, boundaryPayload(i))}
+                           on:click={(e) => {
+                               const p = boundaryPayload(i);
+                               if (!canShowCycleTooltip(p)) return;
+                               tip.openNow(e, p);
+                           }}
                            on:dblclick={() => handleBoundaryActivate(i)}
-                           on:mouseenter={(e) => tip.hoverEnter(e, boundaryPayload(i), key)}
+                           on:mouseenter={(e) => {
+                               const p = boundaryPayload(i);
+                               if (!canShowCycleTooltip(p)) return;
+                               tip.hoverEnter(e, p, key);
+                           }}
                            on:mouseleave={() => tip.hoverLeave(key)}
                            on:keydown={(e) => {
                                if (e.key === 'Enter' || e.key === ' ') {
@@ -1311,9 +1359,17 @@
                                role="button"
                                tabindex="0"
                                aria-label={`Spoke ${label}`}
-                               on:click={(e) => tip.openNow(e, spokePayload(i))}
+                               on:click={(e) => {
+                                   const p = spokePayload(i);
+                                   if (!canShowCycleTooltip(p)) return;
+                                   tip.openNow(e, p);
+                               }}
                                on:dblclick={() => handleSpokeActivate(i)}
-                               on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(i), key)}
+                               on:mouseenter={(e) => {
+                                   const p = spokePayload(i);
+                                   if (!canShowCycleTooltip(p)) return;
+                                   tip.hoverEnter(e, p, key);
+                               }}
                                on:mouseleave={() => tip.hoverLeave(key)}
                                on:keydown={(e) => {
                                    if (e.key === 'Enter' || e.key === ' ') {
@@ -1361,9 +1417,17 @@
                                    role="button"
                                    tabindex="0"
                                    aria-label="Spoke E+"
-                                   on:click={(e) => tip.openNow(e, spokePayload(16))}
+                                   on:click={(e) => {
+                                       const p = spokePayload(16);
+                                       if (!canShowCycleTooltip(p)) return;
+                                       tip.openNow(e, p);
+                                   }}
                                    on:dblclick={() => handleSpokeActivate(16)}
-                                   on:mouseenter={(e) => tip.hoverEnter(e, spokePayload(16), key)}
+                                   on:mouseenter={(e) => {
+                                       const p = spokePayload(16);
+                                       if (!canShowCycleTooltip(p)) return;
+                                       tip.hoverEnter(e, p, key);
+                                   }}
                                    on:mouseleave={() => tip.hoverLeave(key)}
                                    on:keydown={(e) => {
                                        if (e.key === 'Enter' || e.key === ' ') {

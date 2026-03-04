@@ -3,7 +3,6 @@
     import { tick } from 'svelte';
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
-    import { formatInfoValue } from '../lib/wheel/infoFormat';
     import { formatSpokeCodeUi, formatSpokeTextUi } from '../lib/wheel/types';
 
     export let x = 0;
@@ -30,109 +29,39 @@
         return formatSpokeTextUi(text)
             .split(/\s+/)
             .filter(Boolean)
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+            .map((part) =>
+                part
+                    .split('-')
+                    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
+                    .join('-')
+            )
             .join(' ');
     }
 
-    function payloadTags(p: CycleTipPayload | null): string[] {
+    function normalizeTagLabel(raw: string): string {
+        const text = formatSpokeTextUi(String(raw ?? '').trim());
+        if (!text) return '';
+        // Keep custom labels that already use uppercase/caps as-is.
+        if (/[A-Z]/.test(text)) return text;
+        return titleCaseWords(text);
+    }
+
+    function payloadItems(p: CycleTipPayload | null): Array<{ id?: string; label: string; value?: string; modal?: string }> {
         if (!p || p.kind === 'marker') return [];
-        const tags: unknown[] = Array.isArray(p.tags) ? p.tags : [];
-        const normalized = tags
-            .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
-            .map((t) => titleCaseWords(t.trim()));
-        return Array.from(new Set(normalized));
+        const rows = Array.isArray(p.items) ? p.items : [];
+        return rows
+            .filter((it) => it && typeof it.label === 'string' && it.label.trim().length > 0)
+            .map((it) => ({
+                id: it.id,
+                label: normalizeTagLabel(it.label),
+                value: typeof it.value === 'string' && it.value.trim().length > 0 ? it.value.trim() : undefined,
+                modal: typeof it.modal === 'string' && it.modal.trim().length > 0 ? it.modal.trim() : undefined
+            }));
     }
 
     function fmtTs(v: unknown): string {
         const n = typeof v === 'number' ? v : Number(v);
         return Number.isFinite(n) ? formatDateTime(n) : '—';
-    }
-
-    function formatKm(km: number): string {
-        return formatInfoValue('km', km);
-    }
-
-    function formatAu(au: number): string {
-        if (!isFiniteNumber(au)) return '—';
-        return `${au.toFixed(3)} AU`;
-    }
-
-    function formatDeg(v: number): string {
-        if (!isFiniteNumber(v)) return '—';
-        return `${v.toFixed(1)}°`;
-    }
-
-    function formatDeg3(v: number): string {
-        if (!isFiniteNumber(v)) return '—';
-        return `${v.toFixed(3)}°`;
-    }
-
-    function formatNum3(v: number): string {
-        if (!isFiniteNumber(v)) return '—';
-        return v.toFixed(3);
-    }
-
-    function formatHours(v: number): string {
-        if (!isFiniteNumber(v)) return '—';
-        return `${v.toFixed(3)}h`;
-    }
-
-    function renderMetaLines(meta: any): Array<{ k: string; v: string }> {
-        if (!meta) return [];
-
-        if (isFiniteNumber((meta as any).altitudeDeg) || isFiniteNumber((meta as any).azimuthDeg)) {
-            return [
-                ...(isFiniteNumber((meta as any).altitudeDeg)
-                    ? [{ k: 'Alt', v: formatDeg((meta as any).altitudeDeg) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).azimuthDeg)
-                    ? [{ k: 'Az', v: formatDeg((meta as any).azimuthDeg) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).raHours)
-                    ? [{ k: 'RA', v: formatHours((meta as any).raHours) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).decDeg)
-                    ? [{ k: 'Dec', v: formatDeg((meta as any).decDeg) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).distanceAu)
-                    ? [{ k: 'Distance', v: formatAu((meta as any).distanceAu) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).distanceKm)
-                    ? [{ k: ' ', v: formatKm((meta as any).distanceKm) }]
-                    : []),
-            ];
-        }
-
-        if (isFiniteNumber((meta as any).nodalLatitudeDeg)) {
-            return [
-                { k: 'Nodal Lat', v: formatDeg3((meta as any).nodalLatitudeDeg) },
-                ...(isFiniteNumber((meta as any).distanceAu)
-                    ? [{ k: 'Dist AU', v: formatNum3((meta as any).distanceAu) }]
-                    : []),
-                ...(isFiniteNumber((meta as any).distanceKm)
-                    ? [{ k: 'Dist km', v: formatKm((meta as any).distanceKm) }]
-                    : []),
-            ];
-        }
-
-        if (isFiniteNumber((meta as any).distanceKm) || isFiniteNumber((meta as any).distanceAu)) {
-            return [
-                ...(isFiniteNumber((meta as any).distanceAu) ? [{ k: 'Distance', v: formatAu((meta as any).distanceAu) }] : []),
-                ...(isFiniteNumber((meta as any).distanceKm) ? [{ k: ' ', v: formatKm((meta as any).distanceKm) }] : []),
-            ];
-        }
-
-        if (typeof meta === 'object' && meta) {
-            const out: Array<{ k: string; v: string }> = [];
-            for (const [k, v] of Object.entries(meta)) {
-                if (v == null) continue;
-                if (typeof v === 'number') out.push({ k, v: String(v) });
-                else if (typeof v === 'string' || typeof v === 'boolean') out.push({ k, v: String(v) });
-            }
-            return out.slice(0, 8);
-        }
-
-        return [];
     }
 
     function payloadTitle(p: CycleTipPayload | null): string {
@@ -145,7 +74,7 @@
     function payloadSubtitle(p: CycleTipPayload | null): string {
         if (!p) return '';
         if (p.kind === 'marker') return `${p.moments.length} ${p.moments.length === 1 ? 'moment' : 'moments'}`;
-        return fmtTs(p.ts);
+        return '';
     }
 
     function payloadCopyText(p: CycleTipPayload | null): string {
@@ -157,13 +86,10 @@
             return `${payloadTitle(p)}\n${lines}`;
         }
 
-        const tags = payloadTags(p);
-        const meta = renderMetaLines(p.meta).map((row) => `${row.k}: ${row.v}`).join(' | ');
+        const items = payloadItems(p);
         const chunks = [
             payloadTitle(p),
-            fmtTs(p.ts),
-            tags.length ? `Tags: ${tags.join(', ')}` : '',
-            meta,
+            items.length ? `Items: ${items.map((it) => (it.value ? `${it.label}: ${it.value}` : it.label)).join(', ')}` : '',
         ].filter((x) => x.length > 0);
         return chunks.join(' | ');
     }
@@ -193,6 +119,11 @@
     let el: HTMLDivElement | null = null;
     let posX = 0;
     let posY = 0;
+    let openItemKey = '';
+    let openItemTitle = '';
+    let openItemModal = '';
+    let tooltipItems: Array<{ id?: string; label: string; value?: string; modal?: string }> = [];
+    let tooltipSubtitle = '';
 
     const OFFSET = 12;
     const MARGIN = 10;
@@ -226,8 +157,36 @@
         posY = ny;
     }
 
+    $: tooltipItems = payloadItems(payload);
+    $: tooltipSubtitle = payloadSubtitle(payload);
     $: void recomputePosition();
     $: if (payload) void recomputePosition();
+    $: {
+        // Reset accordion when payload changes.
+        void payload;
+        openItemKey = '';
+        openItemTitle = '';
+        openItemModal = '';
+    }
+
+    function itemKey(id: string | undefined, label: string, index: number): string {
+        if (id && id.trim()) return id.trim();
+        const base = label.trim().toLowerCase().replace(/\s+/g, '-');
+        return `${base || 'item'}:${index}`;
+    }
+
+    function toggleItemAccordion(key: string, label: string, modal: string | undefined) {
+        if (!modal) return;
+        if (openItemKey === key) {
+            openItemKey = '';
+            openItemTitle = '';
+            openItemModal = '';
+            return;
+        }
+        openItemKey = key;
+        openItemTitle = label;
+        openItemModal = modal;
+    }
 </script>
 
 <div
@@ -244,7 +203,9 @@
         <header class="head">
             <div class="headLeft">
                 <div class="title">{payloadTitle(payload)}</div>
-                <div class="dt">{payloadSubtitle(payload)}</div>
+                {#if tooltipSubtitle}
+                    <div class="dt">{tooltipSubtitle}</div>
+                {/if}
             </div>
             <div class="headRight">
                 {#if payload.kind !== 'marker'}
@@ -271,36 +232,86 @@
         </header>
 
         {#if payload.kind === 'spoke'}
-            {#if payloadTags(payload).length > 0}
+            {#if tooltipItems.length > 0}
                 <div class="ui-tag-row">
-                    {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
-                        <span class="ui-tag">{tag}</span>
+                    {#each tooltipItems as item, i (`item:${item.id ?? item.label}:${i}`)}
+                        {@const key = itemKey(item.id, item.label, i)}
+                        {#if item.modal}
+                            <button
+                                type="button"
+                                class="ui-tag chipButton"
+                                aria-expanded={openItemKey === key}
+                                on:click={() => toggleItemAccordion(key, item.label, item.modal)}
+                            >
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </button>
+                        {:else}
+                            <span class="ui-tag chipStatic">
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </span>
+                        {/if}
                     {/each}
                 </div>
+                {#if openItemModal}
+                    <div class="itemAccordion">
+                        <div class="itemAccordionTitle">{openItemTitle}</div>
+                        <div class="itemAccordionBody">{openItemModal}</div>
+                    </div>
+                {/if}
             {/if}
-
-            {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
-                <div class="metaRow">
-                    <span class="k">{row.k}</span>
-                    <span class="v">{row.v}</span>
-                </div>
-            {/each}
 
         {:else if payload.kind === 'boundary'}
-            {#if payloadTags(payload).length > 0}
+            {#if tooltipItems.length > 0}
                 <div class="ui-tag-row">
-                    {#each payloadTags(payload) as tag, i (`tag:${tag}:${i}`)}
-                        <span class="ui-tag">{tag}</span>
+                    {#each tooltipItems as item, i (`item:${item.id ?? item.label}:${i}`)}
+                        {@const key = itemKey(item.id, item.label, i)}
+                        {#if item.modal}
+                            <button
+                                type="button"
+                                class="ui-tag chipButton"
+                                aria-expanded={openItemKey === key}
+                                on:click={() => toggleItemAccordion(key, item.label, item.modal)}
+                            >
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </button>
+                        {:else}
+                            <span class="ui-tag chipStatic">
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </span>
+                        {/if}
                     {/each}
                 </div>
+                {#if openItemModal}
+                    <div class="itemAccordion">
+                        <div class="itemAccordionTitle">{openItemTitle}</div>
+                        <div class="itemAccordionBody">{openItemModal}</div>
+                    </div>
+                {/if}
             {/if}
-
-            {#each renderMetaLines(payload.meta) as row (row.k + row.v)}
-                <div class="metaRow">
-                    <span class="k">{row.k}</span>
-                    <span class="v">{row.v}</span>
-                </div>
-            {/each}
 
         {:else if payload.kind === 'marker'}
             <div class="list">
@@ -389,20 +400,68 @@
         padding: 10px 12px 0;
     }
 
-    .metaRow {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        margin: 6px 12px 0;
-        opacity: 0.9;
+    .chipStatic {
+        border-color: color-mix(in oklab, var(--fg), transparent 84%);
+        background: color-mix(in oklab, var(--fg), transparent 94%);
     }
 
-    .metaRow .k {
-        opacity: 0.7;
+    .chipButton {
+        cursor: pointer;
+        border-color: color-mix(in oklab, var(--accent-blue), transparent 70%);
+        background: color-mix(in oklab, var(--accent-blue), transparent 91%);
     }
 
-    .metaRow .v {
-        font-variant-numeric: tabular-nums;
+    .chipButton:hover:not(:disabled) {
+        background: color-mix(in oklab, var(--accent-blue), transparent 86%);
+        border-color: color-mix(in oklab, var(--accent-blue), transparent 58%);
+    }
+
+    .chipLine {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 14px;
+        font-weight: 700;
+        opacity: 0.95;
+    }
+
+    .chipLabel {
+        opacity: 0.85;
+        font-weight: 700;
+    }
+
+    .chipDivider {
+        width: 1px;
+        height: 1.1em;
+        background: color-mix(in oklab, var(--fg), transparent 84%);
+    }
+
+    .chipValue {
+        opacity: 0.98;
+        font-weight: 800;
+    }
+
+    .itemAccordion {
+        margin: 8px 12px 0;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
+        border-radius: 10px;
+        background: color-mix(in oklab, var(--panel), transparent 8%);
+        padding: 8px 10px;
+        display: grid;
+        gap: 6px;
+    }
+
+    .itemAccordionTitle {
+        font-size: 12px;
+        font-weight: 800;
+        opacity: 0.86;
+        letter-spacing: 0.02em;
+    }
+
+    .itemAccordionBody {
+        font-size: 13px;
+        line-height: 1.35;
+        opacity: 0.95;
     }
 
     .list {
