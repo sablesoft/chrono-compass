@@ -66,15 +66,19 @@
         position: fixed;
         inset: 0;
         background: rgba(0,0,0,0.55);
-        z-index: 1000;
+        z-index: 12000;
     }
     .modal {
         position: fixed;
-        inset: 7vh 7vw;
+        left: 50%;
+        top: max(10px, calc(env(safe-area-inset-top) + 10px));
+        width: min(1160px, calc(100vw - 20px));
+        max-height: calc(100vh - 20px);
+        transform: translateX(-50%);
         background: var(--panel);
         border: 1px solid var(--panel-border);
         border-radius: 18px;
-        z-index: 1001;
+        z-index: 12001;
         display: grid;
         grid-template-rows: auto 1fr auto;
         overflow: hidden;
