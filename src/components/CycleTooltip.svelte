@@ -3,6 +3,7 @@
     import { tick } from 'svelte';
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
+    import { formatInfoValue } from '../lib/wheel/infoFormat';
 
     export let x = 0;
     export let y = 0;
@@ -47,13 +48,7 @@
     }
 
     function formatKm(km: number): string {
-        if (!isFiniteNumber(km)) return '—';
-        const abs = Math.abs(km);
-        if (abs >= 1e12) return `${(km / 1e12).toFixed(3)} Tkm`;
-        if (abs >= 1e9) return `${(km / 1e9).toFixed(3)} Bkm`;
-        if (abs >= 1e6) return `${(km / 1e6).toFixed(3)} Mkm`;
-        if (abs >= 1e3) return `${(km / 1e3).toFixed(3)} Kkm`;
-        return `${km.toFixed(3)} km`;
+        return formatInfoValue('km', km);
     }
 
     function formatAu(au: number): string {
@@ -110,11 +105,11 @@
         if (isFiniteNumber((meta as any).nodalLatitudeDeg)) {
             return [
                 { k: 'Nodal Lat', v: formatDeg3((meta as any).nodalLatitudeDeg) },
-                ...(isFiniteNumber((meta as any).targetDistanceAu)
-                    ? [{ k: 'Dist AU', v: formatNum3((meta as any).targetDistanceAu) }]
+                ...(isFiniteNumber((meta as any).distanceAu)
+                    ? [{ k: 'Dist AU', v: formatNum3((meta as any).distanceAu) }]
                     : []),
-                ...(isFiniteNumber((meta as any).targetDistanceKm)
-                    ? [{ k: 'Dist km', v: formatKm((meta as any).targetDistanceKm) }]
+                ...(isFiniteNumber((meta as any).distanceKm)
+                    ? [{ k: 'Dist km', v: formatKm((meta as any).distanceKm) }]
                     : []),
             ];
         }

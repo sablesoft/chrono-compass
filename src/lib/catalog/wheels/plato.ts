@@ -3,15 +3,15 @@ import type { WheelSpec } from '../types';
 export const plato = {
     type: 'plato',
     ready: true,
-    tags: [
-        { value: 'first quarter', defaultEnabled: true, spokes: ['E', "E_next"] },
-        { value: 'waxing quadrature', defaultEnabled: true, spokes: ['E', "E_next"] },
-        { value: 'opposition', defaultEnabled: true, spokes: ['N'] },
-        { value: 'full phase', defaultEnabled: true, spokes: ['N'] },
-        { value: 'last quarter', defaultEnabled: true, spokes: ['W'] },
-        { value: 'waning quadrature', defaultEnabled: true, spokes: ['W'] },
-        { value: 'conjunction', defaultEnabled: true, spokes: ['S'] },
-        { value: 'new phase', defaultEnabled: true, spokes: ['S'] }
+    info: [
+        { defaultLabel: 'first quarter', spokes: ['E', "E_next"] },
+        { defaultLabel: 'waxing quadrature', spokes: ['E', "E_next"] },
+        { defaultLabel: 'opposition', spokes: ['N'] },
+        { defaultLabel: 'full phase', spokes: ['N'] },
+        { defaultLabel: 'last quarter', spokes: ['W'] },
+        { defaultLabel: 'waning quadrature', spokes: ['W'] },
+        { defaultLabel: 'conjunction', spokes: ['S'] },
+        { defaultLabel: 'new phase', spokes: ['S'] }
     ],
     requiredRoles: {
         'looker': ['reference'],

@@ -13,8 +13,10 @@ type ObjRec = { id: ObjId; kind: ObjKind; meta?: any } | null;
 
 export type NodalMeta = {
     nodalLatitudeDeg: number;
-    targetDistanceAu: number;
-    targetDistanceKm: number;
+    distanceAu: number;
+    distanceKm: number;
+    planeDistanceAu: number;
+    planeDistanceKm: number;
 };
 
 function getObj(id: ObjId): ObjRec {
@@ -184,6 +186,14 @@ function nodalLatitudeDeg(model: NodalModel, target: ObjId, ts: number): number 
 function targetDistanceAu(originBody: ObjId, target: ObjId, ts: number): number {
     const r = relativeVec(originBody, target, ts);
     return r ? norm(r) : NaN;
+}
+
+function targetPlaneDistanceAu(model: NodalModel, target: ObjId, ts: number): number {
+    const nRef = referencePlaneNormal(model, ts);
+    if (!nRef) return NaN;
+    const rT = relativeVec(model.originBody, target, ts);
+    if (!rT) return NaN;
+    return dot(rT, nRef);
 }
 
 function refineCrossingBisection(fAt: (t: number) => number, t0: number, t1: number, epsMs = 1000): number | null {
@@ -377,6 +387,7 @@ function buildSpoke(index: number, ts: number, model: NodalModel, target: ObjId)
     const code = SPOKES_ORDER[index] ?? (index === 16 ? 'E_next' : 'E');
     const lat = nodalLatitudeDeg(model, target, ts);
     const distAu = targetDistanceAu(model.originBody, target, ts);
+    const planeDistAu = targetPlaneDistanceAu(model, target, ts);
     return {
         ts,
         code,
@@ -384,8 +395,10 @@ function buildSpoke(index: number, ts: number, model: NodalModel, target: ObjId)
         tags: cycleSpokeTags('nodal', code),
         meta: {
             nodalLatitudeDeg: lat,
-            targetDistanceAu: distAu,
-            targetDistanceKm: isFiniteNumber(distAu) ? distAu * AU_KM : NaN,
+            distanceAu: distAu,
+            distanceKm: isFiniteNumber(distAu) ? distAu * AU_KM : NaN,
+            planeDistanceAu: planeDistAu,
+            planeDistanceKm: isFiniteNumber(planeDistAu) ? planeDistAu * AU_KM : NaN,
         },
     };
 }

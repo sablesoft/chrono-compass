@@ -131,8 +131,8 @@ Final spokes are strictly monotonic in time.
 Each spoke includes:
 
 * `nodalLatitudeDeg`
-* `targetDistanceAu`
-* `targetDistanceKm`
+* `distanceAu`
+* `distanceKm`
 
 So UI can show both:
 

@@ -1,10 +1,11 @@
 <script lang="ts">
     type WheelInfoChip = {
         id: string;
-        text: string;
+        text?: string;
         label?: string;
         value?: string;
         kind?: string;
+        group?: 'moment' | 'cycle';
         clickable?: boolean;
         disabled?: boolean;
         title?: string;
@@ -22,6 +23,8 @@
     };
 
     export let chips: WheelInfoChip[] = [];
+    export let momentChips: WheelInfoChip[] | null = null;
+    export let cycleChips: WheelInfoChip[] | null = null;
     export let allChips: WheelInfoConfigRow[] = [];
     export let onChipClick: (id: string) => void = () => {};
     export let onReorder: (ids: string[]) => void = () => {};
@@ -86,6 +89,12 @@
     function handleDrop(e: DragEvent, targetId: string) {
         e.preventDefault();
         if (!reorderEnabled || !dragChipId || dragChipId === targetId) {
+            dragChipId = null;
+            return;
+        }
+        const from = chips.find((x) => x.id === dragChipId);
+        const to = chips.find((x) => x.id === targetId);
+        if (from?.group && to?.group && from.group !== to.group) {
             dragChipId = null;
             return;
         }
@@ -201,13 +210,116 @@
         >✎</button>
     {/if}
 
-    <div class="chipGrid">
-    {#each chips as chip (chip.id)}
-        <div
-                class="chipWrap"
-                class:dragging={dragChipId === chip.id}
-                draggable={reorderEnabled}
-                role="listitem"
+    {#if momentChips || cycleChips}
+        {#if momentChips && momentChips.length}
+            <div class="chipGrid">
+                {#each momentChips as chip (chip.id)}
+                    <div
+                            class="chipWrap"
+                            class:dragging={dragChipId === chip.id}
+                            draggable={reorderEnabled}
+                            role="listitem"
+                            on:dragstart={(e) => handleDragStart(e, chip.id)}
+                            on:dragend={handleDragEnd}
+                            on:dragover|preventDefault
+                            on:drop={(e) => handleDrop(e, chip.id)}
+                    >
+                        {#if chip.clickable}
+                            <button
+                                    type="button"
+                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipButton`}
+                                    class:dim={chip.dim}
+                                    class:disabledTag={chip.disabled}
+                                    title={chip.title}
+                                    aria-label={chip.ariaLabel}
+                                    disabled={chip.disabled}
+                                    on:click={() => onChipClick(chip.id)}
+                            >
+                                <span class="chipTwoRows">
+                                    <span class="chipLabel">{chipLabel(chip)}</span>
+                                    <span class="chipDivider" aria-hidden="true"></span>
+                                    <span class="chipValue">{chipValue(chip)}</span>
+                                </span>
+                            </button>
+                        {:else}
+                            <span
+                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipStatic`}
+                                    class:dim={chip.dim}
+                                    title={chip.title}
+                                    aria-label={chip.ariaLabel}
+                            >
+                                <span class="chipTwoRows">
+                                    <span class="chipLabel">{chipLabel(chip)}</span>
+                                    <span class="chipDivider" aria-hidden="true"></span>
+                                    <span class="chipValue">{chipValue(chip)}</span>
+                                </span>
+                            </span>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        {/if}
+
+        {#if momentChips && momentChips.length && cycleChips && cycleChips.length}
+            <div class="chipSep" aria-hidden="true"></div>
+        {/if}
+
+        {#if cycleChips && cycleChips.length}
+            <div class="chipGrid">
+                {#each cycleChips as chip (chip.id)}
+                    <div
+                            class="chipWrap"
+                            class:dragging={dragChipId === chip.id}
+                            draggable={reorderEnabled}
+                            role="listitem"
+                            on:dragstart={(e) => handleDragStart(e, chip.id)}
+                            on:dragend={handleDragEnd}
+                            on:dragover|preventDefault
+                            on:drop={(e) => handleDrop(e, chip.id)}
+                    >
+                        {#if chip.clickable}
+                            <button
+                                    type="button"
+                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipButton`}
+                                    class:dim={chip.dim}
+                                    class:disabledTag={chip.disabled}
+                                    title={chip.title}
+                                    aria-label={chip.ariaLabel}
+                                    disabled={chip.disabled}
+                                    on:click={() => onChipClick(chip.id)}
+                            >
+                                <span class="chipTwoRows">
+                                    <span class="chipLabel">{chipLabel(chip)}</span>
+                                    <span class="chipDivider" aria-hidden="true"></span>
+                                    <span class="chipValue">{chipValue(chip)}</span>
+                                </span>
+                            </button>
+                        {:else}
+                            <span
+                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipStatic`}
+                                    class:dim={chip.dim}
+                                    title={chip.title}
+                                    aria-label={chip.ariaLabel}
+                            >
+                                <span class="chipTwoRows">
+                                    <span class="chipLabel">{chipLabel(chip)}</span>
+                                    <span class="chipDivider" aria-hidden="true"></span>
+                                    <span class="chipValue">{chipValue(chip)}</span>
+                                </span>
+                            </span>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    {:else}
+        <div class="chipGrid">
+        {#each chips as chip (chip.id)}
+            <div
+                    class="chipWrap"
+                    class:dragging={dragChipId === chip.id}
+                    draggable={reorderEnabled}
+                    role="listitem"
                 on:dragstart={(e) => handleDragStart(e, chip.id)}
                 on:dragend={handleDragEnd}
                 on:dragover|preventDefault
@@ -242,11 +354,12 @@
                         <span class="chipDivider" aria-hidden="true"></span>
                         <span class="chipValue">{chipValue(chip)}</span>
                     </span>
-                </span>
-            {/if}
+                    </span>
+                {/if}
+            </div>
+        {/each}
         </div>
-    {/each}
-    </div>
+    {/if}
 
     <slot />
 </div>
@@ -342,6 +455,13 @@
         padding: 4px 2px;
     }
 
+    .chipSep {
+        height: 1px;
+        width: 100%;
+        margin: 2px 0 6px;
+        background: color-mix(in oklab, var(--fg), transparent 88%);
+    }
+
     .chipWrap {
         display: inline-flex;
         align-items: stretch;
@@ -367,6 +487,11 @@
     .chipStatic {
         border-color: color-mix(in oklab, var(--fg), transparent 84%);
         background: color-mix(in oklab, var(--fg), transparent 94%);
+    }
+
+    .chip-moment {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 70%);
+        background: color-mix(in oklab, var(--accent-live), transparent 88%);
     }
 
     .disabledTag {

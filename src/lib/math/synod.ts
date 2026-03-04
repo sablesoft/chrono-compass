@@ -62,9 +62,8 @@ import { objects } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 
-import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp, norm360, toSigned180 } from './helpers';
+import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp, norm360, toSigned180, fmt } from './helpers';
 import { refUnit, lonDegEcliptic, type Vec } from './vector';
-import { fmt } from './extrema';
 
 export type SynodMeta = {
     // distances (AU) from focus -> target / focus -> looker (lookerDistAu = NaN for reference looker)

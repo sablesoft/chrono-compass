@@ -1,6 +1,6 @@
 // src/lib/catalog/types.ts
 import { Body as EngineBody } from 'astronomy-engine';
-import { SPOKES_ORDER } from '../wheel/types';
+import { SPOKES_ORDER, type InfoItem } from '../wheel/types';
 import {objects} from "./objects";
 
 /* =============================================================================
@@ -165,12 +165,6 @@ export type EmojiPlacementInput = EmojiPlacement | readonly EmojiPlacement[];
 
 export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacementInput>>;
 
-export type WheelTagDef = {
-    value: string;
-    defaultEnabled: boolean;
-    spokes: SpokeCode[];
-};
-
 export type WheelNodeGroup = 'synod' | 'bind' | 'seam' | 'boundary';
 export type WheelNodeGroups = Partial<Record<WheelNodeGroup, string[]>>;
 
@@ -215,7 +209,7 @@ type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
     type: TType;
     ready?: boolean;
     ui?: WheelUI<RS>;
-    tags?: WheelTagDef[];
+    info?: InfoItem[];
 
     // combos
     roles: RoleCombo<RS, TType>[];

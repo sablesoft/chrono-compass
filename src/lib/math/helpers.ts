@@ -4,8 +4,8 @@ export const DAY_MS = 86_400_000;
 
 export const AU_KM = 149_597_870.7;
 
-export function isFiniteNumber(x: unknown): x is number {
-    return typeof x === 'number' && Number.isFinite(x);
+export function isFiniteNumber(n: unknown): n is number {
+    return typeof n === 'number' && Number.isFinite(n);
 }
 
 export function lerp(a: number, b: number, u01: number) {
@@ -29,6 +29,123 @@ export function toSigned180(deg0_360: number): number {
 
 export function deg2rad(d: number): number {
     return (d * Math.PI) / 180;
+}
+
+export type Ext = {
+    t: number;
+    v: number;
+};
+
+
+type ExtKind = 'min' | 'max';
+export type ExtHit = { e: Ext; kind: ExtKind };
+
+function goldenSearch(
+    f: (t: number) => number,
+    a0: number,
+    b0: number,
+    want: ExtKind,
+    epsMs: number
+): Ext | null {
+    let a = a0, b = b0;
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const invPhi = 1 / phi;
+
+    let c = b - (b - a) * invPhi;
+    let d = a + (b - a) * invPhi;
+    let fc = f(c);
+    let fd = f(d);
+
+    if (!isFiniteNumber(fc) || !isFiniteNumber(fd)) return null;
+
+    while ((b - a) > epsMs) {
+        const pickLeft = want === 'min' ? (fc < fd) : (fc > fd);
+
+        if (pickLeft) {
+            b = d;
+            d = c;
+            fd = fc;
+            c = b - (b - a) * invPhi;
+            fc = f(c);
+        } else {
+            a = c;
+            c = d;
+            fc = fd;
+            d = a + (b - a) * invPhi;
+            fd = f(d);
+        }
+
+        if (!isFiniteNumber(fc) || !isFiniteNumber(fd)) return null;
+    }
+
+    const t = (a + b) / 2;
+    const v = f(t);
+    if (!isFiniteNumber(v)) return null;
+    return { t, v };
+}
+
+export function findExtremumInWindowGold(
+    f: (t: number) => number,
+    center: number,
+    halfWindow: number,
+    opts: { epsMs?: number; probeMs?: number; dbg?: { log?: (...a:any[])=>void } } = {}
+): Ext | null {
+
+    const epsMs = opts.epsMs ?? 60_000;                 // 1 min accuracy
+    const probeMs = opts.probeMs ?? Math.max(5*60_000, epsMs); // validate around point
+    const dbg = opts.dbg;
+
+    const a = center - halfWindow;
+    const b = center + halfWindow;
+
+    const fa = f(a);
+    const fb = f(b);
+    if (!isFiniteNumber(fa) || !isFiniteNumber(fb)) return null;
+
+    const minExt = goldenSearch(f, a, b, 'min', epsMs);
+    const maxExt = goldenSearch(f, a, b, 'max', epsMs);
+
+    function isRealMin(e: Ext | null): e is Ext {
+        if (!e) return false;
+        const vL = f(e.t - probeMs);
+        const vR = f(e.t + probeMs);
+        if (!isFiniteNumber(vL) || !isFiniteNumber(vR)) return false;
+        const v0 = e.v;
+        // must be strictly below neighbors AND below both ends
+        return v0 < vL && v0 < vR && v0 < fa && v0 < fb;
+    }
+    function isRealMax(e: Ext | null): e is Ext {
+        if (!e) return false;
+        const vL = f(e.t - probeMs);
+        const vR = f(e.t + probeMs);
+        if (!isFiniteNumber(vL) || !isFiniteNumber(vR)) return false;
+        const v0 = e.v;
+        return v0 > vL && v0 > vR && v0 > fa && v0 > fb;
+    }
+
+    const okMin = isRealMin(minExt);
+    const okMax = isRealMax(maxExt);
+
+    if (okMin && okMax) {
+        // окно явно содержит больше структуры, чем “≤1 экстремум”
+        dbg?.log?.('bind.ext.any.ambiguous', { center: fmt(center), halfWindow, min: minExt, max: maxExt });
+        return null;
+    }
+    if (!okMin && !okMax) return null;
+
+    const hit: ExtHit = okMin ? { e: minExt, kind: 'min' } : { e: maxExt!, kind: 'max' };
+
+    dbg?.log?.('bind.ext.any', {
+        center: fmt(center),
+        halfWinDays: (halfWindow / DAY_MS).toFixed(3),
+        found: { t: fmt(hit.e.t), v: hit.e.v, kind: hit.kind },
+    });
+
+    return hit.e ?? null;
+}
+
+export function fmt(ts: number) {
+    return Number.isFinite(ts) ? new Date(ts).toISOString() : String(ts);
 }
 
 export function formatCycleDurationTag(ms: number): string {

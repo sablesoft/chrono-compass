@@ -12,7 +12,7 @@
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import WheelHeader from './WheelHeader.svelte';
-    import WheelInfoBlock from './WheelInfoBlock.svelte';
+    import CompassInfoBlock from './CompassInfoBlock.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
@@ -2017,7 +2017,7 @@
 
     <!-- INFO -->
     {#if showInfoSection}
-        <WheelInfoBlock
+        <CompassInfoBlock
                 chips={compassInfoChips}
                 allChips={compassAllChipsForEditor}
                 onChipClick={handleCompassInfoRowPick}

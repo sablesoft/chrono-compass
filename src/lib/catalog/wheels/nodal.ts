@@ -3,15 +3,18 @@ import type { WheelSpec } from '../types';
 export const nodal = {
     type: 'nodal',
     ready: true,
-    tags: [
-            { value: 'ascending node', defaultEnabled: true, spokes: ['E', 'E_next'] },
-            { value: 'descending node', defaultEnabled: true, spokes: ['W'] },
-            { value: 'max latitude', defaultEnabled: true, spokes: ['N'] },
-            { value: 'min latitude', defaultEnabled: true, spokes: ['S'] },
-            { value: 'north apex', defaultEnabled: true, spokes: ['N'] },
-            { value: 'south nadir', defaultEnabled: true, spokes: ['S'] },
-            { value: 'north side', defaultEnabled: true, spokes: ['ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW'] },
-            { value: 'south side', defaultEnabled: true, spokes: ['WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] },
+    info: [
+        { defaultLabel: 'latitude', metaField: 'nodalLatitudeDeg', format: 'deg', spokes: '*' },
+        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
+        { defaultLabel: 'ascending node', spokes: ['E', 'E_next'] },
+        { defaultLabel: 'descending node', spokes: ['W'] },
+        { defaultLabel: 'max latitude', spokes: ['N'] },
+        { defaultLabel: 'min latitude', spokes: ['S'] },
+        { defaultLabel: 'north apex', spokes: ['N'] },
+        { defaultLabel: 'south nadir', spokes: ['S'] },
+        { defaultLabel: 'north side', spokes: ['ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW'] },
+        { defaultLabel: 'south side', spokes: ['WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] },
     ],
     ui: {
         looker: ['E-spoke', 'W-spoke'],

@@ -18,7 +18,7 @@ import type { ObjId } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 
-import { findExtremumInWindowGold, fmt} from './extrema';
+import { findExtremumInWindowGold, fmt} from './helpers';
 import { vectorLengthSafe } from './vector';
 import {AU_KM, DAY_MS, isFiniteNumber, lerp} from './helpers';
 
@@ -252,11 +252,6 @@ export function solveBindWheel(input: WheelInput<'bind'>): CycleSolveResult<Bind
 
     function findExtremum(c: number): Ext | null {
         return findExtremumInWindowGold(distanceAtAu, c, halfWindow, { dbg });
-        // return findExtremumInWindow(distanceAtAu, c, halfWindow, {
-        //     stepMs: Math.max(60_000, cycleDuration / 10000),
-        //     refineIters: 100,
-        //     dbg,
-        // });
     }
 
     // Find bracketing (“обнимашки”): one extremum before ts, one after ts, and they must be opposite kinds.

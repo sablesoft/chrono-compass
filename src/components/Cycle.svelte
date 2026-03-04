@@ -12,16 +12,18 @@
 
     import { objects, wheels } from '../lib/catalog';
     import type { ObjId, WheelSpec, RoleName, EmojiPlacement, EmojiPlacementInput, SpokeCode } from '../lib/catalog';
+    import type { CycleInfoConfig, InfoItem, InfoTagConfig, InfoTemplate } from '../lib/wheel/types';
 
     import DocsModal from './DocsModal.svelte';
     import LocationPicker from './LocationPicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import WheelHeader from './WheelHeader.svelte';
-    import WheelInfoBlock from './WheelInfoBlock.svelte';
+    import CycleInfoBlock from './CycleInfoBlock.svelte';
 
     import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
     import { ms, formatDateTime } from '../lib/format';
+    import { formatInfoValue } from '../lib/wheel/infoFormat';
 
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
@@ -31,7 +33,7 @@
     import type { CycleSpoke, WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
-    import { type WheelObserverState, type WheelTimeState, type SpokeKey } from '../lib/wheel/types';
+    import { type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
@@ -126,35 +128,6 @@
     // ------------------------------------------------------------
     function fmtOrDash(ts0: number) {
         return Number.isFinite(ts0) ? formatDateTime(ts0) : '—';
-    }
-
-    function formatDurationHuman(ms0: number) {
-        if (!Number.isFinite(ms0) || ms0 <= 0) return '—';
-
-        const totalMinutes = Math.floor(ms0 / 60_000);
-        if (totalMinutes <= 0) return '0 minutes';
-
-        let minutes = totalMinutes;
-
-        const MIN_PER_HOUR = 60;
-        const MIN_PER_DAY = 24 * MIN_PER_HOUR;
-        const MIN_PER_MONTH = 30 * MIN_PER_DAY;
-        const MIN_PER_YEAR = 365 * MIN_PER_DAY;
-
-        const years = Math.floor(minutes / MIN_PER_YEAR); minutes -= years * MIN_PER_YEAR;
-        const months = Math.floor(minutes / MIN_PER_MONTH); minutes -= months * MIN_PER_MONTH;
-        const days = Math.floor(minutes / MIN_PER_DAY); minutes -= days * MIN_PER_DAY;
-        const hours = Math.floor(minutes / MIN_PER_HOUR); minutes -= hours * MIN_PER_HOUR;
-        const mins = minutes;
-
-        const parts: string[] = [];
-        if (years) parts.push(`${years}y`);
-        if (months) parts.push(`${months}mo`);
-        if (days) parts.push(`${days}d`);
-        if (hours) parts.push(`${hours}h`);
-        if (mins) parts.push(`${mins}m`);
-
-        return parts.length ? parts.join(' ') : '0m';
     }
 
     // ------------------------------------------------------------
@@ -393,8 +366,6 @@
             ? (cycleEndTs - cycleBeginTs)
             : NaN;
 
-    $: cycleDurationHuman = formatDurationHuman(cycleDurationMs);
-
     function spokePayload(i: number): CycleTipPayload {
         const s = spokes.find(x => x.index === i);
         const code = (i == 16) ? 'E+' : (spokeCodes?.[i] ?? labels[i]);
@@ -403,13 +374,16 @@
         const ts = Number.isFinite(t) ? t : NaN;
         const pickTs = resolveSpokePickTs(i);
 
+        const baseTags = Array.isArray((s as any)?.tags) ? (s as any).tags : [];
+        const extraTags = extraTagsBySpoke.get(s?.code as SpokeKey) ?? [];
+        const tags = uniqueStrings([...baseTags, ...extraTags]);
         return {
             kind: 'spoke',
             code: String(code),
             ts,
             pickTs: Number.isFinite(pickTs) ? pickTs : undefined,
             meta: (s as any)?.meta,
-            tags: Array.isArray((s as any)?.tags) ? (s as any).tags : undefined
+            tags: tags.length ? tags : undefined
         };
     }
 
@@ -745,120 +719,403 @@
         );
     }
 
-    function handleInfoRowPick(id: string) {
-        if (id === 'spoke') {
-            const t = spokeTimes?.[activeSpokeIndex];
-            if (Number.isFinite(t)) jumpTo(t, `activeSpoke:${activeSpokeCode}`);
-            return;
-        }
-        if (id === 'begin') {
-            if (Number.isFinite(cycleBeginTs)) jumpTo(cycleBeginTs, 'cycleBegin');
-            return;
-        }
-        if (id === 'end') {
-            const t = resolveSpokePickTs(16);
-            if (Number.isFinite(t)) jumpTo(t, 'cycleEndNext');
-        }
+    function handleSpokePick(code: SpokeKey) {
+        const hit = spokes.find((s) => s.code === code);
+        if (!hit) return;
+        const ts = resolveSpokePickTs(hit.index);
+        if (Number.isFinite(ts)) jumpTo(ts, `spoke:${code}`);
     }
 
-    function orderInfoChips<T extends { id: string }>(chips: T[], order: string[] | undefined): T[] {
-        if (!Array.isArray(order) || order.length === 0) return chips;
-        const map = new Map(chips.map((c) => [c.id, c]));
+    type InfoChip = {
+        id: string;
+        label: string;
+        value?: string;
+        kind?: string;
+        modal?: string;
+        clickable?: boolean;
+        disabled?: boolean;
+        title?: string;
+        ariaLabel?: string;
+        dim?: boolean;
+        templateId?: string;
+    };
+
+    type SpokeInfoRow = {
+        code: SpokeKey;
+        chips: InfoChip[];
+        isCurrent?: boolean;
+        templateId?: string;
+    };
+
+    type TagDef = {
+        id: string;
+        label: string;
+        metaField?: string;
+        format?: string;
+        value?: string;
+        spokes?: SpokeKey[] | '*';
+    };
+
+    let cycleInfoDefs: InfoItem[] = [];
+    let tagDefs: TagDef[] = [];
+    let tagDefById: Map<string, TagDef> = new Map();
+    let availableSpokeCodes: SpokeKey[] = [];
+    let activeSpoke: CycleSpoke | null = null;
+
+    let generalDefs: Array<{ id: string; label: string; value: string }> = [];
+    let currentValues: Record<string, string> = {};
+    let staticValues: Record<string, string> = {};
+
+    let defaultInfoConfig: CycleInfoConfig = {
+        general: { enabled: true, tags: [] },
+        templates: []
+    };
+    let infoConfig: CycleInfoConfig = defaultInfoConfig;
+
+    let generalChipsOrdered: InfoChip[] = [];
+    let currentRow: SpokeInfoRow | null = null;
+    let staticSpokeRows: SpokeInfoRow[] = [];
+    let extraTagsBySpoke: Map<SpokeKey, string[]> = new Map();
+
+    let infoConfigInitialized = false;
+    let infoConfigWheelId = '';
+
+    function titleCaseLabel(input: string): string {
+        const text = String(input ?? '').trim();
+        if (!text) return '';
+        return text
+            .split(' ')
+            .map((part) =>
+                part
+                    .split('-')
+                    .map((w) => w ? w.charAt(0).toUpperCase() + w.slice(1) : '')
+                    .join('-')
+            )
+            .join(' ');
+    }
+
+    function normalizeLabel(input: unknown): string {
+        return String(input ?? '').trim();
+    }
+
+    function tagIdFromLabel(label: string): string {
+        const base = label
+            .toLowerCase()
+            .replace(/[\s-]+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+        return base || 'item';
+    }
+
+    function normalizeTagConfig(input: InfoTagConfig): InfoTagConfig | null {
+        if (!input || !input.id) return null;
+        return {
+            id: String(input.id).trim(),
+            label: input.label,
+            enabled: input.enabled !== false,
+            modal: input.modal,
+            isCustom: input.isCustom
+        };
+    }
+
+    function normalizeTemplate(input: InfoTemplate, defaults: InfoTemplate): InfoTemplate {
+        const tags = Array.isArray(input.tags) && input.tags.length
+            ? input.tags.map(normalizeTagConfig).filter((t): t is InfoTagConfig => !!t)
+            : defaults.tags;
+        const spokes = Array.isArray(input.spokes) && input.spokes.length
+            ? input.spokes.filter(Boolean)
+            : defaults.spokes;
+        return {
+            id: input.id || defaults.id,
+            title: String(input.title || defaults.title || 'Template'),
+            enabled: typeof input.enabled === 'boolean' ? input.enabled : defaults.enabled,
+            dynamic: typeof input.dynamic === 'boolean' ? input.dynamic : defaults.dynamic,
+            spokes,
+            tags
+        };
+    }
+
+    function normalizeInfoConfig(defaults: CycleInfoConfig, current?: CycleInfoConfig | null): CycleInfoConfig {
+        if (!current) return defaults;
+        const generalTags = Array.isArray(current.general?.tags) && current.general.tags.length
+            ? current.general.tags.map(normalizeTagConfig).filter((t): t is InfoTagConfig => !!t)
+            : defaults.general.tags;
+        const templates = Array.isArray(current.templates) && current.templates.length
+            ? current.templates.map((tpl) => {
+                const base = defaults.templates.find((d) => d.dynamic === tpl.dynamic) ?? defaults.templates[0];
+                return normalizeTemplate(tpl, base);
+            })
+            : defaults.templates;
+        return {
+            general: {
+                enabled: typeof current.general?.enabled === 'boolean' ? current.general.enabled : defaults.general.enabled,
+                tags: generalTags
+            },
+            templates
+        };
+    }
+
+    function applyInfoConfig(next: CycleInfoConfig) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { infoConfig: next } },
+            'Cycle.configureInfoBlock'
+        );
+    }
+
+    function reorderByIds<T extends { id: string }>(items: T[], ids: string[]): T[] {
+        if (!ids.length) return items;
+        const map = new Map(items.map((x) => [x.id, x]));
         const out: T[] = [];
         const seen = new Set<string>();
-        for (const id of order) {
+        for (const id of ids) {
             const hit = map.get(id);
             if (!hit || seen.has(id)) continue;
             out.push(hit);
             seen.add(id);
         }
-        for (const c of chips) {
-            if (seen.has(c.id)) continue;
-            out.push(c);
+        for (const item of items) {
+            if (seen.has(item.id)) continue;
+            out.push(item);
         }
         return out;
     }
 
-    function handleInfoChipReorder(ids: string[]) {
-        if (!wheelId) return;
-        boardApi.updateWheelById(
-            wheelId,
-            { view: { infoChipOrder: ids } },
-            'Cycle.reorderInfoChips'
-        );
+    function handleGeneralReorder(ids: string[]) {
+        if (!infoConfig) return;
+        const map = new Map(infoConfig.general.tags.map((t) => [t.id, t]));
+        const nextTags = reorderByIds(infoConfig.general.tags, ids).filter((t) => map.has(t.id));
+        applyInfoConfig({ ...infoConfig, general: { ...infoConfig.general, tags: nextTags } });
     }
 
-    function handleInfoChipConfigure(next: { selectedIds: string[]; labels: Record<string, string> }) {
-        if (!wheelId) return;
-        boardApi.updateWheelById(
-            wheelId,
-            { view: { infoChipSelected: next.selectedIds, infoChipLabels: next.labels } },
-            'Cycle.configureInfoChips'
-        );
-    }
-
-    $: cycleInfoChipsBase = [
-        {
-            id: 'spoke',
-            clickable: true,
-            disabled: !solveOk,
-            title: solveOk ? `Go to ${activeSpokeLabel}` : solveReason || 'Solve failed',
-            ariaLabel: `Go to ${activeSpokeLabel}`,
-            text: `Spoke ${activeSpokeLabel} • ${solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data')}`,
-            label: `Spoke ${activeSpokeLabel}`,
-            value: solveOk ? formatDateTime(spokeTimes?.[activeSpokeIndex]) : (solveReason || 'No data'),
-            kind: 'default'
-        },
-        {
-            id: 'begin',
-            clickable: true,
-            disabled: !solveOk,
-            title: 'Go to Begin (E)',
-            ariaLabel: 'Go to Begin (E)',
-            text: `Begin E • ${solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data')}`,
-            label: 'Begin E',
-            value: solveOk ? fmtOrDash(cycleBeginTs) : (solveReason || 'No data'),
-            kind: 'accent'
-        },
-        {
-            id: 'end',
-            clickable: true,
-            disabled: !solveOk,
-            title: 'Go to End (E+)',
-            ariaLabel: 'Go to End (E+)',
-            text: `End E+ • ${solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data')}`,
-            label: 'End E+',
-            value: solveOk ? fmtOrDash(cycleEndTs) : (solveReason || 'No data'),
-            kind: 'accent'
-        },
-        {
-            id: 'duration',
-            text: `Duration • ${solveOk ? cycleDurationHuman : '—'}`,
-            label: 'Duration',
-            value: solveOk ? cycleDurationHuman : '—',
-            kind: 'muted'
-        }
-    ];
-    $: cycleInfoLabels = wheel?.view?.infoChipLabels ?? {};
-    $: cycleInfoChipsOrderedAll = orderInfoChips(cycleInfoChipsBase, wheel?.view?.infoChipOrder);
-    $: cycleSelectedIds = (wheel?.view?.infoChipSelected?.length ?? 0) > 0
-        ? (wheel?.view?.infoChipSelected ?? [])
-        : cycleInfoChipsOrderedAll.map((x) => x.id);
-    $: cycleSelectedSet = new Set(cycleSelectedIds);
-    $: cycleInfoChipsOrdered = cycleInfoChipsOrderedAll
-        .filter((c) => cycleSelectedSet.has(c.id))
-        .map((c) => {
-            const userLabel = String(cycleInfoLabels[c.id] ?? '').trim();
-            return userLabel ? { ...c, label: userLabel } : c;
+    function handleTemplateReorder(templateId: string, ids: string[]) {
+        if (!infoConfig) return;
+        const nextTemplates = infoConfig.templates.map((tpl) => {
+            if (tpl.id !== templateId) return tpl;
+            const map = new Map(tpl.tags.map((t) => [t.id, t]));
+            const nextTags = reorderByIds(tpl.tags, ids).filter((t) => map.has(t.id));
+            return { ...tpl, tags: nextTags };
         });
-    $: cycleAllChipsForEditor = cycleInfoChipsOrderedAll.map((c) => ({
-        id: c.id,
-        systemLabel: c.label ?? c.id,
-        value: c.value ?? '—',
-        selected: cycleSelectedSet.has(c.id),
-        userLabel: cycleInfoLabels[c.id] ?? '',
-        isDefault: true
-    }));
+        applyInfoConfig({ ...infoConfig, templates: nextTemplates });
+    }
+
+    function buildTagDefs(rows: InfoItem[]): TagDef[] {
+        return rows
+            .filter((row) => row.defaultLabel)
+            .map((row) => {
+                const rawLabel = normalizeLabel(row.defaultLabel);
+                const label = titleCaseLabel(rawLabel);
+                const id = tagIdFromLabel(rawLabel);
+                if (!id || !label) return null;
+                return {
+                    id,
+                    label,
+                    metaField: row.metaField,
+                    format: row.format,
+                    value: row.value,
+                    spokes: row.spokes
+                };
+            })
+            .filter((row): row is NonNullable<typeof row> => !!row);
+    }
+
+    function tagApplies(def: TagDef | undefined, code: SpokeKey): boolean {
+        if (!def?.spokes) return true;
+        if (def.spokes === '*') return true;
+        return def.spokes.includes(code);
+    }
+
+    function tagValueForDef(def: TagDef | undefined, meta: Record<string, unknown>): string | undefined {
+        if (!def) return undefined;
+        const rawValue = def.metaField ? (meta as any)?.[def.metaField] : def.value;
+        if (def.format) return formatInfoValue(def.format, rawValue);
+        if (rawValue == null || String(rawValue).trim() === '') return undefined;
+        return String(rawValue);
+    }
+
+    function buildValueMap(meta: Record<string, unknown>, code: SpokeKey): Record<string, string> {
+        const out: Record<string, string> = {};
+        for (const def of tagDefs) {
+            if (!tagApplies(def, code)) continue;
+            const value = tagValueForDef(def, meta);
+            if (value != null) out[def.id] = value;
+        }
+        return out;
+    }
+
+    function buildChips(tagConfigs: InfoTagConfig[], meta: Record<string, unknown>, code: SpokeKey, templateId?: string): InfoChip[] {
+        const out: InfoChip[] = [];
+        for (const tag of tagConfigs) {
+            if (tag.enabled === false) continue;
+            const def = tagDefById.get(tag.id);
+            if (def && !tagApplies(def, code)) continue;
+            const baseLabel = def?.label ?? titleCaseLabel(tag.label ?? tag.id);
+            const label = (tag.label && tag.label.trim()) ? tag.label.trim() : baseLabel;
+            const value = tagValueForDef(def, meta);
+            const modal = tag.modal && tag.modal.trim() ? tag.modal.trim() : undefined;
+            out.push({
+                id: tag.id,
+                label,
+                value,
+                modal,
+                clickable: !!modal,
+                templateId
+            });
+        }
+        return out;
+    }
+
+    function findTemplate(templates: InfoTemplate[], code: SpokeKey, dynamic: boolean): InfoTemplate | null {
+        for (const tpl of templates) {
+            if (!tpl.enabled || tpl.dynamic !== dynamic) continue;
+            if (tpl.spokes.includes(code)) return tpl;
+        }
+        return null;
+    }
+
+    function templateTagLabels(template: InfoTemplate, code: SpokeKey): string[] {
+        const out: string[] = [];
+        for (const tag of template.tags) {
+            if (tag.enabled === false) continue;
+            const def = tagDefById.get(tag.id);
+            if (def && !tagApplies(def, code)) continue;
+            const label = (tag.label && tag.label.trim()) ? tag.label.trim() : (def?.label ?? titleCaseLabel(tag.id));
+            if (!label) continue;
+            out.push(label);
+        }
+        return out;
+    }
+
+    function uniqueStrings(list: string[]): string[] {
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const raw of list) {
+            const v = String(raw ?? '').trim();
+            if (!v || seen.has(v)) continue;
+            seen.add(v);
+            out.push(v);
+        }
+        return out;
+    }
+
+    function defaultStaticSpokes(codes: SpokeKey[]): SpokeKey[] {
+        const preferred: SpokeKey[] = ['E', 'N', 'W', 'S', 'E_next'];
+        return preferred.filter((code) => codes.includes(code));
+    }
+
+    $: cycleInfoDefs = Array.isArray((spec as any)?.info) ? ((spec as any).info as InfoItem[]) : [];
+    $: tagDefs = buildTagDefs(cycleInfoDefs);
+    $: tagDefById = new Map(tagDefs.map((d) => [d.id, d]));
+    $: availableSpokeCodes = SPOKES_ORDER.filter((code) => spokes.some((s) => s.code === code));
+    $: activeSpoke = spokes.find((x) => x.index === activeSpokeIndex) ?? null;
+
+    $: generalDefs = [{
+        id: 'duration',
+        label: titleCaseLabel('duration'),
+        value: formatInfoValue('duration', cycleDurationMs)
+    }];
+
+    $: defaultInfoConfig = {
+        general: {
+            enabled: true,
+            tags: [{ id: 'duration', enabled: true }]
+        },
+        templates: [
+            {
+                id: 'tpl:dynamic:default',
+                title: 'Current spoke',
+                enabled: true,
+                dynamic: true,
+                spokes: availableSpokeCodes,
+                tags: tagDefs.map((d) => ({ id: d.id, enabled: true }))
+            },
+            {
+                id: 'tpl:static:default',
+                title: 'Spokes',
+                enabled: true,
+                dynamic: false,
+                spokes: defaultStaticSpokes(availableSpokeCodes),
+                tags: tagDefs.map((d) => ({ id: d.id, enabled: true }))
+            }
+        ]
+    } satisfies CycleInfoConfig;
+
+    $: if (wheelId && wheelId !== infoConfigWheelId) {
+        infoConfigWheelId = wheelId;
+        infoConfigInitialized = false;
+    }
+
+    $: infoConfig = normalizeInfoConfig(defaultInfoConfig, wheel?.view?.infoConfig ?? null);
+    $: if (!infoConfigInitialized && wheelId && wheel?.view && !wheel.view.infoConfig && availableSpokeCodes.length > 0) {
+        infoConfigInitialized = true;
+        applyInfoConfig(defaultInfoConfig);
+    }
+
+    $: generalChipsOrdered = (() => {
+        if (!infoConfig?.general.enabled) return [];
+        const generalMap = new Map(generalDefs.map((d) => [d.id, d]));
+        return infoConfig.general.tags
+            .filter((t) => t.enabled !== false)
+            .map((t) => {
+                const def = generalMap.get(t.id);
+                const label = (t.label && t.label.trim()) ? t.label.trim() : (def?.label ?? titleCaseLabel(t.id));
+                const value = def?.value;
+                const modal = t.modal && t.modal.trim() ? t.modal.trim() : undefined;
+                return {
+                    id: t.id,
+                    label,
+                    value,
+                    modal,
+                    clickable: !!modal
+                };
+            });
+    })();
+
+    $: currentRow = (() => {
+        if (!activeSpoke) return null;
+        const template = findTemplate(infoConfig.templates, activeSpoke.code, true);
+        if (!template) return null;
+        const meta = (activeSpoke as any)?.meta ?? {};
+        const chips = buildChips(template.tags, meta, activeSpoke.code, template.id);
+        return { code: activeSpoke.code, chips, isCurrent: true, templateId: template.id };
+    })();
+
+    $: staticSpokeRows = (() => {
+        const rows: SpokeInfoRow[] = [];
+        for (const code of availableSpokeCodes) {
+            const template = findTemplate(infoConfig.templates, code, false);
+            if (!template) continue;
+            const spoke = spokes.find((s) => s.code === code);
+            if (!spoke) continue;
+            const meta = (spoke as any)?.meta ?? {};
+            const chips = buildChips(template.tags, meta, code, template.id);
+            rows.push({ code, chips, templateId: template.id });
+        }
+        return rows;
+    })();
+
+    $: currentValues = activeSpoke ? buildValueMap((activeSpoke as any)?.meta ?? {}, activeSpoke.code) : {};
+    $: {
+        const refCode = availableSpokeCodes[0];
+        const refSpoke = refCode ? spokes.find((s) => s.code === refCode) : null;
+        staticValues = refSpoke ? buildValueMap((refSpoke as any)?.meta ?? {}, refSpoke.code) : {};
+    }
+
+    $: extraTagsBySpoke = (() => {
+        const map = new Map<SpokeKey, string[]>();
+        for (const tpl of infoConfig.templates) {
+            if (!tpl.enabled || tpl.dynamic) continue;
+            for (const code of tpl.spokes) {
+                const labels = templateTagLabels(tpl, code);
+                if (!labels.length) continue;
+                const next = map.get(code) ?? [];
+                map.set(code, uniqueStrings([...next, ...labels]));
+            }
+        }
+        return map;
+    })();
 </script>
 
 <section class="panel">
@@ -1225,12 +1482,21 @@
     {/if}
 
     {#if showInfoSection}
-        <WheelInfoBlock
-                chips={cycleInfoChipsOrdered}
-                allChips={cycleAllChipsForEditor}
-                onChipClick={handleInfoRowPick}
-                onReorder={handleInfoChipReorder}
-                onConfigure={handleInfoChipConfigure}
+        <CycleInfoBlock
+                generalChips={generalChipsOrdered}
+                currentRow={currentRow}
+                spokeRows={staticSpokeRows}
+                config={infoConfig}
+                defaultConfig={defaultInfoConfig}
+                spokeOptions={availableSpokeCodes}
+                tagDefs={tagDefs}
+                generalDefs={generalDefs}
+                currentValues={currentValues}
+                staticValues={staticValues}
+                onSpokeClick={handleSpokePick}
+                onGeneralReorder={handleGeneralReorder}
+                onTemplateReorder={handleTemplateReorder}
+                onConfigure={applyInfoConfig}
                 reorderEnabled={true}
         />
     {/if}

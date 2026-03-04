@@ -5,20 +5,20 @@ import { DAY_MS } from '../../math/helpers';
 export const bind = {
     type: 'bind',
     ready: true,
-    tags: [
-            { value: 'max distance', defaultEnabled: true, spokes: ['N'] },
-            { value: 'min distance', defaultEnabled: true, spokes: ['S'] },
-            { value: 'mid distance', defaultEnabled: true, spokes: ['E', 'E_next', 'W'] },
-            {
-                value: 'distance rising',
-                defaultEnabled: true,
-                spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE']
-            },
-            {
-                value: 'distance falling',
-                defaultEnabled: true,
-                spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW']
-            }
+    info: [
+        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
+        { defaultLabel: 'max distance', spokes: ['N'] },
+        { defaultLabel: 'min distance', spokes: ['S'] },
+        { defaultLabel: 'mid distance', spokes: ['E', 'E_next', 'W'] },
+        {
+            defaultLabel: 'distance rising',
+            spokes: ['SSE', 'SE', 'ESE', 'E_next', 'E', 'ENE', 'NE', 'NNE']
+        },
+        {
+            defaultLabel: 'distance falling',
+            spokes: ['NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW']
+        }
     ],
     ui: {
         focus: 'center',

@@ -1,7 +1,7 @@
 // src/lib/board/types.ts
 import type { WheelType } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
-import type { WheelObserverState, WheelTimeState } from '../wheel/types';
+import type { CycleInfoConfig, WheelObserverState, WheelTimeState } from '../wheel/types';
 import type { BoardLayoutRect } from './layoutEngine';
 
 export type BoardWheelView = {
@@ -11,6 +11,7 @@ export type BoardWheelView = {
     infoChipOrder?: string[];
     infoChipSelected?: string[];
     infoChipLabels?: Record<string, string>;
+    infoConfig?: CycleInfoConfig;
 };
 
 export type BoardWheel = {

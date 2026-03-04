@@ -3,7 +3,7 @@ import { writable, derived, get } from 'svelte/store';
 import { nanoid } from 'nanoid';
 
 import { debug } from '../debug';
-import type { WheelType } from '../catalog';
+import { wheels, type WheelType } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
@@ -11,6 +11,7 @@ import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 import type { BoardWheel, BoardWheelView } from './types';
 import { DEFAULT_LOCATION_ID } from '../location/types';
 import { DEFAULT_TIME } from '../time/types';
+import { momentTagChipId } from '../catalog/tags';
 import {
     BOARD_DEFAULT_H,
     BOARD_DEFAULT_W,
@@ -37,14 +38,23 @@ const DEFAULT_VIEW: BoardWheelView = {
     showPickers: false,
     infoChipOrder: [],
     infoChipSelected: [],
-    infoChipLabels: {}
+    infoChipLabels: {},
+    infoConfig: undefined
 };
 
 function defaultInfoChipSelectedForWheel(wheelType: WheelType): string[] {
     if (wheelType === 'compass' || wheelType === 'system' || wheelType === 'galaxy') {
         return ['pinned'];
     }
-    return ['spoke', 'begin', 'end', 'duration'];
+    const spec = (wheels as any)[wheelType] as { info?: Array<{ defaultLabel?: string; enabled?: boolean }> } | undefined;
+    const defs = Array.isArray(spec?.info) ? spec?.info : [];
+    const momentIds = defs
+        .filter((row) => row?.enabled !== false)
+        .map((row) => momentTagChipId(String(row?.defaultLabel ?? '').trim()))
+        .filter((id) => id && id !== 'moment:');
+    const base = ['spoke', 'begin', 'end', 'duration'];
+    const out = new Set<string>([...momentIds, ...base]);
+    return Array.from(out);
 }
 
 function normalizeInfoChipOrder(input: unknown): string[] {
@@ -90,7 +100,10 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
         showPickers,
         infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder),
         infoChipSelected: normalizeInfoChipOrder(src.infoChipSelected ?? base.infoChipSelected),
-        infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels)
+        infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels),
+        infoConfig: (src.infoConfig && typeof src.infoConfig === 'object')
+            ? (src.infoConfig as BoardWheelView['infoConfig'])
+            : base.infoConfig
     };
 }
 

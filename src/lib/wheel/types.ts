@@ -15,6 +15,52 @@ export type SpokeKey =
     | 'S' | 'SSE' | 'SE' | 'ESE'
     | 'E_next';
 
+export type InfoItem = {
+    defaultLabel?: string;
+    label?: string;
+    value?: string;
+    modal?: string;
+    enabled?: boolean;
+    metaField?: string;
+    format?: InfoValueFormat;
+    spokes?: SpokeKey[] | '*';
+};
+
+export type InfoTagConfig = {
+    id: string;
+    label?: string;
+    enabled?: boolean;
+    modal?: string;
+    isCustom?: boolean;
+};
+
+export type InfoTemplate = {
+    id: string;
+    title: string;
+    enabled: boolean;
+    dynamic: boolean;
+    spokes: SpokeKey[];
+    tags: InfoTagConfig[];
+};
+
+export type CycleInfoConfig = {
+    general: {
+        enabled: boolean;
+        tags: InfoTagConfig[];
+    };
+    templates: InfoTemplate[];
+};
+
+export type InfoValueFormat =
+    | 'dateTime'
+    | 'date'
+    | 'time'
+    | 'deg'
+    | 'deg2'
+    | 'au'
+    | 'km'
+    | 'duration';
+
 export const SPOKES_ORDER: SpokeKey[] = [
     'E', 'ENE', 'NE', 'NNE',
     'N', 'NNW', 'NW', 'WNW',

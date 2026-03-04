@@ -18,13 +18,21 @@ function uniqueTags(tags: Array<string | null | undefined>): string[] {
 }
 
 export function cycleSpokeTags(wheelType: CycleTaggedWheelType, code: SpokeKey): string[] {
-    const spec = (wheels as any)[wheelType] as { tags?: Array<{ value?: string; spokes?: string[] }> } | undefined;
-    const defs = Array.isArray(spec?.tags) ? spec.tags : [];
+    const spec = (wheels as any)[wheelType] as { info?: Array<{ defaultLabel?: string; spokes?: SpokeKey[] | '*' }> } | undefined;
+    const defs = Array.isArray(spec?.info) ? spec.info : [];
 
     const fromSpec = defs
-        .filter((row) => Array.isArray(row?.spokes) && row.spokes.includes(code))
-        .map((row) => String(row?.value ?? '').trim())
+        .filter((row) => {
+            if (!row) return false;
+            if (row.spokes === '*') return true;
+            return Array.isArray(row.spokes) && row.spokes.includes(code);
+        })
+        .map((row) => String(row?.defaultLabel ?? '').trim())
         .filter(Boolean);
 
     return uniqueTags([...fromSpec, `${code}-${wheelType}`]);
+}
+
+export function momentTagChipId(value: string): string {
+    return `moment:${String(value ?? '').trim()}`;
 }

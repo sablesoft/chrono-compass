@@ -6,6 +6,7 @@
     import type { ObjId } from '../lib/catalog';
     import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
+    import { formatInfoValue } from '../lib/wheel/infoFormat';
     import {clamp, norm360} from "../lib/math/helpers";
     import RelatedWheels from './RelatedWheels.svelte';
 
@@ -98,11 +99,7 @@
         const absAu = Math.abs(x);
         if (absAu < 0.005) {
             const km = x * AU_KM;
-            const absKm = Math.abs(km);
-            if (absKm >= 1_000_000_000) return `${(km / 1_000_000_000).toFixed(3)}B km`;
-            if (absKm >= 1_000_000) return `${(km / 1_000_000).toFixed(3)}M km`;
-            if (absKm >= 1_000) return `${(km / 1_000).toFixed(3)}K km`;
-            return `${km.toFixed(1)} km`;
+            return formatInfoValue('km', km);
         }
         return `${x.toFixed(3)} AU`;
     }

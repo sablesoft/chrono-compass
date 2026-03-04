@@ -3,18 +3,24 @@ import type { WheelSpec } from '../types';
 export const horizon = {
     type: 'horizon',
     ready: true,
-    tags: [
-            { value: 'rising horizon', defaultEnabled: true, spokes: ['E', "E_next"] },
-            { value: 'setting horizon', defaultEnabled: true, spokes: ['W'] },
-            { value: 'max altitude', defaultEnabled: true, spokes: ['N'] },
-            { value: 'min altitude', defaultEnabled: true, spokes: ['S'] },
-            { value: 'zenith', defaultEnabled: true, spokes: ['N'] },
-            { value: 'nadir', defaultEnabled: true, spokes: ['S'] },
-            { value: 'above horizon', defaultEnabled: true, spokes: ['ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW'] },
-            { value: 'below horizon', defaultEnabled: true, spokes: ['WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] },
-            { value: 'N-horizon', defaultEnabled: true, spokes: ['N'] },
-            { value: 'S-horizon', defaultEnabled: true, spokes: ['S'] },
-            { value: 'W-horizon', defaultEnabled: true, spokes: ['W'] }
+    info: [
+        { defaultLabel: 'altitude', metaField: 'altitudeDeg', format: 'deg', spokes: '*' },
+        { defaultLabel: 'azimuth', metaField: 'azimuthDeg', format: 'deg', spokes: '*' },
+        { defaultLabel: 'ra hours', metaField: 'raHours', format: 'deg2', spokes: '*' },
+        { defaultLabel: 'declination', metaField: 'decDeg', format: 'deg', spokes: '*' },
+        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
+        { defaultLabel: 'rising horizon', spokes: ['E', "E_next"] },
+        { defaultLabel: 'setting horizon', spokes: ['W'] },
+        { defaultLabel: 'max altitude', spokes: ['N'] },
+        { defaultLabel: 'min altitude', spokes: ['S'] },
+        { defaultLabel: 'zenith', spokes: ['N'] },
+        { defaultLabel: 'nadir', spokes: ['S'] },
+        { defaultLabel: 'above horizon', spokes: ['ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW'] },
+        { defaultLabel: 'below horizon', spokes: ['WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] },
+        { defaultLabel: 'N-horizon', spokes: ['N'] },
+        { defaultLabel: 'S-horizon', spokes: ['S'] },
+        { defaultLabel: 'W-horizon', spokes: ['W'] }
     ],
     ui: {
       'target': 'pointer',

@@ -131,8 +131,8 @@ Nodal Wheel возвращает 17 спиц:
 Каждая спица включает:
 
 * `nodalLatitudeDeg`
-* `targetDistanceAu`
-* `targetDistanceKm`
+* `distanceAu`
+* `distanceKm`
 
 Это позволяет UI показывать одновременно:
 
