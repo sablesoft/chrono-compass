@@ -331,7 +331,8 @@
                 roles: finalRoles,
                 title: finalTitle,
                 observer: finalObserver,
-                time: finalTime
+                time: finalTime,
+                view: src?.view
             },
             'WheelPicker.add'
         );

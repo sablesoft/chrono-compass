@@ -25,6 +25,7 @@
 
     // board
     import {boardApi} from '../lib/board/store';
+    import type { BoardWheelView } from '../lib/board/types';
     import type {WheelObserverState, WheelTimeState} from '../lib/wheel/types';
 
     const dbg = debug('control', '🧩');
@@ -40,6 +41,7 @@
     export let baseId: string;
     export let baseObserver: WheelObserverState;
     export let baseTime: WheelTimeState;
+    export let baseView: BoardWheelView | undefined = undefined;
 
     // kept for compatibility; we will call it on Update (so parent can still do extra stuff if needed)
     export let onApply: (payload: { roles: WheelRolesState; title: string }) => void = () => {};
@@ -342,7 +344,7 @@
 
         dbg.log('WheelPicker.new', { type, roles: nextRoles, title: nextTitle });
         boardApi.addWheel(
-            { wheelType: type, roles: nextRoles, title: nextTitle, observer: baseObserver, time: baseTime },
+            { wheelType: type, roles: nextRoles, title: nextTitle, observer: baseObserver, time: baseTime, view: baseView },
             'WheelPicker.new'
         );
 
@@ -352,6 +354,21 @@
     function onKeyDown(e: KeyboardEvent) {
         if (!open) return;
         if (e.key === 'Escape') {
+            e.preventDefault();
+            closeModal('cancel');
+        }
+    }
+
+    function isTypingTarget(target: EventTarget | null): boolean {
+        if (!(target instanceof HTMLElement)) return false;
+        const tag = target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+        return target.isContentEditable;
+    }
+
+    function onOverlayKeyDown(e: KeyboardEvent) {
+        if (isTypingTarget(e.target)) return;
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
             e.preventDefault();
             closeModal('cancel');
         }
@@ -415,7 +432,8 @@
             title: t,
             roles: effectiveDraftRoles,
             observer: baseObserver,
-            time: baseTime
+            time: baseTime,
+            view: baseView
         });
 
         dbg.log('WheelPicker.saved', { dedupKey, title: t });
@@ -479,12 +497,7 @@
             tabindex="0"
             aria-label="Close wheel picker"
             on:click={(e) => { if (e.target === e.currentTarget) closeModal('cancel'); }}
-            on:keydown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ' || e.key === 'Escape') {
-                    e.preventDefault();
-                    closeModal('cancel');
-                }
-            }}
+            on:keydown={onOverlayKeyDown}
     >
         <div
                 class="modal"

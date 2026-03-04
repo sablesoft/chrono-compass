@@ -299,6 +299,7 @@ export const profilesApi = {
         roles: WheelRolesState;
         observer?: WheelObserverState;
         time?: WheelTimeState;
+        view?: SavedWheel['view'];
         favorite?: boolean;
     }): string {
         return dbg.group('api.saveWheel', () => {
@@ -330,6 +331,7 @@ export const profilesApi = {
                         roles: input.roles,
                         observer,
                         time,
+                        view: input.view ?? prev.view,
                         favorite: input.favorite ?? prev.favorite,
                         updatedAt: t
                     };
@@ -342,6 +344,7 @@ export const profilesApi = {
                         roles: input.roles,
                         observer,
                         time,
+                        view: input.view,
                         favorite: input.favorite ?? false,
                         createdAt: t,
                         updatedAt: t

@@ -3,7 +3,7 @@ import type { WheelType } from '../catalog';
 import type { ObjId } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
-import type { BoardWheel } from '../board/types';
+import type { BoardWheel, BoardWheelView } from '../board/types';
 
 export type ProfileId = string;
 
@@ -20,6 +20,7 @@ export type SavedWheel = {
 
     observer: WheelObserverState;
     time: WheelTimeState;
+    view?: BoardWheelView;
 
     favorite?: boolean;
     updatedAt: number;

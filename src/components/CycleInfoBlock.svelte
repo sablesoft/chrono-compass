@@ -1169,10 +1169,11 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
+        font-size: 14px;
     }
 
     .editorTitle {
-        font-size: 14px;
+        font-size: 16px;
         font-weight: 800;
     }
 
@@ -1218,7 +1219,7 @@
     }
 
     .editorSectionTitle {
-        font-size: 13px;
+        font-size: 16px;
         font-weight: 800;
     }
 
@@ -1410,6 +1411,7 @@
         align-items: center;
         gap: 10px;
         cursor: pointer;
+        padding-bottom: 10px;
     }
 
     .templateHead:focus,

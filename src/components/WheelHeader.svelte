@@ -36,6 +36,7 @@
                 title={wheel.title}
                 baseObserver={wheel.observer}
                 baseTime={wheel.time}
+                baseView={wheel.view}
                 baseId={wheelId}/>
     </div>
 

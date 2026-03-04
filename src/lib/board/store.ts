@@ -331,6 +331,7 @@ export const boardApi = {
             roles?: WheelRolesState;
             observer?: WheelObserverState;
             time?: WheelTimeState;
+            view?: Partial<NonNullable<BoardWheel['view']>>;
             size?: number;
         },
         reason = 'addWheel'
@@ -347,6 +348,13 @@ export const boardApi = {
             const id = nanoid();
             const order = cur.length;
 
+            const baseView = normalizeWheelView({
+                infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
+            });
+            const view = input.view
+                ? normalizeWheelView({ ...baseView, ...(input.view as any) }, baseView)
+                : baseView;
+
             const item: BoardWheel = {
                 id,
                 wheelType,
@@ -357,9 +365,7 @@ export const boardApi = {
                 order,
                 size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
                 layout: undefined,
-                view: normalizeWheelView({
-                    infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
-                })
+                view
             };
 
             cur.push(item);
@@ -391,6 +397,7 @@ export const boardApi = {
             roles?: WheelRolesState;
             observer?: WheelObserverState;
             time?: WheelTimeState;
+            view?: Partial<NonNullable<BoardWheel['view']>>;
             size?: number;
         },
         reason = 'addWheelBefore'
@@ -407,6 +414,13 @@ export const boardApi = {
             const time = normalizeWheelTime(input.time ?? DEFAULT_TIME);
 
             const id = nanoid();
+            const baseView = normalizeWheelView({
+                infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
+            });
+            const view = input.view
+                ? normalizeWheelView({ ...baseView, ...(input.view as any) }, baseView)
+                : baseView;
+
             const item: BoardWheel = {
                 id,
                 wheelType,
@@ -417,9 +431,7 @@ export const boardApi = {
                 order: 0,
                 size: Number.isFinite(input.size) ? input.size : DEFAULT_WHEEL_CARD_SIZE,
                 layout: undefined,
-                view: normalizeWheelView({
-                    infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
-                })
+                view
             };
 
             const at = cur.findIndex((x) => x.id === beforeId);
