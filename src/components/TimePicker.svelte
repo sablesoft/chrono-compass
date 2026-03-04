@@ -178,7 +178,13 @@
 
 <div class="wrap">
     <div class="face">
-        <span class="seg state {timeState}" title={timeState}>{timeStateBadgeLabel(timeState)}</span>
+        <span
+                class="seg state"
+                class:time-tone-now={timeState === 'LIVE'}
+                class:time-tone-future={timeState === 'FUTURE'}
+                class:time-tone-past={timeState === 'PAST'}
+                title={timeState}
+        >{timeStateBadgeLabel(timeState)}</span>
 
         <button
                 class="seg timeText timeTextBtn"
@@ -368,23 +374,6 @@
     :global(.mc-seg.compact .label),
     :global(.mc-seg.compact .text) {
         display: none;
-    }
-
-    /* state colors */
-    /*noinspection CssUnusedSymbol*/
-    .state.LIVE {
-        color: color-mix(in oklab, #3fcf66, white 6%);
-        background: color-mix(in oklab, var(--btn-bg), #3fcf66 28%);
-    }
-    /*noinspection CssUnusedSymbol*/
-    .state.FUTURE {
-        color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 22%);
-    }
-    /*noinspection CssUnusedSymbol*/
-    .state.PAST {
-        color: color-mix(in oklab, var(--accent-blue), var(--fg) 35%);
-        background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 18%);
     }
 
     /* реально скрытый input, но доступный программно */

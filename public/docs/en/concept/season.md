@@ -35,19 +35,29 @@ This is by design for the current migration phase.
 
 ## Core concept
 
-Season Wheel is built from tropical-year anchor events:
+Season Wheel is built from tropical-year anchor events using cosmopolitan terms:
 
-* **E**      — March equinox (cycle start)
-* **N**      — June solstice
-* **W**      — September equinox
-* **S**      — December solstice
-* **E+**     — next March equinox
+* **E**      — East Equinox (cycle start)
+* **N**      — North Solstice
+* **W**      — West Equinox
+* **S**      — South Solstice
+* **E+**     — next East Equinox
 
 Canonical order:
 
 E → N → W → S → E+
 
 These anchors define one full seasonal cycle.
+
+Meaning of key terms:
+
+* **North Solstice**: the target north axis is maximally directed toward the focus.
+  This is the maximum solar-activity/insolation side for the target north hemisphere.
+* **South Solstice**: the target north axis is maximally directed away from the focus.
+  This is the maximum solar-activity/insolation side for the target south hemisphere.
+* **East Equinox / West Equinox (E/W)**: neutral crossings where the target north axis is neither directed toward nor away from the focus.
+
+For Earth-focused language, `North Solstice` corresponds to the June solstice and `South Solstice` to the December solstice.
 
 ---
 
@@ -95,6 +105,7 @@ No additional season-specific meta fields are currently attached in `math/season
 * target: Earth
 
 This is the only valid Season Wheel combination in the current implementation.
+The terminology above remains universal and not Earth-bound.
 
 ---
 
@@ -114,4 +125,3 @@ It is a **seasonal tropical-year structure wheel**.
 
 This wheel is currently a compatibility adapter.
 Future versions may expand role support and switch to a fully unified native solver.
-

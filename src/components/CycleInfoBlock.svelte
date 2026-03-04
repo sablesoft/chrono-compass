@@ -16,6 +16,7 @@
     type SpokeInfoRow = {
         code: SpokeKey;
         chips: WheelInfoChip[];
+        ts?: number;
         isCurrent?: boolean;
         templateId?: string;
     };
@@ -42,6 +43,7 @@
     export let generalChips: WheelInfoChip[] = [];
     export let currentRow: SpokeInfoRow | null = null;
     export let spokeRows: SpokeInfoRow[] = [];
+    export let referenceTs: number = Date.now();
 
     export let config: CycleInfoConfig;
     export let defaultConfig: CycleInfoConfig;
@@ -80,6 +82,12 @@
 
     let modalText: string | null = null;
     let modalTitle: string | null = null;
+
+    function rowTimeClass(row: SpokeInfoRow | null | undefined): 'past' | 'future' | '' {
+        if (!row) return '';
+        if (!Number.isFinite(referenceTs) || !Number.isFinite(row.ts)) return '';
+        return Number(row.ts) < referenceTs ? 'past' : 'future';
+    }
 
     function cloneConfig(src: CycleInfoConfig): CycleInfoConfig {
         return {
@@ -589,8 +597,16 @@
 
     {#if currentRow}
         <section class="infoSection">
-            <div class="spokeRow currentRow">
-                <button type="button" class="spokeCode" on:click={() => onSpokeClick(currentRow.code)}>{formatSpokeCodeUi(currentRow.code)}</button>
+            <div class="spokeRow currentRow" class:time-surface-past={rowTimeClass(currentRow) === 'past'} class:time-surface-future={rowTimeClass(currentRow) === 'future'}>
+                <button
+                    type="button"
+                    class="spokeCode"
+                    class:time-tone-past={rowTimeClass(currentRow) === 'past'}
+                    class:time-border-past={rowTimeClass(currentRow) === 'past'}
+                    class:time-tone-future={rowTimeClass(currentRow) === 'future'}
+                    class:time-border-future={rowTimeClass(currentRow) === 'future'}
+                    on:click={() => onSpokeClick(currentRow.code)}
+                >{formatSpokeCodeUi(currentRow.code)}</button>
                 <div class="chipGrid">
                     {#each currentRow.chips as chip (chip.id)}
                         <div
@@ -643,8 +659,16 @@
     {#if spokeRows.length}
         <section class="infoSection">
             {#each spokeRows as row (row.code)}
-                <div class="spokeRow">
-                    <button type="button" class="spokeCode" on:click={() => onSpokeClick(row.code)}>{formatSpokeCodeUi(row.code)}</button>
+                <div class="spokeRow" class:time-surface-past={rowTimeClass(row) === 'past'} class:time-surface-future={rowTimeClass(row) === 'future'}>
+                    <button
+                        type="button"
+                        class="spokeCode"
+                        class:time-tone-past={rowTimeClass(row) === 'past'}
+                        class:time-border-past={rowTimeClass(row) === 'past'}
+                        class:time-tone-future={rowTimeClass(row) === 'future'}
+                        class:time-border-future={rowTimeClass(row) === 'future'}
+                        on:click={() => onSpokeClick(row.code)}
+                    >{formatSpokeCodeUi(row.code)}</button>
                     <div class="chipGrid">
                         {#each row.chips as chip (chip.id)}
                             <div
@@ -1051,21 +1075,22 @@
 
     .infoSection .spokeRow + .spokeRow {
         border-top: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
-        padding-top: 8px;
+        padding-top: 4px;
         margin-top: 2px;
     }
 
-    .spokeRow.currentRow {
-        background: color-mix(in oklab, var(--accent-live), transparent 92%);
+    .spokeRow.currentRow,
+    .spokeRow.time-surface-past,
+    .spokeRow.time-surface-future {
         border-radius: 10px;
         padding: 4px;
     }
 
     .spokeCode {
-        height: 36px;
-        min-width: 36px;
+        height: 32px;
+        min-width: 32px;
         width: max-content;
-        padding: 0 12px;
+        padding: 0 10px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -1076,6 +1101,7 @@
         background: color-mix(in oklab, var(--panel), transparent 20%);
         color: var(--fg);
         font-weight: 700;
+        font-size: 13px;
         cursor: pointer;
     }
 

@@ -233,6 +233,46 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+/* Time state palette: past / now / future */
+.time-tone-now {
+  color: color-mix(in oklab, #3fcf66, white 6%) !important;
+  background: color-mix(in oklab, var(--btn-bg), #3fcf66 28%) !important;
+}
+
+.time-tone-future {
+  color: color-mix(in oklab, var(--accent-gold), var(--fg) 30%) !important;
+  background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 22%) !important;
+}
+
+.time-tone-past {
+  color: color-mix(in oklab, var(--accent-blue), var(--fg) 35%) !important;
+  background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 18%) !important;
+}
+
+.time-surface-now {
+  background: color-mix(in oklab, var(--accent-live), transparent 92%) !important;
+}
+
+.time-surface-future {
+  background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 14%) !important;
+}
+
+.time-surface-past {
+  background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 12%) !important;
+}
+
+.time-border-now {
+  border-color: color-mix(in oklab, var(--accent-live), transparent 56%) !important;
+}
+
+.time-border-future {
+  border-color: color-mix(in oklab, var(--accent-gold), transparent 56%) !important;
+}
+
+.time-border-past {
+  border-color: color-mix(in oklab, var(--accent-blue), transparent 56%) !important;
+}
+
 /* Wheel loading overlay */
 .wheel-loading-overlay {
   position: absolute;

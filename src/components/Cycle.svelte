@@ -744,6 +744,7 @@
     type SpokeInfoRow = {
         code: SpokeKey;
         chips: InfoChip[];
+        ts?: number;
         isCurrent?: boolean;
         templateId?: string;
     };
@@ -1113,7 +1114,7 @@
         if (!template) return null;
         const meta = spokeInfoMeta(activeSpoke);
         const chips = buildChips(template.tags, meta, activeSpoke.code, template.id);
-        return { code: activeSpoke.code, chips, isCurrent: true, templateId: template.id };
+        return { code: activeSpoke.code, ts: activeSpoke.ts, chips, isCurrent: true, templateId: template.id };
     })();
 
     $: staticSpokeRows = (() => {
@@ -1125,7 +1126,7 @@
             if (!spoke) continue;
             const meta = spokeInfoMeta(spoke);
             const chips = buildChips(template.tags, meta, code, template.id);
-            rows.push({ code, chips, templateId: template.id });
+            rows.push({ code, ts: spoke.ts, chips, templateId: template.id });
         }
         return rows;
     })();
@@ -1521,6 +1522,7 @@
                     generalChips={generalChipsOrdered}
                     currentRow={currentRow}
                     spokeRows={staticSpokeRows}
+                    referenceTs={Number.isFinite(localLiveNowTs) ? localLiveNowTs : Date.now()}
                     config={infoConfig}
                     defaultConfig={defaultInfoConfig}
                     spokeOptions={availableSpokeCodes}
