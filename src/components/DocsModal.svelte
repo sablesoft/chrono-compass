@@ -71,9 +71,9 @@
     .modal {
         position: fixed;
         left: 50%;
-        top: max(10px, calc(env(safe-area-inset-top) + 10px));
-        width: min(1160px, calc(100vw - 20px));
-        max-height: calc(100vh - 20px);
+        top: max(86px, calc(env(safe-area-inset-top) + 86px));
+        width: min(980px, calc(100vw - 36px));
+        max-height: calc(100vh - 100px);
         transform: translateX(-50%);
         background: var(--panel);
         border: 1px solid var(--panel-border);
