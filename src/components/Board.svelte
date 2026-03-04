@@ -31,6 +31,8 @@
     const cellEls = new Map<string, HTMLElement>();
     let syncRaf = 0;
     let pickerContentHeight = 220;
+    let layoutAnimMs = 0;
+    let layoutAnimTimer = 0;
 
     function pickComponentStable(w: BoardWheel) {
         const id = w.id;
@@ -146,6 +148,10 @@
 
     onDestroy(() => {
         if (syncRaf) cancelAnimationFrame(syncRaf);
+        if (layoutAnimTimer) {
+            clearTimeout(layoutAnimTimer);
+            layoutAnimTimer = 0;
+        }
         if (ro && packedEl) ro.unobserve(packedEl);
         if (ro && pickerEl) ro.unobserve(pickerEl);
         for (const [, el] of cellEls) {
@@ -188,11 +194,21 @@
         dragWheelId = null;
     }
 
+    function triggerLayoutAnimation(ms = 260) {
+        layoutAnimMs = Math.max(0, Math.trunc(ms));
+        if (layoutAnimTimer) clearTimeout(layoutAnimTimer);
+        layoutAnimTimer = window.setTimeout(() => {
+            layoutAnimMs = 0;
+            layoutAnimTimer = 0;
+        }, layoutAnimMs + 40);
+    }
+
     function dropToWheel(targetId: string, e: DragEvent) {
         e.preventDefault();
         e.stopPropagation();
         if (!dragWheelId || dragWheelId === targetId) return;
         boardApi.swapWheelLayoutById(dragWheelId, targetId, 'Board.dropToWheelSwap');
+        triggerLayoutAnimation(260);
         dragWheelId = null;
         scheduleHeightSync();
     }
@@ -208,6 +224,7 @@
         const x = Math.floor(rx / colStep);
         const y = Math.floor(ry / rowStep);
         boardApi.moveWheelLayoutTo(dragWheelId, { x, y }, 'Board.dropToGrid');
+        triggerLayoutAnimation(260);
         dragWheelId = null;
         scheduleHeightSync();
     }
@@ -259,7 +276,7 @@
                     class="cell packedCell"
                     use:observeCell={row.w.id}
                     role="presentation"
-                    animate:flip={{ duration: dragWheelId ? 250 : 0 }}
+                    animate:flip={{ duration: layoutAnimMs }}
                     style={gridPlace(rect)}
             >
                 <div
