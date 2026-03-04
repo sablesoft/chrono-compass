@@ -1,6 +1,7 @@
 <script lang="ts">
     import { nanoid } from 'nanoid';
-    import type { CycleInfoConfig, InfoTagConfig, InfoTemplate, SpokeKey } from '../lib/wheel/types';
+    import { tick } from 'svelte';
+    import { formatSpokeCodeUi, type CycleInfoConfig, type InfoTagConfig, type InfoTemplate, type SpokeKey } from '../lib/wheel/types';
 
     type WheelInfoChip = {
         id: string;
@@ -66,6 +67,11 @@
 
     let draftConfig: CycleInfoConfig | null = null;
     let templateTabs: Record<string, 'spokes' | 'tags'> = {};
+    let modalRowsOpen = new Set<string>();
+    let titleEditTemplateId: string | null = null;
+    let titleEditValue = '';
+    let titleEditOriginal = '';
+    let titleEditInput: HTMLInputElement | null = null;
 
     let modalText: string | null = null;
     let modalTitle: string | null = null;
@@ -171,11 +177,80 @@
     }
 
     function closeEditor() {
+        cancelTemplateTitleEdit();
         showEditor = false;
     }
 
     function setTemplateTab(id: string, tab: 'spokes' | 'tags') {
         templateTabs = { ...templateTabs, [id]: tab };
+    }
+
+    function isTemplateTitleEditing(id: string): boolean {
+        return titleEditTemplateId === id;
+    }
+
+    async function beginTemplateTitleEdit(tpl: InfoTemplate) {
+        titleEditTemplateId = tpl.id;
+        titleEditValue = String(tpl.title ?? '');
+        titleEditOriginal = String(tpl.title ?? '');
+        await tick();
+        titleEditInput?.focus();
+        titleEditInput?.select();
+    }
+
+    function cancelTemplateTitleEdit() {
+        titleEditTemplateId = null;
+        titleEditValue = '';
+        titleEditOriginal = '';
+        titleEditInput = null;
+    }
+
+    function applyTemplateTitleEdit() {
+        if (!draftConfig || !titleEditTemplateId) return;
+        const next = titleEditValue.trim() || titleEditOriginal.trim() || 'Template';
+        updateTemplate(titleEditTemplateId, { title: next });
+        cancelTemplateTitleEdit();
+    }
+
+    function handleTemplateTitleInput(e: Event) {
+        titleEditValue = readValue(e);
+    }
+
+    function handleTemplateTitleKeydown(e: KeyboardEvent) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            applyTemplateTitleEdit();
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelTemplateTitleEdit();
+        }
+    }
+
+    function handleWindowPointerDown(e: PointerEvent) {
+        if (!titleEditTemplateId) return;
+        const target = e.target;
+        if (!(target instanceof Element)) return;
+        if (target.closest('[data-template-title-edit="1"]')) return;
+        if (target.closest('[data-template-title-accept="1"]')) return;
+        if (target.closest('[data-template-title-input="1"]')) return;
+        cancelTemplateTitleEdit();
+    }
+
+    function isModalRowOpen(id: string): boolean {
+        return modalRowsOpen.has(id);
+    }
+
+    function toggleModalRow(id: string) {
+        const next = new Set(modalRowsOpen);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        modalRowsOpen = next;
+    }
+
+    function toggleModalRowByPointer(rowId: string) {
+        toggleModalRow(rowId);
     }
 
     function isTagEnabled(tag: InfoTagConfig | undefined): boolean {
@@ -340,6 +415,7 @@
 
     function removeTemplate(templateId: string) {
         if (!draftConfig) return;
+        if (titleEditTemplateId === templateId) cancelTemplateTitleEdit();
         draftConfig = {
             ...draftConfig,
             templates: draftConfig.templates.filter((tpl) => tpl.id !== templateId)
@@ -352,13 +428,22 @@
 
     function applyEditor() {
         if (!draftConfig) return;
+        cancelTemplateTitleEdit();
         onConfigure(draftConfig);
         showEditor = false;
     }
 
     function resetToDefaults() {
+        cancelTemplateTitleEdit();
         onConfigure(defaultConfig);
         showEditor = false;
+    }
+
+    $: if (titleEditTemplateId && titleEditInput) {
+        queueMicrotask(() => {
+            titleEditInput?.focus();
+            titleEditInput?.select();
+        });
     }
 
     $: ensureTouchMode();
@@ -437,7 +522,7 @@
     {#if currentRow}
         <section class="infoSection">
             <div class="spokeRow currentRow">
-                <button type="button" class="spokeCode" on:click={() => onSpokeClick(currentRow.code)}>{currentRow.code}</button>
+                <button type="button" class="spokeCode" on:click={() => onSpokeClick(currentRow.code)}>{formatSpokeCodeUi(currentRow.code)}</button>
                 <div class="chipGrid">
                     {#each currentRow.chips as chip (chip.id)}
                         <div
@@ -491,7 +576,7 @@
         <section class="infoSection">
             {#each spokeRows as row (row.code)}
                 <div class="spokeRow">
-                    <button type="button" class="spokeCode" on:click={() => onSpokeClick(row.code)}>{row.code}</button>
+                    <button type="button" class="spokeCode" on:click={() => onSpokeClick(row.code)}>{formatSpokeCodeUi(row.code)}</button>
                     <div class="chipGrid">
                         {#each row.chips as chip (chip.id)}
                             <div
@@ -539,6 +624,8 @@
     {/if}
 </div>
 
+<svelte:window on:pointerdown={handleWindowPointerDown} />
+
 {#if showEditor && draftConfig}
     <div class="editorOverlay" role="button" tabindex="0" aria-label="Close editor" on:click={closeEditor} on:keydown={(e) => {
         if (e.key === 'Escape') {
@@ -567,17 +654,28 @@
                         <div class="editorEmpty">No general tags.</div>
                     {/if}
                     {#each generalRows(draftConfig) as row (row.id)}
-                        <div class="editorRow">
-                            <div class="col sys">{row.systemLabel}</div>
-                            <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateGeneralTag(row.id, { label: readValue(e) })} />
-                            <div class="col val">{row.value}</div>
-                            <label class="col pick">
-                                <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateGeneralTag(row.id, { enabled: readChecked(e) })} />
-                                <span>{isTagEnabled(row.tag) ? 'Selected' : 'Hidden'}</span>
-                            </label>
-                            <textarea class="col modal" placeholder="Info text (optional)" value={row.tag?.modal ?? ''} on:input={(e) => updateGeneralTag(row.id, { modal: readValue(e) })}></textarea>
-                            {#if row.isCustom}
-                                <button type="button" class="miniBtn" on:click={() => removeGeneralCustomTag(row.id)}>×</button>
+                        {@const rowKey = `general:${row.id}`}
+                        <div class="editorRowWrap">
+                            <div class="editorRow">
+                                <div class="col sys">{row.systemLabel}</div>
+                                <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateGeneralTag(row.id, { label: readValue(e) })} />
+                                <div class="col val">{row.value}</div>
+                                <label class="stateToggle" title={isTagEnabled(row.tag) ? 'Hide tag' : 'Show tag'}>
+                                    <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateGeneralTag(row.id, { enabled: readChecked(e) })} />
+                                    <span class="stateTrack" aria-hidden="true"><span class="stateThumb"></span></span>
+                                    <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
+                                </label>
+                                <div class="rowActions">
+                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                    {#if row.isCustom}
+                                        <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralCustomTag(row.id)}>×</button>
+                                    {/if}
+                                </div>
+                            </div>
+                            {#if isModalRowOpen(rowKey)}
+                                <div class="modalAccordion">
+                                    <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateGeneralTag(row.id, { modal: readValue(e) })}></textarea>
+                                </div>
                             {/if}
                         </div>
                     {/each}
@@ -593,8 +691,27 @@
                     {/if}
                     {#each draftConfig.templates.filter((t) => t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
-                            <div class="templateHead">
-                                <input class="templateTitle" type="text" value={tpl.title} on:input={(e) => updateTemplate(tpl.id, { title: readValue(e) })} />
+                            <div class="templateHead" data-template-title-editor={tpl.id}>
+                                <div class="templateTitleGroup">
+                                    {#if isTemplateTitleEditing(tpl.id)}
+                                        <input
+                                            bind:this={titleEditInput}
+                                            class="templateTitle"
+                                            type="text"
+                                            data-template-title-input="1"
+                                            value={titleEditValue}
+                                            on:input={handleTemplateTitleInput}
+                                            on:keydown={handleTemplateTitleKeydown}
+                                        />
+                                    {:else}
+                                        <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
+                                    {/if}
+                                    {#if isTemplateTitleEditing(tpl.id)}
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:click={applyTemplateTitleEdit}>✓</button>
+                                    {:else}
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click={() => beginTemplateTitleEdit(tpl)}>✎</button>
+                                    {/if}
+                                </div>
                                 <div class="templateActions">
                                     <button type="button" class="toggleBtn" on:click={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
                                     <button type="button" class="toggleBtn" on:click={() => removeTemplate(tpl.id)}>Remove</button>
@@ -606,29 +723,42 @@
                             </div>
                             {#if (templateTabs[tpl.id] ?? 'tags') === 'spokes'}
                                 <div class="spokePickGrid">
-                                    <label class="spokePick">
-                                        <input type="checkbox" checked={tpl.spokes.length === spokeOptions.length} on:change={() => toggleAllTemplateSpokes(tpl.id)} />
-                                        <span>All</span>
+                                    <label class="spokePick" class:checked={tpl.spokes.length === spokeOptions.length}>
+                                        <input class="spokePickInput" type="checkbox" checked={tpl.spokes.length === spokeOptions.length} on:change={() => toggleAllTemplateSpokes(tpl.id)} />
+                                        <span class="spokePickBox" aria-hidden="true"></span>
+                                        <span class="spokePickText">All</span>
                                     </label>
                                     {#each spokeOptions as code (code)}
-                                        <label class="spokePick">
-                                            <input type="checkbox" checked={tpl.spokes.includes(code)} on:change={() => toggleTemplateSpoke(tpl.id, code)} />
-                                            <span>{code}</span>
+                                        <label class="spokePick" class:checked={tpl.spokes.includes(code)}>
+                                            <input class="spokePickInput" type="checkbox" checked={tpl.spokes.includes(code)} on:change={() => toggleTemplateSpoke(tpl.id, code)} />
+                                            <span class="spokePickBox" aria-hidden="true"></span>
+                                            <span class="spokePickText">{formatSpokeCodeUi(code)}</span>
                                         </label>
                                     {/each}
                                 </div>
                             {:else}
                                 <div class="templateTags">
                                     {#each templateRows(tpl, currentValues) as row (row.id)}
-                                        <div class="editorRow">
-                                            <div class="col sys">{row.systemLabel}</div>
-                                            <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
-                                            <div class="col val">{row.value}</div>
-                                            <label class="col pick">
-                                                <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateTemplateTag(tpl.id, row.id, { enabled: readChecked(e) })} />
-                                                <span>{isTagEnabled(row.tag) ? 'Selected' : 'Hidden'}</span>
-                                            </label>
-                                            <textarea class="col modal" placeholder="Info text (optional)" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
+                                        {@const rowKey = `${tpl.id}:${row.id}`}
+                                        <div class="editorRowWrap">
+                                            <div class="editorRow">
+                                                <div class="col sys">{row.systemLabel}</div>
+                                                <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
+                                                <div class="col val">{row.value}</div>
+                                                <label class="stateToggle" title={isTagEnabled(row.tag) ? 'Hide tag' : 'Show tag'}>
+                                                    <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateTemplateTag(tpl.id, row.id, { enabled: readChecked(e) })} />
+                                                    <span class="stateTrack" aria-hidden="true"><span class="stateThumb"></span></span>
+                                                    <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
+                                                </label>
+                                                <div class="rowActions">
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                                </div>
+                                            </div>
+                                            {#if isModalRowOpen(rowKey)}
+                                                <div class="modalAccordion">
+                                                    <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
+                                                </div>
+                                            {/if}
                                         </div>
                                     {/each}
                                 </div>
@@ -647,8 +777,27 @@
                     {/if}
                     {#each draftConfig.templates.filter((t) => !t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
-                            <div class="templateHead">
-                                <input class="templateTitle" type="text" value={tpl.title} on:input={(e) => updateTemplate(tpl.id, { title: readValue(e) })} />
+                            <div class="templateHead" data-template-title-editor={tpl.id}>
+                                <div class="templateTitleGroup">
+                                    {#if isTemplateTitleEditing(tpl.id)}
+                                        <input
+                                            bind:this={titleEditInput}
+                                            class="templateTitle"
+                                            type="text"
+                                            data-template-title-input="1"
+                                            value={titleEditValue}
+                                            on:input={handleTemplateTitleInput}
+                                            on:keydown={handleTemplateTitleKeydown}
+                                        />
+                                    {:else}
+                                        <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
+                                    {/if}
+                                    {#if isTemplateTitleEditing(tpl.id)}
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:click={applyTemplateTitleEdit}>✓</button>
+                                    {:else}
+                                        <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click={() => beginTemplateTitleEdit(tpl)}>✎</button>
+                                    {/if}
+                                </div>
                                 <div class="templateActions">
                                     <button type="button" class="toggleBtn" on:click={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
                                     <button type="button" class="toggleBtn" on:click={() => addTemplateCustomTag(tpl.id)}>+ Tag</button>
@@ -661,31 +810,44 @@
                             </div>
                             {#if (templateTabs[tpl.id] ?? 'tags') === 'spokes'}
                                 <div class="spokePickGrid">
-                                    <label class="spokePick">
-                                        <input type="checkbox" checked={tpl.spokes.length === spokeOptions.length} on:change={() => toggleAllTemplateSpokes(tpl.id)} />
-                                        <span>All</span>
+                                    <label class="spokePick" class:checked={tpl.spokes.length === spokeOptions.length}>
+                                        <input class="spokePickInput" type="checkbox" checked={tpl.spokes.length === spokeOptions.length} on:change={() => toggleAllTemplateSpokes(tpl.id)} />
+                                        <span class="spokePickBox" aria-hidden="true"></span>
+                                        <span class="spokePickText">All</span>
                                     </label>
                                     {#each spokeOptions as code (code)}
-                                        <label class="spokePick">
-                                            <input type="checkbox" checked={tpl.spokes.includes(code)} on:change={() => toggleTemplateSpoke(tpl.id, code)} />
-                                            <span>{code}</span>
+                                        <label class="spokePick" class:checked={tpl.spokes.includes(code)}>
+                                            <input class="spokePickInput" type="checkbox" checked={tpl.spokes.includes(code)} on:change={() => toggleTemplateSpoke(tpl.id, code)} />
+                                            <span class="spokePickBox" aria-hidden="true"></span>
+                                            <span class="spokePickText">{formatSpokeCodeUi(code)}</span>
                                         </label>
                                     {/each}
                                 </div>
                             {:else}
                                 <div class="templateTags">
                                     {#each templateRows(tpl, staticValues) as row (row.id)}
-                                        <div class="editorRow">
-                                            <div class="col sys">{row.systemLabel}</div>
-                                            <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
-                                            <div class="col val">{row.value}</div>
-                                            <label class="col pick">
-                                                <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateTemplateTag(tpl.id, row.id, { enabled: readChecked(e) })} />
-                                                <span>{isTagEnabled(row.tag) ? 'Selected' : 'Hidden'}</span>
-                                            </label>
-                                            <textarea class="col modal" placeholder="Info text (optional)" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
-                                            {#if row.isCustom}
-                                                <button type="button" class="miniBtn" on:click={() => removeTemplateCustomTag(tpl.id, row.id)}>×</button>
+                                        {@const rowKey = `${tpl.id}:${row.id}`}
+                                        <div class="editorRowWrap">
+                                            <div class="editorRow">
+                                                <div class="col sys">{row.systemLabel}</div>
+                                                <input class="col user" type="text" placeholder="Custom label" value={row.tag?.label ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { label: readValue(e) })} />
+                                                <div class="col val">{row.value}</div>
+                                                <label class="stateToggle" title={isTagEnabled(row.tag) ? 'Hide tag' : 'Show tag'}>
+                                                    <input type="checkbox" checked={isTagEnabled(row.tag)} on:change={(e) => updateTemplateTag(tpl.id, row.id, { enabled: readChecked(e) })} />
+                                                    <span class="stateTrack" aria-hidden="true"><span class="stateThumb"></span></span>
+                                                    <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
+                                                </label>
+                                                <div class="rowActions">
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:pointerdown|preventDefault|stopPropagation={() => toggleModalRowByPointer(rowKey)}>T</button>
+                                                    {#if row.isCustom}
+                                                        <button type="button" class="miniBtn dangerBtn" on:click={() => removeTemplateCustomTag(tpl.id, row.id)}>×</button>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                            {#if isModalRowOpen(rowKey)}
+                                                <div class="modalAccordion">
+                                                    <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
+                                                </div>
                                             {/if}
                                         </div>
                                     {/each}
@@ -765,9 +927,15 @@
 
     .spokeRow {
         display: grid;
-        grid-template-columns: 44px 1fr;
+        grid-template-columns: max-content 1fr;
         gap: 10px;
         align-items: center;
+    }
+
+    .infoSection .spokeRow + .spokeRow {
+        border-top: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
+        padding-top: 8px;
+        margin-top: 2px;
     }
 
     .spokeRow.currentRow {
@@ -779,6 +947,13 @@
     .spokeCode {
         height: 36px;
         min-width: 36px;
+        width: max-content;
+        padding: 0 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        white-space: nowrap;
         border-radius: 999px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 20%);
@@ -859,7 +1034,7 @@
     }
 
     .editorModal {
-        width: min(980px, 96vw);
+        width: min(760px, 94vw);
         max-height: min(86vh, 900px);
         overflow: auto;
         border-radius: 14px;
@@ -925,13 +1100,18 @@
 
     .editorRow {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) auto minmax(0, 1.3fr) auto;
+        grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) minmax(92px, 0.75fr) auto auto;
         align-items: center;
-        gap: 8px;
-        padding: 8px;
-        border-radius: 10px;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 9px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
+    }
+
+    .editorRowWrap {
+        display: grid;
+        gap: 6px;
     }
 
     .col {
@@ -940,32 +1120,102 @@
     }
 
     .col.user,
-    .col.modal,
     .templateTitle {
         width: 100%;
+        min-width: 0;
+        box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 12%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         border-radius: 8px;
-        padding: 4px 6px;
+        padding: 3px 6px;
         color: var(--fg);
-    }
-
-    .col.modal {
-        min-height: 36px;
-        resize: vertical;
-        font-family: inherit;
     }
 
     .col.val {
         opacity: 0.8;
         font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .col.pick {
+    .stateToggle {
         display: inline-flex;
         gap: 6px;
         align-items: center;
         white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .stateToggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .stateTrack {
+        width: 30px;
+        height: 17px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 72%);
+        background: color-mix(in oklab, var(--fg), transparent 90%);
+        display: inline-flex;
+        align-items: center;
+        padding: 1px;
+        box-sizing: border-box;
+        transition: background 120ms ease, border-color 120ms ease;
+    }
+
+    .stateThumb {
+        width: 13px;
+        height: 13px;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--fg), transparent 18%);
+        transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .stateToggle input:checked + .stateTrack {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 40%);
+        background: color-mix(in oklab, var(--accent-live), transparent 82%);
+    }
+
+    .stateToggle input:checked + .stateTrack .stateThumb {
+        transform: translateX(12px);
+        background: color-mix(in oklab, var(--accent-live), transparent 14%);
+    }
+
+    .stateText {
+        font-size: 11px;
+        font-weight: 700;
+        opacity: 0.8;
+        min-width: 20px;
+    }
+
+    .rowActions {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .modalAccordion {
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
+        border-radius: 9px;
+        padding: 6px;
+        background: color-mix(in oklab, var(--panel), transparent 4%);
+    }
+
+    .modalInput {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 64px;
+        resize: vertical;
+        font-family: inherit;
+        background: color-mix(in oklab, var(--panel), transparent 12%);
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
+        border-radius: 8px;
+        padding: 6px 8px;
+        color: var(--fg);
     }
 
     .toggleBtn,
@@ -973,6 +1223,7 @@
         height: 26px;
         min-width: 48px;
         padding: 0 10px;
+        white-space: nowrap;
         border-radius: 999px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 12%);
@@ -984,6 +1235,14 @@
     .miniBtn {
         min-width: 28px;
         padding: 0 6px;
+    }
+
+    .modalBtn {
+        min-width: 30px;
+    }
+
+    .dangerBtn {
+        color: color-mix(in oklab, var(--accent-red), var(--fg) 30%);
     }
 
     .templateBlock {
@@ -998,13 +1257,52 @@
     .templateHead {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 10px;
+    }
+
+    .templateTitleGroup {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .templateTitle {
+        flex: 0 1 220px;
+        max-width: 220px;
+    }
+
+    .templateTitleText {
+        flex: 0 1 220px;
+        max-width: 220px;
+        min-height: 24px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 2px;
+        font-size: 13px;
+        font-weight: 800;
+        opacity: 0.95;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .templateActions {
         display: flex;
         gap: 6px;
+        flex-wrap: nowrap;
+        margin-left: auto;
+    }
+
+    .templateActions .toggleBtn {
+        min-width: 64px;
+        padding: 0 12px;
+    }
+
+    .iconBtn {
+        min-width: 34px;
+        padding: 0 8px;
+        font-size: 13px;
     }
 
     .templateTabs {
@@ -1028,19 +1326,74 @@
     }
 
     .spokePickGrid {
-        display: flex;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
         gap: 8px;
     }
 
     .spokePick {
-        display: inline-flex;
-        gap: 6px;
+        position: relative;
+        display: grid;
+        grid-template-columns: 16px 1fr;
         align-items: center;
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        gap: 8px;
+        padding: 7px 9px;
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
+        background: color-mix(in oklab, var(--btn-bg), transparent 18%);
+        cursor: pointer;
+        transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    }
+
+    .spokePick:hover {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 8%);
+        border-color: color-mix(in oklab, var(--btn-border), var(--fg) 18%);
+        transform: translateY(-1px);
+    }
+
+    .spokePick.checked {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 35%);
+        background: color-mix(in oklab, var(--accent-live), transparent 88%);
+    }
+
+    .spokePickInput {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .spokePickBox {
+        width: 16px;
+        height: 16px;
+        border-radius: 5px;
+        border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
+        background: color-mix(in oklab, var(--bg), white 6%);
+        box-sizing: border-box;
+        display: inline-block;
+        position: relative;
+    }
+
+    .spokePick.checked .spokePickBox {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 20%);
+        background: color-mix(in oklab, var(--accent-live), transparent 35%);
+    }
+
+    .spokePick.checked .spokePickBox::after {
+        content: '';
+        position: absolute;
+        left: 4px;
+        top: 1px;
+        width: 5px;
+        height: 9px;
+        border-right: 2px solid currentColor;
+        border-bottom: 2px solid currentColor;
+        transform: rotate(40deg);
+    }
+
+    .spokePickText {
         font-size: 12px;
+        font-weight: 700;
+        line-height: 1.2;
     }
 
     .templateTags {

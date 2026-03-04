@@ -1,5 +1,6 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
+    import { slide } from 'svelte/transition';
     import { onDestroy } from 'svelte';
     import { get } from 'svelte/store';
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
@@ -20,7 +21,7 @@
     import { objects, wheels } from '../lib/catalog';
     import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelNodeGroups, WheelSpec } from '../lib/catalog';
 
-    import type { MarkerCluster, MarkerItem, MomentTip } from '../lib/wheel/types';
+    import { formatSpokeCodeUi, formatSpokeTextUi, type MarkerCluster, type MarkerItem, type MomentTip } from '../lib/wheel/types';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
 
     import { boardApi } from '../lib/board/store';
@@ -1225,10 +1226,11 @@
                     Number.isFinite(distAu) ? `${distanceLabel} ${fmtNodeDistAu(distAu)}` : ''
                 ].filter((x) => !!x);
                 const metaText = metaParts.join(' • ');
+                const uiCode = formatSpokeCodeUi(p.code);
                 const copyParts = [
-                    `${emoji} ${name} orbit node (${p.code})`,
+                    `${emoji} ${name} orbit node (${uiCode})`,
                     ...metaParts,
-                    ...(Array.isArray(p.tags) ? p.tags.map((t) => `Tag ${t}`) : []),
+                    ...(Array.isArray(p.tags) ? p.tags.map((t) => `Tag ${formatSpokeTextUi(t)}`) : []),
                     `ts ${Math.round(p.ts)}`
                 ];
                 const keyTags = pointTags.length ? pointTags.join(',') : 'no-tags';
@@ -1242,7 +1244,7 @@
                     source: p.source,
                     ts: p.ts,
                     tip: {
-                        label: `${emoji} ${name} orbit node (${p.code})`,
+                        label: `${emoji} ${name} orbit node (${uiCode})`,
                         ts: p.ts,
                         desc: `orbit-node:${t.id}:${p.code}`,
                         tags: pointTags,
@@ -1560,7 +1562,7 @@
     />
 
     {#if showPickersSection}
-    <section class="pickersBlock" aria-label="Wheel pickers">
+    <section class="pickersBlock" aria-label="Wheel pickers" transition:slide|local>
     <div class="sectionSep headerSep" aria-hidden="true"></div>
     <div class="headerBottom" class:twoCols={isCompassWheelType}>
             <div class="pickerRow">
@@ -1625,7 +1627,7 @@
 
     <!-- WHEEL SVG -->
     {#if showVisualSection}
-        <div class="wrap" bind:this={wrapEl}>
+        <div class="wrap" bind:this={wrapEl} transition:slide|local>
             <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
@@ -2017,14 +2019,16 @@
 
     <!-- INFO -->
     {#if showInfoSection}
-        <CompassInfoBlock
-                chips={compassInfoChips}
-                allChips={compassAllChipsForEditor}
-                onChipClick={handleCompassInfoRowPick}
-                onReorder={handleCompassChipReorder}
-                onConfigure={handleCompassChipConfigure}
-                reorderEnabled={true}
-        />
+        <div transition:slide|local>
+            <CompassInfoBlock
+                    chips={compassInfoChips}
+                    allChips={compassAllChipsForEditor}
+                    onChipClick={handleCompassInfoRowPick}
+                    onReorder={handleCompassChipReorder}
+                    onConfigure={handleCompassChipConfigure}
+                    reorderEnabled={true}
+            />
+        </div>
     {/if}
 
     {#if showLoadingOverlay}

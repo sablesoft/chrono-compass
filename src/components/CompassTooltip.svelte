@@ -7,6 +7,7 @@
     import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
+    import { formatSpokeTextUi } from '../lib/wheel/types';
     import {clamp, norm360} from "../lib/math/helpers";
     import RelatedWheels from './RelatedWheels.svelte';
 
@@ -105,7 +106,7 @@
     }
 
     function titleCaseWords(text: string): string {
-        return text
+        return formatSpokeTextUi(text)
             .split(/\s+/)
             .filter(Boolean)
             .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -212,8 +213,8 @@
     $: momentTagsUi = momentTags.map((t) => titleCaseWords(t));
     $: momentMetaPartsUi = momentMetaParts.map((p) => titleCaseWords(p));
     $: momentCopyText = typeof displayMoment?.copyText === 'string' && displayMoment.copyText.trim().length > 0
-        ? displayMoment.copyText
-        : momentMetaText;
+        ? formatSpokeTextUi(displayMoment.copyText)
+        : formatSpokeTextUi(momentMetaText);
 
     async function copyMomentMeta() {
         const text = momentCopyText;
@@ -309,11 +310,13 @@
     // Header house priority:
     // pinned > activeHouse (spoke hover) > clusterHouse (marker hover) > moment label > —
     $: headerHouse =
-        (isOrbitNodeMoment(moment) ? 'orbit node' : null)
-        ?? activeHouse
-        ?? clusterHouse
-        ?? moment?.label
-        ?? '—';
+        formatSpokeTextUi(
+            (isOrbitNodeMoment(moment) ? 'orbit node' : null)
+            ?? activeHouse
+            ?? clusterHouse
+            ?? moment?.label
+            ?? '—'
+        );
 
     $: nodeMomentText = (isOrbitNodeMoment(displayMoment) && Number.isFinite(displayMoment?.ts))
         ? formatDateTime(displayMoment!.ts)

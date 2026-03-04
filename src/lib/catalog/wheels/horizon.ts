@@ -5,11 +5,11 @@ export const horizon = {
     ready: true,
     info: [
         { defaultLabel: 'altitude', metaField: 'altitudeDeg', format: 'deg', spokes: '*' },
-        { defaultLabel: 'azimuth', metaField: 'azimuthDeg', format: 'deg', spokes: '*' },
-        { defaultLabel: 'ra hours', metaField: 'raHours', format: 'deg2', spokes: '*' },
-        { defaultLabel: 'declination', metaField: 'decDeg', format: 'deg', spokes: '*' },
-        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', spokes: '*' },
-        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', spokes: '*' },
+        { defaultLabel: 'azimuth', metaField: 'azimuthDeg', format: 'deg', enabled: false, spokes: '*' },
+        { defaultLabel: 'ra hours', metaField: 'raHours', format: 'deg2', enabled: false, spokes: '*' },
+        { defaultLabel: 'declination', metaField: 'decDeg', format: 'deg',enabled: false, spokes: '*' },
+        { defaultLabel: 'dist au', metaField: 'distanceAu', format: 'au', enabled: false, spokes: '*' },
+        { defaultLabel: 'dist km', metaField: 'distanceKm', format: 'km', enabled: false, spokes: '*' },
         { defaultLabel: 'rising horizon', spokes: ['E', "E_next"] },
         { defaultLabel: 'setting horizon', spokes: ['W'] },
         { defaultLabel: 'max altitude', spokes: ['N'] },
@@ -18,9 +18,6 @@ export const horizon = {
         { defaultLabel: 'nadir', spokes: ['S'] },
         { defaultLabel: 'above horizon', spokes: ['ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW'] },
         { defaultLabel: 'below horizon', spokes: ['WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] },
-        { defaultLabel: 'N-horizon', spokes: ['N'] },
-        { defaultLabel: 'S-horizon', spokes: ['S'] },
-        { defaultLabel: 'W-horizon', spokes: ['W'] }
     ],
     ui: {
       'target': 'pointer',

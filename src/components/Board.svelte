@@ -259,7 +259,7 @@
                     class="cell packedCell"
                     use:observeCell={row.w.id}
                     role="presentation"
-                    animate:flip={{ duration: 250 }}
+                    animate:flip={{ duration: dragWheelId ? 250 : 0 }}
                     style={gridPlace(rect)}
             >
                 <div
@@ -288,7 +288,7 @@
 {:else}
     <section class="grid">
         {#each itemsViewWithComp as row (row.w.id)}
-            <div class="cell" animate:flip={{ duration: 500 }}>
+            <div class="cell" animate:flip={{ duration: 0 }}>
                 <svelte:component
                         this={row.Comp}
                         wheel={row.w}

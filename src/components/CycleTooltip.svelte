@@ -4,6 +4,7 @@
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
+    import { formatSpokeCodeUi, formatSpokeTextUi } from '../lib/wheel/types';
 
     export let x = 0;
     export let y = 0;
@@ -26,7 +27,7 @@
     }
 
     function titleCaseWords(text: string): string {
-        return text
+        return formatSpokeTextUi(text)
             .split(/\s+/)
             .filter(Boolean)
             .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -136,8 +137,8 @@
 
     function payloadTitle(p: CycleTipPayload | null): string {
         if (!p) return 'Details';
-        if (p.kind === 'spoke') return `Spoke ${p.code}`;
-        if (p.kind === 'boundary') return `Boundary ${p.from}→${p.to}`;
+        if (p.kind === 'spoke') return `Spoke ${formatSpokeCodeUi(p.code)}`;
+        if (p.kind === 'boundary') return `Boundary ${formatSpokeCodeUi(p.from)}→${formatSpokeCodeUi(p.to)}`;
         return `Marker ${p.label}`;
     }
 

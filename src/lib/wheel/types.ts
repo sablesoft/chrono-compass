@@ -69,6 +69,14 @@ export const SPOKES_ORDER: SpokeKey[] = [
     'E_next',
 ];
 
+export function formatSpokeCodeUi(code: string): string {
+    return code === 'E_next' ? 'E+' : code;
+}
+
+export function formatSpokeTextUi(text: string): string {
+    return String(text ?? '').replace(/E_next/g, 'E+');
+}
+
 export type MomentTip = {
     label: string;
     ts: number;

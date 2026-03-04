@@ -1,6 +1,7 @@
 <!-- src/components/Cycle.svelte -->
 <!--suppress HtmlUnknownTag -->
 <script lang="ts">
+    import { slide } from 'svelte/transition';
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
     import { useWheelEffectiveTs } from '../lib/wheel/ui/useEffectiveTs';
@@ -33,7 +34,7 @@
     import type { CycleSpoke, WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
-    import { type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
+    import { formatSpokeCodeUi, type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
@@ -517,7 +518,7 @@
 
     $: activeSpokeIndex = spokeTimes?.length ? nearestSpokeIndexByTime(effTs, spokeTimes) : 0;
     $: activeSpokeCode = spokeCodes?.[activeSpokeIndex] ?? ((activeSpokeIndex === 16) ? 'E_next' : (labels[activeSpokeIndex] as any));
-    $: activeSpokeLabel = activeSpokeCode == 'E_next' ? 'E+' : activeSpokeCode;
+    $: activeSpokeLabel = formatSpokeCodeUi(activeSpokeCode);
 
     $: pointerAngleDeg = (() => {
         const t = spokeTimes;
@@ -750,6 +751,7 @@
     type TagDef = {
         id: string;
         label: string;
+        enabled?: boolean;
         metaField?: string;
         format?: string;
         value?: string;
@@ -902,23 +904,36 @@
     }
 
     function buildTagDefs(rows: InfoItem[]): TagDef[] {
-        return rows
-            .filter((row) => row.defaultLabel)
-            .map((row) => {
-                const rawLabel = normalizeLabel(row.defaultLabel);
-                const label = titleCaseLabel(rawLabel);
-                const id = tagIdFromLabel(rawLabel);
-                if (!id || !label) return null;
-                return {
-                    id,
-                    label,
-                    metaField: row.metaField,
-                    format: row.format,
-                    value: row.value,
-                    spokes: row.spokes
-                };
-            })
-            .filter((row): row is NonNullable<typeof row> => !!row);
+        const out: TagDef[] = [];
+        const seen = new Set<string>();
+        for (const row of rows) {
+            if (!row?.defaultLabel) continue;
+            const rawLabel = normalizeLabel(row.defaultLabel);
+            const label = titleCaseLabel(rawLabel);
+            const id = tagIdFromLabel(rawLabel);
+            if (!id || !label || seen.has(id)) continue;
+            seen.add(id);
+            out.push({
+                id,
+                label,
+                enabled: row.enabled !== false,
+                metaField: row.metaField,
+                format: row.format,
+                value: row.value,
+                spokes: row.spokes
+            });
+        }
+        return out;
+    }
+
+    function buildSpokeTypeInfoItems(wheelType: string | undefined): InfoItem[] {
+        const type = String(wheelType ?? '').trim();
+        if (!type) return [];
+        return SPOKES_ORDER.map((code) => ({
+            defaultLabel: `${code}-${type}`,
+            enabled: false,
+            spokes: [code]
+        }));
     }
 
     function tagApplies(def: TagDef | undefined, code: SpokeKey): boolean {
@@ -933,6 +948,15 @@
         if (def.format) return formatInfoValue(def.format, rawValue);
         if (rawValue == null || String(rawValue).trim() === '') return undefined;
         return String(rawValue);
+    }
+
+    function spokeInfoMeta(spoke: CycleSpoke | null | undefined): Record<string, unknown> {
+        if (!spoke) return {};
+        const meta = ((spoke as any)?.meta ?? {}) as Record<string, unknown>;
+        return {
+            ...meta,
+            ts: Number.isFinite(spoke.ts) ? spoke.ts : undefined
+        };
     }
 
     function buildValueMap(meta: Record<string, unknown>, code: SpokeKey): Record<string, string> {
@@ -1005,7 +1029,9 @@
         return preferred.filter((code) => codes.includes(code));
     }
 
-    $: cycleInfoDefs = Array.isArray((spec as any)?.info) ? ((spec as any).info as InfoItem[]) : [];
+    $: cycleInfoDefsBase = Array.isArray((spec as any)?.info) ? ((spec as any).info as InfoItem[]) : [];
+    $: cycleInfoMomentDef = [{ defaultLabel: 'moment', metaField: 'ts', format: 'dateTime', spokes: '*' } satisfies InfoItem];
+    $: cycleInfoDefs = [...cycleInfoDefsBase, ...cycleInfoMomentDef, ...buildSpokeTypeInfoItems(wheel?.wheelType)];
     $: tagDefs = buildTagDefs(cycleInfoDefs);
     $: tagDefById = new Map(tagDefs.map((d) => [d.id, d]));
     $: availableSpokeCodes = SPOKES_ORDER.filter((code) => spokes.some((s) => s.code === code));
@@ -1029,7 +1055,7 @@
                 enabled: true,
                 dynamic: true,
                 spokes: availableSpokeCodes,
-                tags: tagDefs.map((d) => ({ id: d.id, enabled: true }))
+                tags: tagDefs.map((d) => ({ id: d.id, enabled: d.enabled !== false }))
             },
             {
                 id: 'tpl:static:default',
@@ -1037,7 +1063,7 @@
                 enabled: true,
                 dynamic: false,
                 spokes: defaultStaticSpokes(availableSpokeCodes),
-                tags: tagDefs.map((d) => ({ id: d.id, enabled: true }))
+                tags: tagDefs.map((d) => ({ id: d.id, enabled: d.enabled !== false }))
             }
         ]
     } satisfies CycleInfoConfig;
@@ -1077,7 +1103,7 @@
         if (!activeSpoke) return null;
         const template = findTemplate(infoConfig.templates, activeSpoke.code, true);
         if (!template) return null;
-        const meta = (activeSpoke as any)?.meta ?? {};
+        const meta = spokeInfoMeta(activeSpoke);
         const chips = buildChips(template.tags, meta, activeSpoke.code, template.id);
         return { code: activeSpoke.code, chips, isCurrent: true, templateId: template.id };
     })();
@@ -1089,18 +1115,18 @@
             if (!template) continue;
             const spoke = spokes.find((s) => s.code === code);
             if (!spoke) continue;
-            const meta = (spoke as any)?.meta ?? {};
+            const meta = spokeInfoMeta(spoke);
             const chips = buildChips(template.tags, meta, code, template.id);
             rows.push({ code, chips, templateId: template.id });
         }
         return rows;
     })();
 
-    $: currentValues = activeSpoke ? buildValueMap((activeSpoke as any)?.meta ?? {}, activeSpoke.code) : {};
+    $: currentValues = activeSpoke ? buildValueMap(spokeInfoMeta(activeSpoke), activeSpoke.code) : {};
     $: {
         const refCode = availableSpokeCodes[0];
         const refSpoke = refCode ? spokes.find((s) => s.code === refCode) : null;
-        staticValues = refSpoke ? buildValueMap((refSpoke as any)?.meta ?? {}, refSpoke.code) : {};
+        staticValues = refSpoke ? buildValueMap(spokeInfoMeta(refSpoke), refSpoke.code) : {};
     }
 
     $: extraTagsBySpoke = (() => {
@@ -1135,7 +1161,7 @@
     />
 
     {#if showPickersSection}
-    <section class="pickersBlock" aria-label="Wheel pickers">
+    <section class="pickersBlock" aria-label="Wheel pickers" transition:slide|local>
         <div class="sectionSep headerSep" aria-hidden="true"></div>
         <div class="headerBottom" class:twoCols={isHorizon}>
             <div class="pickerRow">
@@ -1196,7 +1222,7 @@
     {/if}
 
     {#if showVisualSection}
-        <div class="wrap" bind:this={wrapEl}>
+        <div class="wrap" bind:this={wrapEl} transition:slide|local>
             <section class="wheelPanel">
             <div class="wheelBox">
                 <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
@@ -1482,23 +1508,25 @@
     {/if}
 
     {#if showInfoSection}
-        <CycleInfoBlock
-                generalChips={generalChipsOrdered}
-                currentRow={currentRow}
-                spokeRows={staticSpokeRows}
-                config={infoConfig}
-                defaultConfig={defaultInfoConfig}
-                spokeOptions={availableSpokeCodes}
-                tagDefs={tagDefs}
-                generalDefs={generalDefs}
-                currentValues={currentValues}
-                staticValues={staticValues}
-                onSpokeClick={handleSpokePick}
-                onGeneralReorder={handleGeneralReorder}
-                onTemplateReorder={handleTemplateReorder}
-                onConfigure={applyInfoConfig}
-                reorderEnabled={true}
-        />
+        <div transition:slide|local>
+            <CycleInfoBlock
+                    generalChips={generalChipsOrdered}
+                    currentRow={currentRow}
+                    spokeRows={staticSpokeRows}
+                    config={infoConfig}
+                    defaultConfig={defaultInfoConfig}
+                    spokeOptions={availableSpokeCodes}
+                    tagDefs={tagDefs}
+                    generalDefs={generalDefs}
+                    currentValues={currentValues}
+                    staticValues={staticValues}
+                    onSpokeClick={handleSpokePick}
+                    onGeneralReorder={handleGeneralReorder}
+                    onTemplateReorder={handleTemplateReorder}
+                    onConfigure={applyInfoConfig}
+                    reorderEnabled={true}
+            />
+        </div>
     {/if}
 
     {#if showLoadingOverlay}
