@@ -237,14 +237,11 @@
         templateTabs = { ...templateTabs, [id]: tab };
     }
 
-    function isTemplateTitleEditing(id: string): boolean {
-        return titleEditTemplateId === id;
-    }
-
     async function beginTemplateTitleEdit(tpl: InfoTemplate) {
         titleEditTemplateId = tpl.id;
-        titleEditValue = String(tpl.title ?? '');
-        titleEditOriginal = String(tpl.title ?? '');
+        const base = String(tpl.title ?? '').trim() || 'Template';
+        titleEditValue = base;
+        titleEditOriginal = base;
         await tick();
         titleEditInput?.focus();
         titleEditInput?.select();
@@ -278,10 +275,6 @@
             e.preventDefault();
             cancelTemplateTitleEdit();
         }
-    }
-
-    function isModalRowOpen(id: string): boolean {
-        return modalRowsOpen.has(id);
     }
 
     function toggleModalRow(id: string) {
@@ -745,13 +738,13 @@
                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                 </label>
                                 <div class="rowActions">
-                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                    <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                     {#if row.isCustom}
                                         <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralCustomTag(row.id)}>×</button>
                                     {/if}
                                 </div>
                             </div>
-                            {#if isModalRowOpen(rowKey)}
+                            {#if modalRowsOpen.has(rowKey)}
                                 <div class="modalAccordion">
                                     <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateGeneralTag(row.id, { modal: readValue(e) })}></textarea>
                                 </div>
@@ -776,8 +769,9 @@
                     {#each draftConfig.templates.filter((t) => t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
                             <div class="templateHead" data-template-title-editor={tpl.id} role="button" tabindex="0" aria-expanded={openDynamicTemplateId === tpl.id} on:click={() => toggleTemplatePanel(true, tpl.id)} on:keydown={(e) => handleTemplateHeadKeydown(e, true, tpl.id)}>
+                                {#key `${tpl.id}:${titleEditTemplateId === tpl.id ? 'edit' : 'view'}`}
                                 <div class="templateTitleGroup">
-                                    {#if isTemplateTitleEditing(tpl.id)}
+                                    {#if titleEditTemplateId === tpl.id}
                                         <input
                                             bind:this={titleEditInput}
                                             class="templateTitle"
@@ -785,19 +779,20 @@
                                             data-template-title-input="1"
                                             value={titleEditValue}
                                             on:input={handleTemplateTitleInput}
-                                            on:keydown={handleTemplateTitleKeydown}
+                                            on:keydown|stopPropagation={handleTemplateTitleKeydown}
                                             on:blur={cancelTemplateTitleEdit}
                                             on:click|stopPropagation
                                         />
                                     {:else}
-                                        <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
+                                        <div class="templateTitleText" title={tpl.title || 'Template'}>{tpl.title || 'Template'}</div>
                                     {/if}
-                                    {#if isTemplateTitleEditing(tpl.id)}
+                                    {#if titleEditTemplateId === tpl.id}
                                         <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:pointerdown|preventDefault on:click|stopPropagation={applyTemplateTitleEdit}>✓</button>
                                     {:else}
                                         <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click|stopPropagation={() => beginTemplateTitleEdit(tpl)}>✎</button>
                                     {/if}
                                 </div>
+                                {/key}
                                 <div class="templateActions">
                                     <button type="button" class="toggleBtn" on:click|stopPropagation={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
                                     <button type="button" class="toggleBtn" on:click|stopPropagation={() => removeTemplate(tpl.id)}>Remove</button>
@@ -847,10 +842,10 @@
                                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                                 </label>
                                                 <div class="rowActions">
-                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                                 </div>
                                             </div>
-                                            {#if isModalRowOpen(rowKey)}
+                                            {#if modalRowsOpen.has(rowKey)}
                                                 <div class="modalAccordion">
                                                     <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
                                                 </div>
@@ -880,8 +875,9 @@
                     {#each draftConfig.templates.filter((t) => !t.dynamic) as tpl (tpl.id)}
                         <div class="templateBlock">
                             <div class="templateHead" data-template-title-editor={tpl.id} role="button" tabindex="0" aria-expanded={openStaticTemplateId === tpl.id} on:click={() => toggleTemplatePanel(false, tpl.id)} on:keydown={(e) => handleTemplateHeadKeydown(e, false, tpl.id)}>
+                                {#key `${tpl.id}:${titleEditTemplateId === tpl.id ? 'edit' : 'view'}`}
                                 <div class="templateTitleGroup">
-                                    {#if isTemplateTitleEditing(tpl.id)}
+                                    {#if titleEditTemplateId === tpl.id}
                                         <input
                                             bind:this={titleEditInput}
                                             class="templateTitle"
@@ -889,19 +885,20 @@
                                             data-template-title-input="1"
                                             value={titleEditValue}
                                             on:input={handleTemplateTitleInput}
-                                            on:keydown={handleTemplateTitleKeydown}
+                                            on:keydown|stopPropagation={handleTemplateTitleKeydown}
                                             on:blur={cancelTemplateTitleEdit}
                                             on:click|stopPropagation
                                         />
                                     {:else}
-                                        <div class="templateTitleText" title={tpl.title}>{tpl.title}</div>
+                                        <div class="templateTitleText" title={tpl.title || 'Template'}>{tpl.title || 'Template'}</div>
                                     {/if}
-                                    {#if isTemplateTitleEditing(tpl.id)}
+                                    {#if titleEditTemplateId === tpl.id}
                                         <button type="button" class="toggleBtn iconBtn" data-template-title-accept="1" title="Apply title" on:pointerdown|preventDefault on:click|stopPropagation={applyTemplateTitleEdit}>✓</button>
                                     {:else}
                                         <button type="button" class="toggleBtn iconBtn" data-template-title-edit="1" title="Edit title" on:click|stopPropagation={() => beginTemplateTitleEdit(tpl)}>✎</button>
                                     {/if}
                                 </div>
+                                {/key}
                                 <div class="templateActions">
                                     <button type="button" class="toggleBtn" on:click|stopPropagation={() => updateTemplate(tpl.id, { enabled: !tpl.enabled })}>{tpl.enabled ? 'On' : 'Off'}</button>
                                     <button type="button" class="toggleBtn" on:click|stopPropagation={() => removeTemplate(tpl.id)}>Remove</button>
@@ -956,13 +953,13 @@
                                                     <span class="stateText">{isTagEnabled(row.tag) ? 'On' : 'Off'}</span>
                                                 </label>
                                                 <div class="rowActions">
-                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={isModalRowOpen(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                                    <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
                                                     {#if row.isCustom}
                                                         <button type="button" class="miniBtn dangerBtn" on:click={() => removeTemplateCustomTag(tpl.id, row.id)}>×</button>
                                                     {/if}
                                                 </div>
                                             </div>
-                                            {#if isModalRowOpen(rowKey)}
+                                            {#if modalRowsOpen.has(rowKey)}
                                                 <div class="modalAccordion">
                                                     <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateTemplateTag(tpl.id, row.id, { modal: readValue(e) })}></textarea>
                                                 </div>
