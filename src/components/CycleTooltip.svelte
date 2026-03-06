@@ -1,6 +1,7 @@
 <!-- src/components/CycleTooltip.svelte -->
 <script lang="ts">
     import { tick } from 'svelte';
+    import { slide } from 'svelte/transition';
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
     import { formatSpokeCodeUi, formatSpokeTextUi } from '../lib/wheel/types';
@@ -119,11 +120,10 @@
     let el: HTMLDivElement | null = null;
     let posX = 0;
     let posY = 0;
-    let openItemKey = '';
-    let openItemTitle = '';
-    let openItemModal = '';
+    let openItemIndex = -1;
     let tooltipItems: Array<{ id?: string; label: string; value?: string; modal?: string }> = [];
     let tooltipSubtitle = '';
+    let prevPayloadRef: CycleTipPayload | null = null;
 
     const OFFSET = 12;
     const MARGIN = 10;
@@ -159,33 +159,19 @@
 
     $: tooltipItems = payloadItems(payload);
     $: tooltipSubtitle = payloadSubtitle(payload);
+    $: if (openItemIndex >= tooltipItems.length) openItemIndex = -1;
+    $: {
+        if (payload !== prevPayloadRef) {
+            prevPayloadRef = payload;
+            openItemIndex = -1;
+        }
+    }
     $: void recomputePosition();
     $: if (payload) void recomputePosition();
-    $: {
-        // Reset accordion when payload changes.
-        void payload;
-        openItemKey = '';
-        openItemTitle = '';
-        openItemModal = '';
-    }
 
-    function itemKey(id: string | undefined, label: string, index: number): string {
-        if (id && id.trim()) return id.trim();
-        const base = label.trim().toLowerCase().replace(/\s+/g, '-');
-        return `${base || 'item'}:${index}`;
-    }
-
-    function toggleItemAccordion(key: string, label: string, modal: string | undefined) {
+    function toggleItemAccordion(index: number, modal: string | undefined) {
         if (!modal) return;
-        if (openItemKey === key) {
-            openItemKey = '';
-            openItemTitle = '';
-            openItemModal = '';
-            return;
-        }
-        openItemKey = key;
-        openItemTitle = label;
-        openItemModal = modal;
+        openItemIndex = openItemIndex === index ? -1 : index;
     }
 </script>
 
@@ -207,7 +193,7 @@
                     <div class="dt">{tooltipSubtitle}</div>
                 {/if}
             </div>
-            <div class="headRight">
+            <div class="headRight btnRail">
                 {#if payload.kind !== 'marker'}
                     <button
                         class="navBtn miniBtn topIconBtn"
@@ -235,13 +221,12 @@
             {#if tooltipItems.length > 0}
                 <div class="ui-tag-row">
                     {#each tooltipItems as item, i (`item:${item.id ?? item.label}:${i}`)}
-                        {@const key = itemKey(item.id, item.label, i)}
                         {#if item.modal}
                             <button
                                 type="button"
                                 class="ui-tag chipButton"
-                                aria-expanded={openItemKey === key}
-                                on:click={() => toggleItemAccordion(key, item.label, item.modal)}
+                                aria-expanded={openItemIndex === i}
+                                on:click={() => toggleItemAccordion(i, item.modal)}
                             >
                                 <span class="chipLine">
                                     <span class="chipLabel">{item.label}</span>
@@ -264,10 +249,11 @@
                         {/if}
                     {/each}
                 </div>
-                {#if openItemModal}
-                    <div class="itemAccordion">
-                        <div class="itemAccordionTitle">{openItemTitle}</div>
-                        <div class="itemAccordionBody">{openItemModal}</div>
+                {@const activeItem = openItemIndex >= 0 ? tooltipItems[openItemIndex] : null}
+                {#if activeItem?.modal}
+                    <div class="itemAccordion" transition:slide|local={{ duration: 160 }}>
+                        <div class="itemAccordionTitle">{activeItem.label}</div>
+                        <div class="itemAccordionBody">{activeItem.modal}</div>
                     </div>
                 {/if}
             {/if}
@@ -276,13 +262,12 @@
             {#if tooltipItems.length > 0}
                 <div class="ui-tag-row">
                     {#each tooltipItems as item, i (`item:${item.id ?? item.label}:${i}`)}
-                        {@const key = itemKey(item.id, item.label, i)}
                         {#if item.modal}
                             <button
                                 type="button"
                                 class="ui-tag chipButton"
-                                aria-expanded={openItemKey === key}
-                                on:click={() => toggleItemAccordion(key, item.label, item.modal)}
+                                aria-expanded={openItemIndex === i}
+                                on:click={() => toggleItemAccordion(i, item.modal)}
                             >
                                 <span class="chipLine">
                                     <span class="chipLabel">{item.label}</span>
@@ -305,10 +290,11 @@
                         {/if}
                     {/each}
                 </div>
-                {#if openItemModal}
-                    <div class="itemAccordion">
-                        <div class="itemAccordionTitle">{openItemTitle}</div>
-                        <div class="itemAccordionBody">{openItemModal}</div>
+                {@const activeItem = openItemIndex >= 0 ? tooltipItems[openItemIndex] : null}
+                {#if activeItem?.modal}
+                    <div class="itemAccordion" transition:slide|local={{ duration: 160 }}>
+                        <div class="itemAccordionTitle">{activeItem.label}</div>
+                        <div class="itemAccordionBody">{activeItem.modal}</div>
                     </div>
                 {/if}
             {/if}
@@ -383,11 +369,46 @@
 
     .headRight {
         display: flex;
-        gap: 8px;
+        flex: 0 0 auto;
+    }
+
+    .btnRail {
+        --seg-size: 34px;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: var(--seg-size);
+        border: 1px solid var(--btn-border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--btn-bg);
+    }
+
+    .btnRail .navBtn {
+        width: 100%;
+        height: var(--seg-size);
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-right: 1px solid var(--btn-border);
+        border-radius: 0;
+        background: transparent;
+        display: inline-grid;
+        place-items: center;
+        line-height: 1;
+    }
+
+    .btnRail .navBtn:hover:not(:disabled) {
+        transform: none;
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 8%);
+    }
+
+    .btnRail .navBtn:last-child {
+        border-right: 0;
     }
 
     .topIconBtn {
-        min-width: 34px;
+        width: 100%;
         height: 34px;
         padding: 0;
         display: inline-grid;

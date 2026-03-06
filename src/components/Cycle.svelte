@@ -375,43 +375,38 @@
         const ts = Number.isFinite(t) ? t : NaN;
         const pickTs = resolveSpokePickTs(i);
 
-        const baseTags = Array.isArray((s as any)?.tags) ? (s as any).tags : [];
-        const extraTags = extraTagsBySpoke.get(s?.code as SpokeKey) ?? [];
-        const tags = uniqueStrings([...baseTags, ...extraTags]);
-        const items = (() => {
-            if (!s) return [];
-            const meta = spokeInfoMeta(s);
+        const collectTooltipItemsFromConfig = (
+            spoke: CycleSpoke
+        ): Array<{ id?: string; label: string; value?: string; modal?: string }> => {
+            const meta = spokeInfoMeta(spoke);
             const out: Array<{ id?: string; label: string; value?: string; modal?: string }> = [];
             const seen = new Set<string>();
 
-            for (const def of tagDefs) {
-                if (!tagApplies(def, s.code)) continue;
-                const key = def.id || def.label;
-                if (!key || seen.has(key)) continue;
-                seen.add(key);
-                const value = tagValueForDef(def, meta);
-                out.push({
-                    id: def.id,
-                    label: def.label,
-                    value,
-                    modal: def.modal
-                });
-            }
-
-            for (const raw of tags) {
-                const key = tagIdFromLabel(raw);
-                if (!key || seen.has(key)) continue;
-                seen.add(key);
-                const def = tagDefById.get(key);
-                out.push({
-                    id: key,
-                    label: titleCaseLabel(raw),
-                    modal: def?.modal
-                });
+            for (const tpl of infoConfig.templates) {
+                if (!tpl.enabled) continue;
+                if (!tpl.spokes.includes(spoke.code)) continue;
+                const chips = buildChips(tpl.tags, meta, spoke.code, tpl.id);
+                for (const chip of chips) {
+                    const key = chip.id || chip.label;
+                    if (!key || seen.has(key)) continue;
+                    seen.add(key);
+                    out.push({
+                        id: chip.id,
+                        label: chip.label,
+                        value: chip.value,
+                        modal: chip.modal
+                    });
+                }
             }
 
             return out;
+        };
+
+        const items = (() => {
+            if (!s) return [];
+            return collectTooltipItemsFromConfig(s);
         })();
+        const tags = uniqueStrings(items.map((item) => item.label));
         return {
             kind: 'spoke',
             code: String(code),
