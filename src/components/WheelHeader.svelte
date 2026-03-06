@@ -75,7 +75,7 @@
                 title={pickersOpen ? 'Hide wheel pickers' : 'Show wheel pickers'}
                 aria-pressed={pickersOpen}
                 on:click={() => onTogglePickers?.()}
-        >⌚</button>
+        ><span class="pickerGlyph" aria-hidden="true">◷</span></button>
         <button type="button" class="navBtn danger" title="Close" aria-label="Close" on:click|stopPropagation={onClose}>×</button>
     </div>
 </header>
@@ -128,6 +128,10 @@
 
     .toggleBtn.off {
         opacity: 0.55;
+    }
+
+    .pickerGlyph {
+        font-variant-emoji: text;
     }
 
     .dragBtn {
