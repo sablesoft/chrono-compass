@@ -5,6 +5,7 @@ export const compass = {
     ready: true,
     multiTarget: true,
     mainCycle: 'horizon',
+    houseType: 'compass',
     nodes: {
         horizon: ['E-horizon',  'NE-horizon', 'N-horizon',  'NW-horizon', 'W-horizon',  'SW-horizon', 'S-horizon',  'SE-horizon', 'E_next-horizon',],
         compass: ['E-compass', 'NE-compass', 'N-compass', 'NW-compass', 'W-compass', 'SW-compass', 'S-compass', 'SE-compass',]

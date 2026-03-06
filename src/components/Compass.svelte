@@ -1599,8 +1599,16 @@
         id: ObjId;
         emoji: string;
         name: string;
+        houseCode: string;
+        houseLabel: string;
         pinned: boolean;
         items: CompassInfoChip[];
+    };
+
+    type CompassHouseDef = {
+        id: string;
+        code: string;
+        label: string;
     };
 
     type CompassBodyInfoMeta = Partial<Record<'horizon' | 'synod' | 'bind' | 'nodal', Record<string, unknown>>>;
@@ -1649,7 +1657,6 @@
         metaField?: string;
         format?: string;
         spokes?: string[] | '*';
-        builtin?: 'house';
         group?: OrbitNodeGroup;
     };
 
@@ -1657,6 +1664,7 @@
     let compassInfoConfigInitialized = false;
     let compassInfoConfig: CompassInfoConfig = {
         general: { enabled: false, tags: [] },
+        houses: { tags: [] },
         dynamic: { enabled: true, tags: [] },
         pinned: {
             enabled: true,
@@ -1675,6 +1683,7 @@
     let compassTagDefById: Map<string, CompassTagDef> = new Map();
     let defaultCompassInfoConfig: CompassInfoConfig = {
         general: { enabled: false, tags: [] },
+        houses: { tags: [] },
         dynamic: { enabled: true, tags: [] },
         pinned: { enabled: true, groups: defaultCompassGroups(), tags: [] }
     };
@@ -1682,6 +1691,7 @@
     let compassDynamicDisabledIds = new Set<string>();
     let compassPinnedRows: CompassPinnedInfoRow[] = [];
     let compassGeneralChips: CompassInfoChip[] = [];
+    let compassHouseDefs: CompassHouseDef[] = [];
 
     function normalizeCompassTag(input: CompassInfoTagConfig | null | undefined): CompassInfoTagConfig | null {
         if (!input || !input.id) return null;
@@ -1729,6 +1739,11 @@
                 tags: Array.isArray(src.general?.tags)
                     ? src.general!.tags.map((x) => normalizeCompassTag(x)).filter((x): x is CompassInfoTagConfig => !!x)
                     : defaults.general.tags.map((x) => ({ ...x }))
+            },
+            houses: {
+                tags: Array.isArray(src.houses?.tags)
+                    ? src.houses!.tags.map((x) => normalizeCompassTag(x)).filter((x): x is CompassInfoTagConfig => !!x)
+                    : defaults.houses.tags.map((x) => ({ ...x }))
             },
             dynamic: {
                 enabled: typeof src.dynamic?.enabled === 'boolean' ? src.dynamic.enabled : defaults.dynamic.enabled,
@@ -1838,6 +1853,29 @@
             out.push(def);
         }
         return out;
+    }
+
+    function houseTypeForWheel(specValue: WheelSpec | null | undefined): 'horizon' | 'synod' | 'bind' | 'nodal' | 'compass' {
+        const fromSpec = (specValue as any)?.houseType;
+        if (fromSpec === 'horizon' || fromSpec === 'synod' || fromSpec === 'bind' || fromSpec === 'nodal' || fromSpec === 'compass') {
+            return fromSpec;
+        }
+        const type = (specValue as any)?.type;
+        if (type === 'compass') return 'compass';
+        if (type === 'system') return 'synod';
+        return 'horizon';
+    }
+
+    function buildHouseDefsForWheel(specValue: WheelSpec | null | undefined): CompassHouseDef[] {
+        const houseType = houseTypeForWheel(specValue);
+        return SPOKES_ORDER.map((code) => {
+            const id = `house:${code}`;
+            return {
+                id,
+                code,
+                label: formatLabelTitleCaseUi(`${formatSpokeCodeUi(code)}-${houseType}`)
+            };
+        });
     }
 
     function nodeTechTag(node: OrbitNodeUi): string {
@@ -2024,7 +2062,6 @@
     }
 
     function dynamicTagValue(def: CompassTagDef, row: CompassBodyRow): string | undefined {
-        if (def.builtin === 'house') return row.house;
         if (!def.source) return undefined;
         if (!tagAppliesToCode(def, row.house)) return undefined;
         if (!def.metaField) return '';
@@ -2048,6 +2085,8 @@
         return orbitNodeGroup(node);
     }
 
+    $: compassHouseDefs = buildHouseDefsForWheel(spec);
+
     $: compassTagDefs = (() => {
         const activeSources = activeSourcesForWheelType(wheel?.wheelType);
         const dynamicDefs = dedupeTagDefsByLabel(activeSources.flatMap((source) => buildSourceTagDefs('dynamic', source)))
@@ -2057,7 +2096,6 @@
             }));
         const pinnedDefs = buildPinnedNodeDefs();
         return [
-            { id: 'dynamic:house', label: 'House', scope: 'dynamic', enabledByDefault: true, modal: 'Nearest wheel sector for this body.', builtin: 'house' },
             ...dynamicDefs,
             ...pinnedDefs
         ] satisfies CompassTagDef[];
@@ -2066,6 +2104,9 @@
 
     $: defaultCompassInfoConfig = {
         general: { enabled: false, tags: [] },
+        houses: {
+            tags: compassHouseDefs.map((d) => ({ id: d.id }))
+        },
         dynamic: {
             enabled: true,
             tags: compassTagDefs
@@ -2111,6 +2152,7 @@
 
     $: compassDynamicRows = (() => {
         const out: CompassDynamicRow[] = [];
+        const houseCfgById = new Map(compassInfoConfig.houses.tags.map((t) => [t.id, t]));
         if (!compassInfoConfig.dynamic.enabled) return out;
         for (const b of allBodies) {
             const items: CompassInfoChip[] = [];
@@ -2120,7 +2162,7 @@
                 const def = compassTagDefById.get(tag.id);
                 if (!def || def.scope !== 'dynamic') continue;
                 const value = dynamicTagValue(def, b);
-                if (!def.builtin && value == null) continue;
+                if (value == null) continue;
                 const chip: CompassInfoChip = {
                     id: def.id,
                     label: (tag.label && tag.label.trim()) ? tag.label.trim() : def.label,
@@ -2141,10 +2183,19 @@
                     items[hitIdx] = chip;
                 }
             }
+            const houseCode = b.house;
+            const houseId = `house:${houseCode}`;
+            const houseCfg = houseCfgById.get(houseId);
+            const houseDef = compassHouseDefs.find((d) => d.id === houseId);
+            const houseLabel = (houseCfg?.label && houseCfg.label.trim())
+                ? houseCfg.label.trim()
+                : (houseDef?.label ?? formatLabelTitleCaseUi(houseCode));
             out.push({
                 id: b.id,
                 emoji: b.emoji,
                 name: b.name,
+                houseCode,
+                houseLabel,
                 pinned: pinnedBodyId === b.id,
                 items
             });
@@ -2752,6 +2803,7 @@
             <CompassInfoBlock
                     config={compassInfoConfig}
                     tagDefs={compassTagDefs}
+                    houseDefs={compassHouseDefs}
                     generalChips={compassGeneralChips}
                     dynamicRows={compassDynamicRows}
                     pinnedRows={compassPinnedRows}

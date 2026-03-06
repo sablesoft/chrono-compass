@@ -5,6 +5,7 @@ export const system = {
     ready: true,
     multiTarget: true,
     mainCycle: 'synod',
+    houseType: 'synod',
     nodes: {
         nodal: ['E-nodal', 'N-nodal', 'W-nodal', 'S-nodal', 'E_next-nodal'],
         bind: ['E-bind', 'N-bind', 'W-bind', 'S-bind', 'E_next-bind'],

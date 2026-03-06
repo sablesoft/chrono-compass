@@ -75,6 +75,9 @@ export type CompassInfoConfig = {
         enabled: boolean;
         tags: CompassInfoTagConfig[];
     };
+    houses: {
+        tags: CompassInfoTagConfig[];
+    };
     dynamic: {
         enabled: boolean;
         tags: CompassInfoTagConfig[];

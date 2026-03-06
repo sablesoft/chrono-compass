@@ -14,8 +14,16 @@
         id: ObjId;
         emoji: string;
         name: string;
+        houseCode: string;
+        houseLabel: string;
         pinned: boolean;
         items: CompassInfoChip[];
+    };
+
+    type CompassHouseDef = {
+        id: string;
+        code: string;
+        label: string;
     };
 
     type CompassPinnedInfoRow = {
@@ -44,6 +52,7 @@
 
     export let config: CompassInfoConfig;
     export let tagDefs: CompassTagDef[] = [];
+    export let houseDefs: CompassHouseDef[] = [];
     export let generalChips: CompassInfoChip[] = [];
     export let dynamicRows: CompassDynamicRow[] = [];
     export let pinnedRows: CompassPinnedInfoRow[] = [];
@@ -55,7 +64,7 @@
 
     let showEditor = false;
     let draftConfig: CompassInfoConfig | null = null;
-    let openEditorSection: 'general' | 'dynamic' | 'pinned' | null = null;
+    let openEditorSection: 'general' | 'houses' | 'dynamic' | 'pinned' | null = null;
     let modalRowsOpen = new Set<string>();
     let modalText: string | null = null;
     let modalTitle: string | null = null;
@@ -70,6 +79,9 @@
                 enabled: src.dynamic.enabled,
                 tags: src.dynamic.tags.map((t) => ({ ...t }))
             },
+            houses: {
+                tags: src.houses.tags.map((t) => ({ ...t }))
+            },
             pinned: {
                 enabled: src.pinned.enabled,
                 groups: { ...src.pinned.groups },
@@ -80,6 +92,14 @@
 
     function openEditor() {
         draftConfig = cloneConfig(config);
+        pinnedEditorFilters = {
+            regular: true,
+            compass: true,
+            horizon: true,
+            nodal: true,
+            synod: true,
+            bind: true
+        };
         openEditorSection = null;
         showEditor = true;
         console.log('[CompassInfoBlock] editor opened');
@@ -96,7 +116,7 @@
         showEditor = false;
     }
 
-    function toggleEditorSection(id: 'general' | 'dynamic' | 'pinned') {
+    function toggleEditorSection(id: 'general' | 'houses' | 'dynamic' | 'pinned') {
         openEditorSection = openEditorSection === id ? null : id;
     }
 
@@ -135,6 +155,29 @@
             ...draftConfig,
             general: {
                 ...draftConfig.general,
+                tags
+            }
+        };
+    }
+
+    function updateHouseTag(id: string, patch: Partial<CompassInfoTagConfig>) {
+        if (!draftConfig) return;
+        const tags = draftConfig.houses.tags.slice();
+        const idx = tags.findIndex((t) => t.id === id);
+        const def = houseDefs.find((d) => d.id === id);
+        const fallbackLabel = def?.label ?? id;
+        const current = idx >= 0 ? tags[idx] : { id, label: fallbackLabel };
+        const nextItem: CompassInfoTagConfig = {
+            ...current,
+            ...patch,
+            enabled: true
+        };
+        if (idx >= 0) tags[idx] = nextItem;
+        else tags.push(nextItem);
+        draftConfig = {
+            ...draftConfig,
+            houses: {
+                ...draftConfig.houses,
                 tags
             }
         };
@@ -260,13 +303,59 @@
         return normalizeTagsByEnabled(cfg.general.tags.slice());
     }
 
+    type HouseEditorRow = { id: string; code: string; systemLabel: string; tag?: CompassInfoTagConfig };
+
+    function houseTagsForEditor(cfg: CompassInfoConfig | null): HouseEditorRow[] {
+        if (!cfg) return [];
+        const byId = new Map(cfg.houses.tags.map((t) => [t.id, t]));
+        return houseDefs.map((d) => ({
+            id: d.id,
+            code: d.code,
+            systemLabel: d.label,
+            tag: byId.get(d.id)
+        }));
+    }
+
+    function houseInputLabelValue(row: HouseEditorRow): string {
+        const custom = String(row.tag?.label ?? '').trim();
+        if (!custom) return '';
+        return custom === row.systemLabel ? '' : custom;
+    }
+
+    function scopedInputLabelValue(row: ScopedEditorRow): string {
+        const custom = String(row.tag?.label ?? '').trim();
+        if (!custom) return '';
+        return custom === row.systemLabel ? '' : custom;
+    }
+
     type ScopedEditorRow = {
         id: string;
         systemLabel: string;
         tag?: CompassInfoTagConfig;
     };
+    type PinnedGroupKey = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+    const PINNED_GROUP_FILTERS: Array<{ key: PinnedGroupKey; label: string }> = [
+        { key: 'regular', label: 'regular' },
+        { key: 'compass', label: 'compass' },
+        { key: 'synod', label: 'synod' },
+        { key: 'bind', label: 'bind' },
+        { key: 'horizon', label: 'horizon' },
+        { key: 'nodal', label: 'nodal' }
+    ];
+
     let dynamicEditorRows: ScopedEditorRow[] = [];
     let pinnedEditorRows: ScopedEditorRow[] = [];
+    let pinnedEditorRowsFiltered: ScopedEditorRow[] = [];
+    let pinnedGroupFiltersVisible: Array<{ key: PinnedGroupKey; label: string }> = [];
+    let dynamicRowsByHouse: Array<{ code: string; label: string; modal?: string; rows: CompassDynamicRow[] }> = [];
+    let pinnedEditorFilters: Record<PinnedGroupKey, boolean> = {
+        regular: true,
+        compass: true,
+        horizon: true,
+        nodal: true,
+        synod: true,
+        bind: true
+    };
 
     function scopedRows(scope: 'dynamic' | 'pinned'): ScopedEditorRow[] {
         if (!draftConfig) return [];
@@ -313,27 +402,51 @@
 
     $: dynamicEditorRows = draftConfig ? scopedRows('dynamic') : [];
     $: pinnedEditorRows = draftConfig ? scopedRows('pinned') : [];
-
-    function setPinnedGroup(
-        group: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind',
-        enabled: boolean
-    ) {
-        if (!draftConfig) return;
-        const affectedIds = uniqueTagDefsByLabel('pinned')
-            .filter((d) => d.group === group)
-            .map((d) => d.id);
-        const byId = new Map(draftConfig.pinned.tags.map((t) => [t.id, { ...t }]));
-        for (const id of affectedIds) {
-            const cur = byId.get(id) ?? { id, enabled: true };
-            byId.set(id, { ...cur, enabled });
+    $: pinnedGroupFiltersVisible = (() => {
+        const present = new Set<PinnedGroupKey>();
+        present.add('regular');
+        for (const def of uniqueTagDefsByLabel('pinned')) {
+            if (!def.group) continue;
+            present.add(def.group);
         }
-        draftConfig = {
-            ...draftConfig,
-            pinned: {
-                ...draftConfig.pinned,
-                groups: { ...draftConfig.pinned.groups, [group]: enabled },
-                tags: normalizeTagsByEnabled(Array.from(byId.values()))
-            }
+        return PINNED_GROUP_FILTERS.filter((g) => present.has(g.key));
+    })();
+    $: pinnedEditorRowsFiltered = (() => {
+        if (!draftConfig) return [];
+        const defById = new Map(uniqueTagDefsByLabel('pinned').map((d) => [d.id, d]));
+        return pinnedEditorRows.filter((row) => {
+            const group = defById.get(row.id)?.group;
+            if (!group) return true;
+            return pinnedEditorFilters[group] !== false;
+        });
+    })();
+    $: dynamicRowsByHouse = (() => {
+        const houseCfgById = new Map(config.houses.tags.map((t) => [t.id, t]));
+        const map = new Map<string, { code: string; label: string; modal?: string; rows: CompassDynamicRow[] }>();
+        for (const row of dynamicRows) {
+            const houseCfg = houseCfgById.get(`house:${row.houseCode}`);
+            const modal = (houseCfg?.modal && houseCfg.modal.trim()) ? houseCfg.modal.trim() : undefined;
+            const current = map.get(row.houseCode) ?? { code: row.houseCode, label: row.houseLabel, modal, rows: [] };
+            current.rows.push(row);
+            if (!map.has(row.houseCode)) map.set(row.houseCode, current);
+        }
+
+        const ordered: Array<{ code: string; label: string; modal?: string; rows: CompassDynamicRow[] }> = [];
+        for (const d of houseDefs) {
+            const g = map.get(d.code);
+            if (g && g.rows.length > 0) ordered.push(g);
+        }
+        for (const [code, g] of map) {
+            if (ordered.some((x) => x.code === code)) continue;
+            if (g.rows.length > 0) ordered.push(g);
+        }
+        return ordered;
+    })();
+
+    function setPinnedGroup(group: PinnedGroupKey, enabled: boolean) {
+        pinnedEditorFilters = {
+            ...pinnedEditorFilters,
+            [group]: enabled
         };
     }
 
@@ -413,48 +526,66 @@
         {/if}
     </section>
 
-    <div class="chipSep" aria-hidden="true"></div>
+    <div class="chipSep chipSepTight" aria-hidden="true"></div>
 
     <section class="infoSection">
         {#if config.dynamic.enabled && dynamicRows.length > 0}
             <div class="rowList">
-                {#each dynamicRows as row (row.id)}
-                    <div class="rowItem">
-                        <button
-                            type="button"
-                            class="rowNameBtn"
-                            title="Pin/unpin body"
-                            on:click={() => onBodyPick(row.id)}
-                        >{row.emoji} {row.name}</button>
-                        <div class="chipGrid">
-                            {#each row.items as item (`${row.id}:${item.id}`)}
-                                {#if item.modal}
-                                    <button
-                                        type="button"
-                                        class="ui-tag chipButton"
-                                        on:click|stopPropagation={() => { modalTitle = item.label; modalText = item.modal ?? null; }}
-                                    >
-                                        <span class="chipLine">
-                                            <span class="chipLabel">{item.label}</span>
-                                            {#if item.value}
-                                                <span class="chipDivider" aria-hidden="true"></span>
-                                                <span class="chipValue">{item.value}</span>
-                                            {/if}
-                                        </span>
-                                    </button>
-                                {:else}
-                                    <span class="ui-tag chipStatic" title={item.modal}>
-                                        <span class="chipLine">
-                                            <span class="chipLabel">{item.label}</span>
-                                            {#if item.value}
-                                                <span class="chipDivider" aria-hidden="true"></span>
-                                                <span class="chipValue">{item.value}</span>
-                                            {/if}
-                                        </span>
-                                    </span>
-                                {/if}
-                            {/each}
-                        </div>
+                {#each dynamicRowsByHouse as group (`house:${group.code}`)}
+                    <div class="houseGroup">
+                        {#if group.modal}
+                            <h4 class="houseHeader">
+                                <button
+                                    type="button"
+                                    class="houseHeaderBtn houseHeaderInteractive"
+                                    on:click={() => {
+                                        modalTitle = group.label;
+                                        modalText = group.modal ?? null;
+                                    }}
+                                >{group.label}</button>
+                            </h4>
+                        {:else}
+                            <h4 class="houseHeader">{group.label}</h4>
+                        {/if}
+                        {#each group.rows as row (row.id)}
+                            <div class="rowItem">
+                                <button
+                                    type="button"
+                                    class="rowNameBtn"
+                                    title="Pin/unpin body"
+                                    on:click={() => onBodyPick(row.id)}
+                                >{row.emoji} {row.name}</button>
+                                <div class="chipGrid">
+                                    {#each row.items as item (`${row.id}:${item.id}`)}
+                                        {#if item.modal}
+                                            <button
+                                                type="button"
+                                                class="ui-tag chipButton"
+                                                on:click|stopPropagation={() => { modalTitle = item.label; modalText = item.modal ?? null; }}
+                                            >
+                                                <span class="chipLine">
+                                                    <span class="chipLabel">{item.label}</span>
+                                                    {#if item.value}
+                                                        <span class="chipDivider" aria-hidden="true"></span>
+                                                        <span class="chipValue">{item.value}</span>
+                                                    {/if}
+                                                </span>
+                                            </button>
+                                        {:else}
+                                            <span class="ui-tag chipStatic" title={item.modal}>
+                                                <span class="chipLine">
+                                                    <span class="chipLabel">{item.label}</span>
+                                                    {#if item.value}
+                                                        <span class="chipDivider" aria-hidden="true"></span>
+                                                        <span class="chipValue">{item.value}</span>
+                                                    {/if}
+                                                </span>
+                                            </span>
+                                        {/if}
+                                    {/each}
+                                </div>
+                            </div>
+                        {/each}
                     </div>
                 {/each}
             </div>
@@ -494,26 +625,61 @@
                         <div class="editorSectionActions">
                             <button type="button" class="toggleBtn" on:click={addGeneralTag}>+ Tag</button>
                         </div>
-                        {#if draftConfig.general.tags.length === 0}
-                            <div class="editorEmpty">No general tags.</div>
-                        {/if}
-                        {#each generalTagsForEditor(draftConfig) as tag (tag.id)}
-                            <div class="editorRowWrap">
-                                <div class="editorRow">
-                                    <div class="col sys">{tag.id}</div>
-                                    <input class="col user" type="text" value={tag.label ?? ''} placeholder="Custom label" on:input={(e) => updateGeneralTag(tag.id, { label: readValue(e) })} />
-                                    <input class="col val" type="text" value={tag.value ?? ''} placeholder="Value" on:input={(e) => updateGeneralTag(tag.id, { value: readValue(e) })} />
-                                    <label class="stateToggle" title={tag.enabled !== false ? 'Hide tag' : 'Show tag'}>
-                                        <input type="checkbox" checked={tag.enabled !== false} on:change={(e) => updateGeneralTag(tag.id, { enabled: readChecked(e) })} />
-                                        <span class="stateTrack"><span class="stateThumb"></span></span>
-                                        <span class="stateText">{tag.enabled !== false ? 'On' : 'Off'}</span>
-                                    </label>
-                                    <div class="rowActions">
-                                        <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralTag(tag.id)}>×</button>
+                        <div class="editorSectionBody">
+                            {#if draftConfig.general.tags.length === 0}
+                                <div class="editorEmpty">No general tags.</div>
+                            {/if}
+                            {#each generalTagsForEditor(draftConfig) as tag (tag.id)}
+                                <div class="editorRowWrap">
+                                    <div class="editorRow">
+                                        <div class="col sys">{tag.id}</div>
+                                        <input class="col user" type="text" value={tag.label ?? ''} placeholder="Custom label" on:input={(e) => updateGeneralTag(tag.id, { label: readValue(e) })} />
+                                        <input class="col val" type="text" value={tag.value ?? ''} placeholder="Value" on:input={(e) => updateGeneralTag(tag.id, { value: readValue(e) })} />
+                                        <label class="stateToggle" title={tag.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                            <input type="checkbox" checked={tag.enabled !== false} on:change={(e) => updateGeneralTag(tag.id, { enabled: readChecked(e) })} />
+                                            <span class="stateTrack"><span class="stateThumb"></span></span>
+                                            <span class="stateText">{tag.enabled !== false ? 'On' : 'Off'}</span>
+                                        </label>
+                                        <div class="rowActions">
+                                            <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralTag(tag.id)}>×</button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        {/each}
+                            {/each}
+                        </div>
+                    {/if}
+                </section>
+
+                <section class="editorSection">
+                    <div class="editorSectionHead">
+                        <button type="button" class="editorSectionToggle" aria-expanded={openEditorSection === 'houses'} on:click={() => toggleEditorSection('houses')}>
+                            <span class="editorSectionTitle">Houses</span>
+                            <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'houses' ? '▾' : '▸'}</span>
+                        </button>
+                    </div>
+                    {#if openEditorSection === 'houses'}
+                        <div class="editorSectionBody">
+                            {#if houseTagsForEditor(draftConfig).length === 0}
+                                <div class="editorEmpty">No houses.</div>
+                            {/if}
+                            {#each houseTagsForEditor(draftConfig) as row (row.id)}
+                                {@const rowKey = `houses:${row.id}`}
+                                <div class="editorRowWrap">
+                                    <div class="editorRow houseEditorRow">
+                                        <div class="col sys">{row.systemLabel}</div>
+                                        <input class="col user" type="text" value={houseInputLabelValue(row)} placeholder={row.systemLabel} on:input={(e) => updateHouseTag(row.id, { label: readValue(e) })} />
+                                        <div class="rowActions">
+                                            <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                        </div>
+                                    </div>
+                                    {#if modalRowsOpen.has(rowKey)}
+                                        <div class="modalAccordion">
+                                            <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateHouseTag(row.id, { modal: readValue(e) })}></textarea>
+                                        </div>
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
                     {/if}
                 </section>
 
@@ -530,29 +696,30 @@
                         </div>
                     </div>
                     {#if openEditorSection === 'dynamic'}
-                        {#each dynamicEditorRows as row (row.id)}
-                            {@const rowKey = `dynamic:${row.id}`}
-                            <div class="editorRowWrap">
-                                <div class="editorRow">
-                                    <div class="col sys">{row.systemLabel}</div>
-                                    <input class="col user" type="text" value={row.tag?.label ?? ''} placeholder="Custom label" on:input={(e) => updateScopedTag('dynamic', row.id, { label: readValue(e) })} />
-                                    <div class="col val">—</div>
-                                    <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
-                                        <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('dynamic', row.id, { enabled: readChecked(e) })} />
-                                        <span class="stateTrack"><span class="stateThumb"></span></span>
-                                        <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
-                                    </label>
-                                    <div class="rowActions">
-                                        <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                        <div class="editorSectionBody">
+                            {#each dynamicEditorRows as row (row.id)}
+                                {@const rowKey = `dynamic:${row.id}`}
+                                <div class="editorRowWrap">
+                                    <div class="editorRow dynamicEditorRow">
+                                        <div class="col sys">{row.systemLabel}</div>
+                                        <input class="col user" type="text" value={scopedInputLabelValue(row)} placeholder={row.systemLabel} on:input={(e) => updateScopedTag('dynamic', row.id, { label: readValue(e) })} />
+                                        <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                            <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('dynamic', row.id, { enabled: readChecked(e) })} />
+                                            <span class="stateTrack"><span class="stateThumb"></span></span>
+                                            <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
+                                        </label>
+                                        <div class="rowActions">
+                                            <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                        </div>
                                     </div>
+                                    {#if modalRowsOpen.has(rowKey)}
+                                        <div class="modalAccordion">
+                                            <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateScopedTag('dynamic', row.id, { modal: readValue(e) })}></textarea>
+                                        </div>
+                                    {/if}
                                 </div>
-                                {#if modalRowsOpen.has(rowKey)}
-                                    <div class="modalAccordion">
-                                        <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateScopedTag('dynamic', row.id, { modal: readValue(e) })}></textarea>
-                                    </div>
-                                {/if}
-                            </div>
-                        {/each}
+                            {/each}
+                        </div>
                     {/if}
                 </section>
 
@@ -569,29 +736,33 @@
                         </div>
                     </div>
                     {#if openEditorSection === 'pinned'}
-                        <div class="groupRow">
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.regular} on:change={(e) => setPinnedGroup('regular', readChecked(e))} /> regular</label>
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.compass} on:change={(e) => setPinnedGroup('compass', readChecked(e))} /> compass</label>
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.synod} on:change={(e) => setPinnedGroup('synod', readChecked(e))} /> synod</label>
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.bind} on:change={(e) => setPinnedGroup('bind', readChecked(e))} /> bind</label>
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.horizon} on:change={(e) => setPinnedGroup('horizon', readChecked(e))} /> horizon</label>
-                            <label><input type="checkbox" checked={draftConfig.pinned.groups.nodal} on:change={(e) => setPinnedGroup('nodal', readChecked(e))} /> nodal</label>
+                        <div class="groupFilters">
+                            {#each pinnedGroupFiltersVisible as gf (gf.key)}
+                                {@const enabled = pinnedEditorFilters[gf.key] !== false}
+                                <button
+                                    type="button"
+                                    class="groupFilterBtn"
+                                    class:isOn={enabled}
+                                    on:click={() => setPinnedGroup(gf.key, !enabled)}
+                                >{gf.label}</button>
+                            {/each}
                         </div>
-                        {#each pinnedEditorRows as row (row.id)}
-                            <div class="editorRowWrap">
-                                <div class="editorRow">
-                                    <div class="col sys">{row.systemLabel}</div>
-                                    <input class="col user" type="text" value={row.tag?.label ?? ''} placeholder="Custom label" on:input={(e) => updateScopedTag('pinned', row.id, { label: readValue(e) })} />
-                                    <div class="col val">—</div>
-                                    <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
-                                        <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('pinned', row.id, { enabled: readChecked(e) })} />
-                                        <span class="stateTrack"><span class="stateThumb"></span></span>
-                                        <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
-                                    </label>
-                                    <div class="rowActions"></div>
+                        <div class="editorSectionBody">
+                            {#each pinnedEditorRowsFiltered as row (row.id)}
+                                <div class="editorRowWrap">
+                                    <div class="editorRow pinnedEditorRow">
+                                        <div class="col sys">{row.systemLabel}</div>
+                                        <input class="col user" type="text" value={scopedInputLabelValue(row)} placeholder={row.systemLabel} on:input={(e) => updateScopedTag('pinned', row.id, { label: readValue(e) })} />
+                                        <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                            <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('pinned', row.id, { enabled: readChecked(e) })} />
+                                            <span class="stateTrack"><span class="stateThumb"></span></span>
+                                            <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
+                                        </label>
+                                        <div class="rowActions"></div>
+                                    </div>
                                 </div>
-                            </div>
-                        {/each}
+                            {/each}
+                        </div>
                     {/if}
                 </section>
             </div>
@@ -641,6 +812,9 @@
         margin: 2px 0 6px;
         background: color-mix(in oklab, var(--fg), transparent 88%);
     }
+    .chipSepTight {
+        margin: 1px 0 3px;
+    }
 
     .editBtn {
         position: absolute;
@@ -655,6 +829,43 @@
     .rowList {
         display: grid;
         gap: 6px;
+    }
+
+    .houseGroup {
+        display: grid;
+        gap: 6px;
+        padding-top: 4px;
+    }
+
+    .houseGroup + .houseGroup {
+        border-top: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
+        margin-top: 2px;
+        padding-top: 8px;
+    }
+
+    .houseHeader {
+        margin: 0;
+        justify-self: center;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        opacity: 0.7;
+    }
+    .houseHeaderBtn {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        letter-spacing: inherit;
+        padding: 0;
+    }
+    .houseHeaderInteractive {
+        cursor: pointer;
+        color: color-mix(in oklab, var(--accent-live), var(--fg) 48%);
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 2px;
+        text-decoration-color: color-mix(in oklab, var(--accent-live), transparent 45%);
     }
 
     .rowItem {
@@ -914,6 +1125,15 @@
         background: color-mix(in oklab, var(--fg), transparent 95%);
         cursor: grab;
     }
+    .houseEditorRow {
+        grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) auto;
+    }
+    .dynamicEditorRow {
+        grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) auto auto;
+    }
+    .pinnedEditorRow {
+        grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) auto auto;
+    }
 
     .col {
         min-width: 0;
@@ -999,11 +1219,31 @@
         gap: 4px;
     }
 
-    .groupRow {
+    .groupFilters {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
+    }
+    .editorSectionBody {
+        max-height: 320px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+    .groupFilterBtn {
+        height: 26px;
+        min-width: 74px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 78%);
+        background: color-mix(in oklab, var(--fg), transparent 95%);
+        color: inherit;
         font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .groupFilterBtn.isOn {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 48%);
+        background: color-mix(in oklab, var(--accent-live), transparent 86%);
     }
 
     .toggleBtn,
