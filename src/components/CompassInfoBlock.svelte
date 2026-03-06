@@ -47,6 +47,7 @@
     export let generalChips: CompassInfoChip[] = [];
     export let dynamicRows: CompassDynamicRow[] = [];
     export let pinnedRows: CompassPinnedInfoRow[] = [];
+    export let referenceTs: number = Date.now();
 
     export let onBodyPick: (bodyId: ObjId) => void = () => {};
     export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string) => void = () => {};
@@ -120,6 +121,11 @@
     function pinnedNodeTitle(node: { ts: number; disabled?: boolean }): string {
         const moment = Number.isFinite(node.ts) ? formatDateTime(node.ts) : '—';
         return `Moment • ${moment}`;
+    }
+
+    function nodeTimeClass(ts: number): 'past' | 'future' | '' {
+        if (!Number.isFinite(referenceTs) || !Number.isFinite(ts)) return '';
+        return Number(ts) < referenceTs ? 'past' : 'future';
     }
 
     function updateGeneralTag(id: string, patch: Partial<CompassInfoTagConfig>) {
@@ -387,7 +393,11 @@
                                     <button
                                         type="button"
                                         class="ui-tag chipButton pinnedChipButton"
-                                        class:isDisabled={node.disabled === true}
+                                        class:isActive={node.disabled === true}
+                                        class:time-tone-past={nodeTimeClass(node.ts) === 'past'}
+                                        class:time-border-past={nodeTimeClass(node.ts) === 'past'}
+                                        class:time-tone-future={nodeTimeClass(node.ts) === 'future'}
+                                        class:time-border-future={nodeTimeClass(node.ts) === 'future'}
                                         title={pinnedNodeTitle(node)}
                                         disabled={node.disabled === true}
                                         on:click={() => onPinnedPick(node.ts, row.bodyId, node.code)}
@@ -701,14 +711,31 @@
     }
     .pinnedChipButton:not(:disabled) {
         opacity: 1;
-        filter: saturate(1.15) brightness(1.08);
-        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-live), transparent 70%);
+        filter: saturate(1.06) brightness(1.03);
     }
-    .pinnedChipButton.isDisabled,
+    .pinnedChipButton.isActive {
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--accent-live), transparent 46%),
+            0 0 10px color-mix(in oklab, var(--accent-live), transparent 82%);
+    }
+    .pinnedChipButton.isActive.time-tone-past {
+        background: color-mix(in oklab, var(--btn-bg), var(--accent-blue) 44%) !important;
+        border-color: color-mix(in oklab, var(--accent-blue), transparent 18%) !important;
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--accent-blue), transparent 26%),
+            0 0 14px color-mix(in oklab, var(--accent-blue), transparent 68%);
+    }
+    .pinnedChipButton.isActive.time-tone-future {
+        background: color-mix(in oklab, var(--btn-bg), var(--accent-gold) 46%) !important;
+        border-color: color-mix(in oklab, var(--accent-gold), transparent 16%) !important;
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--accent-gold), transparent 24%),
+            0 0 14px color-mix(in oklab, var(--accent-gold), transparent 66%);
+    }
     .pinnedChipButton:disabled {
-        opacity: 0.45;
+        opacity: 1;
         cursor: not-allowed;
-        filter: grayscale(0.25);
+        filter: saturate(1.06) brightness(1.03);
     }
 
     .ui-tag {

@@ -2182,10 +2182,10 @@
                 .map((n) => n.key)
         );
 
-        const rawRows: Array<CompassPinnedRawRow & { disabled: boolean }> = orbitNodesAll
+        const rawRows: Array<CompassPinnedRawRow & { visualKey: string; overlapped: boolean }> = orbitNodesAll
             .filter((n) => n.bodyId === pinnedBodyId)
             .flatMap((n) => {
-                const disabled = overlappedNodeKeys.has(n.key);
+                const overlapped = overlappedNodeKeys.has(n.key);
                 return nodeTechEntries(n).map((entry) => ({
                     id: `${n.key}:${entry.label}`,
                     bodyId: n.bodyId,
@@ -2194,7 +2194,8 @@
                     code: entry.code,
                     techName: entry.label,
                     sourceWheel: entry.sourceWheel,
-                    disabled
+                    visualKey: n.key,
+                    overlapped
                 }));
             })
             .filter((row) => {
@@ -2204,6 +2205,33 @@
             })
             .sort((a, b) => a.ts - b.ts);
         const windowRows = applyMainCycleWindow(rawRows, effTs);
+        const activeOverlappedRowIds = (() => {
+            const byVisual = new Map<string, Array<(typeof windowRows)[number]>>();
+            for (const row of windowRows) {
+                if (!row.overlapped) continue;
+                const list = byVisual.get(row.visualKey);
+                if (list) list.push(row);
+                else byVisual.set(row.visualKey, [row]);
+            }
+
+            const chosen = new Set<string>();
+            for (const [, rows] of byVisual) {
+                if (!rows.length) continue;
+                const best = rows
+                    .slice()
+                    .sort((a, b) => {
+                        const da = Math.abs(a.ts - effTs);
+                        const db = Math.abs(b.ts - effTs);
+                        if (da !== db) return da - db;
+                        const aIsE = a.code === 'E' ? 1 : 0;
+                        const bIsE = b.code === 'E' ? 1 : 0;
+                        if (aIsE !== bIsE) return bIsE - aIsE;
+                        return a.ts - b.ts;
+                    })[0];
+                if (best) chosen.add(best.id);
+            }
+            return chosen;
+        })();
         const body = allBodies.find((b) => b.id === pinnedBodyId);
         const nodeDefs = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
         const nodes: CompassPinnedInfoRow['nodes'] = windowRows
@@ -2218,7 +2246,7 @@
                     ts: row.ts,
                     code: row.code,
                     source: row.source,
-                    disabled: row.disabled
+                    disabled: activeOverlappedRowIds.has(row.id)
                 }];
             });
 
@@ -2727,6 +2755,7 @@
                     generalChips={compassGeneralChips}
                     dynamicRows={compassDynamicRows}
                     pinnedRows={compassPinnedRows}
+                    referenceTs={localLiveNowTs}
                     onBodyPick={handleCompassBodyPick}
                     onPinnedPick={handleCompassPinnedPick}
                     onConfigure={applyCompassInfoConfig}
