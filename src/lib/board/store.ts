@@ -39,7 +39,8 @@ const DEFAULT_VIEW: BoardWheelView = {
     infoChipOrder: [],
     infoChipSelected: [],
     infoChipLabels: {},
-    infoConfig: undefined
+    infoConfig: undefined,
+    compassInfoConfig: undefined
 };
 
 function defaultInfoChipSelectedForWheel(wheelType: WheelType): string[] {
@@ -103,7 +104,10 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
         infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels),
         infoConfig: (src.infoConfig && typeof src.infoConfig === 'object')
             ? (src.infoConfig as BoardWheelView['infoConfig'])
-            : base.infoConfig
+            : base.infoConfig,
+        compassInfoConfig: (src.compassInfoConfig && typeof src.compassInfoConfig === 'object')
+            ? (src.compassInfoConfig as BoardWheelView['compassInfoConfig'])
+            : base.compassInfoConfig
     };
 }
 

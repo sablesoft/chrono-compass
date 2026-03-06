@@ -52,6 +52,40 @@ export type CycleInfoConfig = {
     templates: InfoTemplate[];
 };
 
+export type CompassInfoTagConfig = {
+    id: string;
+    label?: string;
+    value?: string;
+    enabled?: boolean;
+    modal?: string;
+    isCustom?: boolean;
+};
+
+export type CompassInfoGroupConfig = {
+    regular: boolean;
+    compass: boolean;
+    horizon: boolean;
+    nodal: boolean;
+    synod: boolean;
+    bind: boolean;
+};
+
+export type CompassInfoConfig = {
+    general: {
+        enabled: boolean;
+        tags: CompassInfoTagConfig[];
+    };
+    dynamic: {
+        enabled: boolean;
+        tags: CompassInfoTagConfig[];
+    };
+    pinned: {
+        enabled: boolean;
+        groups: CompassInfoGroupConfig;
+        tags: CompassInfoTagConfig[];
+    };
+};
+
 export type InfoValueFormat =
     | 'dateTime'
     | 'date'
@@ -78,6 +112,17 @@ export function formatSpokeTextUi(text: string): string {
     return String(text ?? '').replace(/E_next/g, 'E+');
 }
 
+export function formatLabelTitleCaseUi(text: string): string {
+    const normalized = formatSpokeTextUi(String(text ?? ''));
+    return normalized
+        .split(/([-\s]+)/)
+        .map((part) => {
+            if (!part || part === '-' || /^\s+$/.test(part)) return part;
+            return part.charAt(0).toUpperCase() + part.slice(1);
+        })
+        .join('');
+}
+
 export type MomentTip = {
     label: string;
     ts: number;
@@ -87,6 +132,7 @@ export type MomentTip = {
     metaText?: string;
     metaParts?: string[];
     copyText?: string;
+    infoItems?: Array<{ id?: string; label: string; value?: string; modal?: string }>;
 };
 
 export type MarkerItem = {

@@ -4,11 +4,11 @@ export const system = {
     type: 'system',
     ready: true,
     multiTarget: true,
+    mainCycle: 'synod',
     nodes: {
-        boundary: ['E-synod', 'E_next-synod'],
-        seam: ['E-nodal', 'W-nodal', 'N-nodal', 'S-nodal'],
-        bind: ['N-bind', 'S-bind', 'E-bind', 'E_next-bind', 'W-bind'],
-        synod: ['N-synod', 'W-synod', 'S-synod']
+        nodal: ['E-nodal', 'N-nodal', 'W-nodal', 'S-nodal', 'E_next-nodal'],
+        bind: ['E-bind', 'N-bind', 'W-bind', 'S-bind', 'E_next-bind'],
+        synod: ['E-synod', 'N-synod', 'W-synod', 'S-synod', 'E_next-synod']
     },
     ui: {
         'focus': 'center',

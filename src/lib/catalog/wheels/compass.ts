@@ -4,19 +4,10 @@ export const compass = {
     type: 'compass',
     ready: true,
     multiTarget: true,
-    info: [
-        { defaultLabel: 'east', spokes: ['E', "E_next"] },
-        { defaultLabel: 'north-east', spokes: ['NE'] },
-        { defaultLabel: 'north', spokes: ['N'] },
-        { defaultLabel: 'north-west', spokes: ['NW'] },
-        { defaultLabel: 'west', spokes: ['W'] },
-        { defaultLabel: 'south-west', spokes: ['SW'] },
-        { defaultLabel: 'south', spokes: ['S'] },
-        { defaultLabel: 'south-east', spokes: ['SE'] },
-    ],
+    mainCycle: 'horizon',
     nodes: {
-        boundary: ['E-horizon', 'E_next-horizon'],
-        seam: ['N-horizon', 'W-horizon', 'S-horizon']
+        horizon: ['E-horizon',  'NE-horizon', 'N-horizon',  'NW-horizon', 'W-horizon',  'SW-horizon', 'S-horizon',  'SE-horizon', 'E_next-horizon',],
+        compass: ['E-compass', 'NE-compass', 'N-compass', 'NW-compass', 'W-compass', 'SW-compass', 'S-compass', 'SE-compass',]
     },
     requiredRoles: {
         'looker' : ['engine_body'],

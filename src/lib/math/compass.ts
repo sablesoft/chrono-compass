@@ -7,6 +7,7 @@ import type {CompassSolveResult, CycleSpoke, WheelInput} from '../board/runtime'
 import {resolveWheel} from '../board/dispatcher';
 import {toSigned180} from "./helpers";
 import {computeHorizonInstant, type HorizonMeta} from './horizon';
+import { compass as compassSpec } from '../catalog/wheels/compass';
 
 export type CompassTrackPoint = {
     ts: number;
@@ -19,6 +20,8 @@ export type CompassTrackPoint = {
     visible: boolean;
     source?: 'cycle' | 'spoke' | 'seam';
     tags?: string[];
+    sourceWheel?: 'horizon' | 'synod' | 'bind' | 'nodal';
+    meta?: Record<string, unknown>;
 };
 
 export type CompassTargetState = {
@@ -30,6 +33,9 @@ export type CompassTargetState = {
     visible: boolean;
     cycleSpokes?: CycleSpoke<HorizonMeta>[];
     orbitTrack?: CompassTrackPoint[];
+    infoMeta?: {
+        horizon: Record<string, unknown>;
+    };
 
     raHours?: number;
     decDeg?: number;
@@ -119,7 +125,9 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
             orbit,
             visible: alt >= 0,
             source: 'cycle',
-            tags: tags.length ? tags : undefined
+            tags: tags.length ? tags : undefined,
+            sourceWheel: 'horizon',
+            meta: (s.meta && typeof s.meta === 'object') ? ({ ...(s.meta as Record<string, unknown>) }) : undefined
         });
     }
     return out;
@@ -280,128 +288,23 @@ function computeSpokeIntersectionsCompass(opts: {
                     orbit: final.inst.orbit,
                     visible: final.inst.visible,
                     source: 'spoke',
-                    tags: cycleSpokeTags('compass', spokeCode)
+                    tags: cycleSpokeTags('compass', spokeCode),
+                    sourceWheel: 'horizon',
+                    meta: {
+                        altitudeDeg: final.inst.altitudeDeg,
+                        azimuthDeg: final.inst.azimuthDeg,
+                        orbit: final.inst.orbit,
+                        raHours: final.inst.raHours,
+                        decDeg: final.inst.decDeg,
+                        distanceAu: final.inst.distanceAu,
+                        distanceKm: final.inst.distanceKm
+                    }
                 });
             }
         }
     }
 
     return out;
-}
-
-function computeHorizonStyleSeams(opts: {
-    looker: ObjId;
-    target: ObjId;
-    location: WheelInput['location'];
-    track: CompassTrackPoint[] | undefined;
-}): CompassTrackPoint[] {
-    const { looker, target, location, track } = opts;
-    if (!location || !track || track.length < 2) return [];
-
-    const xs = track.slice().sort((a, b) => a.ts - b.ts);
-    const out: CompassTrackPoint[] = [];
-    const ROOT_EPS_DEG = 0.01;
-    const BISECT_ITERS = 20;
-    const TS_DEDUP_MS = 30_000;
-
-    const pushUnique = (p: CompassTrackPoint) => {
-        const hit = out.find((q) => Math.abs(q.ts - p.ts) <= TS_DEDUP_MS);
-        if (!hit) out.push(p);
-    };
-
-    for (let i = 0; i < xs.length - 1; i++) {
-        const a = xs[i];
-        const b = xs[i + 1];
-        if (!(b.ts > a.ts)) continue;
-        if (a.visible === b.visible) continue;
-
-        let lo = a.ts;
-        let hi = b.ts;
-        let altLo = a.altitudeDeg;
-        let altHi = b.altitudeDeg;
-
-        if (!(Number.isFinite(altLo) && Number.isFinite(altHi))) continue;
-        if (altLo === 0) hi = lo;
-        else if (altHi === 0) lo = hi;
-        else if (altLo * altHi > 0) continue;
-        else {
-            for (let it = 0; it < BISECT_ITERS; it++) {
-                const mid = (lo + hi) * 0.5;
-                const instMid = computeHorizonInstant({ ts: mid, looker, target, location });
-                if (!instMid) break;
-                const altMid = instMid.altitudeDeg;
-                if (Math.abs(altMid) <= ROOT_EPS_DEG) {
-                    lo = mid;
-                    hi = mid;
-                    break;
-                }
-                if (altLo * altMid <= 0) {
-                    hi = mid;
-                    altHi = altMid;
-                } else {
-                    lo = mid;
-                    altLo = altMid;
-                }
-                if (Math.abs(hi - lo) <= 500) break;
-            }
-        }
-
-        const ts = (lo + hi) * 0.5;
-        const inst = computeHorizonInstant({ ts, looker, target, location });
-        if (!inst) continue;
-        pushUnique({
-            ts,
-            index: a.index,
-            code: 'HZ',
-            azimuthDeg: inst.azimuthDeg,
-            altitudeDeg: 0,
-            angleDeg: azimuthToWheelAngleDeg(inst.azimuthDeg),
-            orbit: 1,
-            visible: inst.altitudeDeg >= 0,
-            source: 'seam',
-            tags: undefined
-        });
-    }
-
-    return out.sort((x, y) => x.ts - y.ts);
-}
-
-function computeZenithNadirNodes(track: CompassTrackPoint[] | undefined): CompassTrackPoint[] {
-    if (!track?.length) return [];
-
-    const xs = track.filter((p) =>
-        Number.isFinite(p.ts) &&
-        Number.isFinite(p.azimuthDeg) &&
-        Number.isFinite(p.altitudeDeg) &&
-        Number.isFinite(p.orbit)
-    );
-    if (!xs.length) return [];
-
-    let zenith = xs[0];
-    let nadir = xs[0];
-    for (const p of xs) {
-        if (p.altitudeDeg > zenith.altitudeDeg || (p.altitudeDeg === zenith.altitudeDeg && p.ts < zenith.ts)) {
-            zenith = p;
-        }
-        if (p.altitudeDeg < nadir.altitudeDeg || (p.altitudeDeg === nadir.altitudeDeg && p.ts < nadir.ts)) {
-            nadir = p;
-        }
-    }
-
-    return [
-        {
-            ...zenith,
-            code: 'ZN',
-            source: 'spoke',
-            tags: undefined
-        },
-        {
-            ...nadir,
-            code: 'ND',
-            source: 'spoke',
-            tags: undefined
-        }
-    ];
 }
 
 function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
@@ -423,10 +326,14 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
         return d;
     };
 
-    const pointGroup = (x: CompassTrackPoint): 'boundary' | 'horizon' | 'regular' => {
+    const mainCycle = compassSpec.mainCycle;
+    const mainStartTag = `E-${mainCycle}`;
+    const mainEndTag = `E_next-${mainCycle}`;
+
+    const pointGroup = (x: CompassTrackPoint): 'main' | 'seam' | 'regular' => {
         const tags = Array.isArray(x.tags) ? x.tags : [];
-        if (tags.includes('cycle start') || tags.includes('cycle end')) return 'boundary';
-        if (tags.includes('N-horizon') || tags.includes('W-horizon') || tags.includes('S-horizon')) return 'horizon';
+        if (tags.includes(mainStartTag) || tags.includes(mainEndTag)) return 'main';
+        if (tags.includes('N-horizon') || tags.includes('W-horizon') || tags.includes('S-horizon')) return 'seam';
         return 'regular';
     };
 
@@ -446,9 +353,8 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
 
         const prev = merged[hitIdx];
         const mergedTags = uniqueTags([...(prev.tags ?? []), ...(p.tags ?? [])]);
-        const isBoundaryCode = (code: string) => code === 'E' || code === 'E+' || code === 'E_next';
-        const prevBoundary = isBoundaryCode(prev.code);
-        const pBoundary = isBoundaryCode(p.code);
+        const prevBoundary = pointGroup(prev) === 'main';
+        const pBoundary = pGroup === 'main';
 
         if (prevBoundary || pBoundary) {
             if (pBoundary && !prevBoundary) {
@@ -533,14 +439,7 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 location: loc,
                 baseTrack
             });
-            const seamTrack = computeHorizonStyleSeams({
-                looker,
-                target: id,
-                location: loc,
-                track: baseTrack
-            });
-            const zenithNadirTrack = computeZenithNadirNodes(baseTrack);
-            const orbitTrackRaw = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack, ...zenithNadirTrack]);
+            const orbitTrackRaw = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
             const orbitTrack = applyCompassBoundaryCycleTags(orbitTrackRaw);
 
             return {
@@ -552,6 +451,17 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 visible: instant.visible,
                 cycleSpokes,
                 orbitTrack,
+                infoMeta: {
+                    horizon: {
+                        altitudeDeg: instant.altitudeDeg,
+                        azimuthDeg: instant.azimuthDeg,
+                        orbit: instant.orbit,
+                        raHours: instant.raHours,
+                        decDeg: instant.decDeg,
+                        distanceAu: instant.distanceAu,
+                        distanceKm: instant.distanceKm
+                    }
+                },
                 raHours: instant.raHours,
                 decDeg: instant.decDeg,
                 distanceAu: instant.distanceAu,

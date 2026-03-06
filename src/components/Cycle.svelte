@@ -34,7 +34,7 @@
     import type { CycleSpoke, WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
-    import { formatSpokeCodeUi, type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
+    import { formatLabelTitleCaseUi, formatSpokeCodeUi, type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
@@ -820,20 +820,6 @@
     let infoConfigInitialized = false;
     let infoConfigWheelId = '';
 
-    function titleCaseLabel(input: string): string {
-        const text = String(input ?? '').trim();
-        if (!text) return '';
-        return text
-            .split(' ')
-            .map((part) =>
-                part
-                    .split('-')
-                    .map((w) => w ? w.charAt(0).toUpperCase() + w.slice(1) : '')
-                    .join('-')
-            )
-            .join(' ');
-    }
-
     function normalizeLabel(input: unknown): string {
         return String(input ?? '').trim();
     }
@@ -947,7 +933,7 @@
         for (const row of rows) {
             if (!row?.defaultLabel) continue;
             const rawLabel = normalizeLabel(row.defaultLabel);
-            const label = titleCaseLabel(rawLabel);
+            const label = formatLabelTitleCaseUi(rawLabel);
             const id = tagIdFromLabel(rawLabel);
             if (!id || !label || seen.has(id)) continue;
             seen.add(id);
@@ -1015,7 +1001,7 @@
             if (tag.enabled === false) continue;
             const def = tagDefById.get(tag.id);
             if (def && !tagApplies(def, code)) continue;
-            const baseLabel = def?.label ?? titleCaseLabel(tag.label ?? tag.id);
+            const baseLabel = def?.label ?? formatLabelTitleCaseUi(tag.label ?? tag.id);
             const label = (tag.label && tag.label.trim()) ? tag.label.trim() : baseLabel;
             const value = tagValueForDef(def, meta);
             const modal = tag.modal && tag.modal.trim() ? tag.modal.trim() : undefined;
@@ -1045,7 +1031,7 @@
             if (tag.enabled === false) continue;
             const def = tagDefById.get(tag.id);
             if (def && !tagApplies(def, code)) continue;
-            const label = (tag.label && tag.label.trim()) ? tag.label.trim() : (def?.label ?? titleCaseLabel(tag.id));
+            const label = (tag.label && tag.label.trim()) ? tag.label.trim() : (def?.label ?? formatLabelTitleCaseUi(tag.id));
             if (!label) continue;
             out.push(label);
         }
@@ -1079,7 +1065,7 @@
 
     $: generalDefs = [{
         id: 'duration',
-        label: titleCaseLabel('duration'),
+        label: formatLabelTitleCaseUi('duration'),
         value: formatInfoValue('duration', cycleDurationMs)
     }];
 
@@ -1130,7 +1116,7 @@
             .filter((t) => t.enabled !== false)
             .map((t) => {
                 const def = generalMap.get(t.id);
-                const label = (t.label && t.label.trim()) ? t.label.trim() : (def?.label ?? titleCaseLabel(t.id));
+                const label = (t.label && t.label.trim()) ? t.label.trim() : (def?.label ?? formatLabelTitleCaseUi(t.id));
                 const value = def?.value;
                 const modal = t.modal && t.modal.trim() ? t.modal.trim() : undefined;
                 return {

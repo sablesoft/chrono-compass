@@ -6,7 +6,7 @@ import type { MarkerItem } from '../wheel/types';
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
 import { resolveWheelMeta } from '../board/registry';
-import { clamp, norm360 } from './helpers';
+import { AU_KM, clamp, norm360 } from './helpers';
 import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
@@ -64,6 +64,11 @@ export type SystemTargetState = {
     distanceAu: number;
     focusDistAu: number;
     distanceLabel: string;
+    infoMeta?: {
+        synod?: Record<string, unknown>;
+        bind?: Record<string, unknown>;
+        nodal?: Record<string, unknown>;
+    };
 };
 
 function bodyEmoji(id: ObjId): string {
@@ -334,10 +339,19 @@ function buildTrackFromSynodSpokes(
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'spoke',
+            sourceWheel: 'synod',
             phaseDeg: spokePhaseNormDeg,
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
-            tags: tags.length ? tags : undefined
+            tags: tags.length ? tags : undefined,
+            meta: {
+                ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
+                phaseDeg: spokePhaseNormDeg,
+                eclipticLatDeg: eclLat,
+                distanceAu: inst.distanceAu,
+                distanceKm: inst.distanceAu * AU_KM,
+                focusDistAu: inst.focusDistAu
+            }
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -466,9 +480,17 @@ function densifyTrackByAngleGap(
                 orbit: NaN,
                 visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
                 source: 'cycle',
+                sourceWheel: 'synod',
                 phaseDeg: systemPhaseDeg(inst),
                 distanceAu: inst.distanceAu,
-                focusDistAu: inst.focusDistAu
+                focusDistAu: inst.focusDistAu,
+                meta: {
+                    phaseDeg: systemPhaseDeg(inst),
+                    eclipticLatDeg: eclLat,
+                    distanceAu: inst.distanceAu,
+                    distanceKm: inst.distanceAu * AU_KM,
+                    focusDistAu: inst.focusDistAu
+                }
             });
         }
     }
@@ -505,10 +527,19 @@ function buildTrackFromBindSpokes(
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source: 'cycle',
+            sourceWheel: 'bind',
             phaseDeg: systemPhaseDeg(inst),
             distanceAu,
             focusDistAu: inst.focusDistAu,
-            tags: tags.length ? tags : undefined
+            tags: tags.length ? tags : undefined,
+            meta: {
+                ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
+                phaseDeg: systemPhaseDeg(inst),
+                eclipticLatDeg: eclLat,
+                distanceAu,
+                distanceKm: distanceAu * AU_KM,
+                focusDistAu: inst.focusDistAu
+            }
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -543,10 +574,19 @@ function buildTrackFromNodalSpokes(
             orbit: NaN,
             visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
             source,
+            sourceWheel: 'nodal',
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
-            tags: tags.length ? tags : undefined
+            tags: tags.length ? tags : undefined,
+            meta: {
+                ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
+                phaseDeg: systemPhaseDeg(inst),
+                eclipticLatDeg: eclLat,
+                distanceAu: inst.distanceAu,
+                distanceKm: inst.distanceAu * AU_KM,
+                focusDistAu: inst.focusDistAu
+            }
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -573,9 +613,12 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
 
     const nodeGroups = (() => {
         const raw = (systemSpec as { nodes?: Record<string, string[]> }).nodes;
+        const mainCycle = systemSpec.mainCycle;
         return {
-            boundary: Array.isArray(raw?.boundary) ? raw.boundary : [],
-            seam: Array.isArray(raw?.seam) ? raw.seam : [],
+            main: [`E-${mainCycle}`, `E_next-${mainCycle}`],
+            nodal: Array.isArray(raw?.nodal)
+                ? raw.nodal
+                : (Array.isArray(raw?.seam) ? raw.seam : []),
             bind: Array.isArray(raw?.bind) ? raw.bind : [],
             synod: Array.isArray(raw?.synod) ? raw.synod : []
         };
@@ -584,10 +627,10 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
     const hasAnyTag = (tags: string[], groupTags: string[]): boolean =>
         groupTags.some((tag) => tags.includes(tag));
 
-    const pointGroup = (x: SystemTrackPoint): 'boundary' | 'seam' | 'synod' | 'bind' | 'regular' => {
+    const pointGroup = (x: SystemTrackPoint): 'main' | 'nodal' | 'synod' | 'bind' | 'regular' => {
         const tags = Array.isArray(x.tags) ? x.tags.filter((t): t is string => typeof t === 'string') : [];
-        if (hasAnyTag(tags, nodeGroups.boundary)) return 'boundary';
-        if (hasAnyTag(tags, nodeGroups.seam)) return 'seam';
+        if (hasAnyTag(tags, nodeGroups.main)) return 'main';
+        if (hasAnyTag(tags, nodeGroups.nodal)) return 'nodal';
         if (hasAnyTag(tags, nodeGroups.bind)) return 'bind';
         if (hasAnyTag(tags, nodeGroups.synod)) return 'synod';
         return 'regular';
@@ -609,7 +652,7 @@ function mergeTrackPointsPreferSynod(points: SystemTrackPoint[] | undefined): Sy
 
         const prev = merged[hitIdx];
         const isBoundaryPoint = (x: SystemTrackPoint): boolean =>
-            pointGroup(x) === 'boundary';
+            pointGroup(x) === 'main';
         const prevBoundary = isBoundaryPoint(prev);
         const pBoundary = isBoundaryPoint(p);
 
@@ -758,7 +801,27 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             phaseDeg: r.phaseDeg,
             distanceAu: r.distanceAu,
             focusDistAu: r.focusDistAu,
-            distanceLabel: `Dist to ${bodyNameEn(focus)}`
+            distanceLabel: `Dist to ${bodyNameEn(focus)}`,
+            infoMeta: {
+                synod: {
+                    phaseDeg: r.phaseDeg,
+                    distanceAu: r.distanceAu,
+                    distanceKm: r.distanceAu * AU_KM,
+                    focusDistAu: r.focusDistAu,
+                    eclipticLatDeg: eclLat
+                },
+                bind: {
+                    distanceAu: r.distanceAu,
+                    distanceKm: r.distanceAu * AU_KM
+                },
+                nodal: {
+                    nodalLatitudeDeg: eclLat,
+                    distanceAu: r.distanceAu,
+                    distanceKm: r.distanceAu * AU_KM,
+                    planeDistanceAu: Number.isFinite(eclLat) ? (r.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
+                    planeDistanceKm: Number.isFinite(eclLat) ? (r.distanceAu * AU_KM * Math.sin((eclLat * Math.PI) / 180)) : NaN
+                }
+            }
         };
     });
 

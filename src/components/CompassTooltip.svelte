@@ -7,7 +7,7 @@
     import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
-    import { formatSpokeTextUi } from '../lib/wheel/types';
+    import { formatLabelTitleCaseUi, formatSpokeTextUi } from '../lib/wheel/types';
     import {clamp, norm360} from "../lib/math/helpers";
     import RelatedWheels from './RelatedWheels.svelte';
 
@@ -33,6 +33,11 @@
         visible: boolean;
         activeNode?: MomentTip | null;
     }[] = [];
+    export let dynamicRows: Array<{
+        id: ObjId;
+        items: Array<{ id: string; label: string; value?: string; modal?: string }>;
+    }> = [];
+    export let dynamicDisabledIds: Set<string> = new Set();
 
     export let pinnedBodyId: ObjId | null = null;
     export let onTogglePin: (bodyId: ObjId) => void = () => {};
@@ -106,11 +111,7 @@
     }
 
     function titleCaseWords(text: string): string {
-        return formatSpokeTextUi(text)
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
+        return formatLabelTitleCaseUi(text);
     }
 
     // Compass spokes: E, ENE, ..., ESE (16)
@@ -137,7 +138,66 @@
         house: string;
         visible: boolean;
         opacity?: number;
+        infoItems?: Array<{ id: string; label: string; value?: string; modal?: string }>;
     };
+
+    let openInfoItemKey = '';
+    let openMomentItemIndex = -1;
+
+    function infoItemKey(scope: 'above' | 'below', rowId: ObjId, item: { id?: string; label: string }): string {
+        const raw = (item.id && item.id.trim()) ? item.id : item.label;
+        return `${scope}:${rowId}:${normalizeLabelKey(raw)}`;
+    }
+
+    function toggleInfoItem(
+        scope: 'above' | 'below',
+        rowId: ObjId,
+        item: { id?: string; label: string },
+        modal?: string
+    ) {
+        if (!modal) return;
+        const key = infoItemKey(scope, rowId, item);
+        openInfoItemKey = openInfoItemKey === key ? '' : key;
+    }
+
+    function handleInfoItemKeydown(
+        e: KeyboardEvent,
+        scope: 'above' | 'below',
+        rowId: ObjId,
+        item: { id?: string; label: string },
+        modal?: string
+    ) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            toggleInfoItem(scope, rowId, item, modal);
+        }
+    }
+
+    function openInfoForRow(scope: 'above' | 'below', row: BodyRow): { key: string; item: { id: string; label: string; value?: string; modal?: string } } | null {
+        if (!row.infoItems || row.infoItems.length === 0) return null;
+        for (let i = 0; i < row.infoItems.length; i++) {
+            const item = row.infoItems[i];
+            const key = infoItemKey(scope, row.id, item);
+            if (openInfoItemKey === key) return { key, item };
+        }
+        return null;
+    }
+
+    function normalizeLabelKey(text: string): string {
+        return String(text ?? '').trim().toLowerCase();
+    }
+
+    function uniqueBodyInfoItems(items: Array<{ id: string; label: string; value?: string; modal?: string }>, excluded: Set<string>) {
+        return items.filter((item) => !excluded.has(normalizeLabelKey(item.label)));
+    }
+
+    function filteredRowInfoItems(row: BodyRow) {
+        return uniqueBodyInfoItems(row.infoItems ?? [], momentInfoLabelSet);
+    }
+
+    function openInfoForFilteredRow(scope: 'above' | 'below', row: BodyRow) {
+        return openInfoForRow(scope, { ...row, infoItems: filteredRowInfoItems(row) });
+    }
 
     function markerItemToBodyRow(it: MarkerItem): BodyRow {
         const id = String(it.baseId).startsWith('body:') ? (String(it.baseId).slice(5) as ObjId) : (it.baseId as any);
@@ -204,6 +264,16 @@
     $: momentTags = Array.isArray(displayMoment?.tags)
         ? displayMoment.tags.filter((t) => typeof t === 'string' && t.trim().length > 0)
         : [];
+    $: momentInfoItems = Array.isArray(displayMoment?.infoItems)
+        ? displayMoment.infoItems
+            .filter((x) => x && typeof x.label === 'string' && x.label.trim().length > 0)
+            .filter((x) => {
+                const id = typeof x.id === 'string' ? x.id : '';
+                if (!id) return true;
+                return !dynamicDisabledIds.has(id);
+            })
+        : [];
+    $: momentInfoLabelSet = new Set(momentInfoItems.map((x) => normalizeLabelKey(x.label)));
     $: momentMetaText = typeof displayMoment?.metaText === 'string' && displayMoment.metaText.trim().length > 0
         ? displayMoment.metaText
         : '';
@@ -215,6 +285,7 @@
     $: momentCopyText = typeof displayMoment?.copyText === 'string' && displayMoment.copyText.trim().length > 0
         ? formatSpokeTextUi(displayMoment.copyText)
         : formatSpokeTextUi(momentMetaText);
+    $: if (!displayMoment) openMomentItemIndex = -1;
 
     async function copyMomentMeta() {
         const text = momentCopyText;
@@ -238,12 +309,18 @@
         document.body.removeChild(ta);
     }
 
+    function toggleMomentItem(index: number, modal?: string) {
+        if (!modal) return;
+        openMomentItemIndex = openMomentItemIndex === index ? -1 : index;
+    }
+
     $: activeHouse = isHouseMoment(moment) ? (moment!.desc!.slice('house:'.length) || moment!.label) : null;
 
     // Cluster rows (then enrich from allBodies)
     $: rowsFromCluster = cluster ? cluster.items.map(markerItemToBodyRow) : [];
     $: rowsClusterEnriched = rowsFromCluster.map(r => {
         const found = allBodies.find(b => b.id === r.id);
+        const dynamic = dynamicRows.find((x) => x.id === r.id);
         return found
             ? {
                 ...r,
@@ -258,7 +335,8 @@
                 secondaryLabel: found.secondaryLabel,
                 aboveLabel: found.aboveLabel,
                 belowLabel: found.belowLabel,
-                visible: found.visible
+                visible: found.visible,
+                infoItems: dynamic?.items ?? []
             }
             : r;
     });
@@ -279,7 +357,8 @@
             belowLabel: b.belowLabel,
             house: b.house,
             visible: b.visible,
-            opacity: undefined
+            opacity: undefined,
+            infoItems: dynamicRows.find((x) => x.id === b.id)?.items ?? []
         })) as BodyRow[])
         : ([] as BodyRow[]);
 
@@ -324,6 +403,13 @@
 
     function clickBody(row: BodyRow) {
         onTogglePin(row.id);
+    }
+
+    function handleBodyKeydown(e: KeyboardEvent, row: BodyRow) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            clickBody(row);
+        }
     }
 
     function handleRelatedWheelPicked(input: {
@@ -423,7 +509,46 @@
             {#if nodeMomentText}
                 <div class="nodeMoment">{nodeMomentText}</div>
             {/if}
-            {#if momentTags.length > 0 || (isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0)}
+            {#if momentInfoItems.length > 0}
+                <div class="chipRow">
+                    {#each momentInfoItems as item, i (`top:${item.id ?? item.label}:${i}`)}
+                        {#if item.modal}
+                            <button
+                                type="button"
+                                class="ui-tag chipButton"
+                                aria-expanded={openMomentItemIndex === i}
+                                on:click={() => toggleMomentItem(i, item.modal)}
+                            >
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </button>
+                        {:else}
+                            <span class="ui-tag chipStatic">
+                                <span class="chipLine">
+                                    <span class="chipLabel">{item.label}</span>
+                                    {#if item.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{item.value}</span>
+                                    {/if}
+                                </span>
+                            </span>
+                        {/if}
+                    {/each}
+                </div>
+                {@const openMomentItem = openMomentItemIndex >= 0 ? momentInfoItems[openMomentItemIndex] : null}
+                {#if openMomentItem?.modal}
+                    <div class="itemAccordion">
+                        <div class="itemAccordionTitle">{openMomentItem.label}</div>
+                        <div class="itemAccordionBody">{openMomentItem.modal}</div>
+                    </div>
+                {/if}
+            {/if}
+            {#if momentInfoItems.length === 0 && (momentTags.length > 0 || (isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0))}
                 <div class="ui-tag-row">
                     {#if momentTags.length > 0}
                     {#each momentTagsUi as tag, i (`tag:${tag}:${i}`)}
@@ -468,10 +593,12 @@
             {:else}
                 {#each aboveRows as row (row.id)}
                     <div class="itemWrap" style={`opacity:${row.opacity ?? 1}`}>
-                        <button
-                                type="button"
+                        <div
                                 class="item"
+                                role="button"
+                                tabindex="0"
                                 on:click={() => clickBody(row)}
+                                on:keydown={(e) => handleBodyKeydown(e, row)}
                                 title="Click to pin/unpin"
                         >
                             <div class="l"><span class="emoji">{row.emoji}</span></div>
@@ -482,15 +609,58 @@
                                     <span class="vis ok">{row.aboveLabel}</span>
                                 </div>
 
-                                <div class="d">
-                                    <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
-                                    <span class="sep">•</span>
-                                    <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                    <span class="sep">•</span>
-                                    <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
-                                </div>
+                                {#if filteredRowInfoItems(row).length > 0}
+                                    <div class="chipRow">
+                                        {#each filteredRowInfoItems(row) as item, j (`above:${row.id}:${item.id}:${j}`)}
+                                            {@const key = infoItemKey('above', row.id, item)}
+                                            {#if item.modal}
+                                                <button
+                                                    type="button"
+                                                    class="ui-tag chipButton chipAction"
+                                                    aria-expanded={openInfoItemKey === key}
+                                                    on:mousedown|stopPropagation|preventDefault
+                                                    on:click|stopPropagation|preventDefault={() => toggleInfoItem('above', row.id, item, item.modal)}
+                                                    on:keydown|stopPropagation={(e) => handleInfoItemKeydown(e, 'above', row.id, item, item.modal)}
+                                                >
+                                                    <span class="chipLine">
+                                                        <span class="chipLabel">{item.label}</span>
+                                                        {#if item.value}
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                            <span class="chipValue">{item.value}</span>
+                                                        {/if}
+                                                    </span>
+                                                </button>
+                                            {:else}
+                                                <span class="ui-tag chipStatic">
+                                                    <span class="chipLine">
+                                                        <span class="chipLabel">{item.label}</span>
+                                                        {#if item.value}
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                            <span class="chipValue">{item.value}</span>
+                                                        {/if}
+                                                    </span>
+                                                </span>
+                                            {/if}
+                                        {/each}
+                                    </div>
+                                    {@const openInfo = openInfoForFilteredRow('above', row)}
+                                    {#if openInfo?.item.modal}
+                                        <div class="itemAccordion">
+                                            <div class="itemAccordionTitle">{openInfo.item.label}</div>
+                                            <div class="itemAccordionBody">{openInfo.item.modal}</div>
+                                        </div>
+                                    {/if}
+                                {:else}
+                                    <div class="d">
+                                        <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
+                                        <span class="sep">•</span>
+                                        <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                        <span class="sep">•</span>
+                                        <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                    </div>
+                                {/if}
                             </div>
-                        </button>
+                        </div>
 
                         <RelatedWheels
                                 objId={row.id}
@@ -510,10 +680,12 @@
 
                 {#each belowRows as row (row.id)}
                     <div class="itemWrap" style={`opacity:${row.opacity ?? 0.65}`}>
-                        <button
-                                type="button"
+                        <div
                                 class="item below"
+                                role="button"
+                                tabindex="0"
                                 on:click={() => clickBody(row)}
+                                on:keydown={(e) => handleBodyKeydown(e, row)}
                                 title="Click to pin/unpin"
                         >
                             <div class="l"><span class="emoji">{row.emoji}</span></div>
@@ -524,15 +696,58 @@
                                     <span class="vis bad">{row.belowLabel}</span>
                                 </div>
 
-                                <div class="d">
-                                    <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
-                                    <span class="sep">•</span>
-                                    <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                    <span class="sep">•</span>
-                                    <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
-                                </div>
+                                {#if filteredRowInfoItems(row).length > 0}
+                                    <div class="chipRow">
+                                        {#each filteredRowInfoItems(row) as item, j (`below:${row.id}:${item.id}:${j}`)}
+                                            {@const key = infoItemKey('below', row.id, item)}
+                                            {#if item.modal}
+                                                <button
+                                                    type="button"
+                                                    class="ui-tag chipButton chipAction"
+                                                    aria-expanded={openInfoItemKey === key}
+                                                    on:mousedown|stopPropagation|preventDefault
+                                                    on:click|stopPropagation|preventDefault={() => toggleInfoItem('below', row.id, item, item.modal)}
+                                                    on:keydown|stopPropagation={(e) => handleInfoItemKeydown(e, 'below', row.id, item, item.modal)}
+                                                >
+                                                    <span class="chipLine">
+                                                        <span class="chipLabel">{item.label}</span>
+                                                        {#if item.value}
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                            <span class="chipValue">{item.value}</span>
+                                                        {/if}
+                                                    </span>
+                                                </button>
+                                            {:else}
+                                                <span class="ui-tag chipStatic">
+                                                    <span class="chipLine">
+                                                        <span class="chipLabel">{item.label}</span>
+                                                        {#if item.value}
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                            <span class="chipValue">{item.value}</span>
+                                                        {/if}
+                                                    </span>
+                                                </span>
+                                            {/if}
+                                        {/each}
+                                    </div>
+                                    {@const openInfo = openInfoForFilteredRow('below', row)}
+                                    {#if openInfo?.item.modal}
+                                        <div class="itemAccordion">
+                                            <div class="itemAccordionTitle">{openInfo.item.label}</div>
+                                            <div class="itemAccordionBody">{openInfo.item.modal}</div>
+                                        </div>
+                                    {/if}
+                                {:else}
+                                    <div class="d">
+                                        <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
+                                        <span class="sep">•</span>
+                                        <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
+                                        <span class="sep">•</span>
+                                        <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                    </div>
+                                {/if}
                             </div>
-                        </button>
+                        </div>
 
                         <RelatedWheels
                                 objId={row.id}
@@ -722,6 +937,59 @@
 
     .d { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sep { margin: 0 6px; opacity: 0.6; }
+
+    .chipRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    .chipButton {
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        background: color-mix(in oklab, var(--fg), transparent 94%);
+        color: inherit;
+        cursor: pointer;
+    }
+    .chipAction {
+        display: inline-flex;
+        cursor: pointer;
+    }
+    .chipStatic {
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        background: color-mix(in oklab, var(--fg), transparent 94%);
+    }
+    .chipLine {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .chipLabel {
+        font-weight: 700;
+    }
+    .chipDivider {
+        width: 1px;
+        height: 1.1em;
+        background: color-mix(in oklab, var(--fg), transparent 84%);
+    }
+    .chipValue {
+        font-weight: 800;
+    }
+    .itemAccordion {
+        margin-top: 6px;
+        margin-left: 40px;
+        border-left: 2px solid color-mix(in oklab, var(--fg), transparent 84%);
+        padding-left: 10px;
+    }
+    .itemAccordionTitle {
+        font-size: 11px;
+        font-weight: 800;
+        opacity: 0.9;
+        margin-bottom: 2px;
+    }
+    .itemAccordionBody {
+        font-size: 12px;
+        opacity: 0.84;
+        line-height: 1.35;
+    }
 
     .horizonSep {
         display: grid;

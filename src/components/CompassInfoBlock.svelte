@@ -1,424 +1,592 @@
 <script lang="ts">
-    type WheelInfoChip = {
+    import type { ObjId } from '../lib/catalog';
+    import type { CompassInfoConfig, CompassInfoTagConfig } from '../lib/wheel/types';
+    import { formatDateTime } from '../lib/format';
+
+    type CompassInfoChip = {
         id: string;
-        text?: string;
-        label?: string;
+        label: string;
         value?: string;
-        kind?: string;
-        group?: 'moment' | 'cycle';
-        clickable?: boolean;
-        disabled?: boolean;
-        title?: string;
-        ariaLabel?: string;
-        dim?: boolean;
+        modal?: string;
     };
 
-    type WheelInfoConfigRow = {
+    type CompassDynamicRow = {
+        id: ObjId;
+        emoji: string;
+        name: string;
+        pinned: boolean;
+        items: CompassInfoChip[];
+    };
+
+    type CompassPinnedInfoRow = {
         id: string;
-        systemLabel: string;
-        value: string;
-        selected: boolean;
-        userLabel?: string;
-        isDefault?: boolean;
+        bodyId: ObjId;
+        emoji: string;
+        name: string;
+        nodes: Array<{
+            id: string;
+            label: string;
+            ts: number;
+            code: string;
+            source: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+            disabled?: boolean;
+        }>;
     };
 
-    export let chips: WheelInfoChip[] = [];
-    export let momentChips: WheelInfoChip[] | null = null;
-    export let cycleChips: WheelInfoChip[] | null = null;
-    export let allChips: WheelInfoConfigRow[] = [];
-    export let onChipClick: (id: string) => void = () => {};
-    export let onReorder: (ids: string[]) => void = () => {};
-    export let onConfigure: (next: { selectedIds: string[]; labels: Record<string, string> }) => void = () => {};
-    export let reorderEnabled = true;
+    type CompassTagDef = {
+        id: string;
+        label: string;
+        scope: 'dynamic' | 'pinned';
+        enabledByDefault: boolean;
+        modal?: string;
+        group?: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+    };
 
-    let dragChipId: string | null = null;
-    let showEditButton = false;
+    export let config: CompassInfoConfig;
+    export let tagDefs: CompassTagDef[] = [];
+    export let generalChips: CompassInfoChip[] = [];
+    export let dynamicRows: CompassDynamicRow[] = [];
+    export let pinnedRows: CompassPinnedInfoRow[] = [];
+
+    export let onBodyPick: (bodyId: ObjId) => void = () => {};
+    export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string) => void = () => {};
+    export let onConfigure: (next: CompassInfoConfig) => void = () => {};
+
     let showEditor = false;
-    let touchMode = false;
+    let draftConfig: CompassInfoConfig | null = null;
+    let openEditorSection: 'general' | 'dynamic' | 'pinned' | null = null;
+    let modalRowsOpen = new Set<string>();
+    let modalText: string | null = null;
+    let modalTitle: string | null = null;
 
-    let draftSelected = new Set<string>();
-    let draftLabels: Record<string, string> = {};
-
-    function resolveChipParts(chip: WheelInfoChip): { label: string; value: string } {
-        if (chip.label && chip.value) return { label: chip.label, value: chip.value };
-        const raw = String(chip.text ?? '').trim();
-        const parts = raw.split('•').map((s) => s.trim()).filter(Boolean);
-        if (parts.length >= 2) {
-            return {
-                label: parts[0] ?? 'Info',
-                value: parts.slice(1).join(' • ')
-            };
-        }
+    function cloneConfig(src: CompassInfoConfig): CompassInfoConfig {
         return {
-            label: raw || 'Info',
-            value: '—'
+            general: {
+                enabled: src.general.enabled,
+                tags: src.general.tags.map((t) => ({ ...t }))
+            },
+            dynamic: {
+                enabled: src.dynamic.enabled,
+                tags: src.dynamic.tags.map((t) => ({ ...t }))
+            },
+            pinned: {
+                enabled: src.pinned.enabled,
+                groups: { ...src.pinned.groups },
+                tags: src.pinned.tags.map((t) => ({ ...t }))
+            }
         };
     }
 
-    function chipLabel(chip: WheelInfoChip): string {
-        return resolveChipParts(chip).label;
-    }
-
-    function chipValue(chip: WheelInfoChip): string {
-        return resolveChipParts(chip).value;
-    }
-
-    function reorderIds(list: string[], fromId: string, toId: string): string[] {
-        const from = list.indexOf(fromId);
-        const to = list.indexOf(toId);
-        if (from < 0 || to < 0 || from === to) return list;
-        const next = list.slice();
-        const [moved] = next.splice(from, 1);
-        next.splice(to, 0, moved);
-        return next;
-    }
-
-    function handleDragStart(e: DragEvent, id: string) {
-        if (!reorderEnabled) return;
-        dragChipId = id;
-        const dt = e.dataTransfer;
-        if (!dt) return;
-        dt.effectAllowed = 'move';
-        dt.setData('text/plain', id);
-    }
-
-    function handleDragEnd() {
-        dragChipId = null;
-    }
-
-    function handleDrop(e: DragEvent, targetId: string) {
-        e.preventDefault();
-        if (!reorderEnabled || !dragChipId || dragChipId === targetId) {
-            dragChipId = null;
-            return;
-        }
-        const from = chips.find((x) => x.id === dragChipId);
-        const to = chips.find((x) => x.id === targetId);
-        if (from?.group && to?.group && from.group !== to.group) {
-            dragChipId = null;
-            return;
-        }
-        const ids = chips.map((x) => x.id);
-        const next = reorderIds(ids, dragChipId, targetId);
-        dragChipId = null;
-        onReorder(next);
-    }
-
-    function ensureTouchMode() {
-        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-            touchMode = false;
-            return;
-        }
-        touchMode = window.matchMedia('(hover: none), (pointer: coarse)').matches;
-    }
-
-    function onBlockEnter() {
-        if (!touchMode) showEditButton = true;
-    }
-
-    function onBlockLeave() {
-        if (!touchMode) showEditButton = false;
-    }
-
-    function onBlockClick() {
-        if (touchMode) showEditButton = !showEditButton;
-    }
-
-    function onBlockKeydown(e: KeyboardEvent) {
-        if (!touchMode) return;
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            showEditButton = !showEditButton;
-        }
-    }
-
     function openEditor() {
-        draftSelected = new Set(allChips.filter((r) => r.selected).map((r) => r.id));
-        draftLabels = {};
-        for (const row of allChips) {
-            const value = String(row.userLabel ?? '').trim();
-            if (value) draftLabels[row.id] = value;
-        }
+        draftConfig = cloneConfig(config);
+        openEditorSection = null;
         showEditor = true;
+        console.log('[CompassInfoBlock] editor opened');
     }
 
     function closeEditor() {
+        modalRowsOpen = new Set();
         showEditor = false;
-    }
-
-    function toggleSelected(id: string) {
-        if (draftSelected.has(id)) draftSelected.delete(id);
-        else draftSelected.add(id);
-        draftSelected = new Set(draftSelected);
-    }
-
-    function updateDraftLabel(id: string, e: Event) {
-        const target = e.currentTarget;
-        if (!(target instanceof HTMLInputElement)) return;
-        draftLabels = { ...draftLabels, [id]: target.value };
     }
 
     function applyEditor() {
-        const selectedIds = allChips
-            .map((r) => r.id)
-            .filter((id) => draftSelected.has(id));
+        if (!draftConfig) return;
+        onConfigure(draftConfig);
+        showEditor = false;
+    }
 
-        const labels: Record<string, string> = {};
-        for (const row of allChips) {
-            const value = String(draftLabels[row.id] ?? '').trim();
-            if (!value) continue;
-            labels[row.id] = value;
+    function toggleEditorSection(id: 'general' | 'dynamic' | 'pinned') {
+        openEditorSection = openEditorSection === id ? null : id;
+    }
+
+    function readChecked(e: Event): boolean {
+        const target = e.currentTarget;
+        return target instanceof HTMLInputElement ? target.checked : false;
+    }
+
+    function readValue(e: Event): string {
+        const target = e.currentTarget;
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) return target.value;
+        return '';
+    }
+
+    function toggleModalRow(id: string) {
+        const next = new Set(modalRowsOpen);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        modalRowsOpen = next;
+    }
+
+    function pinnedNodeTitle(node: { ts: number; disabled?: boolean }): string {
+        const moment = Number.isFinite(node.ts) ? formatDateTime(node.ts) : '—';
+        return `Moment • ${moment}`;
+    }
+
+    function updateGeneralTag(id: string, patch: Partial<CompassInfoTagConfig>) {
+        if (!draftConfig) return;
+        const tags = updateTagsByPatch(draftConfig.general.tags, id, patch);
+        draftConfig = {
+            ...draftConfig,
+            general: {
+                ...draftConfig.general,
+                tags
+            }
+        };
+    }
+
+    function removeGeneralTag(id: string) {
+        if (!draftConfig) return;
+        draftConfig = {
+            ...draftConfig,
+            general: {
+                ...draftConfig.general,
+                tags: draftConfig.general.tags.filter((t) => t.id !== id)
+            }
+        };
+    }
+
+    function addGeneralTag() {
+        if (!draftConfig) return;
+        const id = `custom:${Date.now().toString(36)}:${Math.random().toString(36).slice(2, 6)}`;
+        draftConfig = {
+            ...draftConfig,
+            general: {
+                ...draftConfig.general,
+                tags: [...draftConfig.general.tags, { id, label: 'Custom', value: '', enabled: true, isCustom: true }]
+            }
+        };
+    }
+
+    function updateScopedTag(scope: 'dynamic' | 'pinned', id: string, patch: Partial<CompassInfoTagConfig>) {
+        if (!draftConfig) return;
+        if (scope === 'dynamic') {
+            const tags = updateTagsByPatch(draftConfig.dynamic.tags, id, patch);
+            console.log('[CompassInfoBlock] updateScopedTag(dynamic)', {
+                id,
+                patch,
+                order: tags.map((t) => `${t.id}:${t.enabled !== false ? 'on' : 'off'}`)
+            });
+            draftConfig = {
+                ...draftConfig,
+                dynamic: {
+                    ...draftConfig.dynamic,
+                    tags
+                }
+            };
+            return;
+        }
+        const tags = updateTagsByPatch(draftConfig.pinned.tags, id, patch, false);
+        console.log('[CompassInfoBlock] updateScopedTag(pinned)', {
+            id,
+            patch,
+            order: tags.map((t) => `${t.id}:${t.enabled !== false ? 'on' : 'off'}`)
+        });
+        draftConfig = {
+            ...draftConfig,
+            pinned: {
+                ...draftConfig.pinned,
+                tags
+            }
+        };
+    }
+
+    function findScopedTag(scope: 'dynamic' | 'pinned', id: string): CompassInfoTagConfig | undefined {
+        if (scope === 'dynamic') return draftConfig?.dynamic.tags.find((t) => t.id === id);
+        return draftConfig?.pinned.tags.find((t) => t.id === id);
+    }
+
+    function uniqueTagDefsByLabel(scope: 'dynamic' | 'pinned'): CompassTagDef[] {
+        const out: CompassTagDef[] = [];
+        const seen = new Set<string>();
+        for (const def of tagDefs) {
+            if (def.scope !== scope) continue;
+            const key = String(def.label ?? '').trim().toLowerCase();
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            out.push(def);
+        }
+        return out;
+    }
+
+    function normalizeTagsByEnabled(tags: CompassInfoTagConfig[]): CompassInfoTagConfig[] {
+        const enabled = tags.filter((t) => t.enabled !== false);
+        const disabled = tags.filter((t) => t.enabled === false);
+        return [...enabled, ...disabled];
+    }
+
+    function updateTagsByPatch(
+        source: CompassInfoTagConfig[],
+        id: string,
+        patch: Partial<CompassInfoTagConfig>,
+        reorderByEnabled = true
+    ): CompassInfoTagConfig[] {
+        const hasEnabledPatch = Object.prototype.hasOwnProperty.call(patch, 'enabled');
+        const tags = source.slice();
+        const idx = tags.findIndex((t) => t.id === id);
+        const current = idx >= 0 ? tags[idx] : { id, enabled: true };
+        const nextItem: CompassInfoTagConfig = { ...current, ...patch };
+
+        if (idx >= 0) tags.splice(idx, 1);
+        tags.push(nextItem);
+
+        if (hasEnabledPatch && reorderByEnabled) {
+            const moved = tags.pop();
+            if (moved) {
+                const firstDisabled = tags.findIndex((t) => t.enabled === false);
+                const at = firstDisabled >= 0 ? firstDisabled : tags.length;
+                tags.splice(at, 0, moved);
+            }
         }
 
-        onConfigure({ selectedIds, labels });
-        showEditor = false;
+        const next = (hasEnabledPatch && reorderByEnabled) ? normalizeTagsByEnabled(tags) : tags;
+        console.log('[CompassInfoBlock] updateTagsByPatch', {
+            id,
+            patch,
+            reorderByEnabled,
+            before: source.map((t) => `${t.id}:${t.enabled !== false ? 'on' : 'off'}`),
+            after: next.map((t) => `${t.id}:${t.enabled !== false ? 'on' : 'off'}`)
+        });
+        return next;
     }
 
-    function resetToDefaults() {
-        const defaultIds = allChips
-            .filter((row) => row.isDefault)
-            .map((row) => row.id);
-
-        const selectedIds = defaultIds.length > 0
-            ? defaultIds
-            : allChips.map((row) => row.id);
-
-        onConfigure({ selectedIds, labels: {} });
-        showEditor = false;
+    function generalTagsForEditor(cfg: CompassInfoConfig | null): CompassInfoTagConfig[] {
+        if (!cfg) return [];
+        return normalizeTagsByEnabled(cfg.general.tags.slice());
     }
 
-    $: ensureTouchMode();
+    type ScopedEditorRow = {
+        id: string;
+        systemLabel: string;
+        tag?: CompassInfoTagConfig;
+    };
+    let dynamicEditorRows: ScopedEditorRow[] = [];
+    let pinnedEditorRows: ScopedEditorRow[] = [];
+
+    function scopedRows(scope: 'dynamic' | 'pinned'): ScopedEditorRow[] {
+        if (!draftConfig) return [];
+        const defs = uniqueTagDefsByLabel(scope);
+        const tagsOrdered = normalizeTagsByEnabled(
+            (scope === 'dynamic' ? draftConfig.dynamic.tags : draftConfig.pinned.tags).slice()
+        );
+        const ids = scope === 'pinned'
+            ? defs.map((d) => d.id)
+            : tagsOrdered.map((t) => t.id);
+        for (const t of tagsOrdered) {
+            if (!ids.includes(t.id)) ids.push(t.id);
+        }
+        if (scope !== 'pinned') {
+            for (const d of defs) {
+                if (!ids.includes(d.id)) ids.push(d.id);
+            }
+        }
+
+        const defById = new Map(defs.map((d) => [d.id, d]));
+        const rows = ids.map((id) => {
+            const def = defById.get(id);
+            const tag = tagsOrdered.find((t) => t.id === id);
+            if (def) {
+                return {
+                    id,
+                    systemLabel: def.label,
+                    tag
+                };
+            }
+            return {
+                id,
+                systemLabel: (tag?.label && tag.label.trim()) ? tag.label.trim() : id,
+                tag
+            };
+        });
+        if (scope === 'pinned') {
+            console.log('[CompassInfoBlock] scopedRows(pinned)', rows.map((r) => `${r.systemLabel}:${r.tag?.enabled !== false ? 'on' : 'off'}`));
+            return rows;
+        }
+        console.log('[CompassInfoBlock] scopedRows(dynamic)', rows.map((r) => `${r.id}:${r.tag?.enabled !== false ? 'on' : 'off'}`));
+        return rows;
+    }
+
+    $: dynamicEditorRows = draftConfig ? scopedRows('dynamic') : [];
+    $: pinnedEditorRows = draftConfig ? scopedRows('pinned') : [];
+
+    function setPinnedGroup(
+        group: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind',
+        enabled: boolean
+    ) {
+        if (!draftConfig) return;
+        const affectedIds = uniqueTagDefsByLabel('pinned')
+            .filter((d) => d.group === group)
+            .map((d) => d.id);
+        const byId = new Map(draftConfig.pinned.tags.map((t) => [t.id, { ...t }]));
+        for (const id of affectedIds) {
+            const cur = byId.get(id) ?? { id, enabled: true };
+            byId.set(id, { ...cur, enabled });
+        }
+        draftConfig = {
+            ...draftConfig,
+            pinned: {
+                ...draftConfig.pinned,
+                groups: { ...draftConfig.pinned.groups, [group]: enabled },
+                tags: normalizeTagsByEnabled(Array.from(byId.values()))
+            }
+        };
+    }
+
 </script>
 
-<div
-        class="infoBlock"
-        role="button"
-        aria-label="Info chips block"
-        tabindex="0"
-        on:mouseenter={onBlockEnter}
-        on:mouseleave={onBlockLeave}
-        on:click={onBlockClick}
-        on:keydown={onBlockKeydown}
->
-    {#if showEditButton}
-        <button
-                type="button"
-                class="editBtn navBtn"
-                title="Edit info chips"
-                aria-label="Edit info chips"
-                on:click|stopPropagation={openEditor}
-        >✎</button>
-    {/if}
+<section class="infoBlock">
+    <button
+        type="button"
+        class="editBtn navBtn"
+        title="Edit compass info"
+        aria-label="Edit compass info"
+        on:click|stopPropagation={openEditor}
+    >✎</button>
 
-    {#if momentChips || cycleChips}
-        {#if momentChips && momentChips.length}
-            <div class="chipGrid">
-                {#each momentChips as chip (chip.id)}
-                    <div
-                            class="chipWrap"
-                            class:dragging={dragChipId === chip.id}
-                            draggable={reorderEnabled}
-                            role="listitem"
-                            on:dragstart={(e) => handleDragStart(e, chip.id)}
-                            on:dragend={handleDragEnd}
-                            on:dragover|preventDefault
-                            on:drop={(e) => handleDrop(e, chip.id)}
-                    >
-                        {#if chip.clickable}
-                            <button
-                                    type="button"
-                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipButton`}
-                                    class:dim={chip.dim}
-                                    class:disabledTag={chip.disabled}
-                                    title={chip.title}
-                                    aria-label={chip.ariaLabel}
-                                    disabled={chip.disabled}
-                                    on:click={() => onChipClick(chip.id)}
-                            >
-                                <span class="chipTwoRows">
-                                    <span class="chipLabel">{chipLabel(chip)}</span>
-                                    <span class="chipDivider" aria-hidden="true"></span>
-                                    <span class="chipValue">{chipValue(chip)}</span>
+    {#if config.general.enabled}
+        <section class="infoSection">
+            {#if generalChips.length > 0}
+                <div class="chipGrid">
+                    {#each generalChips as chip (chip.id)}
+                        <span class="ui-tag chipStatic" title={chip.modal}>
+                                    <span class="chipLine">
+                                        <span class="chipLabel">{chip.label}</span>
+                                        {#if chip.value}
+                                            <span class="chipDivider" aria-hidden="true"></span>
+                                            <span class="chipValue">{chip.value}</span>
+                                        {/if}
+                                    </span>
                                 </span>
-                            </button>
-                        {:else}
-                            <span
-                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipStatic`}
-                                    class:dim={chip.dim}
-                                    title={chip.title}
-                                    aria-label={chip.ariaLabel}
-                            >
-                                <span class="chipTwoRows">
-                                    <span class="chipLabel">{chipLabel(chip)}</span>
-                                    <span class="chipDivider" aria-hidden="true"></span>
-                                    <span class="chipValue">{chipValue(chip)}</span>
-                                </span>
-                            </span>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
-        {/if}
-
-        {#if momentChips && momentChips.length && cycleChips && cycleChips.length}
-            <div class="chipSep" aria-hidden="true"></div>
-        {/if}
-
-        {#if cycleChips && cycleChips.length}
-            <div class="chipGrid">
-                {#each cycleChips as chip (chip.id)}
-                    <div
-                            class="chipWrap"
-                            class:dragging={dragChipId === chip.id}
-                            draggable={reorderEnabled}
-                            role="listitem"
-                            on:dragstart={(e) => handleDragStart(e, chip.id)}
-                            on:dragend={handleDragEnd}
-                            on:dragover|preventDefault
-                            on:drop={(e) => handleDrop(e, chip.id)}
-                    >
-                        {#if chip.clickable}
-                            <button
-                                    type="button"
-                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipButton`}
-                                    class:dim={chip.dim}
-                                    class:disabledTag={chip.disabled}
-                                    title={chip.title}
-                                    aria-label={chip.ariaLabel}
-                                    disabled={chip.disabled}
-                                    on:click={() => onChipClick(chip.id)}
-                            >
-                                <span class="chipTwoRows">
-                                    <span class="chipLabel">{chipLabel(chip)}</span>
-                                    <span class="chipDivider" aria-hidden="true"></span>
-                                    <span class="chipValue">{chipValue(chip)}</span>
-                                </span>
-                            </button>
-                        {:else}
-                            <span
-                                    class={`ui-tag chip-${chip.kind ?? 'default'} chipStatic`}
-                                    class:dim={chip.dim}
-                                    title={chip.title}
-                                    aria-label={chip.ariaLabel}
-                            >
-                                <span class="chipTwoRows">
-                                    <span class="chipLabel">{chipLabel(chip)}</span>
-                                    <span class="chipDivider" aria-hidden="true"></span>
-                                    <span class="chipValue">{chipValue(chip)}</span>
-                                </span>
-                            </span>
-                        {/if}
-                    </div>
-                {/each}
-            </div>
-        {/if}
-    {:else}
-        <div class="chipGrid">
-        {#each chips as chip (chip.id)}
-            <div
-                    class="chipWrap"
-                    class:dragging={dragChipId === chip.id}
-                    draggable={reorderEnabled}
-                    role="listitem"
-                on:dragstart={(e) => handleDragStart(e, chip.id)}
-                on:dragend={handleDragEnd}
-                on:dragover|preventDefault
-                on:drop={(e) => handleDrop(e, chip.id)}
-        >
-            {#if chip.clickable}
-                <button
-                        type="button"
-                        class={`ui-tag chip-${chip.kind ?? 'default'} chipButton`}
-                        class:dim={chip.dim}
-                        class:disabledTag={chip.disabled}
-                        title={chip.title}
-                        aria-label={chip.ariaLabel}
-                        disabled={chip.disabled}
-                        on:click={() => onChipClick(chip.id)}
-                >
-                    <span class="chipTwoRows">
-                        <span class="chipLabel">{chipLabel(chip)}</span>
-                        <span class="chipDivider" aria-hidden="true"></span>
-                        <span class="chipValue">{chipValue(chip)}</span>
-                    </span>
-                </button>
+                    {/each}
+                </div>
             {:else}
-                <span
-                        class={`ui-tag chip-${chip.kind ?? 'default'} chipStatic`}
-                        class:dim={chip.dim}
-                        title={chip.title}
-                        aria-label={chip.ariaLabel}
-                >
-                    <span class="chipTwoRows">
-                        <span class="chipLabel">{chipLabel(chip)}</span>
-                        <span class="chipDivider" aria-hidden="true"></span>
-                        <span class="chipValue">{chipValue(chip)}</span>
-                    </span>
-                    </span>
-                {/if}
-            </div>
-        {/each}
-        </div>
+                <div class="empty">General section is empty.</div>
+            {/if}
+        </section>
     {/if}
 
-    <slot />
-</div>
+    {#if config.general.enabled}
+        <div class="chipSep" aria-hidden="true"></div>
+    {/if}
 
-{#if showEditor}
-    <div class="editorOverlay" role="button" tabindex="0" aria-label="Close chip editor" on:click={closeEditor} on:keydown={(e) => {
+    <section class="infoSection pinnedSection">
+        {#if config.pinned.enabled && pinnedRows.length > 0}
+            <div class="rowList">
+                {#each pinnedRows as row (row.id)}
+                    <div class="rowItem">
+                        <button
+                            type="button"
+                            class="rowNameBtn pinnedNameBtn"
+                            title="Pinned body"
+                            on:click={() => onBodyPick(row.bodyId)}
+                        >{row.emoji} {row.name}</button>
+                        <div class="chipGrid">
+                            {#if row.nodes.length === 0}
+                                <span class="empty">No enabled nodes.</span>
+                            {:else}
+                                {#each row.nodes as node (`${row.id}:${node.id}:${node.ts}`)}
+                                    <button
+                                        type="button"
+                                        class="ui-tag chipButton pinnedChipButton"
+                                        class:isDisabled={node.disabled === true}
+                                        title={pinnedNodeTitle(node)}
+                                        disabled={node.disabled === true}
+                                        on:click={() => onPinnedPick(node.ts, row.bodyId, node.code)}
+                                    >{node.label}</button>
+                                {/each}
+                            {/if}
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {:else}
+            <div class="empty">Pin a body to see node rows.</div>
+        {/if}
+    </section>
+
+    <div class="chipSep" aria-hidden="true"></div>
+
+    <section class="infoSection">
+        {#if config.dynamic.enabled && dynamicRows.length > 0}
+            <div class="rowList">
+                {#each dynamicRows as row (row.id)}
+                    <div class="rowItem">
+                        <button
+                            type="button"
+                            class="rowNameBtn"
+                            title="Pin/unpin body"
+                            on:click={() => onBodyPick(row.id)}
+                        >{row.emoji} {row.name}</button>
+                        <div class="chipGrid">
+                            {#each row.items as item (`${row.id}:${item.id}`)}
+                                {#if item.modal}
+                                    <button
+                                        type="button"
+                                        class="ui-tag chipButton"
+                                        on:click|stopPropagation={() => { modalTitle = item.label; modalText = item.modal ?? null; }}
+                                    >
+                                        <span class="chipLine">
+                                            <span class="chipLabel">{item.label}</span>
+                                            {#if item.value}
+                                                <span class="chipDivider" aria-hidden="true"></span>
+                                                <span class="chipValue">{item.value}</span>
+                                            {/if}
+                                        </span>
+                                    </button>
+                                {:else}
+                                    <span class="ui-tag chipStatic" title={item.modal}>
+                                        <span class="chipLine">
+                                            <span class="chipLabel">{item.label}</span>
+                                            {#if item.value}
+                                                <span class="chipDivider" aria-hidden="true"></span>
+                                                <span class="chipValue">{item.value}</span>
+                                            {/if}
+                                        </span>
+                                    </span>
+                                {/if}
+                            {/each}
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {:else}
+            <div class="empty">Dynamic section is hidden.</div>
+        {/if}
+    </section>
+</section>
+
+{#if showEditor && draftConfig}
+    <div class="editorOverlay" role="button" tabindex="0" aria-label="Close editor" on:click={closeEditor} on:keydown={(e) => {
         if (e.key === 'Escape') {
             e.preventDefault();
             closeEditor();
         }
     }}>
-        <div
-                class="editorModal"
-                role="dialog"
-                tabindex="-1"
-                aria-modal="true"
-                aria-label="Wheel info chips"
-                on:click|stopPropagation
-                on:keydown|stopPropagation
-        >
+        <div class="editorModal" role="dialog" tabindex="-1" aria-modal="true" aria-label="Info block" on:click|stopPropagation on:keydown|stopPropagation>
             <header class="editorHead">
-                <div class="editorTitle">Info chips</div>
+                <div class="editorTitle">Info block</div>
                 <button type="button" class="navBtn" on:click={closeEditor}>×</button>
             </header>
 
             <div class="editorList">
-                {#if allChips.length === 0}
-                    <div class="editorEmpty">No info rows available for this wheel.</div>
-                {/if}
-                {#each allChips as row (row.id)}
-                    <div class="editorRow">
-                        <div class="col sys" title={row.systemLabel}>
-                            {row.systemLabel}
-                            {#if row.isDefault}
-                                <span class="defMark">default</span>
-                            {/if}
+                <section class="editorSection">
+                    <div class="editorSectionHead">
+                        <button type="button" class="editorSectionToggle" aria-expanded={openEditorSection === 'general'} on:click={() => toggleEditorSection('general')}>
+                            <span class="editorSectionTitle">General</span>
+                            <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'general' ? '▾' : '▸'}</span>
+                        </button>
+                        <div class="editorHeadActions">
+                            <button type="button" class="toggleBtn" on:click|stopPropagation={() => draftConfig && (draftConfig = { ...draftConfig, general: { ...draftConfig.general, enabled: !draftConfig.general.enabled } })}>
+                                {draftConfig.general.enabled ? 'On' : 'Off'}
+                            </button>
                         </div>
-                        <input
-                                class="col user"
-                                type="text"
-                                placeholder="Custom label"
-                                value={draftLabels[row.id] ?? ''}
-                                on:input={(e) => updateDraftLabel(row.id, e)}
-                        />
-                        <div class="col val" title={row.value}>{row.value}</div>
-                        <label class="col pick">
-                            <input
-                                    type="checkbox"
-                                    checked={draftSelected.has(row.id)}
-                                    on:change={() => toggleSelected(row.id)}
-                            />
-                            <span>{draftSelected.has(row.id) ? 'Selected' : 'Hidden'}</span>
-                        </label>
                     </div>
-                {/each}
+                    {#if openEditorSection === 'general'}
+                        <div class="editorSectionActions">
+                            <button type="button" class="toggleBtn" on:click={addGeneralTag}>+ Tag</button>
+                        </div>
+                        {#if draftConfig.general.tags.length === 0}
+                            <div class="editorEmpty">No general tags.</div>
+                        {/if}
+                        {#each generalTagsForEditor(draftConfig) as tag (tag.id)}
+                            <div class="editorRowWrap">
+                                <div class="editorRow">
+                                    <div class="col sys">{tag.id}</div>
+                                    <input class="col user" type="text" value={tag.label ?? ''} placeholder="Custom label" on:input={(e) => updateGeneralTag(tag.id, { label: readValue(e) })} />
+                                    <input class="col val" type="text" value={tag.value ?? ''} placeholder="Value" on:input={(e) => updateGeneralTag(tag.id, { value: readValue(e) })} />
+                                    <label class="stateToggle" title={tag.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                        <input type="checkbox" checked={tag.enabled !== false} on:change={(e) => updateGeneralTag(tag.id, { enabled: readChecked(e) })} />
+                                        <span class="stateTrack"><span class="stateThumb"></span></span>
+                                        <span class="stateText">{tag.enabled !== false ? 'On' : 'Off'}</span>
+                                    </label>
+                                    <div class="rowActions">
+                                        <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralTag(tag.id)}>×</button>
+                                    </div>
+                                </div>
+                            </div>
+                        {/each}
+                    {/if}
+                </section>
+
+                <section class="editorSection">
+                    <div class="editorSectionHead">
+                        <button type="button" class="editorSectionToggle" aria-expanded={openEditorSection === 'dynamic'} on:click={() => toggleEditorSection('dynamic')}>
+                            <span class="editorSectionTitle">Dynamic</span>
+                            <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'dynamic' ? '▾' : '▸'}</span>
+                        </button>
+                        <div class="editorHeadActions">
+                            <button type="button" class="toggleBtn" on:click|stopPropagation={() => draftConfig && (draftConfig = { ...draftConfig, dynamic: { ...draftConfig.dynamic, enabled: !draftConfig.dynamic.enabled } })}>
+                                {draftConfig.dynamic.enabled ? 'On' : 'Off'}
+                            </button>
+                        </div>
+                    </div>
+                    {#if openEditorSection === 'dynamic'}
+                        {#each dynamicEditorRows as row (row.id)}
+                            {@const rowKey = `dynamic:${row.id}`}
+                            <div class="editorRowWrap">
+                                <div class="editorRow">
+                                    <div class="col sys">{row.systemLabel}</div>
+                                    <input class="col user" type="text" value={row.tag?.label ?? ''} placeholder="Custom label" on:input={(e) => updateScopedTag('dynamic', row.id, { label: readValue(e) })} />
+                                    <div class="col val">—</div>
+                                    <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                        <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('dynamic', row.id, { enabled: readChecked(e) })} />
+                                        <span class="stateTrack"><span class="stateThumb"></span></span>
+                                        <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
+                                    </label>
+                                    <div class="rowActions">
+                                        <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                    </div>
+                                </div>
+                                {#if modalRowsOpen.has(rowKey)}
+                                    <div class="modalAccordion">
+                                        <textarea class="modalInput" placeholder="Modal text" value={row.tag?.modal ?? ''} on:input={(e) => updateScopedTag('dynamic', row.id, { modal: readValue(e) })}></textarea>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    {/if}
+                </section>
+
+                <section class="editorSection">
+                    <div class="editorSectionHead">
+                        <button type="button" class="editorSectionToggle" aria-expanded={openEditorSection === 'pinned'} on:click={() => toggleEditorSection('pinned')}>
+                            <span class="editorSectionTitle">Pinned</span>
+                            <span class="editorSectionChevron" aria-hidden="true">{openEditorSection === 'pinned' ? '▾' : '▸'}</span>
+                        </button>
+                        <div class="editorHeadActions">
+                            <button type="button" class="toggleBtn" on:click|stopPropagation={() => draftConfig && (draftConfig = { ...draftConfig, pinned: { ...draftConfig.pinned, enabled: !draftConfig.pinned.enabled } })}>
+                                {draftConfig.pinned.enabled ? 'On' : 'Off'}
+                            </button>
+                        </div>
+                    </div>
+                    {#if openEditorSection === 'pinned'}
+                        <div class="groupRow">
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.regular} on:change={(e) => setPinnedGroup('regular', readChecked(e))} /> regular</label>
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.compass} on:change={(e) => setPinnedGroup('compass', readChecked(e))} /> compass</label>
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.synod} on:change={(e) => setPinnedGroup('synod', readChecked(e))} /> synod</label>
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.bind} on:change={(e) => setPinnedGroup('bind', readChecked(e))} /> bind</label>
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.horizon} on:change={(e) => setPinnedGroup('horizon', readChecked(e))} /> horizon</label>
+                            <label><input type="checkbox" checked={draftConfig.pinned.groups.nodal} on:change={(e) => setPinnedGroup('nodal', readChecked(e))} /> nodal</label>
+                        </div>
+                        {#each pinnedEditorRows as row (row.id)}
+                            <div class="editorRowWrap">
+                                <div class="editorRow">
+                                    <div class="col sys">{row.systemLabel}</div>
+                                    <input class="col user" type="text" value={row.tag?.label ?? ''} placeholder="Custom label" on:input={(e) => updateScopedTag('pinned', row.id, { label: readValue(e) })} />
+                                    <div class="col val">—</div>
+                                    <label class="stateToggle" title={row.tag?.enabled !== false ? 'Hide tag' : 'Show tag'}>
+                                        <input type="checkbox" checked={row.tag?.enabled !== false} on:change={(e) => updateScopedTag('pinned', row.id, { enabled: readChecked(e) })} />
+                                        <span class="stateTrack"><span class="stateThumb"></span></span>
+                                        <span class="stateText">{row.tag?.enabled !== false ? 'On' : 'Off'}</span>
+                                    </label>
+                                    <div class="rowActions"></div>
+                                </div>
+                            </div>
+                        {/each}
+                    {/if}
+                </section>
             </div>
 
             <footer class="editorFoot">
-                <button type="button" class="navBtn" on:click={resetToDefaults}>Reset</button>
                 <button type="button" class="navBtn" on:click={closeEditor}>Cancel</button>
                 <button type="button" class="navBtn" on:click={applyEditor}>Apply</button>
             </footer>
@@ -426,33 +594,35 @@
     </div>
 {/if}
 
+{#if modalText}
+    <div class="editorOverlay" role="button" tabindex="0" aria-label="Close info modal" on:click={() => { modalText = null; modalTitle = null; }} on:keydown={(e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            modalText = null;
+            modalTitle = null;
+        }
+    }}>
+        <div class="editorModal" role="dialog" tabindex="-1" aria-modal="true" aria-label={modalTitle ?? 'Info'} on:click|stopPropagation on:keydown|stopPropagation>
+            <header class="editorHead">
+                <div class="editorTitle">{modalTitle ?? 'Info'}</div>
+                <button type="button" class="navBtn" on:click={() => { modalText = null; modalTitle = null; }}>×</button>
+            </header>
+            <div class="modalBody">{modalText}</div>
+        </div>
+    </div>
+{/if}
+
 <style>
     .infoBlock {
         width: 100%;
-        max-width: 100%;
         display: grid;
-        gap: 6px;
-        margin-top: auto;
-        min-height: 0;
-        overflow: auto;
+        gap: 8px;
         position: relative;
     }
 
-    .editBtn {
-        position: absolute;
-        bottom: 2px;
-        right: 2px;
-        z-index: 3;
-        height: 28px;
-        min-width: 34px;
-        padding: 0 8px;
-    }
-
-    .chipGrid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        padding: 4px 2px;
+    .infoSection {
+        display: grid;
+        gap: 6px;
     }
 
     .chipSep {
@@ -462,93 +632,119 @@
         background: color-mix(in oklab, var(--fg), transparent 88%);
     }
 
-    .chipWrap {
-        display: inline-flex;
-        align-items: stretch;
-        cursor: grab;
+    .editBtn {
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        z-index: 3;
+        height: 28px;
+        min-width: 34px;
+        padding: 0 8px;
     }
 
-    .chipWrap.dragging {
-        opacity: 0.55;
+    .rowList {
+        display: grid;
+        gap: 6px;
     }
 
-    .chipButton {
-        cursor: pointer;
+    .rowItem {
+        display: grid;
+        grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+        gap: 8px;
+        align-items: flex-start;
+    }
+
+    .rowNameBtn {
+        border-radius: 10px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        background: color-mix(in oklab, var(--fg), transparent 94%);
+        color: inherit;
+        font-size: 12px;
+        font-weight: 700;
         text-align: left;
-        border-color: color-mix(in oklab, var(--accent-blue), transparent 70%);
-        background: color-mix(in oklab, var(--accent-blue), transparent 91%);
+        padding: 6px 8px;
+        cursor: pointer;
     }
-
-    .chipButton:hover:not(:disabled) {
-        background: color-mix(in oklab, var(--accent-blue), transparent 86%);
-        border-color: color-mix(in oklab, var(--accent-blue), transparent 58%);
+    .chipGrid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 2px 0;
     }
 
     .chipStatic {
         border-color: color-mix(in oklab, var(--fg), transparent 84%);
         background: color-mix(in oklab, var(--fg), transparent 94%);
     }
+    .chipButton {
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        background: color-mix(in oklab, var(--fg), transparent 94%);
+        color: inherit;
+        cursor: pointer;
+    }
 
-    .chip-moment {
+    .pinnedSection {
+        border: 1px solid color-mix(in oklab, var(--accent-live), transparent 82%);
+        border-radius: 12px;
+        padding: 8px;
+        background: color-mix(in oklab, var(--accent-live), transparent 96%);
+    }
+
+    .pinnedNameBtn {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 62%);
+        background: color-mix(in oklab, var(--accent-live), transparent 90%);
+    }
+
+    .pinnedChipButton {
         border-color: color-mix(in oklab, var(--accent-live), transparent 70%);
-        background: color-mix(in oklab, var(--accent-live), transparent 88%);
+        background: color-mix(in oklab, var(--accent-live), transparent 92%);
     }
-
-    .disabledTag {
-        opacity: 0.55;
-        cursor: default;
+    .pinnedChipButton:not(:disabled) {
+        opacity: 1;
+        filter: saturate(1.15) brightness(1.08);
+        box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent-live), transparent 70%);
     }
-
-    .dim {
-        opacity: 0.72;
+    .pinnedChipButton.isDisabled,
+    .pinnedChipButton:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+        filter: grayscale(0.25);
     }
 
     .ui-tag {
-        font-variant-numeric: tabular-nums;
         font-size: 12px;
         padding: 5px 10px;
     }
 
-    .chip-muted {
-        opacity: 0.7;
-    }
-
-    .chip-ok {
-        color: color-mix(in oklab, var(--fg), white 4%);
-    }
-
-    .chip-bad {
-        opacity: 0.82;
-    }
-
-    .chip-accent {
-        font-weight: 800;
-    }
-
-    .chipTwoRows {
-        display: grid;
-        font-size: 16px;
-        grid-template-rows: auto auto auto;
-        gap: 3px;
+    .chipLine {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        font-size: 13px;
+        font-weight: 700;
+        opacity: 0.95;
     }
 
     .chipLabel {
-        display: block;
-        opacity: 0.8;
+        opacity: 0.85;
         font-weight: 700;
     }
 
     .chipDivider {
-        display: block;
-        height: 1px;
-        margin: 1px 2px;
+        width: 1px;
+        height: 1.1em;
         background: color-mix(in oklab, var(--fg), transparent 84%);
     }
 
     .chipValue {
-        display: block;
+        opacity: 0.98;
         font-weight: 800;
-        opacity: 0.96;
+    }
+
+    .empty {
+        font-size: 12px;
+        opacity: 0.72;
+        padding: 4px 2px;
     }
 
     .editorOverlay {
@@ -562,8 +758,8 @@
     }
 
     .editorModal {
-        width: min(860px, 96vw);
-        max-height: min(82vh, 880px);
+        width: min(760px, 94vw);
+        max-height: min(86vh, 900px);
         overflow: auto;
         border-radius: 14px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
@@ -580,19 +776,73 @@
         align-items: center;
         justify-content: space-between;
         gap: 10px;
+        font-size: 14px;
     }
 
     .editorTitle {
-        font-size: 14px;
+        font-size: 16px;
         font-weight: 800;
     }
 
     .editorList {
         display: grid;
+        gap: 10px;
+    }
+
+    .editorSection {
+        display: grid;
+        gap: 8px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
+        border-radius: 12px;
+        padding: 10px;
+    }
+
+    .editorSectionHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 8px;
     }
+
+    .editorHeadActions {
+        display: inline-flex;
+        gap: 6px;
+    }
+
+    .editorSectionToggle {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color: inherit;
+        padding: 0;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .editorSectionToggle:focus,
+    .editorSectionToggle:focus-visible {
+        outline: none;
+        box-shadow: none;
+    }
+
+    .editorSectionTitle {
+        font-size: 16px;
+        font-weight: 800;
+    }
+
+    .editorSectionChevron {
+        opacity: 0.75;
+        font-size: 12px;
+    }
+
+    .editorSectionActions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+    }
+
     .editorEmpty {
-        padding: 12px;
+        padding: 10px;
         border-radius: 10px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
@@ -600,15 +850,42 @@
         font-size: 12px;
     }
 
+    .editorRowWrap {
+        display: grid;
+        gap: 6px;
+    }
+
+    .modalAccordion {
+        border-left: 2px solid color-mix(in oklab, var(--fg), transparent 84%);
+        margin-left: 8px;
+        padding-left: 10px;
+    }
+
+    .modalInput {
+        width: 100%;
+        min-height: 64px;
+        resize: vertical;
+        box-sizing: border-box;
+        background: color-mix(in oklab, var(--panel), transparent 10%);
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
+        border-radius: 8px;
+        color: var(--fg);
+        padding: 8px;
+        font: inherit;
+        font-size: 12px;
+        line-height: 1.35;
+    }
+
     .editorRow {
         display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.1fr) auto;
+        grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) minmax(92px, 0.75fr) auto auto;
         align-items: center;
-        gap: 8px;
-        padding: 8px;
-        border-radius: 10px;
+        gap: 6px;
+        padding: 6px 8px;
+        border-radius: 9px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
+        cursor: grab;
     }
 
     .col {
@@ -616,41 +893,136 @@
         font-size: 12px;
     }
 
-    .col.sys,
+    .col.user,
     .col.val {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        font-variant-numeric: tabular-nums;
-    }
-    .defMark {
-        margin-left: 6px;
-        font-size: 10px;
-        opacity: 0.65;
-    }
-
-    .col.user {
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
+        background: color-mix(in oklab, var(--panel), transparent 12%);
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         border-radius: 8px;
-        border: 1px solid var(--btn-border);
-        background: color-mix(in oklab, var(--btn-bg), transparent 8%);
-        color: inherit;
-        padding: 6px 8px;
+        padding: 3px 6px;
+        color: var(--fg);
     }
 
-    .col.pick {
+    .col.val {
+        opacity: 0.8;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .stateToggle {
+        display: inline-flex;
+        gap: 6px;
+        align-items: center;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .stateToggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .stateTrack {
+        width: 30px;
+        height: 17px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 72%);
+        background: color-mix(in oklab, var(--fg), transparent 90%);
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        white-space: nowrap;
+        padding: 1px;
+        box-sizing: border-box;
+        transition: background 120ms ease, border-color 120ms ease;
     }
 
-    @media (max-width: 760px) {
-        .editorRow {
+    .stateThumb {
+        width: 13px;
+        height: 13px;
+        border-radius: 999px;
+        background: color-mix(in oklab, var(--fg), transparent 18%);
+        transition: transform 120ms ease, background 120ms ease;
+    }
+
+    .stateToggle input:checked + .stateTrack {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 40%);
+        background: color-mix(in oklab, var(--accent-live), transparent 82%);
+    }
+
+    .stateToggle input:checked + .stateTrack .stateThumb {
+        transform: translateX(12px);
+        background: color-mix(in oklab, var(--accent-live), transparent 14%);
+    }
+
+    .stateText {
+        font-size: 11px;
+        font-weight: 700;
+        opacity: 0.8;
+        min-width: 20px;
+    }
+
+    .rowActions {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .groupRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 12px;
+    }
+
+    .toggleBtn,
+    .miniBtn {
+        height: 28px;
+        min-width: 56px;
+        padding: 0 11px;
+        white-space: nowrap;
+        border-radius: 999px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
+        background: color-mix(in oklab, var(--panel), transparent 12%);
+        color: var(--fg);
+        font-weight: 700;
+        font-size: 12px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .miniBtn {
+        min-width: 36px;
+        padding: 0 9px;
+    }
+
+    .dangerBtn {
+        color: color-mix(in oklab, var(--accent-red), var(--fg) 20%);
+    }
+
+    .modalBtn {
+        min-width: 36px;
+    }
+
+    .modalBody {
+        font-size: 13px;
+        line-height: 1.45;
+        white-space: pre-wrap;
+        opacity: 0.9;
+        padding: 4px 2px 2px;
+    }
+
+    @media (max-width: 780px) {
+        .rowItem {
             grid-template-columns: 1fr;
-            gap: 6px;
+        }
+
+        .editorRow {
+            grid-template-columns: auto minmax(0, 1fr);
         }
     }
 </style>

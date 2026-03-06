@@ -4,7 +4,7 @@
     import { slide } from 'svelte/transition';
     import type { CycleTipPayload } from '../lib/wheel/ui/useCycleTooltip';
     import { formatDateTime } from '../lib/format';
-    import { formatSpokeCodeUi, formatSpokeTextUi } from '../lib/wheel/types';
+    import { formatLabelTitleCaseUi, formatSpokeCodeUi, formatSpokeTextUi } from '../lib/wheel/types';
 
     export let x = 0;
     export let y = 0;
@@ -27,16 +27,7 @@
     }
 
     function titleCaseWords(text: string): string {
-        return formatSpokeTextUi(text)
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((part) =>
-                part
-                    .split('-')
-                    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ''))
-                    .join('-')
-            )
-            .join(' ');
+        return formatLabelTitleCaseUi(text);
     }
 
     function normalizeTagLabel(raw: string): string {

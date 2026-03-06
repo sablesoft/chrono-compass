@@ -21,7 +21,9 @@
     import { objects, wheels } from '../lib/catalog';
     import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelNodeGroups, WheelSpec } from '../lib/catalog';
 
-    import { formatSpokeCodeUi, formatSpokeTextUi, type MarkerCluster, type MarkerItem, type MomentTip } from '../lib/wheel/types';
+    import { formatLabelTitleCaseUi, formatSpokeCodeUi, formatSpokeTextUi, SPOKES_ORDER, type InfoItem, type MarkerCluster, type MarkerItem, type MomentTip } from '../lib/wheel/types';
+    import { formatDateTime } from '../lib/format';
+    import { formatInfoValue } from '../lib/wheel/infoFormat';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
 
     import { boardApi } from '../lib/board/store';
@@ -32,7 +34,7 @@
     import type { WheelSolveResult } from '../lib/board/runtime';
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
-    import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
+    import type { CompassInfoConfig, CompassInfoGroupConfig, CompassInfoTagConfig, WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { setSelectedTs } from '../lib/time/store';
 
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
@@ -181,6 +183,7 @@
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
+    let allBodies: CompassBodyRow[] = [];
     let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     type OrbitNodeUi = {
         key: string;
@@ -191,6 +194,9 @@
         bodyId: ObjId;
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
+        sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
+        meta?: Record<string, unknown>;
+        infoItems?: CompassInfoChip[];
         ts: number;
     };
     let orbitNodes: Array<{
@@ -202,24 +208,32 @@
         bodyId: ObjId;
         code: string;
         source?: 'cycle' | 'spoke' | 'seam';
+        sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
+        meta?: Record<string, unknown>;
+        infoItems?: CompassInfoChip[];
         ts: number;
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
     let orbitNodesVisible: OrbitNodeUi[] = [];
-    let hasPinnedSeamNodes = false;
+    let hasPinnedNodalNodes = false;
     let showOrbits = true;
     let showOrbitNodesAny = true;
-    let showOrbitNodesRegular = false;
-    let showOrbitNodesSeam = true;
-    let showOrbitNodesSynod = true;
-    let showOrbitNodesBind = true;
-    let showOrbitNodesZenithNadir = true;
+    type OrbitNodeGroup = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+    const ORBIT_NODE_GROUP_ORDER: OrbitNodeGroup[] = ['compass', 'horizon', 'nodal', 'bind', 'synod', 'regular'];
+    let orbitNodeGroupVisible: Record<OrbitNodeGroup, boolean> = {
+        regular: false,
+        compass: true,
+        horizon: true,
+        nodal: true,
+        synod: true,
+        bind: true
+    };
     let activeSpokeCode: string | null = null;
     let lastResolvedTs = NaN;
     let markerTweenRaf = 0;
     let markerTweenToken = 0;
     let pendingNodeSnap: { bodyId: ObjId; ts: number; code?: string } | null = null;
-    const NEXT_CYCLE_PICK_EPS_MS = 15_000;
+    const NEXT_CYCLE_PICK_EPS_MS = 90_000;
 
     let pinnedBodyId: ObjId | null = null;
 
@@ -236,35 +250,19 @@
         showOrbitNodesAny = !showOrbitNodesAny;
     }
 
-    function toggleOrbitNodesRegular() {
-        showOrbitNodesRegular = !showOrbitNodesRegular;
+    function toggleOrbitNodeGroup(group: OrbitNodeGroup) {
+        orbitNodeGroupVisible = {
+            ...orbitNodeGroupVisible,
+            [group]: !orbitNodeGroupVisible[group]
+        };
     }
 
-    function toggleOrbitNodesSeam() {
-        showOrbitNodesSeam = !showOrbitNodesSeam;
+    function isOrbitNodeGroupVisible(group: OrbitNodeGroup): boolean {
+        return orbitNodeGroupVisible[group];
     }
-
-    function toggleOrbitNodesSynod() {
-        showOrbitNodesSynod = !showOrbitNodesSynod;
-    }
-
-    function toggleOrbitNodesBind() {
-        showOrbitNodesBind = !showOrbitNodesBind;
-    }
-
-    type OrbitNodeGroup = 'boundary' | 'regular' | 'seam' | 'synod' | 'bind' | 'zenithNadir';
 
     function nodeTagsOf(node: { tip?: MomentTip }): string[] {
         return Array.isArray(node.tip?.tags) ? node.tip!.tags!.filter((t) => typeof t === 'string') : [];
-    }
-
-    function hasNodeTag(tags: string[], tag: string): boolean {
-        return tags.includes(tag);
-    }
-
-    function hasAnyNodeTag(tags: string[], groupTags: string[] | undefined): boolean {
-        if (!Array.isArray(groupTags) || groupTags.length === 0) return false;
-        return groupTags.some((tag) => hasNodeTag(tags, tag));
     }
 
     function wheelNodeGroupsFromSpec(): WheelNodeGroups | null {
@@ -274,15 +272,71 @@
         return raw as WheelNodeGroups;
     }
 
-    function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
-        const groups = wheelNodeGroupsFromSpec();
-        if (groups) {
-            if (hasAnyNodeTag(tags, groups.boundary)) return 'boundary';
-            if (hasAnyNodeTag(tags, groups.seam)) return 'seam';
-            if (hasAnyNodeTag(tags, groups.bind)) return 'bind';
-            if (hasAnyNodeTag(tags, groups.synod)) return 'synod';
+    function normalizeSpecNodeGroup(group: Exclude<OrbitNodeGroup, 'regular'>, input: WheelNodeGroups | null): string[] {
+        const xs = input?.[group];
+        if (Array.isArray(xs)) return xs;
+        if (group === 'horizon' || group === 'nodal') {
+            const seam = (input as { seam?: string[] } | null)?.seam;
+            if (Array.isArray(seam)) {
+                return wheel?.wheelType === 'system'
+                    ? (group === 'nodal' ? seam : [])
+                    : (group === 'horizon' ? seam : []);
+            }
         }
-        if (hasNodeTag(tags, 'cycle start') || hasNodeTag(tags, 'cycle end')) return 'boundary';
+        return [];
+    }
+
+    let orbitNodeGroupTagSets: Record<Exclude<OrbitNodeGroup, 'regular'>, Set<string>> = {
+        compass: new Set(),
+        horizon: new Set(),
+        nodal: new Set(),
+        bind: new Set(),
+        synod: new Set()
+    };
+    $: {
+        void spec;
+        void wheel?.wheelType;
+        const groups = wheelNodeGroupsFromSpec();
+        orbitNodeGroupTagSets = {
+            compass: new Set(normalizeSpecNodeGroup('compass', groups)),
+            horizon: new Set(normalizeSpecNodeGroup('horizon', groups)),
+            nodal: new Set(normalizeSpecNodeGroup('nodal', groups)),
+            bind: new Set(normalizeSpecNodeGroup('bind', groups)),
+            synod: new Set(normalizeSpecNodeGroup('synod', groups))
+        };
+    }
+
+    function groupFromSpecTag(tag: string): Exclude<OrbitNodeGroup, 'regular'> | null {
+        if (orbitNodeGroupTagSets.compass.has(tag)) return 'compass';
+        if (orbitNodeGroupTagSets.horizon.has(tag)) return 'horizon';
+        if (orbitNodeGroupTagSets.nodal.has(tag)) return 'nodal';
+        if (orbitNodeGroupTagSets.bind.has(tag)) return 'bind';
+        if (orbitNodeGroupTagSets.synod.has(tag)) return 'synod';
+        return null;
+    }
+
+    function mainCycleSourceForActiveWheel(): 'horizon' | 'synod' | 'bind' | 'nodal' | null {
+        if (!spec || typeof spec !== 'object') return null;
+        const raw = (spec as { mainCycle?: unknown }).mainCycle;
+        if (raw === 'horizon' || raw === 'synod' || raw === 'bind' || raw === 'nodal') return raw;
+        return null;
+    }
+
+    function isMainCycleBoundaryByTags(tags: string[]): boolean {
+        const mainCycle = mainCycleSourceForActiveWheel();
+        if (!mainCycle) return false;
+        return tags.includes(`E-${mainCycle}`) || tags.includes(`E_next-${mainCycle}`);
+    }
+
+    function isMainCycleBoundaryNode(node: { tip?: MomentTip }): boolean {
+        return isMainCycleBoundaryByTags(nodeTagsOf(node));
+    }
+
+    function orbitNodeGroupFromTags(tags: string[]): OrbitNodeGroup {
+        for (const group of ORBIT_NODE_GROUP_ORDER) {
+            if (group === 'regular') continue;
+            if (tags.some((tag) => groupFromSpecTag(tag) === group)) return group;
+        }
         return 'regular';
     }
 
@@ -305,20 +359,19 @@
         return classes.join(' ');
     }
 
+    function orbitNodeGroupClass(node: { tip?: MomentTip }): string {
+        return `grp-${orbitNodeGroup(node)}`;
+    }
+
     $: orbitNodesVisible = orbitNodes.filter((n) => {
+        if (isMainCycleBoundaryNode(n)) return true;
         const g = orbitNodeGroup(n);
-        if (g === 'boundary') return true;
         if (!showOrbitNodesAny) return false;
-        if (g === 'regular') return showOrbitNodesRegular;
-        if (g === 'seam') return showOrbitNodesSeam;
-        if (g === 'synod') return showOrbitNodesSynod;
-        if (g === 'bind') return showOrbitNodesBind;
-        if (g === 'zenithNadir') return showOrbitNodesZenithNadir;
-        return true;
+        return isOrbitNodeGroupVisible(g);
     });
 
-    $: hasPinnedSeamNodes = !!pinnedBodyId && orbitNodesAll.some(
-        (n) => n.bodyId === pinnedBodyId && orbitNodeGroup(n) === 'seam'
+    $: hasPinnedNodalNodes = !!pinnedBodyId && orbitNodesAll.some(
+        (n) => n.bodyId === pinnedBodyId && orbitNodeGroup(n) === 'nodal'
     );
 
     function activateSpokeFromOrbitNode(node: { source?: 'cycle' | 'spoke' | 'seam'; code: string }) {
@@ -679,13 +732,15 @@
         const out: OrbitNodeUi[] = [];
         for (const [, bodyNodes] of byBody) {
             const regularNodes = bodyNodes.filter((n) => orbitNodeGroup(n) === 'regular');
-            const specialNodes = bodyNodes.filter((n) => orbitNodeGroup(n) !== 'regular');
-            const boundaryNodes = specialNodes.filter((n) => orbitNodeGroup(n) === 'boundary');
-            const otherSpecialNodes = specialNodes.filter((n) => orbitNodeGroup(n) !== 'boundary');
+            const boundaryNodes = bodyNodes.filter((n) => isMainCycleBoundaryNode(n));
+            const otherSpecialNodes = bodyNodes.filter((n) => {
+                if (isMainCycleBoundaryNode(n)) return false;
+                return orbitNodeGroup(n) !== 'regular';
+            });
             const mergedSpecialNodes: OrbitNodeUi[] = [];
             mergedSpecialNodes.push(...otherSpecialNodes);
 
-            // Merge only overlapping boundary nodes (E / E+) into one marker with both moments.
+            // Merge only overlapping main-cycle boundary nodes (E / E+) into one marker with both moments.
             if (boundaryNodes.length) {
                 const sortedBoundary = boundaryNodes.slice().sort((a, b) => a.ts - b.ts);
                 const bClusters: Array<{ rep: OrbitNodeUi; members: OrbitNodeUi[] }> = [];
@@ -719,7 +774,7 @@
                     const rep = c.rep;
                     mergedSpecialNodes.push({
                         ...rep,
-                        key: `${rep.key}:boundary-merged`,
+                        key: `${rep.key}:main-cycle-boundary-merged`,
                         tip: {
                             ...rep.tip,
                             tags,
@@ -880,7 +935,17 @@
             (Number.isFinite(lastPickTs) && Math.abs(ts0 - lastPickTs) <= 1_000) ||
             (pickTsList.length <= 1 && hasCycleEndTag);
 
-        const pickedTs = shouldStepToNextCycle ? (ts0 + NEXT_CYCLE_PICK_EPS_MS) : ts0;
+        let pickedTs = shouldStepToNextCycle ? (ts0 + NEXT_CYCLE_PICK_EPS_MS) : ts0;
+        const currentTs = Number.isFinite(effTs)
+            ? effTs
+            : (!time.live && Number.isFinite(time.ts) ? time.ts : NaN);
+        if (shouldStepToNextCycle && Number.isFinite(currentTs)) {
+            const minForwardTs = currentTs + NEXT_CYCLE_PICK_EPS_MS;
+            if (pickedTs < minForwardTs) pickedTs = minForwardTs;
+        }
+        if (shouldStepToNextCycle && !time.live && Number.isFinite(time.ts) && Math.abs(time.ts - pickedTs) < 1_000) {
+            pickedTs += NEXT_CYCLE_PICK_EPS_MS;
+        }
         const snapCode = shouldStepToNextCycle ? 'E' : baseCode;
         if (snapBody) pendingNodeSnap = { bodyId: snapBody, ts: pickedTs, code: snapCode };
 
@@ -963,6 +1028,58 @@
     function fmtNodeDistAu(x: number): string {
         if (!Number.isFinite(x)) return '—';
         return `${x.toFixed(3)} AU`;
+    }
+
+    function nodeInfoItemsFromSpec(
+        source: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal' | undefined,
+        code: string,
+        meta: Record<string, unknown>
+    ): CompassInfoChip[] {
+        if (!source) return [];
+        const specRaw = (wheels as Record<string, unknown>)[source] as { info?: InfoItem[] } | undefined;
+        const defs = Array.isArray(specRaw?.info) ? specRaw.info : [];
+        const out: CompassInfoChip[] = [];
+        for (const def of defs) {
+            const defaultLabel = String(def?.defaultLabel ?? '').trim();
+            if (!defaultLabel) continue;
+            const applies = !def.spokes || def.spokes === '*' || (Array.isArray(def.spokes) && def.spokes.includes(code as any));
+            if (!applies) continue;
+            const label = uiLabel(defaultLabel);
+            if (def.metaField) {
+                const rawValue = meta?.[def.metaField];
+                if (rawValue == null || rawValue === '') continue;
+                const formatInput = (typeof rawValue === 'number' || typeof rawValue === 'string' || rawValue == null)
+                    ? rawValue
+                    : String(rawValue);
+                const value = def.format ? formatInfoValue(def.format, formatInput) : String(formatInput);
+                out.push({
+                    id: `dynamic:${tagIdFromLabel(label)}`,
+                    label,
+                    value,
+                    modal: typeof def.modal === 'string' ? def.modal : undefined
+                });
+                continue;
+            }
+            out.push({
+                id: `dynamic:${tagIdFromLabel(label)}`,
+                label,
+                modal: typeof def.modal === 'string' ? def.modal : undefined
+            });
+        }
+        return out;
+    }
+
+    function normalizeBodyInfoMeta(t: CompassTargetState): CompassBodyInfoMeta {
+        const raw = (t as any).infoMeta;
+        if (raw && typeof raw === 'object') {
+            const obj = raw as Record<string, unknown>;
+            const hasNestedSources =
+                ('horizon' in obj) || ('synod' in obj) || ('bind' in obj) || ('nodal' in obj);
+            if (hasNestedSources) {
+                return obj as CompassBodyInfoMeta;
+            }
+        }
+        return {};
     }
 
     // ------------------------------------------------------------
@@ -1192,12 +1309,15 @@
                 .filter((v): v is number => Number.isFinite(v));
             const trackMinTs = trackTs.length ? Math.min(...trackTs) : NaN;
             const trackMaxTs = trackTs.length ? Math.max(...trackTs) : NaN;
-            const nodeTrack = (t.orbitTrack ?? []).filter((p) => !(wheel?.wheelType === 'compass' && p.source === 'seam'));
+            const nodeTrack = t.orbitTrack ?? [];
             return nodeTrack
                 .map((p) => {
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
                 const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
+                const sourceWheel = p.sourceWheel;
+                const pointMeta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
+                const infoItems = nodeInfoItemsFromSpec(sourceWheel, p.code, pointMeta);
                 const nextSynodBoundaryTs = (t.orbitTrack ?? [])
                     .filter((q) => q.source === 'spoke' && q.code === 'E_next' && Number.isFinite(q.ts))
                     .map((q) => q.ts)
@@ -1242,6 +1362,9 @@
                     bodyId: t.id,
                     code: p.code,
                     source: p.source,
+                    sourceWheel,
+                    meta: pointMeta,
+                    infoItems,
                     ts: p.ts,
                     tip: {
                         label: `${emoji} ${name} orbit node (${uiCode})`,
@@ -1249,6 +1372,7 @@
                         desc: `orbit-node:${t.id}:${p.code}`,
                         tags: pointTags,
                         pickTsList,
+                        infoItems,
                         metaParts,
                         metaText,
                         copyText: copyParts.join(' | ')
@@ -1313,6 +1437,7 @@
             belowLabel: isSystemWheel ? 'south' : 'below',
             house,
             visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true,
+            infoMeta: normalizeBodyInfoMeta(t),
             activeNode
         };
     });
@@ -1463,86 +1588,649 @@
         );
     }
 
-    function handleCompassInfoRowPick(id: string) {
-        if (id === 'pinned' && pinnedRow) {
-            clearPinned();
+    type CompassInfoChip = {
+        id: string;
+        label: string;
+        value?: string;
+        modal?: string;
+    };
+
+    type CompassDynamicRow = {
+        id: ObjId;
+        emoji: string;
+        name: string;
+        pinned: boolean;
+        items: CompassInfoChip[];
+    };
+
+    type CompassBodyInfoMeta = Partial<Record<'horizon' | 'synod' | 'bind' | 'nodal', Record<string, unknown>>>;
+
+    type CompassBodyRow = {
+        id: ObjId;
+        emoji: string;
+        name: string;
+        distanceAu: number;
+        distanceLabel: string;
+        primaryDeg: number;
+        secondaryDeg: number;
+        primaryLabel: string;
+        secondaryLabel: string;
+        aboveLabel: string;
+        belowLabel: string;
+        house: string;
+        visible: boolean;
+        activeNode: MomentTip | null;
+        infoMeta: CompassBodyInfoMeta;
+    };
+
+    type CompassPinnedInfoRow = {
+        id: string;
+        bodyId: ObjId;
+        emoji: string;
+        name: string;
+        nodes: Array<{
+            id: string;
+            label: string;
+            ts: number;
+            code: string;
+            source: OrbitNodeGroup;
+            disabled?: boolean;
+        }>;
+    };
+
+    type CompassTagScope = 'dynamic' | 'pinned';
+    type CompassTagDef = {
+        id: string;
+        label: string;
+        scope: CompassTagScope;
+        enabledByDefault: boolean;
+        modal?: string;
+        source?: 'horizon' | 'synod' | 'bind' | 'nodal';
+        metaField?: string;
+        format?: string;
+        spokes?: string[] | '*';
+        builtin?: 'house';
+        group?: OrbitNodeGroup;
+    };
+
+    let compassInfoConfigWheelId = '';
+    let compassInfoConfigInitialized = false;
+    let compassInfoConfig: CompassInfoConfig = {
+        general: { enabled: false, tags: [] },
+        dynamic: { enabled: true, tags: [] },
+        pinned: {
+            enabled: true,
+            groups: {
+                regular: true,
+                compass: true,
+                horizon: true,
+                nodal: true,
+                synod: true,
+                bind: true
+            },
+            tags: []
         }
+    };
+    let compassTagDefs: CompassTagDef[] = [];
+    let compassTagDefById: Map<string, CompassTagDef> = new Map();
+    let defaultCompassInfoConfig: CompassInfoConfig = {
+        general: { enabled: false, tags: [] },
+        dynamic: { enabled: true, tags: [] },
+        pinned: { enabled: true, groups: defaultCompassGroups(), tags: [] }
+    };
+    let compassDynamicRows: CompassDynamicRow[] = [];
+    let compassDynamicDisabledIds = new Set<string>();
+    let compassPinnedRows: CompassPinnedInfoRow[] = [];
+    let compassGeneralChips: CompassInfoChip[] = [];
+
+    function normalizeCompassTag(input: CompassInfoTagConfig | null | undefined): CompassInfoTagConfig | null {
+        if (!input || !input.id) return null;
+        const id = String(input.id).trim();
+        if (!id) return null;
+        const out: CompassInfoTagConfig = {
+            id,
+            enabled: input.enabled !== false
+        };
+        if (typeof input.label === 'string' && input.label.trim()) out.label = input.label.trim();
+        if (typeof input.value === 'string') out.value = input.value;
+        if (typeof input.modal === 'string') out.modal = input.modal;
+        if (input.isCustom === true) out.isCustom = true;
+        return out;
     }
 
-    function orderInfoChips<T extends { id: string }>(chips: T[], order: string[] | undefined): T[] {
-        if (!Array.isArray(order) || order.length === 0) return chips;
-        const map = new Map(chips.map((c) => [c.id, c]));
-        const out: T[] = [];
+    function defaultCompassGroups(): CompassInfoGroupConfig {
+        return {
+            regular: true,
+            compass: true,
+            horizon: true,
+            nodal: true,
+            synod: true,
+            bind: true
+        };
+    }
+
+    function normalizeCompassGroups(input: CompassInfoGroupConfig | null | undefined): CompassInfoGroupConfig {
+        const src = (input ?? defaultCompassGroups()) as CompassInfoGroupConfig & { seam?: boolean };
+        return {
+            regular: src.regular !== false,
+            compass: src.compass !== false,
+            horizon: (typeof src.horizon === 'boolean' ? src.horizon : src.seam) !== false,
+            nodal: (typeof src.nodal === 'boolean' ? src.nodal : src.seam) !== false,
+            synod: src.synod !== false,
+            bind: src.bind !== false
+        };
+    }
+
+    function normalizeCompassInfoConfig(defaults: CompassInfoConfig, input: unknown): CompassInfoConfig {
+        const src = (input && typeof input === 'object') ? (input as Partial<CompassInfoConfig>) : {};
+        return {
+            general: {
+                enabled: typeof src.general?.enabled === 'boolean' ? src.general.enabled : defaults.general.enabled,
+                tags: Array.isArray(src.general?.tags)
+                    ? src.general!.tags.map((x) => normalizeCompassTag(x)).filter((x): x is CompassInfoTagConfig => !!x)
+                    : defaults.general.tags.map((x) => ({ ...x }))
+            },
+            dynamic: {
+                enabled: typeof src.dynamic?.enabled === 'boolean' ? src.dynamic.enabled : defaults.dynamic.enabled,
+                tags: Array.isArray(src.dynamic?.tags)
+                    ? src.dynamic!.tags.map((x) => normalizeCompassTag(x)).filter((x): x is CompassInfoTagConfig => !!x)
+                    : defaults.dynamic.tags.map((x) => ({ ...x }))
+            },
+            pinned: {
+                enabled: typeof src.pinned?.enabled === 'boolean' ? src.pinned.enabled : defaults.pinned.enabled,
+                groups: normalizeCompassGroups(src.pinned?.groups ?? defaults.pinned.groups),
+                tags: Array.isArray(src.pinned?.tags)
+                    ? src.pinned!.tags.map((x) => normalizeCompassTag(x)).filter((x): x is CompassInfoTagConfig => !!x)
+                    : defaults.pinned.tags.map((x) => ({ ...x }))
+            }
+        };
+    }
+
+    function applyCompassInfoConfig(next: CompassInfoConfig) {
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { compassInfoConfig: next } },
+            'Compass.configureInfoBlock'
+        );
+    }
+
+    function handleCompassBodyPick(bodyId: ObjId) {
+        togglePin(bodyId);
+    }
+
+    function handleCompassPinnedPick(ts: number, bodyId: ObjId, code?: string) {
+        handleMarkerPick(ts, bodyId, code);
+    }
+
+    function uiLabel(raw: string): string {
+        return formatLabelTitleCaseUi(String(raw ?? ''));
+    }
+
+    function tagIdFromLabel(label: string): string {
+        const base = String(label ?? '')
+            .toLowerCase()
+            .replace(/\+/g, ' plus ')
+            .replace(/[\s-]+/g, '-')
+            .replace(/[^a-z0-9-]/g, '')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '');
+        return base || 'item';
+    }
+
+    type CompassPinnedRawRow = {
+        id: string;
+        bodyId: ObjId;
+        ts: number;
+        source: OrbitNodeGroup;
+        code: string;
+        techName: string;
+        sourceWheel: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
+        disabled?: boolean;
+    };
+
+    function activeSourcesForWheelType(type: string | undefined): Array<'horizon' | 'synod' | 'bind' | 'nodal'> {
+        if (type === 'compass') return ['horizon'];
+        if (type === 'system') return ['synod', 'bind', 'nodal'];
+        return [];
+    }
+
+    function specInfoRowsFor(source: 'horizon' | 'synod' | 'bind' | 'nodal'): InfoItem[] {
+        const specRaw = (wheels as Record<string, unknown>)[source] as { info?: InfoItem[] } | undefined;
+        return Array.isArray(specRaw?.info) ? specRaw.info : [];
+    }
+
+    function buildSourceTagDefs(scope: CompassTagScope, source: 'horizon' | 'synod' | 'bind' | 'nodal'): CompassTagDef[] {
+        const rows = specInfoRowsFor(source);
+        const out: CompassTagDef[] = [];
         const seen = new Set<string>();
-        for (const id of order) {
-            const hit = map.get(id);
-            if (!hit || seen.has(id)) continue;
-            out.push(hit);
+        for (const row of rows) {
+            const defaultLabel = String(row?.defaultLabel ?? '').trim();
+            if (!defaultLabel) continue;
+            const id = `${scope}:${source}:${tagIdFromLabel(defaultLabel)}`;
+            if (seen.has(id)) continue;
             seen.add(id);
-        }
-        for (const c of chips) {
-            if (seen.has(c.id)) continue;
-            out.push(c);
+            const enabledByDefault = scope === 'dynamic'
+                ? (row.enabled !== false)
+                : (typeof row.enabledStatic === 'boolean' ? row.enabledStatic : row.enabled !== false);
+            out.push({
+                id,
+                label: uiLabel(defaultLabel),
+                scope,
+                enabledByDefault,
+                modal: typeof row.modal === 'string' ? row.modal : undefined,
+                source,
+                metaField: typeof row.metaField === 'string' ? row.metaField : undefined,
+                format: typeof row.format === 'string' ? row.format : undefined,
+                spokes: row.spokes
+            });
         }
         return out;
     }
 
-    function handleCompassChipReorder(ids: string[]) {
-        if (!wheelId) return;
-        boardApi.updateWheelById(
-            wheelId,
-            { view: { infoChipOrder: ids } },
-            'Compass.reorderInfoChips'
-        );
+    function dedupeTagDefsByLabel(defs: CompassTagDef[]): CompassTagDef[] {
+        const out: CompassTagDef[] = [];
+        const seen = new Set<string>();
+        for (const def of defs) {
+            const key = chipLabelKey(def.label);
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            out.push(def);
+        }
+        return out;
     }
 
-    function handleCompassChipConfigure(next: { selectedIds: string[]; labels: Record<string, string> }) {
-        if (!wheelId) return;
-        boardApi.updateWheelById(
-            wheelId,
-            { view: { infoChipSelected: next.selectedIds, infoChipLabels: next.labels } },
-            'Compass.configureInfoChips'
-        );
+    function nodeTechTag(node: OrbitNodeUi): string {
+        const source = node.sourceWheel ?? (wheel?.wheelType === 'compass' ? 'horizon' : 'node');
+        return formatLabelTitleCaseUi(`${formatSpokeCodeUi(node.code)}-${source}`);
     }
 
-    $: pinnedPrimaryText = pinnedRow
-        ? `${pinnedRow.primaryLabel} ${pinnedRow.primaryDeg.toFixed(1)}°`
-        : '— —';
-    $: pinnedSecondaryText = pinnedRow
-        ? `${pinnedRow.secondaryLabel} ${pinnedRow.secondaryDeg.toFixed(1)}°`
-        : '— —';
-    $: compassInfoChipsBase = pinnedRow
-        ? [{
-            id: 'pinned',
-            clickable: true,
-            title: 'Unpin body',
-            ariaLabel: 'Unpin body',
-            text: `${pinnedRow.emoji} ${pinnedRow.name} • ${pinnedRow.house} • ${pinnedPrimaryText} • ${pinnedSecondaryText}`,
-            label: `${pinnedRow.emoji} ${pinnedRow.name}`,
-            value: `${pinnedRow.house} • ${pinnedPrimaryText} • ${pinnedSecondaryText}`,
-            kind: 'accent'
-        }]
-        : [];
-    $: compassInfoLabels = wheel?.view?.infoChipLabels ?? {};
-    $: compassInfoChipsOrderedAll = orderInfoChips(compassInfoChipsBase, wheel?.view?.infoChipOrder);
-    $: compassSelectedIds = (wheel?.view?.infoChipSelected?.length ?? 0) > 0
-        ? (wheel?.view?.infoChipSelected ?? [])
-        : compassInfoChipsOrderedAll.map((x) => x.id);
-    $: compassSelectedSet = new Set(compassSelectedIds);
-    $: compassInfoChips = compassInfoChipsOrderedAll
-        .filter((c) => compassSelectedSet.has(c.id))
-        .map((c) => {
-            const userLabel = String(compassInfoLabels[c.id] ?? '').trim();
-            return userLabel ? { ...c, label: userLabel } : c;
+    function isSpokeCode(value: string): boolean {
+        const normalized = value === 'E+' ? 'E_next' : value;
+        return SPOKES_ORDER.includes(normalized as any);
+    }
+
+    function groupFromNodeTag(tag: string): OrbitNodeGroup {
+        return groupFromSpecTag(tag) ?? 'regular';
+    }
+
+    type NodeTechEntry = {
+        label: string;
+        code: string;
+        group: OrbitNodeGroup;
+        sourceWheel: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
+    };
+
+    function entryTsFromNode(node: OrbitNodeUi, entry: NodeTechEntry): number {
+        const fallbackTs = Number.isFinite(node.ts) ? node.ts : NaN;
+        const picks = Array.isArray(node.tip.pickTsList)
+            ? node.tip.pickTsList.filter((x): x is number => Number.isFinite(x)).sort((a, b) => a - b)
+            : [];
+        if (picks.length < 2) return fallbackTs;
+        if (entry.code === 'E') return picks[0];
+        if (entry.code === 'E_next') return picks[picks.length - 1];
+        return fallbackTs;
+    }
+
+    function nodeTechEntries(node: OrbitNodeUi): NodeTechEntry[] {
+        const tags = nodeTagsOf(node);
+        const out: NodeTechEntry[] = [];
+        const seen = new Set<string>();
+
+        for (const rawTag of tags) {
+            const tag = String(rawTag ?? '').trim();
+            const dashAt = tag.lastIndexOf('-');
+            if (dashAt <= 0 || dashAt >= tag.length - 1) continue;
+
+            const spokeRaw = tag.slice(0, dashAt);
+            const source = tag.slice(dashAt + 1).toLowerCase();
+            const spokeCode = spokeRaw === 'E+' ? 'E_next' : spokeRaw;
+            if (!isSpokeCode(spokeCode)) continue;
+
+            const group = groupFromNodeTag(tag);
+
+            const label = formatLabelTitleCaseUi(`${spokeCode}-${source}`);
+            const key = `${label}|${group}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            out.push({ label, code: spokeCode, group, sourceWheel: source as 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal' });
+        }
+
+        if (out.length) return out;
+        const group = pinnedGroupFromNode(node);
+        const fallbackSource = node.sourceWheel;
+        if (fallbackSource !== 'compass' && fallbackSource !== 'horizon' && fallbackSource !== 'synod' && fallbackSource !== 'bind' && fallbackSource !== 'nodal') {
+            return [];
+        }
+        return [{
+            label: nodeTechTag(node),
+            code: node.code === 'E+' ? 'E_next' : node.code,
+            group,
+            sourceWheel: fallbackSource
+        }];
+    }
+
+    function applyMainCycleWindow<T extends CompassPinnedRawRow>(rows: T[], nowTs: number): T[] {
+        const mainCycle = mainCycleSourceForActiveWheel();
+        if (!mainCycle) return rows.slice().sort((a, b) => a.ts - b.ts);
+
+        const sorted = rows
+            .filter((row) => Number.isFinite(row.ts))
+            .slice()
+            .sort((a, b) => a.ts - b.ts);
+        if (!sorted.length) return [];
+
+        const starts = sorted.filter((row) => row.sourceWheel === mainCycle && row.code === 'E');
+        const ends = sorted.filter((row) => row.sourceWheel === mainCycle && row.code === 'E_next');
+        if (!starts.length || !ends.length) return sorted;
+
+        let best: { start: T; end: T } | null = null;
+        let bestInside = Number.POSITIVE_INFINITY;
+        let bestDist = Number.POSITIVE_INFINITY;
+        let bestSpan = Number.POSITIVE_INFINITY;
+
+        for (const start of starts) {
+            const end = ends.find((candidate) => candidate.ts > start.ts);
+            if (!end) continue;
+            const insidePenalty = (start.ts <= nowTs && nowTs < end.ts) ? 0 : 1;
+            const distPenalty = insidePenalty === 0
+                ? Math.abs(nowTs - start.ts)
+                : Math.min(Math.abs(nowTs - start.ts), Math.abs(nowTs - end.ts));
+            const span = end.ts - start.ts;
+            if (
+                insidePenalty < bestInside ||
+                (insidePenalty === bestInside && distPenalty < bestDist) ||
+                (insidePenalty === bestInside && distPenalty === bestDist && span < bestSpan)
+            ) {
+                best = { start, end };
+                bestInside = insidePenalty;
+                bestDist = distPenalty;
+                bestSpan = span;
+            }
+        }
+
+        if (!best) return sorted;
+
+        const inWindow = sorted.filter((row) => row.ts >= best.start.ts && row.ts <= best.end.ts);
+        const startKey = `${best.start.techName}:${best.start.ts}:${best.start.sourceWheel}`;
+        const endKey = `${best.end.techName}:${best.end.ts}:${best.end.sourceWheel}`;
+        const keyed = new Set(inWindow.map((row) => `${row.techName}:${row.ts}:${row.sourceWheel}`));
+        if (!keyed.has(startKey)) inWindow.unshift(best.start);
+        if (!keyed.has(endKey)) inWindow.push(best.end);
+
+        return inWindow.sort((a, b) => {
+            if (a.ts !== b.ts) return a.ts - b.ts;
+            const aStart = a.sourceWheel === mainCycle && a.code === 'E';
+            const bStart = b.sourceWheel === mainCycle && b.code === 'E';
+            if (aStart !== bStart) return aStart ? -1 : 1;
+            const aEnd = a.sourceWheel === mainCycle && a.code === 'E_next';
+            const bEnd = b.sourceWheel === mainCycle && b.code === 'E_next';
+            if (aEnd !== bEnd) return aEnd ? 1 : -1;
+            return a.techName.localeCompare(b.techName);
         });
-    $: compassAllChipsForEditor = compassInfoChipsOrderedAll.map((c) => ({
-        id: c.id,
-        systemLabel: c.label ?? c.id,
-        value: c.value ?? '—',
-        selected: compassSelectedSet.has(c.id),
-        userLabel: compassInfoLabels[c.id] ?? '',
-        isDefault: true
-    }));
+    }
+
+    function isMainCycleBoundaryRow(row: { sourceWheel: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal'; code: string }): boolean {
+        const mainCycle = mainCycleSourceForActiveWheel();
+        if (!mainCycle) return false;
+        if (row.sourceWheel !== mainCycle) return false;
+        return row.code === 'E' || row.code === 'E_next';
+    }
+
+    function buildPinnedNodeDefs(): CompassTagDef[] {
+        const byId = new Map<string, { def: CompassTagDef; ts: number }>();
+        for (const node of orbitNodesAll) {
+            for (const entry of nodeTechEntries(node)) {
+                const id = `pinned-node:${tagIdFromLabel(entry.label)}`;
+                const prev = byId.get(id);
+                const ts = Number.isFinite(node.ts) ? node.ts : Number.POSITIVE_INFINITY;
+                if (prev && prev.ts <= ts) continue;
+                byId.set(id, {
+                    ts,
+                    def: {
+                        id,
+                        label: entry.label,
+                        scope: 'pinned',
+                        enabledByDefault: true,
+                        group: entry.group
+                    }
+                });
+            }
+        }
+        return Array.from(byId.values())
+            .sort((a, b) => a.ts - b.ts)
+            .map((x) => x.def);
+    }
+
+    function tagAppliesToCode(def: CompassTagDef, code: string): boolean {
+        if (!def.spokes || def.spokes === '*') return true;
+        return Array.isArray(def.spokes) ? def.spokes.includes(code as any) : true;
+    }
+
+    function tagValueFromMeta(def: CompassTagDef, meta: Record<string, unknown>, code?: string): string | undefined {
+        if (code && !tagAppliesToCode(def, code)) return undefined;
+        if (!def.metaField) return undefined;
+        const rawValue = meta?.[def.metaField];
+        if (def.format) {
+            const formatInput = (typeof rawValue === 'number' || typeof rawValue === 'string' || rawValue == null)
+                ? rawValue
+                : String(rawValue);
+            const formatted = formatInfoValue(def.format, formatInput);
+            return formatted === '—' ? undefined : formatted;
+        }
+        if (rawValue == null) return undefined;
+        const text = String(rawValue).trim();
+        return text || undefined;
+    }
+
+    function dynamicTagValue(def: CompassTagDef, row: CompassBodyRow): string | undefined {
+        if (def.builtin === 'house') return row.house;
+        if (!def.source) return undefined;
+        if (!tagAppliesToCode(def, row.house)) return undefined;
+        if (!def.metaField) return '';
+        const meta = row.infoMeta[def.source] ?? {};
+        return tagValueFromMeta(def, meta, row.house);
+    }
+
+    function chipLabelKey(label: string): string {
+        return String(label ?? '').trim().toLowerCase();
+    }
+
+    function chipHasValue(value: string | undefined): boolean {
+        return typeof value === 'string' && value.trim().length > 0;
+    }
+
+    function groupEnabledByNodeToggles(group: OrbitNodeGroup): boolean {
+        return showOrbitNodesAny && isOrbitNodeGroupVisible(group);
+    }
+
+    function pinnedGroupFromNode(node: OrbitNodeUi): OrbitNodeGroup {
+        return orbitNodeGroup(node);
+    }
+
+    $: compassTagDefs = (() => {
+        const activeSources = activeSourcesForWheelType(wheel?.wheelType);
+        const dynamicDefs = dedupeTagDefsByLabel(activeSources.flatMap((source) => buildSourceTagDefs('dynamic', source)))
+            .map((def) => ({
+                ...def,
+                id: `dynamic:${tagIdFromLabel(def.label)}`
+            }));
+        const pinnedDefs = buildPinnedNodeDefs();
+        return [
+            { id: 'dynamic:house', label: 'House', scope: 'dynamic', enabledByDefault: true, modal: 'Nearest wheel sector for this body.', builtin: 'house' },
+            ...dynamicDefs,
+            ...pinnedDefs
+        ] satisfies CompassTagDef[];
+    })();
+    $: compassTagDefById = new Map(compassTagDefs.map((d) => [d.id, d]));
+
+    $: defaultCompassInfoConfig = {
+        general: { enabled: false, tags: [] },
+        dynamic: {
+            enabled: true,
+            tags: compassTagDefs
+                .filter((d) => d.scope === 'dynamic')
+                .map((d) => ({ id: d.id, enabled: d.enabledByDefault, modal: d.modal }))
+        },
+        pinned: {
+            enabled: true,
+            groups: defaultCompassGroups(),
+            tags: compassTagDefs
+                .filter((d) => d.scope === 'pinned')
+                .map((d) => ({ id: d.id, enabled: d.enabledByDefault, modal: d.modal }))
+        }
+    } satisfies CompassInfoConfig;
+
+    $: if (wheelId && wheelId !== compassInfoConfigWheelId) {
+        compassInfoConfigWheelId = wheelId;
+        compassInfoConfigInitialized = false;
+    }
+
+    $: compassInfoConfig = normalizeCompassInfoConfig(defaultCompassInfoConfig, wheel?.view?.compassInfoConfig ?? null);
+    $: compassDynamicDisabledIds = new Set(
+        compassInfoConfig.dynamic.tags
+            .filter((t) => t.enabled === false)
+            .map((t) => t.id)
+    );
+    $: if (!compassInfoConfigInitialized && wheelId && wheel?.view && !wheel.view.compassInfoConfig) {
+        compassInfoConfigInitialized = true;
+        applyCompassInfoConfig(defaultCompassInfoConfig);
+    }
+
+    $: compassGeneralChips = (() => {
+        if (!compassInfoConfig.general.enabled) return [];
+        return compassInfoConfig.general.tags
+            .filter((t) => t.enabled !== false)
+            .map((t) => ({
+                id: t.id,
+                label: (t.label && t.label.trim()) ? t.label.trim() : uiLabel(t.id),
+                value: (t.value && t.value.trim()) ? t.value.trim() : '—',
+                modal: (t.modal && t.modal.trim()) ? t.modal.trim() : undefined
+            }));
+    })();
+
+    $: compassDynamicRows = (() => {
+        const out: CompassDynamicRow[] = [];
+        if (!compassInfoConfig.dynamic.enabled) return out;
+        for (const b of allBodies) {
+            const items: CompassInfoChip[] = [];
+            const itemIdxByLabel = new Map<string, number>();
+            for (const tag of compassInfoConfig.dynamic.tags) {
+                if (tag.enabled === false) continue;
+                const def = compassTagDefById.get(tag.id);
+                if (!def || def.scope !== 'dynamic') continue;
+                const value = dynamicTagValue(def, b);
+                if (!def.builtin && value == null) continue;
+                const chip: CompassInfoChip = {
+                    id: def.id,
+                    label: (tag.label && tag.label.trim()) ? tag.label.trim() : def.label,
+                    value,
+                    modal: (tag.modal && tag.modal.trim()) ? tag.modal.trim() : def.modal
+                };
+
+                const key = chipLabelKey(chip.label);
+                const hitIdx = itemIdxByLabel.get(key);
+                if (hitIdx == null) {
+                    itemIdxByLabel.set(key, items.length);
+                    items.push(chip);
+                    continue;
+                }
+
+                const prev = items[hitIdx];
+                if (!chipHasValue(prev.value) && chipHasValue(chip.value)) {
+                    items[hitIdx] = chip;
+                }
+            }
+            out.push({
+                id: b.id,
+                emoji: b.emoji,
+                name: b.name,
+                pinned: pinnedBodyId === b.id,
+                items
+            });
+        }
+        return out;
+    })();
+
+    $: compassPinnedRows = (() => {
+        const out: CompassPinnedInfoRow[] = [];
+        if (!pinnedBodyId || !compassInfoConfig.pinned.enabled) return out;
+        const nodeToggles = [
+            showOrbitNodesAny,
+            orbitNodeGroupVisible.regular,
+            orbitNodeGroupVisible.compass,
+            orbitNodeGroupVisible.horizon,
+            orbitNodeGroupVisible.nodal,
+            orbitNodeGroupVisible.synod,
+            orbitNodeGroupVisible.bind
+        ];
+        void nodeToggles;
+
+        const pinnedTarget = lastTargets.find((t) => t.id === pinnedBodyId) ?? null;
+        const pinnedBodyXY = pinnedTarget
+            ? polarToXY(orbitToRadiusVB(pinnedTarget.orbit), pinnedTarget.angleDeg)
+            : null;
+        const overlappedNodeKeys = new Set(
+            orbitNodesAll
+                .filter((n) => n.bodyId === pinnedBodyId)
+                .filter((n) => {
+                    if (!pinnedBodyXY) return false;
+                    const dx = n.x - pinnedBodyXY.x;
+                    const dy = n.y - pinnedBodyXY.y;
+                    return Math.hypot(dx, dy) <= BODY_MARKER_HIDE_RADIUS_VB;
+                })
+                .map((n) => n.key)
+        );
+
+        const rawRows: Array<CompassPinnedRawRow & { disabled: boolean }> = orbitNodesAll
+            .filter((n) => n.bodyId === pinnedBodyId)
+            .flatMap((n) => {
+                const disabled = overlappedNodeKeys.has(n.key);
+                return nodeTechEntries(n).map((entry) => ({
+                    id: `${n.key}:${entry.label}`,
+                    bodyId: n.bodyId,
+                    ts: entryTsFromNode(n, entry),
+                    source: entry.group,
+                    code: entry.code,
+                    techName: entry.label,
+                    sourceWheel: entry.sourceWheel,
+                    disabled
+                }));
+            })
+            .filter((row) => {
+                if (isMainCycleBoundaryRow(row)) return true;
+                const groupEnabled = compassInfoConfig.pinned.groups[row.source] !== false;
+                return groupEnabled && groupEnabledByNodeToggles(row.source);
+            })
+            .sort((a, b) => a.ts - b.ts);
+        const windowRows = applyMainCycleWindow(rawRows, effTs);
+        const body = allBodies.find((b) => b.id === pinnedBodyId);
+        const nodeDefs = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
+        const nodes: CompassPinnedInfoRow['nodes'] = windowRows
+            .flatMap((row) => {
+                const id = `pinned-node:${tagIdFromLabel(row.techName)}`;
+                const cfg = nodeDefs.get(id);
+                if (cfg && cfg.enabled === false) return [];
+                const label = (cfg?.label && cfg.label.trim()) ? cfg.label.trim() : row.techName;
+                return [{
+                    id,
+                    label,
+                    ts: row.ts,
+                    code: row.code,
+                    source: row.source,
+                    disabled: row.disabled
+                }];
+            });
+
+        out.push({
+            id: `pinned:${pinnedBodyId}`,
+            bodyId: pinnedBodyId,
+            emoji: body?.emoji ?? '•',
+            name: body?.name ?? String(pinnedBodyId),
+            nodes
+        });
+        return out;
+    })();
 </script>
 
 <section class="panel">
@@ -1766,7 +2454,7 @@
                         {#each orbitNodesVisible as n (n.key)}
                             {#if n.bodyId === pinnedBodyId}
                                 <circle
-                                        class={`orbitNode ${orbitNodeTagClassList(n)}`}
+                                        class={`orbitNode ${orbitNodeTagClassList(n)} ${orbitNodeGroupClass(n)}`}
                                         class:dim={!n.visible}
                                         class:pinnedNode={pinnedBodyId === n.bodyId}
                                         data-marker="1"
@@ -1895,8 +2583,8 @@
                                 class="nodeToggle navBtn nodeAll"
                                 class:off={!showOrbitNodesAny}
                                 type="button"
-                                title={showOrbitNodesAny ? 'Hide all nodes (except cycle boundary)' : 'Show nodes'}
-                                aria-label={showOrbitNodesAny ? 'Hide all nodes (except cycle boundary)' : 'Show nodes'}
+                                title={showOrbitNodesAny ? 'Hide all nodes (except main cycle E/E+)' : 'Show nodes'}
+                                aria-label={showOrbitNodesAny ? 'Hide all nodes (except main cycle E/E+)' : 'Show nodes'}
                                 aria-pressed={showOrbitNodesAny}
                                 on:click|stopPropagation={toggleOrbitNodesAny}
                         >
@@ -1909,74 +2597,85 @@
                     {#if wheel?.wheelType === 'compass'}
                         <div class="nodeNav nodeNavCompass">
                             <button
-                                    class="nodeToggle navBtn nodeSeam"
-                                    class:off={!showOrbitNodesSeam}
+                                    class="nodeToggle navBtn nodeHorizon"
+                                    class:off={!orbitNodeGroupVisible.horizon}
                                     type="button"
                                     title="Toggle horizon nodes"
                                     aria-label="Toggle horizon nodes"
-                                    aria-pressed={showOrbitNodesSeam}
-                                    on:click|stopPropagation={toggleOrbitNodesSeam}
+                                    aria-pressed={orbitNodeGroupVisible.horizon}
+                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('horizon')}
                             >
                                 H
                             </button>
                             <button
+                                    class="nodeToggle navBtn nodeCompass"
+                                    class:off={!orbitNodeGroupVisible.compass}
+                                    type="button"
+                                    title="Toggle compass nodes"
+                                    aria-label="Toggle compass nodes"
+                                    aria-pressed={orbitNodeGroupVisible.compass}
+                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('compass')}
+                            >
+                                C
+                            </button>
+                            <button
                                     class="nodeToggle navBtn nodeRegular"
-                                    class:off={!showOrbitNodesRegular}
+                                    class:off={!orbitNodeGroupVisible.regular}
                                     type="button"
                                     title="Toggle regular nodes"
                                     aria-label="Toggle regular nodes"
-                                    aria-pressed={showOrbitNodesRegular}
-                                    on:click|stopPropagation={toggleOrbitNodesRegular}
+                                    aria-pressed={orbitNodeGroupVisible.regular}
+                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('regular')}
                             >
-                                •
+                                .
                             </button>
                         </div>
                     {:else}
                         <div class="nodeNav">
-                            {#if hasPinnedSeamNodes}
+                            {#if hasPinnedNodalNodes}
                                 <button
-                                        class="nodeToggle navBtn nodeSeam"
-                                        class:off={!showOrbitNodesSeam}
+                                        class="nodeToggle navBtn nodeNodal"
+                                        class:off={!orbitNodeGroupVisible.nodal}
                                         type="button"
                                         title="Toggle nodals"
                                         aria-label="Toggle nodals"
-                                        aria-pressed={showOrbitNodesSeam}
-                                        on:click|stopPropagation={toggleOrbitNodesSeam}
+                                        aria-pressed={orbitNodeGroupVisible.nodal}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('nodal')}
                                 >
                                     N
                                 </button>
                             {/if}
                             <button
                                     class="nodeToggle navBtn nodeRegular"
-                                    class:off={!showOrbitNodesRegular}
+                                    class:off={!orbitNodeGroupVisible.regular}
                                     type="button"
                                     title="Toggle regular nodes"
                                     aria-label="Toggle regular nodes"
-                                    aria-pressed={showOrbitNodesRegular}
-                                    on:click|stopPropagation={toggleOrbitNodesRegular}
+                                    aria-pressed={orbitNodeGroupVisible.regular}
+                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('regular')}
                             >
-                                •
+                                .
                             </button>
                             {#if wheel?.wheelType === 'system'}
                                 <button
                                         class="nodeToggle navBtn nodeSynod"
-                                        class:off={!showOrbitNodesSynod}
+                                        class:off={!orbitNodeGroupVisible.synod}
                                         type="button"
                                         title="Toggle synod nodes"
                                         aria-label="Toggle synod nodes"
-                                        aria-pressed={showOrbitNodesSynod}
-                                        on:click|stopPropagation={toggleOrbitNodesSynod}
+                                        aria-pressed={orbitNodeGroupVisible.synod}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('synod')}
                                 >
                                     S
                                 </button>
                                 <button
                                         class="nodeToggle navBtn nodeBind"
-                                        class:off={!showOrbitNodesBind}
+                                        class:off={!orbitNodeGroupVisible.bind}
                                         type="button"
                                         title="Toggle bind nodes"
                                         aria-label="Toggle bind nodes"
-                                        aria-pressed={showOrbitNodesBind}
-                                        on:click|stopPropagation={toggleOrbitNodesBind}
+                                        aria-pressed={orbitNodeGroupVisible.bind}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('bind')}
                                 >
                                     B
                                 </button>
@@ -1993,6 +2692,8 @@
                         cluster={$tipState.cluster}
                         moment={$tipState.moment}
                         allBodies={allBodies}
+                        dynamicRows={compassDynamicRows}
+                        dynamicDisabledIds={compassDynamicDisabledIds}
                         pinnedBodyId={pinnedBodyId}
                         onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}
@@ -2021,12 +2722,14 @@
     {#if showInfoSection}
         <div transition:slide|local>
             <CompassInfoBlock
-                    chips={compassInfoChips}
-                    allChips={compassAllChipsForEditor}
-                    onChipClick={handleCompassInfoRowPick}
-                    onReorder={handleCompassChipReorder}
-                    onConfigure={handleCompassChipConfigure}
-                    reorderEnabled={true}
+                    config={compassInfoConfig}
+                    tagDefs={compassTagDefs}
+                    generalChips={compassGeneralChips}
+                    dynamicRows={compassDynamicRows}
+                    pinnedRows={compassPinnedRows}
+                    onBodyPick={handleCompassBodyPick}
+                    onPinnedPick={handleCompassPinnedPick}
+                    onConfigure={applyCompassInfoConfig}
             />
         </div>
     {/if}
@@ -2330,7 +3033,13 @@
     .nodeToggle.nodeRegular {
         color: color-mix(in oklab, var(--fg), white 8%);
     }
-    .nodeToggle.nodeSeam {
+    .nodeToggle.nodeCompass {
+        color: color-mix(in oklab, #ff9f40, white 8%);
+    }
+    .nodeToggle.nodeHorizon {
+        color: color-mix(in oklab, #ff5a6e, white 8%);
+    }
+    .nodeToggle.nodeNodal {
         color: color-mix(in oklab, #ff5a6e, white 8%);
     }
     .nodeToggle.nodeSynod {
@@ -2383,6 +3092,23 @@
         stroke-width: 1.7;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
+    .orbitNode.grp-compass {
+        fill: color-mix(in oklab, #ff9f40, white 16%);
+        stroke: color-mix(in oklab, #ff9f40, black 36%);
+    }
+    .orbitNode.grp-horizon,
+    .orbitNode.grp-nodal {
+        fill: color-mix(in oklab, #ff5a6e, white 16%);
+        stroke: color-mix(in oklab, #ff5a6e, black 36%);
+    }
+    .orbitNode.grp-synod {
+        fill: color-mix(in oklab, #b991ff, white 18%);
+        stroke: color-mix(in oklab, #b991ff, black 35%);
+    }
+    .orbitNode.grp-bind {
+        fill: color-mix(in oklab, #40a8ff, white 22%);
+        stroke: color-mix(in oklab, #40a8ff, black 35%);
+    }
     /*noinspection CssUnusedSymbol*/
     .orbitNode.tg-max-distance {
         fill: color-mix(in oklab, #40a8ff, white 22%);
@@ -2419,10 +3145,30 @@
     .orbitNode.tg-w-nodal,
     .orbitNode.tg-n-nodal,
     .orbitNode.tg-s-nodal,
+    .orbitNode.tg-e-compass,
+    .orbitNode.tg-e-next-compass,
+    .orbitNode.tg-w-compass,
+    .orbitNode.tg-n-compass,
+    .orbitNode.tg-s-compass,
     .orbitNode.tg-e-horizon,
+    .orbitNode.tg-e-next-horizon,
     .orbitNode.tg-w-horizon,
     .orbitNode.tg-n-horizon,
     .orbitNode.tg-s-horizon {
+        fill: color-mix(in oklab, #ff9f40, white 16%);
+        stroke: color-mix(in oklab, #ff9f40, black 36%);
+    }
+    /*noinspection CssUnusedSymbol*/
+    .orbitNode.tg-e-horizon,
+    .orbitNode.tg-e-next-horizon,
+    .orbitNode.tg-w-horizon,
+    .orbitNode.tg-n-horizon,
+    .orbitNode.tg-s-horizon,
+    .orbitNode.tg-e-nodal,
+    .orbitNode.tg-e-next-nodal,
+    .orbitNode.tg-w-nodal,
+    .orbitNode.tg-n-nodal,
+    .orbitNode.tg-s-nodal {
         fill: color-mix(in oklab, #ff5a6e, white 16%);
         stroke: color-mix(in oklab, #ff5a6e, black 36%);
     }

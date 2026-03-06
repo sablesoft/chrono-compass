@@ -165,8 +165,10 @@ export type EmojiPlacementInput = EmojiPlacement | readonly EmojiPlacement[];
 
 export type WheelUI<RS> = Partial<Record<keyof RS & RoleName, EmojiPlacementInput>>;
 
-export type WheelNodeGroup = 'synod' | 'bind' | 'seam' | 'boundary';
+export type WheelNodeGroup = 'synod' | 'bind' | 'horizon' | 'nodal' | 'compass';
 export type WheelNodeGroups = Partial<Record<WheelNodeGroup, string[]>>;
+export type CompassMainCycle = 'horizon';
+export type SystemMainCycle = 'synod' | 'bind' | 'nodal';
 
 /* =============================================================================
    Role values/selects
@@ -220,10 +222,12 @@ type WheelSpecBase<TType extends WheelType, RS, MT extends boolean = false> = {
 
 type CompassWheelSpec = WheelSpecBase<'compass', CompassRoleSet, true> & {
     nodes?: WheelNodeGroups;
+    mainCycle: CompassMainCycle;
 };
 
 type SystemWheelSpec = WheelSpecBase<'system', SystemRoleSet, true> & {
     nodes?: WheelNodeGroups;
+    mainCycle: SystemMainCycle;
 };
 
 /* =============================================================================
