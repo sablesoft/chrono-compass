@@ -98,14 +98,16 @@ function loadProfilesState(): ProfilesState | null {
 function saveProfilesState(state: ProfilesState) {
     dbg.group('storage.saveProfilesState', () => {
         try {
+            const persistedProfiles = state.profiles.filter((p) => !p.system);
             dbg.log('storage.save.in', {
                 profiles: state.profiles.length,
+                persistedProfiles: persistedProfiles.length,
                 activeId: state.activeId
             });
 
             localStorage.setItem(
                 KEY,
-                JSON.stringify({ profiles: state.profiles, activeId: state.activeId })
+                JSON.stringify({ profiles: persistedProfiles, activeId: state.activeId })
             );
 
             localStorage.setItem(ACTIVE_KEY, state.activeId ?? '');
@@ -134,14 +136,15 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
             const system = !!(p as any)?.system;
             const locked = system ? true : !!(p as any)?.locked;
             return {
-            ...p,
-            system,
-            locked,
-            data: {
-                ...emptyProfileData(),
-                ...(p?.data ?? {})
-            }
-        };});
+                ...p,
+                system,
+                locked,
+                data: {
+                    ...emptyProfileData(),
+                    ...(p?.data ?? {})
+                }
+            };
+        });
 
         const hasDefault = normalizedProfiles.some(p => p?.id === def.id);
         const profiles = hasDefault ? normalizedProfiles : [def, ...normalizedProfiles];
@@ -451,6 +454,7 @@ export const profilesApi = {
                 const t = now();
                 const profiles = s.profiles.map((p) => {
                     if (p.id !== prevActiveId) return p;
+                    if (p.system) return p;
                     return {
                         ...p,
                         updatedAt: t,
@@ -508,6 +512,11 @@ export const profilesApi = {
                 dbg.warn('api.renameProfile.skip default');
                 return;
             }
+            const current = get(profilesState).profiles.find((p) => p.id === id) ?? null;
+            if (current?.system) {
+                dbg.warn('api.renameProfile.skip system', { id });
+                return;
+            }
             const nextTitle = title?.trim();
             if (!nextTitle) {
                 dbg.warn('api.renameProfile.skip empty title');
@@ -554,6 +563,9 @@ export const profilesApi = {
 
                 if (idx >= 0) {
                     const prev = s.profiles[idx];
+                    if (prev.system) {
+                        outId = uid('profile');
+                    } else {
                     const nextTitle = prev.id === 'default' ? prev.title : title;
                     const nextData: ProfileData = {
                         ...prev.data,
@@ -580,6 +592,7 @@ export const profilesApi = {
                         board: board.length
                     });
                     return { ...s, profiles };
+                    }
                 }
 
                 const created: Profile = {
@@ -609,7 +622,7 @@ export const profilesApi = {
         });
     },
 
-    upsertProfileFromImport(input: any): ProfileId | null {
+    upsertProfileFromImport(input: any, opts?: { applyLocations?: boolean; forceSystem?: boolean }): ProfileId | null {
         return dbg.group('api.upsertProfileFromImport', () => {
             const src = input?.profile ?? input;
             const id = typeof src?.id === 'string' ? src.id.trim() : '';
@@ -632,7 +645,7 @@ export const profilesApi = {
                 wheels
             );
 
-            const importedSystem = !!src?.system;
+            const importedSystem = opts?.forceSystem ? true : !!src?.system;
             const imported: Profile = {
                 id,
                 title,
@@ -661,7 +674,9 @@ export const profilesApi = {
                 return { ...s, profiles: [...s.profiles, imported] };
             });
 
-            applyGlobalLocations(locations);
+            if (opts?.applyLocations !== false) {
+                applyGlobalLocations(locations);
+            }
             if (activeBefore === id) loadBoardForProfile(id);
 
             return id;
@@ -672,6 +687,11 @@ export const profilesApi = {
         dbg.group('api.deleteProfile', () => {
             if (id === 'default') {
                 dbg.warn('api.deleteProfile.skip default');
+                return;
+            }
+            const current = get(profilesState).profiles.find((p) => p.id === id) ?? null;
+            if (current?.system) {
+                dbg.warn('api.deleteProfile.skip system', { id });
                 return;
             }
 
@@ -715,6 +735,10 @@ export const profilesApi = {
     }): string {
         return dbg.group('api.saveWheel', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.saveWheel.skip system', { profileId: ap.id });
+                return '';
+            }
             const observer = input.observer ?? DEFAULT_OBSERVER;
             const time = input.time ?? DEFAULT_TIME;
 
@@ -775,6 +799,10 @@ export const profilesApi = {
     deleteWheel(dedupKey: string) {
         dbg.group('api.deleteWheel', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.deleteWheel.skip system', { profileId: ap.id, dedupKey });
+                return;
+            }
             const t = now();
 
             updateProfile(ap.id, (p) => {
@@ -797,6 +825,10 @@ export const profilesApi = {
     setWheelFavorite(dedupKey: string, favorite: boolean) {
         dbg.group('api.setWheelFavorite', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.setWheelFavorite.skip system', { profileId: ap.id, dedupKey });
+                return;
+            }
             const t = now();
 
             updateProfile(ap.id, (p) => {
@@ -851,6 +883,10 @@ export const profilesApi = {
     saveBoardToActiveProfile(): void {
         dbg.group('api.saveBoardToActiveProfile', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.saveBoardToActiveProfile.skip system', { profileId: ap.id });
+                return;
+            }
             const t = now();
 
             const board = snapshotCurrentBoard();
@@ -881,6 +917,10 @@ export const profilesApi = {
     setBodyOverride(bodyId: ObjId, patch: { name?: { en?: string }; emoji?: string }) {
         dbg.group('api.setBodyOverride', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.setBodyOverride.skip system', { profileId: ap.id, bodyId });
+                return;
+            }
             const t = now();
 
             dbg.log('api.setBodyOverride.in', { profileId: ap.id, bodyId, patch });
@@ -897,6 +937,10 @@ export const profilesApi = {
     clearBodyOverride(bodyId: ObjId) {
         dbg.group('api.clearBodyOverride', () => {
             const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.clearBodyOverride.skip system', { profileId: ap.id, bodyId });
+                return;
+            }
             const t = now();
 
             updateProfile(ap.id, (p) => {
@@ -910,6 +954,58 @@ export const profilesApi = {
                 return { ...p, updatedAt: t, data: { ...p.data, bodies } };
             });
         });
+    },
+
+    async loadSystemProfilesFromPublic(indexUrl = '/demo-profiles/index.json'): Promise<void> {
+        const loadOne = async (url: string) => {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`Failed to load ${url}: ${res.status}`);
+            const json = await res.json();
+            profilesApi.upsertProfileFromImport(json, { applyLocations: false, forceSystem: true });
+        };
+        const toAbsoluteUrl = (entryUrl: string): string => {
+            const v = String(entryUrl || '').trim();
+            if (!v) return '';
+            if (/^(https?:)?\/\//i.test(v)) return v;
+            if (v.startsWith('/')) return v;
+            try {
+                const abs = new URL(v, new URL(indexUrl, window.location.origin));
+                return abs.pathname + abs.search + abs.hash;
+            } catch {
+                return v;
+            }
+        };
+
+        try {
+            const res = await fetch(indexUrl, { cache: 'no-store' });
+            if (!res.ok) {
+                dbg.warn('api.loadSystemProfilesFromPublic.skip index', { indexUrl, status: res.status });
+                return;
+            }
+            const indexJson = await res.json();
+            const entriesRaw = Array.isArray(indexJson)
+                ? indexJson
+                : (Array.isArray(indexJson?.profiles) ? indexJson.profiles : []);
+
+            const urls = entriesRaw
+                .map((entry: any) => {
+                    if (typeof entry === 'string') return entry.trim();
+                    if (entry && typeof entry.url === 'string') return entry.url.trim();
+                    return '';
+                })
+                .map((x: string) => toAbsoluteUrl(x))
+                .filter((x: string) => !!x);
+
+            for (const url of urls) {
+                try {
+                    await loadOne(url);
+                } catch (err) {
+                    dbg.warn('api.loadSystemProfilesFromPublic.entry.fail', { url, err });
+                }
+            }
+        } catch (err) {
+            dbg.warn('api.loadSystemProfilesFromPublic.fail', { indexUrl, err });
+        }
     }
 };
 
@@ -940,6 +1036,10 @@ function normalizeFavorites(favorites: string[], wheels: SavedWheel[]): string[]
     const s = get(profilesState);
     const activeId = s.activeId ?? 'default';
     const p = s.profiles.find((x) => x.id === activeId) ?? null;
+    if (p?.system) {
+        dbg.log('startup.board.skipSystemProfile', { activeId });
+        return;
+    }
     const hasSnapshot = !!(p?.data?.wheelsOnScreen?.length);
     const boardCount = boardApi.getItems().length;
 
@@ -970,6 +1070,7 @@ boardState.subscribe(() => {
     const activeId = s.activeId ?? 'default';
     const active = s.profiles.find((x) => x.id === activeId) ?? null;
     if (!active) return;
+    if (active.system) return;
 
     const nextBoard = snapshotCurrentBoard();
     const nextSig = boardSnapshotSignature(nextBoard);

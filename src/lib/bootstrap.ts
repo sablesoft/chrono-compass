@@ -13,11 +13,13 @@ import { solvePlatoWheel } from './math/plato';
 import type { WheelRegistryEntry } from './board/registry';
 import { initLocation } from './location/store';
 import { initCycleCacheStorage } from './cycle/store';
+import { profilesApi } from './profile/store';
 
 export async function bootstrap() {
     await initCycleCacheStorage();
     registerWheels();
     await initLocation();
+    await profilesApi.loadSystemProfilesFromPublic();
 }
 
 function registerWheels() {
