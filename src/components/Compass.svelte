@@ -1363,10 +1363,14 @@
                 ].filter((x) => !!x);
                 const metaText = metaParts.join(' • ');
                 const uiCode = formatSpokeCodeUi(p.code);
+                const infoCopyParts = infoItems.map((item) =>
+                    item.value ? `${item.label} - ${item.value}` : item.label
+                );
                 const copyParts = [
                     `${emoji} ${name} orbit node (${uiCode})`,
                     ...metaParts,
-                    ...(Array.isArray(p.tags) ? p.tags.map((t) => `Tag ${formatSpokeTextUi(t)}`) : []),
+                    ...infoCopyParts,
+                    ...pointTechTags.map((tag) => `Node ${tag}`),
                     `ts ${Math.round(p.ts)}`
                 ];
                 const keyTags = pointTags.length ? pointTags.join(',') : 'no-tags';
