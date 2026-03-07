@@ -330,10 +330,13 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
     const mainStartTag = `E-${mainCycle}`;
     const mainEndTag = `E_next-${mainCycle}`;
 
-    const pointGroup = (x: CompassTrackPoint): 'main' | 'seam' | 'regular' => {
+    const compassNodeTags = Array.isArray(compassSpec.nodes?.compass) ? compassSpec.nodes.compass : [];
+    const horizonNodeTags = Array.isArray(compassSpec.nodes?.horizon) ? compassSpec.nodes.horizon : [];
+    const pointGroup = (x: CompassTrackPoint): 'main' | 'compass' | 'horizon' | 'regular' => {
         const tags = Array.isArray(x.tags) ? x.tags : [];
         if (tags.includes(mainStartTag) || tags.includes(mainEndTag)) return 'main';
-        if (tags.includes('N-horizon') || tags.includes('W-horizon') || tags.includes('S-horizon')) return 'seam';
+        if (compassNodeTags.some((tag) => tags.includes(tag))) return 'compass';
+        if (horizonNodeTags.some((tag) => tags.includes(tag))) return 'horizon';
         return 'regular';
     };
 
