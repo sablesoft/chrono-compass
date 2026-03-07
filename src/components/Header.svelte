@@ -3,6 +3,7 @@
     import logo from '../assets/logo-transparent-512.svg?raw';
 
     import LocationPicker from './LocationPicker.svelte';
+    import ProfilePicker from './ProfilePicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
@@ -26,6 +27,9 @@
 <header class="bar">
     <div class="logo">{@html logo}</div>
     <div class="title">Chrono Compass</div>
+    <div class="slot profile">
+        <ProfilePicker />
+    </div>
     <div class="slot time">
         <TimePicker />
     </div>
@@ -93,8 +97,8 @@
 
     .title {
         margin: 0 10px 5px 0;
-        font-size: 34px;
-        font-weight: 850;
+        font-size: 26px;
+        font-weight: 800;
         opacity: .95;
     }
 

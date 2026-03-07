@@ -179,9 +179,7 @@
             <div class="modalBody">
                 <div class="row">
                     <label class="lbl" for={idProfile}>Profile</label>
-                    <select id={idProfile} class="sel" disabled>
-                        <option value="active">{activeProfileTitle}</option>
-                    </select>
+                    <div id={idProfile} class="plainValue" aria-live="polite">{activeProfileTitle}</div>
                 </div>
 
                 <div class="row">
@@ -315,6 +313,16 @@
         padding: 10px 12px;
         font: inherit;
         outline: none;
+    }
+
+    .plainValue {
+        min-height: 38px;
+        display: inline-flex;
+        align-items: center;
+        color: inherit;
+        font: inherit;
+        font-weight: 700;
+        opacity: 0.92;
     }
 
     .savedRow {

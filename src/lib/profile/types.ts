@@ -4,6 +4,7 @@ import type { ObjId } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
 import type { BoardWheel, BoardWheelView } from '../board/types';
+import type { LocationData } from '../location/types';
 
 export type ProfileId = string;
 
@@ -36,6 +37,7 @@ export type ProfileData = {
     wheels: SavedWheel[];
     favorites: string[]; // stores dedupKey values
     bodies: Partial<Record<ObjId, BodyUserOverride>>;
+    locations: LocationData;
 
     /** Сохранённая доска в профиле (снапшот) */
     wheelsOnScreen: BoardWheel[];
