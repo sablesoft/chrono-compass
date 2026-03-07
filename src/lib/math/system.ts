@@ -6,7 +6,7 @@ import type { MarkerItem } from '../wheel/types';
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
 import { resolveWheelMeta } from '../board/registry';
-import { AU_KM, clamp, norm360 } from './helpers';
+import { AU_KM, clamp, norm360, trackInMainCycleWindow } from './helpers';
 import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
@@ -694,54 +694,6 @@ function applySystemBoundaryCycleTags(track: SystemTrackPoint[] | undefined): Sy
     });
 }
 
-function trackInMainCycleWindow(
-    track: SystemTrackPoint[] | undefined,
-    nowTs: number
-): SystemTrackPoint[] | undefined {
-    if (!track?.length) return track;
-    const mainCycle = systemSpec.mainCycle;
-    const startTag = `E-${mainCycle}`;
-    const endTag = `E_next-${mainCycle}`;
-
-    const sorted = track
-        .filter((p) => Number.isFinite(p.ts))
-        .slice()
-        .sort((a, b) => a.ts - b.ts);
-    if (!sorted.length) return [];
-
-    const starts = sorted.filter((p) => Array.isArray(p.tags) && p.tags.includes(startTag));
-    const ends = sorted.filter((p) => Array.isArray(p.tags) && p.tags.includes(endTag));
-    if (!starts.length || !ends.length) return sorted;
-
-    let best: { start: number; end: number } | null = null;
-    let bestInside = Number.POSITIVE_INFINITY;
-    let bestDist = Number.POSITIVE_INFINITY;
-    let bestSpan = Number.POSITIVE_INFINITY;
-
-    for (const start of starts) {
-        const end = ends.find((candidate) => candidate.ts > start.ts);
-        if (!end) continue;
-        const insidePenalty = (start.ts <= nowTs && nowTs < end.ts) ? 0 : 1;
-        const distPenalty = insidePenalty === 0
-            ? Math.abs(nowTs - start.ts)
-            : Math.min(Math.abs(nowTs - start.ts), Math.abs(nowTs - end.ts));
-        const span = end.ts - start.ts;
-        if (
-            insidePenalty < bestInside ||
-            (insidePenalty === bestInside && distPenalty < bestDist) ||
-            (insidePenalty === bestInside && distPenalty === bestDist && span < bestSpan)
-        ) {
-            best = { start: start.ts, end: end.ts };
-            bestInside = insidePenalty;
-            bestDist = distPenalty;
-            bestSpan = span;
-        }
-    }
-
-    if (!best) return sorted;
-    return sorted.filter((p) => p.ts >= best.start && p.ts <= best.end);
-}
-
 function normalizeOrbit(distanceAu: number, maxAu: number): number {
     if (!(distanceAu > 0) || !Number.isFinite(distanceAu)) return 0;
     if (!(maxAu > 0) || !Number.isFinite(maxAu)) return 0;
@@ -800,7 +752,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id);
         const orbitTrackRaw = mergeTrackPointsPreferSynod(denseTrack);
         const orbitTrackTagged = applySystemBoundaryCycleTags(orbitTrackRaw);
-        const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, ts);
+        const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, systemSpec.mainCycle, ts);
 
         return {
             id,

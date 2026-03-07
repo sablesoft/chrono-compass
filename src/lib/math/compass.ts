@@ -5,7 +5,7 @@ import {cycleSpokeTags} from '../catalog/tags';
 import type {MarkerItem} from '../wheel/types'; // если путь у тебя другой — скажи, поправлю
 import type {CompassSolveResult, CycleSpoke, WheelInput} from '../board/runtime';
 import {resolveWheel} from '../board/dispatcher';
-import {toSigned180} from "./helpers";
+import {toSigned180, trackInMainCycleWindow} from "./helpers";
 import {computeHorizonInstant, type HorizonMeta} from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
 
@@ -393,54 +393,6 @@ function applyCompassBoundaryCycleTags(track: CompassTrackPoint[] | undefined): 
     });
 }
 
-function trackInMainCycleWindow(
-    track: CompassTrackPoint[] | undefined,
-    nowTs: number
-): CompassTrackPoint[] | undefined {
-    if (!track?.length) return track;
-    const mainCycle = compassSpec.mainCycle;
-    const startTag = `E-${mainCycle}`;
-    const endTag = `E_next-${mainCycle}`;
-
-    const sorted = track
-        .filter((p) => Number.isFinite(p.ts))
-        .slice()
-        .sort((a, b) => a.ts - b.ts);
-    if (!sorted.length) return [];
-
-    const starts = sorted.filter((p) => Array.isArray(p.tags) && p.tags.includes(startTag));
-    const ends = sorted.filter((p) => Array.isArray(p.tags) && p.tags.includes(endTag));
-    if (!starts.length || !ends.length) return sorted;
-
-    let best: { start: number; end: number } | null = null;
-    let bestInside = Number.POSITIVE_INFINITY;
-    let bestDist = Number.POSITIVE_INFINITY;
-    let bestSpan = Number.POSITIVE_INFINITY;
-
-    for (const start of starts) {
-        const end = ends.find((candidate) => candidate.ts > start.ts);
-        if (!end) continue;
-        const insidePenalty = (start.ts <= nowTs && nowTs < end.ts) ? 0 : 1;
-        const distPenalty = insidePenalty === 0
-            ? Math.abs(nowTs - start.ts)
-            : Math.min(Math.abs(nowTs - start.ts), Math.abs(nowTs - end.ts));
-        const span = end.ts - start.ts;
-        if (
-            insidePenalty < bestInside ||
-            (insidePenalty === bestInside && distPenalty < bestDist) ||
-            (insidePenalty === bestInside && distPenalty === bestDist && span < bestSpan)
-        ) {
-            best = { start: start.ts, end: end.ts };
-            bestInside = insidePenalty;
-            bestDist = distPenalty;
-            bestSpan = span;
-        }
-    }
-
-    if (!best) return sorted;
-    return sorted.filter((p) => p.ts >= best.start && p.ts <= best.end);
-}
-
 export async function solveCompassWheel(input: WheelInput): Promise<CompassSolveResult<CompassTargetState>> {
     const dbg = input.dbg;
 
@@ -492,7 +444,7 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
             });
             const orbitTrackRaw = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
             const orbitTrackTagged = applyCompassBoundaryCycleTags(orbitTrackRaw);
-            const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, ts);
+            const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, compassSpec.mainCycle, ts);
 
             return {
                 id,
