@@ -931,24 +931,31 @@
         return out;
     }
 
-    function handleMarkerPick(ts0: number, bodyId?: ObjId, code?: string) {
+    function handleMarkerPick(
+        ts0: number,
+        bodyId?: ObjId,
+        code?: string,
+        sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal'
+    ) {
         if (!Number.isFinite(ts0)) return;
         onUserActivity();
         const tipMoment = get(tipState).moment;
         const parsed = parseOrbitNodeDesc(tipMoment?.desc);
         const snapBody = bodyId ?? parsed?.bodyId;
         const baseCode = code ?? parsed?.code;
+        const mainCycle = mainCycleSourceForActiveWheel();
 
         const pickTsList = (tipMoment?.pickTsList ?? [])
             .filter((x): x is number => Number.isFinite(x))
             .sort((a, b) => a - b);
         const lastPickTs = pickTsList.length ? pickTsList[pickTsList.length - 1] : NaN;
-        const hasCycleEndTag = Array.isArray(tipMoment?.tags) && tipMoment.tags.includes('cycle end');
+        const hasMainCycleEndTag = !!mainCycle && Array.isArray(tipMoment?.tags) && tipMoment.tags.includes(`E_next-${mainCycle}`);
+        const isMainCycleEndBySource = !!mainCycle && (baseCode === 'E_next' || baseCode === 'E+') && sourceWheel === mainCycle;
+        const isMainCycleEndByPickList = hasMainCycleEndTag && Number.isFinite(lastPickTs) && Math.abs(ts0 - lastPickTs) <= 1_000;
         const shouldStepToNextCycle =
-            baseCode === 'E_next' ||
-            baseCode === 'E+' ||
-            (Number.isFinite(lastPickTs) && Math.abs(ts0 - lastPickTs) <= 1_000) ||
-            (pickTsList.length <= 1 && hasCycleEndTag);
+            isMainCycleEndBySource ||
+            isMainCycleEndByPickList ||
+            (hasMainCycleEndTag && pickTsList.length <= 1 && (baseCode === 'E_next' || baseCode === 'E+'));
 
         let pickedTs = shouldStepToNextCycle ? (ts0 + NEXT_CYCLE_PICK_EPS_MS) : ts0;
         const currentTs = Number.isFinite(effTs)
@@ -1331,6 +1338,7 @@
                 const xy = polarToXY(r, p.angleDeg);
                 const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
                 const pointTechTags = nodeTechTagsFromTags(pointTags);
+                const pointTechTagsUi = pointTechTags.map((tag) => resolvePinnedTechTagLabel(tag));
                 const sourceWheel = p.sourceWheel;
                 const pointMeta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
                 const infoItems = nodeInfoItemsFromSpec(sourceWheel, p.code, pointMeta);
@@ -1370,7 +1378,7 @@
                     `${emoji} ${name} orbit node (${uiCode})`,
                     ...metaParts,
                     ...infoCopyParts,
-                    ...pointTechTags.map((tag) => `Node ${tag}`),
+                    ...pointTechTagsUi.map((tag) => `Node ${tag}`),
                     `ts ${Math.round(p.ts)}`
                 ];
                 const keyTags = pointTags.length ? pointTags.join(',') : 'no-tags';
@@ -1391,7 +1399,7 @@
                         ts: p.ts,
                         desc: `orbit-node:${t.id}:${p.code}`,
                         tags: pointTags,
-                        techTags: pointTechTags,
+                        techTags: pointTechTagsUi,
                         pickTsList,
                         infoItems,
                         metaParts,
@@ -1663,6 +1671,7 @@
             ts: number;
             code: string;
             source: OrbitNodeGroup;
+            sourceWheel: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
             disabled?: boolean;
         }>;
     };
@@ -1702,6 +1711,7 @@
     };
     let compassTagDefs: CompassTagDef[] = [];
     let compassTagDefById: Map<string, CompassTagDef> = new Map();
+    let pinnedLabelByTagId: Map<string, string> = new Map();
     let defaultCompassInfoConfig: CompassInfoConfig = {
         general: { enabled: false, tags: [] },
         houses: { tags: [] },
@@ -1797,8 +1807,13 @@
         togglePin(bodyId);
     }
 
-    function handleCompassPinnedPick(ts: number, bodyId: ObjId, code?: string) {
-        handleMarkerPick(ts, bodyId, code);
+    function handleCompassPinnedPick(
+        ts: number,
+        bodyId: ObjId,
+        code?: string,
+        sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal'
+    ) {
+        handleMarkerPick(ts, bodyId, code, sourceWheel);
     }
 
     function uiLabel(raw: string): string {
@@ -1933,6 +1948,12 @@
             out.push(label);
         }
         return out;
+    }
+
+    function resolvePinnedTechTagLabel(systemLabel: string): string {
+        const id = `pinned-node:${tagIdFromLabel(systemLabel)}`;
+        const custom = pinnedLabelByTagId.get(id);
+        return custom && custom.trim() ? custom.trim() : systemLabel;
     }
 
     function groupFromNodeTag(tag: string): OrbitNodeGroup {
@@ -2159,6 +2180,11 @@
         ] satisfies CompassTagDef[];
     })();
     $: compassTagDefById = new Map(compassTagDefs.map((d) => [d.id, d]));
+    $: pinnedLabelByTagId = new Map(
+        (compassInfoConfig?.pinned?.tags ?? [])
+            .map((t) => [t.id, String(t.label ?? '').trim()] as const)
+            .filter((entry) => entry[1].length > 0)
+    );
 
     $: defaultCompassInfoConfig = {
         general: { enabled: false, tags: [] },
@@ -2203,7 +2229,7 @@
             .map((t) => ({
                 id: t.id,
                 label: (t.label && t.label.trim()) ? t.label.trim() : uiLabel(t.id),
-                value: (t.value && t.value.trim()) ? t.value.trim() : '—',
+                value: (t.value && t.value.trim()) ? t.value.trim() : undefined,
                 modal: (t.modal && t.modal.trim()) ? t.modal.trim() : undefined
             }));
     })();
@@ -2355,6 +2381,7 @@
                     ts: row.ts,
                     code: row.code,
                     source: row.source,
+                    sourceWheel: row.sourceWheel,
                     disabled: activeOverlappedRowIds.has(row.id)
                 }];
             });
@@ -2611,7 +2638,7 @@
                                             if ((n.tip.pickTsList?.length ?? 0) > 1) return;
                                             e.preventDefault();
                                             e.stopPropagation();
-                                            handleMarkerPick(n.tip.ts, n.bodyId, n.code);
+                                            handleMarkerPick(n.tip.ts, n.bodyId, n.code, n.sourceWheel);
                                         }}
                                         on:mouseenter={(e) => {
                                             activateSpokeFromOrbitNode(n);

@@ -37,6 +37,7 @@
             ts: number;
             code: string;
             source: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+            sourceWheel: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
             disabled?: boolean;
         }>;
     };
@@ -59,7 +60,7 @@
     export let referenceTs: number = Date.now();
 
     export let onBodyPick: (bodyId: ObjId) => void = () => {};
-    export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string) => void = () => {};
+    export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string, sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal') => void = () => {};
     export let onConfigure: (next: CompassInfoConfig) => void = () => {};
     export let locked = false;
 
@@ -153,7 +154,19 @@
 
     function updateGeneralTag(id: string, patch: Partial<CompassInfoTagConfig>) {
         if (!draftConfig) return;
-        const tags = updateTagsByPatch(draftConfig.general.tags, id, patch);
+        const tags = draftConfig.general.tags.slice();
+        const idx = tags.findIndex((t) => t.id === id);
+        if (idx >= 0) {
+            tags[idx] = {
+                ...tags[idx],
+                ...patch
+            };
+        } else {
+            tags.push({
+                id,
+                ...patch
+            });
+        }
         draftConfig = {
             ...draftConfig,
             general: {
@@ -161,6 +174,52 @@
                 tags
             }
         };
+    }
+
+    let generalDragId: string | null = null;
+
+    function moveGeneralTagTo(sourceId: string, targetId: string) {
+        if (!draftConfig) return;
+        if (sourceId === targetId) return;
+        const tags = draftConfig.general.tags.slice();
+        const from = tags.findIndex((t) => t.id === sourceId);
+        const target = tags.findIndex((t) => t.id === targetId);
+        if (from < 0 || target < 0) return;
+        const [item] = tags.splice(from, 1);
+        if (!item) return;
+        tags.splice(target, 0, item);
+        draftConfig = {
+            ...draftConfig,
+            general: {
+                ...draftConfig.general,
+                tags
+            }
+        };
+    }
+
+    function handleGeneralDragStart(e: DragEvent, id: string) {
+        generalDragId = id;
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', id);
+        }
+    }
+
+    function handleGeneralDragEnd() {
+        generalDragId = null;
+    }
+
+    function handleGeneralDragOver(e: DragEvent) {
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleGeneralDrop(e: DragEvent, targetId: string) {
+        e.preventDefault();
+        const sourceId = generalDragId || (e.dataTransfer ? e.dataTransfer.getData('text/plain') : '');
+        if (!sourceId) return;
+        moveGeneralTagTo(sourceId, targetId);
+        generalDragId = null;
     }
 
     function updateHouseTag(id: string, patch: Partial<CompassInfoTagConfig>) {
@@ -303,7 +362,7 @@
 
     function generalTagsForEditor(cfg: CompassInfoConfig | null): CompassInfoTagConfig[] {
         if (!cfg) return [];
-        return normalizeTagsByEnabled(cfg.general.tags.slice());
+        return cfg.general.tags.slice();
     }
 
     type HouseEditorRow = { id: string; code: string; systemLabel: string; tag?: CompassInfoTagConfig };
@@ -469,15 +528,34 @@
             {#if generalChips.length > 0}
                 <div class="chipGrid">
                     {#each generalChips as chip (chip.id)}
-                        <span class="ui-tag chipStatic" title={chip.modal}>
-                                    <span class="chipLine">
-                                        <span class="chipLabel">{chip.label}</span>
-                                        {#if chip.value}
-                                            <span class="chipDivider" aria-hidden="true"></span>
-                                            <span class="chipValue">{chip.value}</span>
-                                        {/if}
-                                    </span>
+                        {#if chip.modal}
+                            <button
+                                type="button"
+                                class="ui-tag chipButton chipAction"
+                                on:click={() => {
+                                    modalTitle = chip.label;
+                                    modalText = chip.modal ?? null;
+                                }}
+                            >
+                                <span class="chipLine">
+                                    <span class="chipLabel">{chip.label}</span>
+                                    {#if chip.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{chip.value}</span>
+                                    {/if}
                                 </span>
+                            </button>
+                        {:else}
+                            <span class="ui-tag chipStatic" title={chip.modal}>
+                                <span class="chipLine">
+                                    <span class="chipLabel">{chip.label}</span>
+                                    {#if chip.value}
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                        <span class="chipValue">{chip.value}</span>
+                                    {/if}
+                                </span>
+                            </span>
+                        {/if}
                     {/each}
                 </div>
             {:else}
@@ -516,7 +594,7 @@
                                         class:time-border-future={nodeTimeClass(node.ts) === 'future'}
                                         title={pinnedNodeTitle(node)}
                                         disabled={node.disabled === true}
-                                        on:click={() => onPinnedPick(node.ts, row.bodyId, node.code)}
+                                        on:click={() => onPinnedPick(node.ts, row.bodyId, node.code, node.sourceWheel)}
                                     >{node.label}</button>
                                 {/each}
                             {/if}
@@ -633,7 +711,8 @@
                                 <div class="editorEmpty">No general tags.</div>
                             {/if}
                             {#each generalTagsForEditor(draftConfig) as tag (tag.id)}
-                                <div class="editorRowWrap">
+                                {@const rowKey = `general:${tag.id}`}
+                                <div class="editorRowWrap" role="listitem" on:dragover={handleGeneralDragOver} on:drop={(e) => handleGeneralDrop(e, tag.id)}>
                                     <div class="editorRow">
                                         <div class="col sys">{tag.id}</div>
                                         <input class="col user" type="text" value={tag.label ?? ''} placeholder="Custom label" on:input={(e) => updateGeneralTag(tag.id, { label: readValue(e) })} />
@@ -644,9 +723,18 @@
                                             <span class="stateText">{tag.enabled !== false ? 'On' : 'Off'}</span>
                                         </label>
                                         <div class="rowActions">
-                                            <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralTag(tag.id)}>×</button>
+                                            <button type="button" class="miniBtn dragHandleBtn" title="Drag to reorder" aria-label="Drag to reorder" draggable="true" on:dragstart={(e) => handleGeneralDragStart(e, tag.id)} on:dragend={handleGeneralDragEnd}>⋮⋮</button>
+                                            <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(rowKey)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(rowKey)}>T</button>
+                                            {#if tag.isCustom}
+                                                <button type="button" class="miniBtn dangerBtn" on:click={() => removeGeneralTag(tag.id)}>×</button>
+                                            {/if}
                                         </div>
                                     </div>
+                                    {#if modalRowsOpen.has(rowKey)}
+                                        <div class="modalAccordion">
+                                            <textarea class="modalInput" placeholder="Modal text" value={tag.modal ?? ''} on:input={(e) => updateGeneralTag(tag.id, { modal: readValue(e) })}></textarea>
+                                        </div>
+                                    {/if}
                                 </div>
                             {/each}
                         </div>
@@ -1126,7 +1214,7 @@
         border-radius: 9px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
-        cursor: grab;
+        cursor: default;
     }
     .houseEditorRow {
         grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) auto;
@@ -1263,6 +1351,14 @@
         font-size: 12px;
         line-height: 1;
         cursor: pointer;
+    }
+    .dragHandleBtn {
+        cursor: grab;
+        letter-spacing: -1px;
+        font-weight: 900;
+    }
+    .dragHandleBtn:active {
+        cursor: grabbing;
     }
 
     .miniBtn {
