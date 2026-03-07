@@ -132,6 +132,7 @@ export type MomentTip = {
     desc?: string;
     pickTsList?: number[];
     tags?: string[];
+    techTags?: string[];
     metaText?: string;
     metaParts?: string[];
     copyText?: string;

@@ -261,8 +261,8 @@
     $: displayMoment = moment ?? clusterNodeMoment;
 
     $: momentPickTs = pickTsListForMoment(displayMoment);
-    $: momentTags = Array.isArray(displayMoment?.tags)
-        ? displayMoment.tags.filter((t) => typeof t === 'string' && t.trim().length > 0)
+    $: momentTechTags = Array.isArray(displayMoment?.techTags)
+        ? displayMoment.techTags.filter((t) => typeof t === 'string' && t.trim().length > 0)
         : [];
     $: momentInfoItems = Array.isArray(displayMoment?.infoItems)
         ? displayMoment.infoItems
@@ -273,15 +273,23 @@
                 return !dynamicDisabledIds.has(id);
             })
         : [];
+    $: momentTopItems = (() => {
+        const out = momentInfoItems.slice();
+        if (!isOrbitNodeMoment(displayMoment)) return out;
+        for (let i = 0; i < momentTechTagsUi.length; i++) {
+            const label = momentTechTagsUi[i];
+            out.push({
+                id: `tech:${i}:${label}`,
+                label
+            });
+        }
+        return out;
+    })();
     $: momentInfoLabelSet = new Set(momentInfoItems.map((x) => normalizeLabelKey(x.label)));
     $: momentMetaText = typeof displayMoment?.metaText === 'string' && displayMoment.metaText.trim().length > 0
         ? displayMoment.metaText
         : '';
-    $: momentMetaParts = Array.isArray(displayMoment?.metaParts)
-        ? displayMoment.metaParts.filter((t) => typeof t === 'string' && t.trim().length > 0)
-        : (momentMetaText ? momentMetaText.split(' • ').map((t) => t.trim()).filter(Boolean) : []);
-    $: momentTagsUi = momentTags.map((t) => titleCaseWords(t));
-    $: momentMetaPartsUi = momentMetaParts.map((p) => titleCaseWords(p));
+    $: momentTechTagsUi = momentTechTags.map((t) => titleCaseWords(t));
     $: momentCopyText = typeof displayMoment?.copyText === 'string' && displayMoment.copyText.trim().length > 0
         ? formatSpokeTextUi(displayMoment.copyText)
         : formatSpokeTextUi(momentMetaText);
@@ -509,9 +517,9 @@
             {#if nodeMomentText}
                 <div class="nodeMoment">{nodeMomentText}</div>
             {/if}
-            {#if momentInfoItems.length > 0}
+            {#if momentTopItems.length > 0}
                 <div class="chipRow">
-                    {#each momentInfoItems as item, i (`top:${item.id ?? item.label}:${i}`)}
+                    {#each momentTopItems as item, i (`top:${item.id ?? item.label}:${i}`)}
                         {#if item.modal}
                             <button
                                 type="button"
@@ -540,27 +548,13 @@
                         {/if}
                     {/each}
                 </div>
-                {@const openMomentItem = openMomentItemIndex >= 0 ? momentInfoItems[openMomentItemIndex] : null}
+                {@const openMomentItem = openMomentItemIndex >= 0 ? momentTopItems[openMomentItemIndex] : null}
                 {#if openMomentItem?.modal}
                     <div class="itemAccordion">
                         <div class="itemAccordionTitle">{openMomentItem.label}</div>
                         <div class="itemAccordionBody">{openMomentItem.modal}</div>
                     </div>
                 {/if}
-            {/if}
-            {#if momentInfoItems.length === 0 && (momentTags.length > 0 || (isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0))}
-                <div class="ui-tag-row">
-                    {#if momentTags.length > 0}
-                    {#each momentTagsUi as tag, i (`tag:${tag}:${i}`)}
-                        <span class="ui-tag">{tag}</span>
-                    {/each}
-                    {/if}
-                    {#if isOrbitNodeMoment(displayMoment) && momentMetaPartsUi.length > 0}
-                    {#each momentMetaPartsUi as p, i (`meta:${p}:${i}`)}
-                        <span class="ui-tag">{p}</span>
-                    {/each}
-                    {/if}
-                </div>
             {/if}
         </div>
 

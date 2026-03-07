@@ -350,6 +350,7 @@
     let pinnedEditorRows: ScopedEditorRow[] = [];
     let pinnedEditorRowsFiltered: ScopedEditorRow[] = [];
     let pinnedGroupFiltersVisible: Array<{ key: PinnedGroupKey; label: string }> = [];
+    export let pinnedAvailableGroups: PinnedGroupKey[] = ['regular'];
     let dynamicRowsByHouse: Array<{ code: string; label: string; modal?: string; rows: CompassDynamicRow[] }> = [];
     let pinnedEditorFilters: Record<PinnedGroupKey, boolean> = {
         regular: true,
@@ -407,10 +408,8 @@
     $: pinnedEditorRows = draftConfig ? scopedRows('pinned') : [];
     $: pinnedGroupFiltersVisible = (() => {
         const present = new Set<PinnedGroupKey>();
-        present.add('regular');
-        for (const def of uniqueTagDefsByLabel('pinned')) {
-            if (!def.group) continue;
-            present.add(def.group);
+        for (const group of pinnedAvailableGroups) {
+            present.add(group);
         }
         return PINNED_GROUP_FILTERS.filter((g) => present.has(g.key));
     })();
@@ -418,8 +417,7 @@
         if (!draftConfig) return [];
         const defById = new Map(uniqueTagDefsByLabel('pinned').map((d) => [d.id, d]));
         return pinnedEditorRows.filter((row) => {
-            const group = defById.get(row.id)?.group;
-            if (!group) return true;
+            const group = defById.get(row.id)?.group ?? 'regular';
             return pinnedEditorFilters[group] !== false;
         });
     })();

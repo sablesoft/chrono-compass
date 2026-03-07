@@ -366,12 +366,24 @@
         return `grp-${orbitNodeGroup(node)}`;
     }
 
-    $: orbitNodesVisible = orbitNodes.filter((n) => {
-        if (isMainCycleBoundaryNode(n)) return true;
-        const g = orbitNodeGroup(n);
-        if (!showOrbitNodesAny) return false;
-        return isOrbitNodeGroupVisible(g);
-    });
+    $: orbitNodesVisible = (() => {
+        const nodeGroupToggles = [
+            orbitNodeGroupVisible.regular,
+            orbitNodeGroupVisible.compass,
+            orbitNodeGroupVisible.horizon,
+            orbitNodeGroupVisible.nodal,
+            orbitNodeGroupVisible.synod,
+            orbitNodeGroupVisible.bind
+        ];
+        void nodeGroupToggles;
+
+        return orbitNodes.filter((n) => {
+            if (isMainCycleBoundaryNode(n)) return true;
+            const g = orbitNodeGroup(n);
+            if (!showOrbitNodesAny) return false;
+            return isOrbitNodeGroupVisible(g);
+        });
+    })();
 
     $: hasPinnedNodalNodes = !!pinnedBodyId && orbitNodesAll.some(
         (n) => n.bodyId === pinnedBodyId && orbitNodeGroup(n) === 'nodal'
@@ -1318,6 +1330,7 @@
                 const r = orbitToRadiusVB(p.orbit);
                 const xy = polarToXY(r, p.angleDeg);
                 const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
+                const pointTechTags = nodeTechTagsFromTags(pointTags);
                 const sourceWheel = p.sourceWheel;
                 const pointMeta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
                 const infoItems = nodeInfoItemsFromSpec(sourceWheel, p.code, pointMeta);
@@ -1374,6 +1387,7 @@
                         ts: p.ts,
                         desc: `orbit-node:${t.id}:${p.code}`,
                         tags: pointTags,
+                        techTags: pointTechTags,
                         pickTsList,
                         infoItems,
                         metaParts,
@@ -1695,6 +1709,7 @@
     let compassPinnedRows: CompassPinnedInfoRow[] = [];
     let compassGeneralChips: CompassInfoChip[] = [];
     let compassHouseDefs: CompassHouseDef[] = [];
+    let pinnedAvailableGroups: OrbitNodeGroup[] = ['regular'];
 
     function normalizeCompassTag(input: CompassInfoTagConfig | null | undefined): CompassInfoTagConfig | null {
         if (!input || !input.id) return null;
@@ -1890,6 +1905,30 @@
     function isSpokeCode(value: string): boolean {
         const normalized = value === 'E+' ? 'E_next' : value;
         return SPOKES_ORDER.includes(normalized as any);
+    }
+
+    function nodeTechTagsFromTags(tags: string[]): string[] {
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const rawTag of tags) {
+            const tag = String(rawTag ?? '').trim();
+            const dashAt = tag.lastIndexOf('-');
+            if (dashAt <= 0 || dashAt >= tag.length - 1) continue;
+
+            const spokeRaw = tag.slice(0, dashAt);
+            const source = tag.slice(dashAt + 1).toLowerCase();
+            if (source !== 'compass' && source !== 'horizon' && source !== 'nodal' && source !== 'synod' && source !== 'bind') {
+                continue;
+            }
+            const spokeCode = spokeRaw === 'E+' ? 'E_next' : spokeRaw;
+            if (!isSpokeCode(spokeCode)) continue;
+
+            const label = formatLabelTitleCaseUi(`${spokeCode}-${source}`);
+            if (!label || seen.has(label)) continue;
+            seen.add(label);
+            out.push(label);
+        }
+        return out;
     }
 
     function groupFromNodeTag(tag: string): OrbitNodeGroup {
@@ -2090,6 +2129,17 @@
     }
 
     $: compassHouseDefs = buildHouseDefsForWheel(spec);
+    $: pinnedAvailableGroups = (() => {
+        const out: OrbitNodeGroup[] = ['regular'];
+        const rawNodes = (spec as { nodes?: unknown } | null | undefined)?.nodes;
+        if (!rawNodes || typeof rawNodes !== 'object') return out;
+        const groups: Array<Exclude<OrbitNodeGroup, 'regular'>> = ['compass', 'horizon', 'nodal', 'synod', 'bind'];
+        for (const group of groups) {
+            const values = (rawNodes as Record<string, unknown>)[group];
+            if (Array.isArray(values) && values.length > 0) out.push(group);
+        }
+        return out;
+    })();
 
     $: compassTagDefs = (() => {
         const activeSources = activeSourcesForWheelType(wheel?.wheelType);
@@ -2814,6 +2864,7 @@
                     config={compassInfoConfig}
                     tagDefs={compassTagDefs}
                     houseDefs={compassHouseDefs}
+                    pinnedAvailableGroups={pinnedAvailableGroups}
                     generalChips={compassGeneralChips}
                     dynamicRows={compassDynamicRows}
                     pinnedRows={compassPinnedRows}
@@ -2896,7 +2947,14 @@
         box-sizing: border-box;
     }
     .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: visible; position: relative; }
-    .wheelBox svg { width: 100%; height: 100%; display: block; overflow: visible; }
+    .wheelBox svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        overflow: visible;
+        position: relative;
+        z-index: 1;
+    }
     svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; overflow: visible; }
     svg:focus,
     svg:focus-visible {
@@ -3092,6 +3150,8 @@
         flex-direction: column;
         gap: 8px;
         align-items: end;
+        z-index: 3;
+        pointer-events: auto;
     }
     .nodeNav {
         position: absolute;
@@ -3100,6 +3160,8 @@
         display: grid;
         grid-template-columns: repeat(2, 30px);
         gap: 6px;
+        z-index: 3;
+        pointer-events: auto;
     }
     .nodeNavCompass {
         right: -2px;
