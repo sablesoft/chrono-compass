@@ -40,6 +40,7 @@
 
     import type { MarkerCluster } from '../lib/wheel/types';
     import { typeLabel } from '../lib/wheel/control';
+    import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
     // Props (Board passes wheel + location)
@@ -82,6 +83,7 @@
     $: wheelLoc = location;
 
     function closeCycle() {
+        if ($isActiveProfileLocked) return;
         onUserActivity();
         if (!wheelId) return;
         boardApi.removeWheelById(wheelId, 'Cycle.close');
@@ -98,6 +100,7 @@
         {
             syncToBoard: true,
             onSyncTime: (next, reason) => {
+                if ($isActiveProfileLocked) return;
                 if (!wheelId) return;
                 boardApi.updateWheelTime(wheelId, next, reason ?? 'Cycle.syncWheelTime');
             },
@@ -119,7 +122,7 @@
     // If observer isn't locked -> keep it synced to passed-in location (ONLY for horizon wheels)
     $: {
         if (wheelId && isHorizon)
-            if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
+            if (!$isActiveProfileLocked && !observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
                 boardApi.updateWheelObserver(wheelId, { locationId: wheelLoc.id }, 'Cycle.syncObserverLocation');
             }
     }
@@ -883,6 +886,7 @@
     }
 
     function applyInfoConfig(next: CycleInfoConfig) {
+        if ($isActiveProfileLocked) return;
         if (!wheelId) return;
         boardApi.updateWheelById(
             wheelId,
@@ -1185,6 +1189,7 @@
             visualOpen={showVisualSection}
             infoOpen={showInfoSection}
             pickersOpen={showPickersSection}
+            profileLocked={$isActiveProfileLocked}
             onToggleVisual={toggleVisualSection}
             onToggleInfo={toggleInfoSection}
             onTogglePickers={togglePickersSection}
@@ -1193,7 +1198,7 @@
     {#if showPickersSection}
     <section class="pickersBlock" aria-label="Wheel pickers" transition:slide|local>
         <div class="sectionSep headerSep" aria-hidden="true"></div>
-        <div class="headerBottom" class:twoCols={isHorizon}>
+        <div class="headerBottom" class:twoCols={isHorizon} class:lockedPickers={$isActiveProfileLocked}>
             <div class="pickerRow">
                 <div class="rowFill">
                     <TimePicker
@@ -1201,6 +1206,7 @@
                             locked={time.locked}
                             liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                             onChange={(next, meta) => {
+                                if ($isActiveProfileLocked) return;
                                 onUserActivity();
                                 const patch: Partial<WheelTimeState> =
                                     next.live
@@ -1210,6 +1216,7 @@
                                 boardApi.updateWheelTime(wheelId, patch, 'Cycle.time.apply');
                             }}
                             onToggleLock={(next) => {
+                                if ($isActiveProfileLocked) return;
                                 onUserActivity();
                                 if (!wheelId) return;
                                 boardApi.updateWheelTime(wheelId, { locked: next }, 'Cycle.time.lock');
@@ -1225,6 +1232,7 @@
                                 value={wheelLoc}
                                 locked={observer.locked}
                                 onChange={(loc) => {
+                                if ($isActiveProfileLocked) return;
                                 onUserActivity();
                                     const patch: Partial<WheelObserverState> = {
                                         locationId: loc.id,
@@ -1235,6 +1243,7 @@
                                     boardApi.updateWheelObserver(wheelId, patch, 'Cycle.location.apply');
                                 }}
                                 onToggleLock={(next) => {
+                                    if ($isActiveProfileLocked) return;
                                     onUserActivity();
                                     if (!wheelId) return;
                                     boardApi.updateWheelObserver(wheelId, { locked: next }, 'Cycle.location.lock');
@@ -1579,6 +1588,7 @@
                 onGeneralReorder={handleGeneralReorder}
                 onTemplateReorder={handleTemplateReorder}
                 onConfigure={applyInfoConfig}
+                locked={$isActiveProfileLocked}
                 reorderEnabled={false}
         />
         </div>
@@ -1624,6 +1634,10 @@
         gap: 6px;
         margin-top: 0;
         margin-bottom: 10px;
+    }
+    .headerBottom.lockedPickers {
+        pointer-events: none;
+        opacity: 0.7;
     }
     .pickersBlock {
         display: grid;

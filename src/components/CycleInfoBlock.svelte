@@ -59,6 +59,7 @@
     export let onTemplateReorder: (templateId: string, ids: string[]) => void = () => {};
     export let onConfigure: (next: CycleInfoConfig) => void = () => {};
     export let reorderEnabled = true;
+    export let locked = false;
 
     let dragChipId: string | null = null;
     let dragContext: string | null = null;
@@ -226,6 +227,7 @@
     }
 
     function openEditor() {
+        if (locked) return;
         draftConfig = cloneConfig(config);
         const tabs: Record<string, 'spokes' | 'tags'> = {};
         for (const tpl of config.templates) tabs[tpl.id] = templateTabs[tpl.id] ?? 'tags';
@@ -487,6 +489,7 @@
     }
 
     function applyEditor() {
+        if (locked) return;
         if (!draftConfig) return;
         cancelTemplateTitleEdit();
         onConfigure(draftConfig);
@@ -494,6 +497,7 @@
     }
 
     function resetToDefaults() {
+        if (locked) return;
         cancelTemplateTitleEdit();
         onConfigure(defaultConfig);
         showEditor = false;
@@ -535,7 +539,7 @@
     on:click={onBlockClick}
     on:keydown={onBlockKeydown}
 >
-    {#if showEditButton}
+    {#if showEditButton && !locked}
         <button
             type="button"
             class="editBtn navBtn"

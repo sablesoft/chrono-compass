@@ -61,6 +61,7 @@
     export let onBodyPick: (bodyId: ObjId) => void = () => {};
     export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string) => void = () => {};
     export let onConfigure: (next: CompassInfoConfig) => void = () => {};
+    export let locked = false;
 
     let showEditor = false;
     let draftConfig: CompassInfoConfig | null = null;
@@ -91,6 +92,7 @@
     }
 
     function openEditor() {
+        if (locked) return;
         draftConfig = cloneConfig(config);
         pinnedEditorFilters = {
             regular: true,
@@ -111,6 +113,7 @@
     }
 
     function applyEditor() {
+        if (locked) return;
         if (!draftConfig) return;
         onConfigure(draftConfig);
         showEditor = false;
@@ -453,13 +456,15 @@
 </script>
 
 <section class="infoBlock">
-    <button
-        type="button"
-        class="editBtn navBtn"
-        title="Edit compass info"
-        aria-label="Edit compass info"
-        on:click|stopPropagation={openEditor}
-    >✎</button>
+    {#if !locked}
+        <button
+            type="button"
+            class="editBtn navBtn"
+            title="Edit compass info"
+            aria-label="Edit compass info"
+            on:click|stopPropagation={openEditor}
+        >✎</button>
+    {/if}
 
     {#if config.general.enabled}
         <section class="infoSection">

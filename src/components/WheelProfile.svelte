@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import type { WheelType } from '../lib/catalog';
-    import { activeProfile, profilesApi } from '../lib/profile/store';
+    import { activeProfile, isActiveProfileLocked, profilesApi } from '../lib/profile/store';
     import type { SavedWheel } from '../lib/profile/types';
     import { makeDedupKey } from '../lib/profile/dedup';
     import type { WheelRolesState } from '../lib/wheel/control';
@@ -55,6 +55,7 @@
     $: isFav = !!currentSaved?.favorite;
 
     function openModal() {
+        if ($isActiveProfileLocked) return;
         draftTitle = title ?? '';
         pickedSavedKey = currentSaved?.dedupKey ?? '';
         open = true;
@@ -106,6 +107,7 @@
     }
 
     function applyChanges() {
+        if ($isActiveProfileLocked) return;
         const nextTitle = (draftTitle ?? '').trim() || formatWheelSpec(type, roles);
         if (pickedSaved) {
             boardApi.updateWheelById(
@@ -127,6 +129,7 @@
     }
 
     function saveCurrentConfig() {
+        if ($isActiveProfileLocked) return;
         const nextTitle = (draftTitle ?? '').trim() || formatWheelSpec(type, roles);
         const dedupKey = profilesApi.saveWheel({
             type,
@@ -140,12 +143,14 @@
     }
 
     function toggleFav() {
+        if ($isActiveProfileLocked) return;
         const target = targetSaved;
         if (!target) return;
         profilesApi.setWheelFavorite(target.dedupKey, !target.favorite);
     }
 
     function removeSaved() {
+        if ($isActiveProfileLocked) return;
         const target = targetSaved;
         if (!target) return;
         profilesApi.deleteWheel(target.dedupKey);

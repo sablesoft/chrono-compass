@@ -40,6 +40,7 @@
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
     import { norm360 } from '../lib/math/helpers';
+    import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
     // Props (Board passes wheel + resolved location)
@@ -88,6 +89,7 @@
     $: wheelLon = wheelLoc?.lon;
 
     function closeCompass() {
+        if ($isActiveProfileLocked) return;
         onUserActivity();
         if (!wheelId) return;
         boardApi.removeWheelById(wheelId, 'Compass.close');
@@ -104,6 +106,7 @@
         {
             syncToBoard: true,
             onSyncTime: (next, reason) => {
+                if ($isActiveProfileLocked) return;
                 if (!wheelId) return;
                 boardApi.updateWheelTime(wheelId, next, reason ?? 'Compass.syncWheelTime');
             },
@@ -126,7 +129,7 @@
     // If observer isn't locked -> keep it synced to passed-in location
     $: {
         if (wheelId)
-            if (!observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
+            if (!$isActiveProfileLocked && !observer?.locked && wheelLoc?.id && observer.locationId !== wheelLoc.id) {
                 boardApi.updateWheelObserver(wheelId, { locationId: wheelLoc.id }, 'Compass.syncObserverLocation');
             }
     }
@@ -1762,6 +1765,7 @@
     }
 
     function applyCompassInfoConfig(next: CompassInfoConfig) {
+        if ($isActiveProfileLocked) return;
         if (!wheelId) return;
         boardApi.updateWheelById(
             wheelId,
@@ -2323,6 +2327,7 @@
             visualOpen={showVisualSection}
             infoOpen={showInfoSection}
             pickersOpen={showPickersSection}
+            profileLocked={$isActiveProfileLocked}
             onToggleVisual={toggleVisualSection}
             onToggleInfo={toggleInfoSection}
             onTogglePickers={togglePickersSection}
@@ -2331,7 +2336,7 @@
     {#if showPickersSection}
     <section class="pickersBlock" aria-label="Wheel pickers" transition:slide|local>
     <div class="sectionSep headerSep" aria-hidden="true"></div>
-    <div class="headerBottom" class:twoCols={isCompassWheelType}>
+    <div class="headerBottom" class:twoCols={isCompassWheelType} class:lockedPickers={$isActiveProfileLocked}>
             <div class="pickerRow">
                 <div class="rowFill">
                     <TimePicker
@@ -2339,6 +2344,7 @@
                             locked={time.locked}
                             liveNowTs={time.live ? (time.locked ? localLiveNowTs : globalTs) : null}
                             onChange={(next, meta) => {
+                              if ($isActiveProfileLocked) return;
                               onUserActivity();
 
                               const patch: Partial<WheelTimeState> =
@@ -2349,6 +2355,7 @@
                               boardApi.updateWheelTime(wheelId, patch, 'Compass.time.apply');
                             }}
                             onToggleLock={(next) => {
+                              if ($isActiveProfileLocked) return;
                               onUserActivity();
                               const patch: Partial<WheelTimeState> = next
                                   ? { locked: true }
@@ -2367,6 +2374,7 @@
                             value={wheelLoc}
                             locked={observer.locked}
                             onChange={(loc) => {
+                              if ($isActiveProfileLocked) return;
                               onUserActivity();
 
                               const patch: Partial<WheelObserverState> = {
@@ -2378,6 +2386,7 @@
                               boardApi.updateWheelObserver(wheelId, patch, 'Compass.location.apply');
                             }}
                             onToggleLock={(next) => {
+                              if ($isActiveProfileLocked) return;
                               onUserActivity();
                               boardApi.updateWheelObserver(wheelId, { locked: next }, 'Compass.location.lock');
                             }}/>
@@ -2777,6 +2786,7 @@
                         onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}
                         onAddRelatedWheel={(input) => {
+                          if ($isActiveProfileLocked) return;
                           onUserActivity();
                           if (wheelId) {
                             boardApi.addWheelBefore(wheelId, input, 'Compass.related.addBefore');
@@ -2811,6 +2821,7 @@
                     onBodyPick={handleCompassBodyPick}
                     onPinnedPick={handleCompassPinnedPick}
                     onConfigure={applyCompassInfoConfig}
+                    locked={$isActiveProfileLocked}
             />
         </div>
     {/if}
@@ -2855,6 +2866,10 @@
         gap: 6px;
         margin-top: 0;
         margin-bottom: 10px;
+    }
+    .headerBottom.lockedPickers {
+        pointer-events: none;
+        opacity: 0.7;
     }
     .pickersBlock {
         display: grid;

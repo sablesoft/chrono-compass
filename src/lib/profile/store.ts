@@ -35,7 +35,6 @@ function emptyProfileData() {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
         bodies: {} as Partial<Record<ObjId, { name?: { en?: string }; emoji?: string }>>,
-        locations: { currentId: '', saved: [] } as LocationData,
         wheelsOnScreen: [] as BoardWheel[]
     };
 }
@@ -45,6 +44,8 @@ export function createDefaultProfile(): Profile {
     return {
         id: 'default',
         title: 'Default',
+        system: false,
+        locked: false,
         createdAt: t,
         updatedAt: t,
         data: emptyProfileData()
@@ -129,14 +130,18 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
             return { profiles: [def], activeId: def.id };
         }
 
-        const normalizedProfiles = s.profiles.map((p) => ({
+        const normalizedProfiles = s.profiles.map((p) => {
+            const system = !!(p as any)?.system;
+            const locked = system ? true : !!(p as any)?.locked;
+            return {
             ...p,
+            system,
+            locked,
             data: {
                 ...emptyProfileData(),
-                ...(p?.data ?? {}),
-                locations: normalizeLocationsData((p as any)?.data?.locations)
+                ...(p?.data ?? {})
             }
-        }));
+        };});
 
         const hasDefault = normalizedProfiles.some(p => p?.id === def.id);
         const profiles = hasDefault ? normalizedProfiles : [def, ...normalizedProfiles];
@@ -181,6 +186,8 @@ export const activeProfile = derived(profilesState, ($s) => {
     return out;
 });
 
+export const isActiveProfileLocked = derived(activeProfile, ($p) => !!$p?.locked);
+
 function snapshotCurrentBoard(): BoardWheel[] {
     // Snapshot stores wheel cards exactly as shown on board, independent from saved wheel presets.
     return boardApi.getItems().map((x) => ({
@@ -223,35 +230,6 @@ function normalizeLocationsData(input: any): LocationData {
     return { saved, currentId };
 }
 
-function snapshotCurrentLocations(): LocationData {
-    const state = get(locationState);
-    const currentIdRaw = get(currentLocationId);
-    const saved = (state.saved ?? [])
-        .map((x) => sanitizeLocation(x))
-        .filter((x: Location | null): x is Location => !!x);
-    const currentId = saved.some((x) => x.id === currentIdRaw)
-        ? currentIdRaw
-        : (saved[0]?.id ?? '');
-    return { saved, currentId };
-}
-
-function locationSnapshotSignature(loc: LocationData): string {
-    const saved = (loc?.saved ?? [])
-        .slice()
-        .sort((a, b) => a.id.localeCompare(b.id))
-        .map((x) => ({
-            id: x.id,
-            lat: x.lat,
-            lon: x.lon,
-            label: x.label,
-            tz: x.tz
-        }));
-    return JSON.stringify({
-        currentId: loc?.currentId ?? '',
-        saved
-    });
-}
-
 function boardSnapshotSignature(items: BoardWheel[]): string {
     const normalized = (items ?? [])
         .slice()
@@ -292,12 +270,33 @@ function loadBoardForProfile(profileId: ProfileId): void {
     boardApi.setFromSnapshot(items as any, 'profile.setActive.loadBoard');
 }
 
-function loadLocationsForProfile(profileId: ProfileId): void {
-    const s = get(profilesState);
-    const p = s.profiles.find((x) => x.id === profileId) ?? null;
-    const next = normalizeLocationsData(p?.data?.locations);
-    locationState.set({ saved: next.saved, currentId: next.currentId });
-    currentLocationId.set(next.currentId);
+function applyGlobalLocations(next: LocationData): void {
+    const curState = get(locationState);
+    const curCurrentId = get(currentLocationId);
+
+    const byId = new Map<string, Location>();
+    for (const loc of curState.saved ?? []) {
+        const normalized = sanitizeLocation(loc);
+        if (!normalized) continue;
+        byId.set(normalized.id, normalized);
+    }
+    for (const loc of next.saved ?? []) {
+        const normalized = sanitizeLocation(loc);
+        if (!normalized) continue;
+        // Imported location with same id overwrites existing one.
+        byId.set(normalized.id, normalized);
+    }
+
+    const saved = Array.from(byId.values());
+    const importedCurrentId = typeof next.currentId === 'string' ? next.currentId.trim() : '';
+    const currentId = (
+        importedCurrentId && byId.has(importedCurrentId)
+            ? importedCurrentId
+            : (curCurrentId && byId.has(curCurrentId) ? curCurrentId : (saved[0]?.id ?? ''))
+    );
+
+    locationState.set({ saved, currentId });
+    currentLocationId.set(currentId);
 }
 
 function cloneSavedWheel(w: SavedWheel): SavedWheel {
@@ -443,7 +442,6 @@ export const profilesApi = {
             }
 
             const boardSnapshot = snapshotCurrentBoard();
-            const locationSnapshot = snapshotCurrentLocations();
 
             profilesState.update((s) => {
                 const curOk = s.profiles.some(p => p.id === id);
@@ -458,8 +456,7 @@ export const profilesApi = {
                         updatedAt: t,
                         data: {
                             ...p.data,
-                            wheelsOnScreen: boardSnapshot,
-                            locations: locationSnapshot
+                            wheelsOnScreen: boardSnapshot
                         }
                     };
                 });
@@ -467,14 +464,12 @@ export const profilesApi = {
                 dbg.log('api.setActive.ok', {
                     prevActiveId,
                     activeId: curNextId,
-                    savedBoardItems: boardSnapshot.length,
-                    savedLocations: locationSnapshot.saved.length
+                    savedBoardItems: boardSnapshot.length
                 });
 
                 return { ...s, profiles, activeId: curNextId };
             });
 
-            loadLocationsForProfile(nextId);
             loadBoardForProfile(nextId);
         });
     },
@@ -487,6 +482,8 @@ export const profilesApi = {
             const p: Profile = {
                 id,
                 title: title?.trim() || 'New profile',
+                system: false,
+                locked: false,
                 createdAt: t,
                 updatedAt: t,
                 data: emptyProfileData()
@@ -520,12 +517,23 @@ export const profilesApi = {
         });
     },
 
+    setProfileLocked(id: ProfileId, locked: boolean) {
+        dbg.group('api.setProfileLocked', () => {
+            updateProfile(id, (p) => {
+                if (p.system && !locked) {
+                    dbg.warn('api.setProfileLocked.skip.systemUnlock', { id });
+                    return p;
+                }
+                return { ...p, locked: !!locked, updatedAt: now() };
+            });
+        });
+    },
+
     saveProfileDraft(input: {
         id?: ProfileId | null;
         title: string;
         wheels: SavedWheel[];
         board: BoardWheel[];
-        locations?: LocationData;
     }): ProfileId {
         return dbg.group('api.saveProfileDraft', () => {
             const t = now();
@@ -536,7 +544,6 @@ export const profilesApi = {
                 .map((w, idx) => cloneBoardWheelSnapshot(w, idx))
                 .sort((a, b) => a.order - b.order)
                 .map((w, idx) => ({ ...w, order: idx }));
-            const locations = normalizeLocationsData(input.locations ?? snapshotCurrentLocations());
 
             const favorites = normalizeFavorites([], wheels);
 
@@ -552,12 +559,13 @@ export const profilesApi = {
                         ...prev.data,
                         wheels,
                         favorites,
-                        locations,
                         wheelsOnScreen: board
                     };
                     const nextProfile: Profile = {
                         ...prev,
                         title: nextTitle,
+                        system: prev.system ?? false,
+                        locked: prev.locked ?? false,
                         updatedAt: t,
                         data: nextData
                     };
@@ -577,13 +585,14 @@ export const profilesApi = {
                 const created: Profile = {
                     id: outId,
                     title,
+                    system: false,
+                    locked: false,
                     createdAt: t,
                     updatedAt: t,
                     data: {
                         ...emptyProfileData(),
                         wheels,
                         favorites,
-                        locations,
                         wheelsOnScreen: board
                     }
                 };
@@ -623,9 +632,12 @@ export const profilesApi = {
                 wheels
             );
 
+            const importedSystem = !!src?.system;
             const imported: Profile = {
                 id,
                 title,
+                system: importedSystem,
+                locked: importedSystem ? true : !!src?.locked,
                 createdAt,
                 updatedAt: t,
                 data: {
@@ -633,7 +645,6 @@ export const profilesApi = {
                     wheels,
                     favorites,
                     bodies,
-                    locations,
                     wheelsOnScreen: board
                 }
             };
@@ -650,10 +661,8 @@ export const profilesApi = {
                 return { ...s, profiles: [...s.profiles, imported] };
             });
 
-            if (activeBefore === id) {
-                loadLocationsForProfile(id);
-                loadBoardForProfile(id);
-            }
+            applyGlobalLocations(locations);
+            if (activeBefore === id) loadBoardForProfile(id);
 
             return id;
         });
@@ -955,36 +964,6 @@ function normalizeFavorites(favorites: string[], wheels: SavedWheel[]): string[]
     loadBoardForProfile(activeId);
 })();
 
-// Keep locations scoped to active profile on app startup while preserving existing location data.
-(() => {
-    const s = get(profilesState);
-    const activeId = s.activeId ?? 'default';
-    const p = s.profiles.find((x) => x.id === activeId) ?? null;
-    const locInProfile = normalizeLocationsData(p?.data?.locations);
-    const liveLoc = snapshotCurrentLocations();
-    const hasProfileLocations = locInProfile.saved.length > 0;
-
-    if (!hasProfileLocations && liveLoc.saved.length > 0) {
-        dbg.log('startup.location.seedActiveProfile', { activeId, saved: liveLoc.saved.length });
-        profilesState.update((state) => {
-            const t = now();
-            const profiles = state.profiles.map((x) => {
-                if (x.id !== activeId) return x;
-                return {
-                    ...x,
-                    updatedAt: t,
-                    data: { ...x.data, locations: liveLoc }
-                };
-            });
-            return { ...state, profiles };
-        });
-        return;
-    }
-
-    dbg.log('startup.location.loadActiveProfile', { activeId, saved: locInProfile.saved.length });
-    loadLocationsForProfile(activeId);
-})();
-
 // Keep active profile board snapshot in sync with live board changes.
 boardState.subscribe(() => {
     const s = get(profilesState);
@@ -1010,32 +989,3 @@ boardState.subscribe(() => {
         return { ...state, profiles };
     });
 });
-
-// Keep active profile locations snapshot in sync with live location changes.
-const syncLocationsToActiveProfile = () => {
-    const s = get(profilesState);
-    const activeId = s.activeId ?? 'default';
-    const active = s.profiles.find((x) => x.id === activeId) ?? null;
-    if (!active) return;
-
-    const next = snapshotCurrentLocations();
-    const nextSig = locationSnapshotSignature(next);
-    const curSig = locationSnapshotSignature(normalizeLocationsData(active.data?.locations));
-    if (nextSig === curSig) return;
-
-    const t = now();
-    profilesState.update((state) => {
-        const profiles = state.profiles.map((p) => {
-            if (p.id !== activeId) return p;
-            return {
-                ...p,
-                updatedAt: t,
-                data: { ...p.data, locations: next }
-            };
-        });
-        return { ...state, profiles };
-    });
-};
-
-locationState.subscribe(() => syncLocationsToActiveProfile());
-currentLocationId.subscribe(() => syncLocationsToActiveProfile());

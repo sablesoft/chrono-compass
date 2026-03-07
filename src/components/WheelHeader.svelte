@@ -13,6 +13,7 @@
     export let visualOpen = true;
     export let infoOpen = true;
     export let pickersOpen = true;
+    export let profileLocked = false;
     export let onToggleVisual: (() => void) | null = null;
     export let onToggleInfo: (() => void) | null = null;
     export let onTogglePickers: (() => void) | null = null;
@@ -42,13 +43,15 @@
     </div>
 
     <div class="btnRail">
-        <WheelProfile type={wheel.wheelType}
-                roles={wheel.roles}
-                title={wheel.title}
-                baseObserver={wheel.observer}
-                baseTime={wheel.time}
-                baseView={wheel.view}
-                baseId={wheelId}/>
+        {#if !profileLocked}
+            <WheelProfile type={wheel.wheelType}
+                    roles={wheel.roles}
+                    title={wheel.title}
+                    baseObserver={wheel.observer}
+                    baseTime={wheel.time}
+                    baseView={wheel.view}
+                    baseId={wheelId}/>
+        {/if}
         {#if onDocs}
             <button type="button" class="navBtn" title="Docs" on:click={() => onDocs?.()}>i</button>
         {/if}
@@ -76,7 +79,9 @@
                 aria-pressed={pickersOpen}
                 on:click={() => onTogglePickers?.()}
         ><span class="pickerGlyph" aria-hidden="true">◷</span></button>
-        <button type="button" class="navBtn danger" title="Close" aria-label="Close" on:click|stopPropagation={onClose}>×</button>
+        {#if !profileLocked}
+            <button type="button" class="navBtn danger" title="Close" aria-label="Close" on:click|stopPropagation={onClose}>×</button>
+        {/if}
     </div>
 </header>
 

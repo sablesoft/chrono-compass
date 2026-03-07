@@ -1,9 +1,11 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
+    import { get } from 'svelte/store';
     import Portal from 'svelte-portal';
 
     import { formatWheelSpec } from '../lib/wheel/control';
-    import { activeProfile, profilesApi, profilesState } from '../lib/profile/store';
+    import { activeProfile, isActiveProfileLocked, profilesApi, profilesState } from '../lib/profile/store';
+    import { currentLocationId, locationState } from '../lib/location/store';
     import type { Profile, SavedWheel } from '../lib/profile/types';
     import type { BoardWheel } from '../lib/board/types';
 
@@ -15,7 +17,6 @@
 
     let selectedId = '';
     let nameDraft = '';
-    let locked = false;
 
     let draftBoard: BoardWheel[] = [];
     let draftWheels: SavedWheel[] = [];
@@ -29,6 +30,8 @@
     $: selectedProfile = selectedId
         ? (profiles.find((p) => p.id === selectedId) ?? null)
         : null;
+    $: selectedProfileLocked = !!selectedProfile?.locked;
+    $: hideDeleteActions = selectedProfileLocked || $isActiveProfileLocked || !!selectedProfile?.system;
 
     $: wheelsList = draftWheels
         .slice()
@@ -43,7 +46,7 @@
         .slice()
         .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-    $: canDelete = !!selectedProfile && selectedProfile.id !== 'default' && !pendingDelete;
+    $: canDelete = !!selectedProfile && selectedProfile.id !== 'default' && !pendingDelete && !hideDeleteActions;
     $: canApply = (nameDraft || '').trim().length > 0;
     $: isDirty = open && resetSignature !== makeDraftSignature();
 
@@ -176,8 +179,15 @@
         syncDraftFromProfile(null);
     }
 
+    function copyDraftToNewProfile() {
+        const baseName = (nameDraft || selectedProfile?.title || faceProfile?.title || 'Profile').trim() || 'Profile';
+        selectedId = '';
+        nameDraft = `${baseName} Copy`;
+        pendingDelete = false;
+    }
+
     function markDeleteProfile() {
-        if (!selectedProfile || selectedProfile.id === 'default') return;
+        if (!selectedProfile || selectedProfile.id === 'default' || selectedProfileLocked) return;
         pendingDelete = true;
     }
 
@@ -225,6 +235,25 @@
         const normalizedBoard = boardList.map((w, idx) => cloneBoardWheel(w, idx));
         const normalizedWheels = wheelsList.map((w) => cloneSavedWheel(w));
         const favorites = normalizedWheels.filter((w) => !!w.favorite).map((w) => w.dedupKey);
+        const globalLocState = get(locationState);
+        const lockedLocationIds = new Set<string>();
+
+        for (const w of normalizedBoard) {
+            const obs = w.observer;
+            if (obs?.locked && typeof obs.locationId === 'string' && obs.locationId.trim()) {
+                lockedLocationIds.add(obs.locationId.trim());
+            }
+        }
+        for (const w of normalizedWheels) {
+            const obs = w.observer;
+            if (obs?.locked && typeof obs.locationId === 'string' && obs.locationId.trim()) {
+                lockedLocationIds.add(obs.locationId.trim());
+            }
+        }
+
+        const exportedLocations = (globalLocState.saved ?? []).filter((loc) => lockedLocationIds.has(loc.id));
+        const currentFromSet = get(currentLocationId);
+        const exportedCurrentId = exportedLocations.some((x) => x.id === currentFromSet) ? currentFromSet : '';
 
         const payload = {
             schema: 'chrono-compass.profile-export.v1',
@@ -232,13 +261,18 @@
             profile: {
                 id: selectedProfile.id,
                 title: (nameDraft || selectedProfile.title || '').trim() || selectedProfile.title,
+                system: !!selectedProfile.system,
+                locked: selectedProfile.locked ?? false,
                 createdAt: selectedProfile.createdAt,
                 updatedAt: Date.now(),
                 data: {
                     wheels: normalizedWheels,
                     favorites,
                     bodies: selectedProfile.data?.bodies ?? {},
-                    locations: selectedProfile.data?.locations ?? { currentId: '', saved: [] },
+                    locations: {
+                        currentId: exportedCurrentId,
+                        saved: exportedLocations
+                    },
                     wheelsOnScreen: normalizedBoard
                 }
             }
@@ -302,6 +336,12 @@
         const nextName = (nameDraft || '').trim();
         if (!nextName) return;
 
+        if (selectedProfile && selectedProfileLocked) {
+            profilesApi.setActive(selectedProfile.id);
+            close();
+            return;
+        }
+
         if (pendingDelete && selectedProfile && selectedProfile.id !== 'default') {
             profilesApi.deleteProfile(selectedProfile.id);
             close();
@@ -312,8 +352,7 @@
             id: selectedProfile?.id ?? null,
             title: nextName,
             wheels: wheelsList,
-            board: boardList,
-            locations: selectedProfile?.data?.locations ?? faceProfile?.data?.locations
+            board: boardList
         });
 
         if (targetId === faceProfile.id) {
@@ -330,15 +369,12 @@
         open ? close() : openModal();
     }
 
-    function handleLockTogglePlaceholder(next: boolean) {
-        // TODO: Replace with profile-level lock store integration.
-        locked = next;
-    }
-
     function toggleLock(e: MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
-        handleLockTogglePlaceholder(!locked);
+        if (faceProfile?.system) return;
+        if (!faceProfile?.id) return;
+        profilesApi.setProfileLocked(faceProfile.id, !$isActiveProfileLocked);
     }
 
     function onKeyDown(e: KeyboardEvent) {
@@ -399,13 +435,14 @@
         <span class="right">
             <button
                 class="navBtn ui-lock"
-                class:locked={locked}
+                class:locked={$isActiveProfileLocked}
                 type="button"
-                aria-label={locked ? 'Unlock profile' : 'Lock profile'}
-                title={locked ? 'Profile locked' : 'Profile unlocked'}
+                aria-label={$isActiveProfileLocked ? 'Unlock profile' : 'Lock profile'}
+                title={faceProfile?.system ? 'System profile lock is permanent' : ($isActiveProfileLocked ? 'Profile locked' : 'Profile unlocked')}
+                disabled={!!faceProfile?.system}
                 on:click|stopPropagation={toggleLock}
             >
-                <span class="lockIco" aria-hidden="true">{locked ? '🔒' : '🔓'}</span>
+                <span class="lockIco" aria-hidden="true">{$isActiveProfileLocked ? '🔒' : '🔓'}</span>
             </button>
         </span>
     </div>
@@ -478,7 +515,7 @@
 
                         <div class="field">
                             <label class="lbl" for={`${formId}-name`}>Name</label>
-                            <input id={`${formId}-name`} class="inp" bind:value={nameDraft} placeholder="Profile name" />
+                            <input id={`${formId}-name`} class="inp" bind:value={nameDraft} placeholder="Profile name" disabled={selectedProfileLocked} />
                         </div>
                     </div>
 
@@ -501,7 +538,9 @@
                                         <div class="spec">{wheelSpec(w.wheelType, w.roles)}</div>
                                         <div class="title" title={userTitle(w.title)}>{userTitle(w.title)}</div>
                                         <div class="rowActions">
-                                            <button class="mini danger" type="button" on:click={() => removeBoardById(w.id)} disabled={pendingDelete}>Delete</button>
+                                            {#if !hideDeleteActions}
+                                                <button class="mini danger" type="button" on:click={() => removeBoardById(w.id)} disabled={pendingDelete}>Delete</button>
+                                            {/if}
                                         </div>
                                     </div>
                                 {/each}
@@ -509,42 +548,49 @@
                         {/if}
                     </section>
 
-                    <section class="block">
-                        <div class="blockTop">
-                            <div class="blockTitle">Wheels</div>
-                            <div class="blockMeta">{wheelsList.length}</div>
-                        </div>
-
-                        {#if wheelsList.length === 0}
-                            <div class="empty">No saved wheels</div>
-                        {:else}
-                            <div class="rows">
-                                {#each wheelsList as w (w.dedupKey)}
-                                    <div class="rowItem">
-                                        <div class="spec">{wheelSpec(w.type, w.roles)}</div>
-                                        <div class="title" title={userTitle(w.title)}>{userTitle(w.title)}</div>
-                                        <div class="rowActions">
-                                            <button class="mini" type="button" title={w.favorite ? 'Unfavorite' : 'Favorite'} on:click={() => toggleSavedWheelFavorite(w.dedupKey)} disabled={pendingDelete}>
-                                                {w.favorite ? '★' : '☆'}
-                                            </button>
-                                            <button class="mini" type="button" on:click={() => addSavedWheelToBoard(w.dedupKey)} disabled={pendingDelete}>+ Board</button>
-                                            <button class="mini danger" type="button" on:click={() => removeSavedWheelByKey(w.dedupKey)} disabled={pendingDelete}>Delete</button>
-                                        </div>
-                                    </div>
-                                {/each}
+                    {#if !$isActiveProfileLocked}
+                        <section class="block">
+                            <div class="blockTop">
+                                <div class="blockTitle">Wheels</div>
+                                <div class="blockMeta">{wheelsList.length}</div>
                             </div>
-                        {/if}
-                    </section>
+
+                            {#if wheelsList.length === 0}
+                                <div class="empty">No saved wheels</div>
+                            {:else}
+                                <div class="rows">
+                                    {#each wheelsList as w (w.dedupKey)}
+                                        <div class="rowItem">
+                                            <div class="spec">{wheelSpec(w.type, w.roles)}</div>
+                                            <div class="title" title={userTitle(w.title)}>{userTitle(w.title)}</div>
+                                            <div class="rowActions">
+                                                <button class="mini" type="button" title={w.favorite ? 'Unfavorite' : 'Favorite'} on:click={() => toggleSavedWheelFavorite(w.dedupKey)} disabled={pendingDelete || selectedProfileLocked}>
+                                                    {w.favorite ? '★' : '☆'}
+                                                </button>
+                                                <button class="mini" type="button" on:click={() => addSavedWheelToBoard(w.dedupKey)} disabled={pendingDelete || selectedProfileLocked}>+ Board</button>
+                                                {#if !hideDeleteActions}
+                                                    <button class="mini danger" type="button" on:click={() => removeSavedWheelByKey(w.dedupKey)} disabled={pendingDelete}>Delete</button>
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </section>
+                    {/if}
                 </div>
 
                 <footer class="modalBottom">
                     <div class="leftBtns">
-                        <button class="btn danger" type="button" on:click={markDeleteProfile} disabled={!canDelete}>Delete</button>
+                        {#if !hideDeleteActions}
+                            <button class="btn danger" type="button" on:click={markDeleteProfile} disabled={!canDelete}>Delete</button>
+                        {/if}
                     </div>
 
                     <div class="rightBtns">
                         <button class="btn ghost" type="button" on:click={cancel} disabled={!isDirty}>Cancel</button>
                         <button class="btn" type="button" on:click={resetForm} disabled={pendingDelete}>Reset</button>
+                        <button class="btn" type="button" on:click={copyDraftToNewProfile}>Copy</button>
                         <button class="btn primary" type="button" on:click={apply} disabled={!canApply}>Apply</button>
                     </div>
                 </footer>
