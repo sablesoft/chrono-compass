@@ -2,6 +2,7 @@
 import {formatRoleValue, formatTargetValue, type ObjId, type RoleName, type WheelSpec} from '../catalog';
 
 export type WheelRolesState = Partial<Record<RoleName, ObjId | null | ObjId[]>>;
+export const WHEEL_LOADING_OVERLAY_DELAY_MS = 300;
 
 const ROLE_ORDER: RoleName[] = ['looker', 'focus', 'target'];
 

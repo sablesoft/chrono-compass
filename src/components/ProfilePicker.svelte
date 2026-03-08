@@ -117,6 +117,11 @@
         return out || '-';
     }
 
+    function savedProfileLabel(profile: Profile): string {
+        const title = (profile.title ?? '').trim() || 'Profile';
+        return profile.system ? `🔭\u00A0\u00A0\u00A0${title}` : title;
+    }
+
     function syncDraftFromProfile(profile: Profile | null) {
         selectedId = profile?.id ?? '';
         nameDraft = (profile?.title ?? '').trim();
@@ -525,7 +530,7 @@
                             <select id={`${formId}-saved`} class="sel" bind:value={selectedId} on:change={onPickChange}>
                                 <option value="">New profile...</option>
                                 {#each profiles as p (p.id)}
-                                    <option value={p.id}>{p.title}</option>
+                                    <option value={p.id}>{savedProfileLabel(p)}</option>
                                 {/each}
                             </select>
                         </div>

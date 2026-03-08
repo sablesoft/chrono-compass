@@ -1,6 +1,7 @@
 <!-- src/components/Cycle.svelte -->
 <!--suppress HtmlUnknownTag -->
 <script lang="ts">
+    import { onDestroy } from 'svelte';
     import { slide } from 'svelte/transition';
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
@@ -39,7 +40,7 @@
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
     import type { MarkerCluster } from '../lib/wheel/types';
-    import { typeLabel } from '../lib/wheel/control';
+    import { typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
@@ -182,6 +183,9 @@
     let solveReason = '';
     let spokes: CycleSpoke[] = [];
     let solvePending = false;
+    let showLoadingOverlay = false;
+    let showLoadingOverlayBase = false;
+    let loadingOverlayTimer: ReturnType<typeof setTimeout> | null = null;
     $: solveRolesKey = JSON.stringify((wheel as any)?.roles ?? {});
     $: solveLocationKey = String((isHorizon ? wheelLoc?.id : '') ?? '');
     $: solveConfigReady = !!wheel && !!wheelId && (!isHorizon || !!wheelLoc);
@@ -194,7 +198,23 @@
         solveDoneConfigKey = solveConfigKey;
         solveDoneForConfig = false;
     }
-    $: showLoadingOverlay = solveConfigReady && (solvePending || !solveDoneForConfig);
+    $: showLoadingOverlayBase = solveConfigReady && (solvePending || !solveDoneForConfig);
+    $: {
+        if (showLoadingOverlayBase) {
+            if (!showLoadingOverlay && !loadingOverlayTimer) {
+                loadingOverlayTimer = setTimeout(() => {
+                    showLoadingOverlay = true;
+                    loadingOverlayTimer = null;
+                }, WHEEL_LOADING_OVERLAY_DELAY_MS);
+            }
+        } else {
+            if (loadingOverlayTimer) {
+                clearTimeout(loadingOverlayTimer);
+                loadingOverlayTimer = null;
+            }
+            showLoadingOverlay = false;
+        }
+    }
 
     let ensureRunId = 0;
 
@@ -597,6 +617,13 @@
     const animator = new PointerAnimator((s) => {
         displayAngle = s.angleDeg;
         noTransition = s.noTransition;
+    });
+
+    onDestroy(() => {
+        if (loadingOverlayTimer) {
+            clearTimeout(loadingOverlayTimer);
+            loadingOverlayTimer = null;
+        }
     });
 
     $: {

@@ -40,6 +40,7 @@
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
     import { norm360 } from '../lib/math/helpers';
+    import { WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
@@ -1245,11 +1246,30 @@
     let solvePending = false;
     let solveDoneForKey = false;
     let solveDoneKey = '';
+    let showLoadingOverlay = false;
+    let showLoadingOverlayBase = false;
+    let loadingOverlayTimer: ReturnType<typeof setTimeout> | null = null;
     $: if (solveDoneKey !== solveDepsKey) {
         solveDoneKey = solveDepsKey;
         solveDoneForKey = false;
     }
-    $: showLoadingOverlay = solveInputReady && (solvePending || !solveDoneForKey);
+    $: showLoadingOverlayBase = solveInputReady && (solvePending || !solveDoneForKey);
+    $: {
+        if (showLoadingOverlayBase) {
+            if (!showLoadingOverlay && !loadingOverlayTimer) {
+                loadingOverlayTimer = setTimeout(() => {
+                    showLoadingOverlay = true;
+                    loadingOverlayTimer = null;
+                }, WHEEL_LOADING_OVERLAY_DELAY_MS);
+            }
+        } else {
+            if (loadingOverlayTimer) {
+                clearTimeout(loadingOverlayTimer);
+                loadingOverlayTimer = null;
+            }
+            showLoadingOverlay = false;
+        }
+    }
 
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
@@ -1603,6 +1623,10 @@
 
     onDestroy(() => {
         stopMarkerTween();
+        if (loadingOverlayTimer) {
+            clearTimeout(loadingOverlayTimer);
+            loadingOverlayTimer = null;
+        }
     });
 
     $: showVisualSection = wheel?.view?.showVisual !== false;

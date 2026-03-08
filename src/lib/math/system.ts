@@ -147,6 +147,40 @@ async function resolveSynodSpokesForTarget(
     focus: ObjId,
     target: ObjId
 ): Promise<CycleSpoke<SynodMeta>[] | undefined> {
+    const synodSpokeErrorStats = (spokes: CycleSpoke<SynodMeta>[] | undefined) => {
+        const stats = {
+            count: 0,
+            withExactTs: 0,
+            badCount: 0,
+            maxErrDeg: 0,
+            avgErrDeg: 0
+        };
+        if (!spokes?.length) return stats;
+
+        let sumErr = 0;
+        for (const s of spokes) {
+            stats.count += 1;
+            const exactTsRaw = Number((s as any)?.meta?.exactTs);
+            if (!Number.isFinite(exactTsRaw)) continue;
+            stats.withExactTs += 1;
+
+            const spokePhaseDeg = 90 + (360 * (s.index ?? 0)) / 16;
+            const spokeAngleDeg = synodPhaseToWheelAngleDeg(spokePhaseDeg);
+            const inst = synodInstantAt(looker, focus, target, exactTsRaw);
+            if (!inst) continue;
+            const errDeg = angleDeltaDeg(systemAngleDeg(inst), spokeAngleDeg);
+            sumErr += errDeg;
+            if (errDeg >= 5) stats.badCount += 1;
+            if (errDeg > stats.maxErrDeg) stats.maxErrDeg = errDeg;
+        }
+        stats.avgErrDeg = stats.withExactTs > 0 ? (sumErr / stats.withExactTs) : 0;
+        return {
+            ...stats,
+            maxErrDeg: Number(stats.maxErrDeg.toFixed(4)),
+            avgErrDeg: Number(stats.avgErrDeg.toFixed(4))
+        };
+    };
+
     const virtualSynodWheel = {
         wheelType: 'synod' as const,
         roles: { looker, focus, target }
@@ -160,6 +194,37 @@ async function resolveSynodSpokesForTarget(
     if (cached && cached.kind === 'cycle' && cached.ok) {
         const xs = cached.spokes as CycleSpoke<SynodMeta>[];
         const hasExactTs = xs.every((s) => Number.isFinite(Number((s as any)?.meta?.exactTs)));
+        const cachedStats = synodSpokeErrorStats(xs);
+        if (cachedStats.badCount > 0) {
+            input.dbg?.warn?.('solveSystemWheel.synodSpokes.cachedMismatch', {
+                ts: input.ts,
+                looker,
+                focus,
+                target,
+                stats: cachedStats
+            });
+            const freshOnMismatch = solveSynodWheel({
+                wheelType: 'synod',
+                ts: input.ts,
+                location: input.location,
+                dbg: input.dbg,
+                looker,
+                focus,
+                target
+            } as WheelInput<'synod'>);
+            if (freshOnMismatch.ok) {
+                const freshSpokes = freshOnMismatch.spokes as CycleSpoke<SynodMeta>[];
+                const freshStats = synodSpokeErrorStats(freshSpokes);
+                input.dbg?.warn?.('solveSystemWheel.synodSpokes.compareCachedFresh', {
+                    ts: input.ts,
+                    looker,
+                    focus,
+                    target,
+                    cached: cachedStats,
+                    fresh: freshStats
+                });
+            }
+        }
         if (hasExactTs) return xs;
 
         // Legacy cached synod rows may miss meta.exactTs.
@@ -173,7 +238,19 @@ async function resolveSynodSpokesForTarget(
             focus,
             target
         } as WheelInput<'synod'>);
-        if (fresh.ok) return fresh.spokes as CycleSpoke<SynodMeta>[];
+        if (fresh.ok) {
+            const freshSpokes = fresh.spokes as CycleSpoke<SynodMeta>[];
+            const freshStats = synodSpokeErrorStats(freshSpokes);
+            input.dbg?.warn?.('solveSystemWheel.synodSpokes.compareCachedFresh', {
+                ts: input.ts,
+                looker,
+                focus,
+                target,
+                cached: cachedStats,
+                fresh: freshStats
+            });
+            return freshSpokes;
+        }
         return xs;
     }
 
@@ -187,7 +264,18 @@ async function resolveSynodSpokesForTarget(
         target
     } as WheelInput<'synod'>);
     if (!direct.ok) return undefined;
-    return direct.spokes as CycleSpoke<SynodMeta>[];
+    const directSpokes = direct.spokes as CycleSpoke<SynodMeta>[];
+    const directStats = synodSpokeErrorStats(directSpokes);
+    if (directStats.badCount > 0) {
+        input.dbg?.warn?.('solveSystemWheel.synodSpokes.directMismatch', {
+            ts: input.ts,
+            looker,
+            focus,
+            target,
+            stats: directStats
+        });
+    }
+    return directSpokes;
 }
 
 async function resolveBindSpokesForTarget(
@@ -318,11 +406,13 @@ function buildTrackFromSynodSpokes(
     spokes: CycleSpoke<SynodMeta>[] | undefined,
     looker: ObjId,
     focus: ObjId,
-    target: ObjId
+    target: ObjId,
+    dbg?: WheelInput['dbg']
 ): SystemTrackPoint[] | undefined {
     if (!spokes?.length) return undefined;
 
     const out: SystemTrackPoint[] = [];
+    const spokeAngleIssues: Array<Record<string, unknown>> = [];
     for (const s of spokes) {
         const exactTsRaw = Number(s.meta?.exactTs);
         const nodeTs = Number.isFinite(exactTsRaw) ? exactTsRaw : s.ts;
@@ -333,6 +423,18 @@ function buildTrackFromSynodSpokes(
         const spokePhaseDeg = 90 + (360 * (s.index ?? 0)) / 16;
         const spokeAngleDeg = synodPhaseToWheelAngleDeg(spokePhaseDeg);
         const spokePhaseNormDeg = norm360(spokePhaseDeg);
+        const instAngleDeg = systemAngleDeg(inst);
+        const spokeVsInstantErr = angleDeltaDeg(instAngleDeg, spokeAngleDeg);
+        if (spokeVsInstantErr >= 5) {
+            spokeAngleIssues.push({
+                ts: Math.round(nodeTs),
+                code: s.code,
+                index: s.index,
+                spokeAngleDeg: Number(spokeAngleDeg.toFixed(4)),
+                instantAngleDeg: Number(instAngleDeg.toFixed(4)),
+                errDeg: Number(spokeVsInstantErr.toFixed(4))
+            });
+        }
         const tags = uniqueTags(Array.isArray(s.tags) ? s.tags : []);
         out.push({
             ts: nodeTs,
@@ -357,6 +459,15 @@ function buildTrackFromSynodSpokes(
                 distanceKm: inst.distanceAu * AU_KM,
                 focusDistAu: inst.focusDistAu
             }
+        });
+    }
+    if (spokeAngleIssues.length > 0) {
+        dbg?.warn?.('solveSystemWheel.synodSpokeAngleMismatch', {
+            looker,
+            focus,
+            target,
+            count: spokeAngleIssues.length,
+            issues: spokeAngleIssues.slice(0, 12)
         });
     }
     return out.sort((a, b) => a.ts - b.ts);
@@ -436,12 +547,14 @@ function densifyTrackByAngleGap(
     points: SystemTrackPoint[] | undefined,
     looker: ObjId,
     focus: ObjId,
-    target: ObjId
+    target: ObjId,
+    dbg?: WheelInput['dbg']
 ): SystemTrackPoint[] | undefined {
     if (!points || points.length < 2) return points;
 
     const unwrapped = unwrapTrackAnglesByTs(points);
     const out: SystemTrackPoint[] = [];
+    const densifyIssues: Array<Record<string, unknown>> = [];
 
     for (let i = 0; i < unwrapped.length - 1; i++) {
         const a = unwrapped[i];
@@ -474,14 +587,39 @@ function densifyTrackByAngleGap(
             const inst = synodInstantAt(looker, focus, target, tsMid);
             if (!inst) continue;
             const eclLat = eclipticLatitudeDegAt(focus, target, tsMid);
+            const solvedAngleDeg = systemAngleDeg(inst);
+            const branch = Math.round((targetUnwrapped - solvedAngleDeg) / 360);
+            const solvedUnwrapped = solvedAngleDeg + 360 * branch;
+            const targetErrDeg = solvedUnwrapped - targetUnwrapped;
+            if (!Number.isFinite(tMid) || Math.abs(targetErrDeg) >= 8) {
+                densifyIssues.push({
+                    segment: {
+                        fromTs: Math.round(a.ts),
+                        toTs: Math.round(b.ts),
+                        fromCode: a.code,
+                        toCode: b.code,
+                        fromUnwrapped: Number(a.angleUnwrapped.toFixed(4)),
+                        toUnwrapped: Number(b.angleUnwrapped.toFixed(4))
+                    },
+                    insert: {
+                        u: Number(u.toFixed(4)),
+                        targetUnwrapped: Number(targetUnwrapped.toFixed(4)),
+                        tsMid: Math.round(tsMid),
+                        rootTs: Number.isFinite(tMid) ? Math.round(tMid as number) : null,
+                        solvedAngleDeg: Number(solvedAngleDeg.toFixed(4)),
+                        solvedUnwrapped: Number(solvedUnwrapped.toFixed(4)),
+                        errDeg: Number(targetErrDeg.toFixed(4))
+                    }
+                });
+            }
 
             out.push({
                 ts: tsMid,
                 index: a.index,
                 code: a.code,
-                azimuthDeg: pseudoAzimuthFromWheelAngle(systemAngleDeg(inst)),
+                azimuthDeg: pseudoAzimuthFromWheelAngle(solvedAngleDeg),
                 altitudeDeg: eclLat,
-                angleDeg: systemAngleDeg(inst),
+                angleDeg: solvedAngleDeg,
                 orbit: NaN,
                 visible: Number.isFinite(eclLat) ? eclLat >= 0 : true,
                 source: 'cycle',
@@ -502,6 +640,15 @@ function densifyTrackByAngleGap(
 
     const last = unwrapped[unwrapped.length - 1];
     out.push({ ...last, angleDeg: last.angleDeg });
+    if (densifyIssues.length > 0) {
+        dbg?.warn?.('solveSystemWheel.densifyAngleMismatch', {
+            looker,
+            focus,
+            target,
+            count: densifyIssues.length,
+            issues: densifyIssues.slice(0, 16)
+        });
+    }
     return out.sort((x, y) => x.ts - y.ts);
 }
 
@@ -699,6 +846,13 @@ function applySystemBoundaryCycleTags(track: SystemTrackPoint[] | undefined): Sy
     });
 }
 
+function angleDeltaDeg(a: number, b: number): number {
+    let d = Math.abs(a - b);
+    while (d > 360) d -= 360;
+    if (d > 180) d = 360 - d;
+    return d;
+}
+
 function normalizeOrbit(distanceAu: number, maxAu: number): number {
     if (!(distanceAu > 0) || !Number.isFinite(distanceAu)) return 0;
     if (!(maxAu > 0) || !Number.isFinite(maxAu)) return 0;
@@ -741,7 +895,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         if (!inst) return null;
 
         const synodSpokes = await resolveSynodSpokesForTarget(input, looker, focus, id);
-        const synodTrack = buildTrackFromSynodSpokes(synodSpokes, looker, focus, id);
+        const synodTrack = buildTrackFromSynodSpokes(synodSpokes, looker, focus, id, dbg);
 
         const synodStartRaw = synodSpokes?.[0]?.ts;
         const synodEndRaw = synodSpokes?.[16]?.ts;
@@ -759,7 +913,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const nodalTrack = buildTrackFromNodalSpokes(nodalSpokes, looker, focus, id);
 
         const mergedTrack = mergeTrackPointsPreferSynod([...(bindTrack ?? []), ...(synodTrack ?? []), ...(nodalTrack ?? [])]);
-        const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id);
+        const denseTrack = densifyTrackByAngleGap(mergedTrack, looker, focus, id, dbg);
         const orbitTrackRaw = mergeTrackPointsPreferSynod(denseTrack);
         const orbitTrackTagged = applySystemBoundaryCycleTags(orbitTrackRaw);
         const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, systemSpec.mainCycle, ts);

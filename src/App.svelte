@@ -5,7 +5,7 @@
   import Board from './components/Board.svelte';
 
   import { currentLocation } from './lib/location/store';
-  import { selectedTs as selectedTsStore, startLive } from './lib/time/store';
+  import { selectedTs as selectedTsStore } from './lib/time/store';
 
   import SwUpdateToast from "./components/SwUpdateToast.svelte";
 
@@ -17,7 +17,6 @@
       resetUiId += 1;
     });
 
-    startLive();
   });
 
   onDestroy(() => { unsubLoc?.(); unsubLoc = null; });

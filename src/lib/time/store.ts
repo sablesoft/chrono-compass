@@ -7,11 +7,47 @@ const DEFAULT: GlobalTimeState = {
     live: true,
     locked: false
 };
+const KEY = 'chrono:time:v1';
+
+function sanitizeGlobalTime(input: any): GlobalTimeState {
+    const live = input?.live === true;
+    const locked = input?.locked === true;
+    if (live) {
+        return { live: true, locked };
+    }
+    const ts = Number(input?.ts);
+    if (Number.isFinite(ts)) {
+        return { live: false, locked, ts: ms(ts) };
+    }
+    return { live: false, locked, ts: ms(Date.now()) };
+}
+
+function loadGlobalTime(): GlobalTimeState {
+    if (typeof window === 'undefined') return DEFAULT;
+    try {
+        const raw = localStorage.getItem(KEY);
+        if (!raw) return DEFAULT;
+        const parsed = JSON.parse(raw);
+        return sanitizeGlobalTime(parsed);
+    } catch {
+        return DEFAULT;
+    }
+}
+
+function persistGlobalTime(state: GlobalTimeState): void {
+    if (typeof window === 'undefined') return;
+    try {
+        localStorage.setItem(KEY, JSON.stringify(state));
+    } catch {
+        // ignore storage write errors
+    }
+}
 
 // внутреннее “текущее время” для live-режима (оно и даёт реактивность)
 const liveNowTs = writable<number>(ms(Date.now()));
 
-export const globalTime = writable<GlobalTimeState>(DEFAULT);
+const initialGlobalTime: GlobalTimeState = loadGlobalTime();
+export const globalTime = writable<GlobalTimeState>(initialGlobalTime);
 
 /**
  * Backward-compatible API:
@@ -149,6 +185,10 @@ export function toggleGlobalTimeLock() {
 
 // Авто-старт таймера при импорте модуля, если live включен по дефолту/из persisted state
 if (typeof window !== 'undefined') {
+    globalTime.subscribe((state) => {
+        persistGlobalTime(state);
+    });
+
     ensureVisibilitySync();
 
     const gt = get(globalTime);
