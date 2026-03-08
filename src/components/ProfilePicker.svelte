@@ -19,12 +19,14 @@
 
     let selectedId = '';
     let nameDraft = '';
+    let savedMenuOpen = false;
 
     let draftBoard: BoardWheel[] = [];
     let draftWheels: SavedWheel[] = [];
     let pendingDelete = false;
 
     let resetSignature = '';
+    const SYSTEM_PROFILE_EMOJI = '🔭';
 
     $: profiles = $profilesState.profiles;
     $: faceProfile = $activeProfile;
@@ -117,9 +119,23 @@
         return out || '-';
     }
 
-    function savedProfileLabel(profile: Profile): string {
-        const title = (profile.title ?? '').trim() || 'Profile';
-        return profile.system ? `🔭\u00A0\u00A0\u00A0${title}` : title;
+    function selectedProfileTitle(): string {
+        if (!selectedId) return 'New profile...';
+        return (selectedProfile?.title ?? '').trim() || 'Profile';
+    }
+
+    function closeSavedMenu() {
+        savedMenuOpen = false;
+    }
+
+    function toggleSavedMenu() {
+        savedMenuOpen = !savedMenuOpen;
+    }
+
+    function pickSavedProfile(id: string) {
+        const profile = id ? (profiles.find((p) => p.id === id) ?? null) : null;
+        syncDraftFromProfile(profile);
+        closeSavedMenu();
     }
 
     function syncDraftFromProfile(profile: Profile | null) {
@@ -166,6 +182,7 @@
     function openModal() {
         syncDraftFromProfile(faceProfile ?? null);
         resetSignature = makeDraftSignature();
+        savedMenuOpen = false;
 
         open = true;
         document.body.style.overflow = 'hidden';
@@ -174,6 +191,7 @@
 
     function close() {
         open = false;
+        savedMenuOpen = false;
         resetSignature = '';
         document.body.style.overflow = '';
     }
@@ -182,17 +200,9 @@
         close();
     }
 
-    function onPickChange(e: Event) {
-        const el = e.currentTarget;
-        if (!(el instanceof HTMLSelectElement)) return;
-
-        const id = el.value;
-        const profile = id ? (profiles.find((p) => p.id === id) ?? null) : null;
-        syncDraftFromProfile(profile);
-    }
-
     function resetForm() {
         syncDraftFromProfile(null);
+        closeSavedMenu();
     }
 
     function copyDraftToNewProfile() {
@@ -401,6 +411,11 @@
 
     function onKeyDown(e: KeyboardEvent) {
         if (!open) return;
+        if (savedMenuOpen && e.key === 'Escape') {
+            e.preventDefault();
+            closeSavedMenu();
+            return;
+        }
         if (e.key === 'Escape') {
             e.preventDefault();
             cancel();
@@ -442,11 +457,15 @@
     >
         <span class="left">
             <span class="seg iconSeg" title="Profile picker">
-                <svg class="profileIcon" viewBox="0 0 24 24" aria-hidden="true">
-                    <path
-                        d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z"
-                    />
-                </svg>
+                {#if faceProfile?.system}
+                    <span class="profileEmoji" aria-hidden="true">{SYSTEM_PROFILE_EMOJI}</span>
+                {:else}
+                    <svg class="profileIcon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                            d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z"
+                        />
+                    </svg>
+                {/if}
             </span>
 
             <span class="seg labelSeg">
@@ -527,12 +546,60 @@
                     <div class="row2">
                         <div class="field">
                             <label class="lbl" for={`${formId}-saved`}>Saved</label>
-                            <select id={`${formId}-saved`} class="sel" bind:value={selectedId} on:change={onPickChange}>
-                                <option value="">New profile...</option>
-                                {#each profiles as p (p.id)}
-                                    <option value={p.id}>{savedProfileLabel(p)}</option>
-                                {/each}
-                            </select>
+                            <div class="savedSelect">
+                                <button
+                                    id={`${formId}-saved`}
+                                    class="sel savedBtn"
+                                    type="button"
+                                    aria-haspopup="listbox"
+                                    aria-expanded={savedMenuOpen}
+                                    on:click={toggleSavedMenu}
+                                >
+                                    {#if selectedProfile?.system}
+                                        <span class="profileEmoji" aria-hidden="true">{SYSTEM_PROFILE_EMOJI}</span>
+                                    {:else}
+                                        <svg class="profileIcon savedProfileIcon" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z" />
+                                        </svg>
+                                    {/if}
+                                    <span class="savedBtnLabel">{selectedProfileTitle()}</span>
+                                    <span class="savedBtnChevron" aria-hidden="true">{savedMenuOpen ? '▴' : '▾'}</span>
+                                </button>
+                                {#if savedMenuOpen}
+                                    <div class="savedMenu" role="listbox" aria-label="Saved profiles">
+                                        <button
+                                            type="button"
+                                            class="savedOption"
+                                            role="option"
+                                            aria-selected={!selectedId}
+                                            on:click={() => pickSavedProfile('')}
+                                        >
+                                            <svg class="profileIcon savedProfileIcon" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z" />
+                                            </svg>
+                                            <span class="savedOptionLabel">New profile...</span>
+                                        </button>
+                                        {#each profiles as p (p.id)}
+                                            <button
+                                                type="button"
+                                                class="savedOption"
+                                                role="option"
+                                                aria-selected={selectedId === p.id}
+                                                on:click={() => pickSavedProfile(p.id)}
+                                            >
+                                                {#if p.system}
+                                                    <span class="profileEmoji" aria-hidden="true">{SYSTEM_PROFILE_EMOJI}</span>
+                                                {:else}
+                                                    <svg class="profileIcon savedProfileIcon" viewBox="0 0 24 24" aria-hidden="true">
+                                                        <path d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z" />
+                                                    </svg>
+                                                {/if}
+                                                <span class="savedOptionLabel">{p.title || 'Profile'}</span>
+                                            </button>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </div>
                         </div>
 
                         <div class="field">
@@ -722,6 +789,14 @@
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 12%) !important;
     }
 
+    .profileEmoji {
+        font-size: 14px;
+        line-height: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     .profileIcon {
         width: 14px;
         height: 14px;
@@ -864,6 +939,85 @@
     .inp:focus-visible, .sel:focus-visible {
         outline: 3px solid var(--ring);
         outline-offset: 2px;
+    }
+
+    .savedSelect {
+        position: relative;
+    }
+
+    .savedBtn {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 8px;
+        text-align: left;
+        cursor: pointer;
+    }
+
+    .savedBtnLabel {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .savedBtnChevron {
+        opacity: 0.75;
+        font-size: 12px;
+    }
+
+    .savedMenu {
+        position: absolute;
+        z-index: 3;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        max-height: min(36vh, 280px);
+        overflow-y: auto;
+        border-radius: 12px;
+        border: 1px solid var(--btn-border);
+        background: var(--panel);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+        padding: 4px;
+        display: grid;
+        gap: 2px;
+    }
+
+    .savedOption {
+        border: 0;
+        background: transparent;
+        color: inherit;
+        width: 100%;
+        min-width: 0;
+        text-align: left;
+        border-radius: 8px;
+        padding: 8px 10px;
+        display: grid;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+
+    .savedOption:hover {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 10%);
+    }
+
+    .savedOption[aria-selected='true'] {
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 14%);
+    }
+
+    .savedOptionLabel {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .savedProfileIcon {
+        width: 14px;
+        height: 14px;
+        flex: 0 0 14px;
     }
 
     .pendingDelete {

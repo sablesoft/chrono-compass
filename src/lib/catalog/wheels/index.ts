@@ -18,12 +18,12 @@ export type WheelsCatalog = {
 
 export const wheels: WheelsCatalog = {
     compass,
-    horizon,
     system,
+    horizon,
     bind,
     synod,
-    season,
     nodal,
+    season,
     plato,
     galaxy
 };

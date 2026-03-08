@@ -1,8 +1,9 @@
 // src/lib/wheel/control.ts
 import {formatRoleValue, formatTargetValue, type ObjId, type RoleName, type WheelSpec} from '../catalog';
+import { formatInfoValue } from './infoFormat';
 
 export type WheelRolesState = Partial<Record<RoleName, ObjId | null | ObjId[]>>;
-export const WHEEL_LOADING_OVERLAY_DELAY_MS = 300;
+export const WHEEL_LOADING_OVERLAY_DELAY_MS = 200;
 
 const ROLE_ORDER: RoleName[] = ['looker', 'focus', 'target'];
 
@@ -241,4 +242,33 @@ export function shallowEqualRoles(a: WheelRolesState, b: WheelRolesState): boole
     return (a.looker ?? null) === (b.looker ?? null)
         && (a.focus ?? null) === (b.focus ?? null)
         && targetEq;
+}
+
+type SpokeLike = {
+    ts: number;
+    index?: number;
+    code?: string;
+};
+
+export function getCycleDurationMsFromSpokes(spokes: SpokeLike[] | null | undefined): number {
+    if (!Array.isArray(spokes) || spokes.length === 0) return NaN;
+
+    const startByIndex = spokes.find((s) => (s?.index ?? -1) === 0);
+    const endByIndex = spokes.find((s) => (s?.index ?? -1) === 16);
+
+    const startByCode = spokes.find((s) => s?.code === 'E');
+    const endByCode = spokes.find((s) => s?.code === 'E_next');
+
+    const start = Number(startByIndex?.ts ?? startByCode?.ts);
+    const end = Number(endByIndex?.ts ?? endByCode?.ts);
+
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return NaN;
+    return end - start;
+}
+
+export function formatCycleDurationFromSpokes(spokes: SpokeLike[] | null | undefined): string {
+    const durationMs = getCycleDurationMsFromSpokes(spokes);
+    if (!Number.isFinite(durationMs) || durationMs <= 0) return '';
+    const value = formatInfoValue('duration', durationMs).trim();
+    return value === '—' ? '' : value;
 }

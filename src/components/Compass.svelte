@@ -40,7 +40,7 @@
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
     import { norm360 } from '../lib/math/helpers';
-    import { WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
+    import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
@@ -1713,6 +1713,12 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        durationItem?: {
+            id: string;
+            label: string;
+            value: string;
+            modal?: string;
+        };
         nodes: Array<{
             id: string;
             label: string;
@@ -1725,6 +1731,8 @@
     };
 
     type CompassTagScope = 'dynamic' | 'pinned';
+    type PinnedEditorGroup = OrbitNodeGroup | 'general';
+
     type CompassTagDef = {
         id: string;
         label: string;
@@ -1735,7 +1743,7 @@
         metaField?: string;
         format?: string;
         spokes?: string[] | '*';
-        group?: OrbitNodeGroup;
+        group?: PinnedEditorGroup;
     };
 
     let compassInfoConfigWheelId = '';
@@ -1772,7 +1780,7 @@
     let compassPinnedRows: CompassPinnedInfoRow[] = [];
     let compassGeneralChips: CompassInfoChip[] = [];
     let compassHouseDefs: CompassHouseDef[] = [];
-    let pinnedAvailableGroups: OrbitNodeGroup[] = ['regular'];
+    let pinnedAvailableGroups: PinnedEditorGroup[] = ['general', 'regular'];
 
     function normalizeCompassTag(input: CompassInfoTagConfig | null | undefined): CompassInfoTagConfig | null {
         if (!input || !input.id) return null;
@@ -1895,6 +1903,12 @@
         if (type === 'compass') return ['horizon'];
         if (type === 'system') return ['synod', 'bind', 'nodal'];
         return [];
+    }
+
+    function sourceWheelsFromSpec(): Array<Exclude<OrbitNodeGroup, 'regular'>> {
+        const groups = wheelNodeGroupsFromSpec();
+        const order: Array<Exclude<OrbitNodeGroup, 'regular'>> = ['compass', 'horizon', 'nodal', 'synod', 'bind'];
+        return order.filter((group) => normalizeSpecNodeGroup(group, groups).length > 0);
     }
 
     function specInfoRowsFor(source: 'horizon' | 'synod' | 'bind' | 'nodal'): InfoItem[] {
@@ -2152,6 +2166,34 @@
                 });
             }
         }
+
+        // Keep system node tags from spec stable across cycle switches.
+        const groups = wheelNodeGroupsFromSpec();
+        for (const source of sourceWheelsFromSpec()) {
+            const specTags = normalizeSpecNodeGroup(source, groups);
+            for (const rawTag of specTags) {
+                const tag = String(rawTag ?? '').trim();
+                const dashAt = tag.lastIndexOf('-');
+                if (dashAt <= 0 || dashAt >= tag.length - 1) continue;
+                const spoke = tag.slice(0, dashAt);
+                if (!isSpokeCode(spoke)) continue;
+                const normalizedSpoke = spoke === 'E+' ? 'E_next' : spoke;
+                const label = formatLabelTitleCaseUi(`${formatSpokeCodeUi(normalizedSpoke)}-${source}`);
+                const id = `pinned-node:${tagIdFromLabel(label)}`;
+                if (byId.has(id)) continue;
+                byId.set(id, {
+                    ts: Number.POSITIVE_INFINITY,
+                    def: {
+                        id,
+                        label,
+                        scope: 'pinned',
+                        enabledByDefault: true,
+                        group: source
+                    }
+                });
+            }
+        }
+
         return Array.from(byId.values())
             .sort((a, b) => a.ts - b.ts)
             .map((x) => x.def);
@@ -2199,20 +2241,26 @@
         return showOrbitNodesAny && isOrbitNodeGroupVisible(group);
     }
 
+    const PINNED_DURATION_TAG_ID = 'pinned:duration';
+
+    function buildPinnedMetaDefs(): CompassTagDef[] {
+        return [{
+            id: PINNED_DURATION_TAG_ID,
+            label: 'Duration',
+            scope: 'pinned',
+            enabledByDefault: true,
+            group: 'general'
+        }];
+    }
+
     function pinnedGroupFromNode(node: OrbitNodeUi): OrbitNodeGroup {
         return orbitNodeGroup(node);
     }
 
     $: compassHouseDefs = buildHouseDefsForWheel(spec);
     $: pinnedAvailableGroups = (() => {
-        const out: OrbitNodeGroup[] = ['regular'];
-        const rawNodes = (spec as { nodes?: unknown } | null | undefined)?.nodes;
-        if (!rawNodes || typeof rawNodes !== 'object') return out;
-        const groups: Array<Exclude<OrbitNodeGroup, 'regular'>> = ['compass', 'horizon', 'nodal', 'synod', 'bind'];
-        for (const group of groups) {
-            const values = (rawNodes as Record<string, unknown>)[group];
-            if (Array.isArray(values) && values.length > 0) out.push(group);
-        }
+        const out: PinnedEditorGroup[] = ['general', 'regular'];
+        for (const group of sourceWheelsFromSpec()) out.push(group);
         return out;
     })();
 
@@ -2224,8 +2272,10 @@
                 id: `dynamic:${tagIdFromLabel(def.label)}`
             }));
         const pinnedDefs = buildPinnedNodeDefs();
+        const pinnedMetaDefs = buildPinnedMetaDefs();
         return [
             ...dynamicDefs,
+            ...pinnedMetaDefs,
             ...pinnedDefs
         ] satisfies CompassTagDef[];
     })();
@@ -2422,11 +2472,35 @@
             return chosen;
         })();
         const body = allBodies.find((b) => b.id === pinnedBodyId);
-        const nodeDefs = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
+        const pinnedTagConfigById = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
+        const mainCycle = mainCycleSourceForActiveWheel();
+        const durationItem = (() => {
+            if (!mainCycle) return undefined;
+            const mainCycleSpokes = windowRows
+                .filter((row) => row.sourceWheel === mainCycle)
+                .map((row) => ({ ts: row.ts, code: row.code }));
+            const value = formatCycleDurationFromSpokes(mainCycleSpokes);
+            if (!value) return undefined;
+            const cfg = pinnedTagConfigById.get(PINNED_DURATION_TAG_ID);
+            if (cfg?.enabled === false) return undefined;
+            const def = compassTagDefById.get(PINNED_DURATION_TAG_ID);
+            const label = (cfg?.label && cfg.label.trim())
+                ? cfg.label.trim()
+                : (def?.label ?? 'Duration');
+            const modal = (cfg?.modal && cfg.modal.trim())
+                ? cfg.modal.trim()
+                : (typeof def?.modal === 'string' ? def.modal : undefined);
+            return {
+                id: PINNED_DURATION_TAG_ID,
+                label,
+                value,
+                modal
+            };
+        })();
         const nodes: CompassPinnedInfoRow['nodes'] = windowRows
             .flatMap((row) => {
                 const id = `pinned-node:${tagIdFromLabel(row.techName)}`;
-                const cfg = nodeDefs.get(id);
+                const cfg = pinnedTagConfigById.get(id);
                 if (cfg && cfg.enabled === false) return [];
                 const label = (cfg?.label && cfg.label.trim()) ? cfg.label.trim() : row.techName;
                 return [{
@@ -2445,6 +2519,7 @@
             bodyId: pinnedBodyId,
             emoji: body?.emoji ?? '•',
             name: body?.name ?? String(pinnedBodyId),
+            durationItem,
             nodes
         });
         return out;

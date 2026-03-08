@@ -36,24 +36,22 @@ function stableRolesKey(roles: WheelRolesState): string {
 }
 
 function stableObserverKey(o: WheelObserverState): string {
-    // locationId обязателен, locked влияет на поведение, но НЕ на астрономию.
-    // В твоей модели “dedupKey = полная конфигурация колеса” — значит locked тоже должен участвовать.
-    // Если позже решишь, что lock не часть “сущности”, его можно убрать из id.
-    const loc = String(o?.locationId ?? '');
     const locked = o?.locked ? '1' : '0';
-    return `loc=${loc}&lock=${locked}`;
+    if (locked === '0') return 'lock=0';
+    const loc = String(o?.locationId ?? '');
+    return `lock=1&loc=${loc}`;
 }
 
 function stableTimeKey(t: WheelTimeState): string {
     const locked = t?.locked ? '1' : '0';
+    if (locked === '0') return 'lock=0';
 
     if (t?.live) {
-        return `mode=live&lock=${locked}`;
+        return 'lock=1&mode=live';
     }
 
-    // fixed
     const ts = Number(t?.ts);
-    return `mode=fixed&ts=${Number.isFinite(ts) ? Math.trunc(ts) : 'NaN'}&lock=${locked}`;
+    return `lock=1&mode=fixed&ts=${Number.isFinite(ts) ? Math.trunc(ts) : 'NaN'}`;
 }
 
 function base64Url(raw: string): string {

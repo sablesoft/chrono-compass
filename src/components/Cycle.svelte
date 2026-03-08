@@ -40,7 +40,7 @@
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
 
     import type { MarkerCluster } from '../lib/wheel/types';
-    import { typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
+    import { formatCycleDurationFromSpokes, typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { isActiveProfileLocked } from '../lib/profile/store';
 
     // ------------------------------------------------------------
@@ -382,13 +382,6 @@
             }
         }
     }
-
-    $: cycleBeginTs = spokeTimes?.[0];
-    $: cycleEndTs = spokeTimes?.[16];
-    $: cycleDurationMs =
-        Number.isFinite(cycleBeginTs) && Number.isFinite(cycleEndTs) && cycleEndTs > cycleBeginTs
-            ? (cycleEndTs - cycleBeginTs)
-            : NaN;
 
     function spokePayload(i: number): CycleTipPayload {
         const s = spokes.find(x => x.index === i);
@@ -1097,7 +1090,7 @@
     $: generalDefs = [{
         id: 'duration',
         label: formatLabelTitleCaseUi('duration'),
-        value: formatInfoValue('duration', cycleDurationMs)
+        value: formatCycleDurationFromSpokes(spokes)
     }];
 
     $: defaultInfoConfig = {

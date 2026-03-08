@@ -5,6 +5,20 @@
 - Chat responses must always be in Russian.
 - Code comments must always be in English.
 
+## Reuse-First Rule (Anti-Copy-Paste)
+
+Before adding any new method, helper, or feature logic:
+1. Search for existing similar code first (helpers, utils, formatters, selectors, store actions, component-local functions).
+2. Analyze whether existing code can be reused directly or generalized with minimal refactor.
+3. If reuse/generalization is possible, prefer refactor + reuse over new duplicate logic.
+4. If adding new code is still required, briefly document why existing code was not suitable.
+
+Practical workflow:
+- Start with targeted search (`rg`) by domain terms and behavior, not only exact names.
+- Check nearby modules first (same feature folder), then shared libs (`src/lib/**`).
+- Look for both explicit duplicates and logical duplicates (same behavior with different naming).
+- When duplication is detected, propose and implement a small consolidation helper at the most stable shared layer.
+
 ## Non-obvious Bug Localization Protocol
 
 Use this protocol only when:

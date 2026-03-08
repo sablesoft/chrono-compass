@@ -31,6 +31,12 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        durationItem?: {
+            id: string;
+            label: string;
+            value: string;
+            modal?: string;
+        };
         nodes: Array<{
             id: string;
             label: string;
@@ -48,7 +54,7 @@
         scope: 'dynamic' | 'pinned';
         enabledByDefault: boolean;
         modal?: string;
-        group?: 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+        group?: 'general' | 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
     };
 
     export let config: CompassInfoConfig;
@@ -96,6 +102,7 @@
         if (locked) return;
         draftConfig = cloneConfig(config);
         pinnedEditorFilters = {
+            general: true,
             regular: true,
             compass: true,
             horizon: true,
@@ -395,8 +402,9 @@
         systemLabel: string;
         tag?: CompassInfoTagConfig;
     };
-    type PinnedGroupKey = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
+    type PinnedGroupKey = 'general' | 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
     const PINNED_GROUP_FILTERS: Array<{ key: PinnedGroupKey; label: string }> = [
+        { key: 'general', label: 'general' },
         { key: 'regular', label: 'regular' },
         { key: 'compass', label: 'compass' },
         { key: 'synod', label: 'synod' },
@@ -409,9 +417,10 @@
     let pinnedEditorRows: ScopedEditorRow[] = [];
     let pinnedEditorRowsFiltered: ScopedEditorRow[] = [];
     let pinnedGroupFiltersVisible: Array<{ key: PinnedGroupKey; label: string }> = [];
-    export let pinnedAvailableGroups: PinnedGroupKey[] = ['regular'];
+    export let pinnedAvailableGroups: PinnedGroupKey[] = ['general', 'regular'];
     let dynamicRowsByHouse: Array<{ code: string; label: string; modal?: string; rows: CompassDynamicRow[] }> = [];
     let pinnedEditorFilters: Record<PinnedGroupKey, boolean> = {
+        general: true,
         regular: true,
         compass: true,
         horizon: true,
@@ -429,10 +438,10 @@
         const ids = scope === 'pinned'
             ? defs.map((d) => d.id)
             : tagsOrdered.map((t) => t.id);
-        for (const t of tagsOrdered) {
-            if (!ids.includes(t.id)) ids.push(t.id);
-        }
         if (scope !== 'pinned') {
+            for (const t of tagsOrdered) {
+                if (!ids.includes(t.id)) ids.push(t.id);
+            }
             for (const d of defs) {
                 if (!ids.includes(d.id)) ids.push(d.id);
             }
@@ -476,7 +485,7 @@
         if (!draftConfig) return [];
         const defById = new Map(uniqueTagDefsByLabel('pinned').map((d) => [d.id, d]));
         return pinnedEditorRows.filter((row) => {
-            const group = defById.get(row.id)?.group ?? 'regular';
+            const group = (defById.get(row.id)?.group as PinnedGroupKey | undefined) ?? 'regular';
             return pinnedEditorFilters[group] !== false;
         });
     })();
@@ -599,6 +608,34 @@
                                 {/each}
                             {/if}
                         </div>
+                        {#if row.durationItem}
+                            <div class="chipGrid">
+                                {#if row.durationItem.modal}
+                                    <button
+                                        type="button"
+                                        class="ui-tag chipButton"
+                                        on:click={() => {
+                                            modalTitle = row.durationItem?.label ?? 'Duration';
+                                            modalText = row.durationItem?.modal ?? null;
+                                        }}
+                                    >
+                                        <span class="chipLine">
+                                            <span class="chipLabel">{row.durationItem.label}</span>
+                                            <span class="chipDivider" aria-hidden="true"></span>
+                                            <span class="chipValue">{row.durationItem.value}</span>
+                                        </span>
+                                    </button>
+                                {:else}
+                                    <span class="ui-tag chipStatic">
+                                        <span class="chipLine">
+                                            <span class="chipLabel">{row.durationItem.label}</span>
+                                            <span class="chipDivider" aria-hidden="true"></span>
+                                            <span class="chipValue">{row.durationItem.value}</span>
+                                        </span>
+                                    </span>
+                                {/if}
+                            </div>
+                        {/if}
                     </div>
                 {/each}
             </div>
