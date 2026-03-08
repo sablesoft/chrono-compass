@@ -1053,6 +1053,91 @@
                     "id": "pinned:duration",
                     "enabled": true,
                     "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "След. Восход"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "Запад"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "Юго-Запад"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "Юг"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "Юго-Восток"
                   }
                 ]
               }
@@ -2133,6 +2218,91 @@
                     "id": "pinned:duration",
                     "enabled": true,
                     "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "След. Восход"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "Запад"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "Юго-Запад"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "Юг"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "Юго-Восток"
                   }
                 ]
               }

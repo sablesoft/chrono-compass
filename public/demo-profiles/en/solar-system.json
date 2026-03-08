@@ -1,15 +1,347 @@
 {
   "schema": "chrono-compass.profile-export.v1",
-  "exportedAt": "2026-03-08T17:01:53.196Z",
+  "exportedAt": "2026-03-08T18:03:24.313Z",
   "profile": {
     "id": "profile_kbr2yydke8_kz3vq60vds",
     "title": "Solar System",
     "system": false,
     "locked": false,
     "createdAt": 1772977755921,
-    "updatedAt": 1772989313196,
+    "updatedAt": 1772993004313,
     "data": {
       "wheels": [
+        {
+          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1KdXBpdGVyLE1hcnMsTWVyY3VyeSxNb29uLE5lcHR1bmUsUGx1dG8sU2F0dXJuLFN1bixVcmFudXMsVmVudXM6OmxvY2s9MDo6bG9jaz0w",
+          "type": "compass",
+          "title": "Visible Sky",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon",
+              "Mercury",
+              "Venus",
+              "Mars",
+              "Jupiter",
+              "Neptune",
+              "Pluto",
+              "Saturn",
+              "Uranus"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhwv9e0:s0g5",
+                    "enabled": true,
+                    "label": "Description",
+                    "value": "",
+                    "modal": "This compass wheel shows which major Solar System bodies are above or below your local horizon at the selected moment. It is the observational layer of the demo: use it to connect orbital-cycle context to real sky visibility, altitude peaks, and rising/setting windows.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhzvg01:guide",
+                    "enabled": true,
+                    "label": "Guide",
+                    "value": "",
+                    "modal": "Start by pinning the Sun or Moon, then use the horizon/compass/regular node filters to simplify the track. Shift the global time to compare observing windows, and read the pinned node list below the wheel to jump directly to rises, sets, and altitude extremes.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Altitude is the target height relative to the local horizon. Positive values mean the body is above the horizon, negative values mean it is below."
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Azimuth is the horizontal direction along the horizon, measured clockwise from true north: N=0°, E=90°, S=180°, W=270°."
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Right ascension is an equatorial sky coordinate, similar to celestial longitude. It is commonly expressed in hours along the celestial equator."
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Declination is an equatorial sky coordinate, similar to celestial latitude. Positive values are north of the celestial equator, negative values are south."
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Distance in astronomical units (AU). 1 AU is the average Earth-Sun distance, useful for comparing orbital scales."
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Distance in kilometers for precise range tracking at the selected horizon moment."
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": true,
+                    "modal": "Rising horizon marks the upward crossing of altitude 0°. These moments define when the target appears above the horizon line."
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": true,
+                    "modal": "Setting horizon marks the downward crossing of altitude 0°, when the target disappears below the horizon line."
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Maximum altitude is the highest point of the target above the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Minimum altitude is the lowest point of the target below the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Zenith sector marks the local top-side arc of the cycle where altitude reaches its peak behavior."
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Nadir sector marks the local bottom-side arc of the cycle where altitude reaches its minimum behavior."
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains above the local horizon."
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains below the local horizon."
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "East"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true,
+                    "label": "ENE"
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true,
+                    "label": "North-East"
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true,
+                    "label": "NNE"
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "North"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true,
+                    "label": "NNW"
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true,
+                    "label": "North-West"
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true,
+                    "label": "WNW"
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "West"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true,
+                    "label": "WSW"
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true,
+                    "label": "South-West"
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true,
+                    "label": "SSW"
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "South"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true,
+                    "label": "SSE"
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true,
+                    "label": "South-East"
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true,
+                    "label": "ESE"
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "East"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Cycle"
+                  },
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Rising"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Zenith"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Setting"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Nadir"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "Next Rising"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "East"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "North-East"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "North"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "North-West"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "West"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "South-West"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "South"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "South-East"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772987929334,
+          "updatedAt": 1772992998100
+        },
         {
           "dedupKey": "wheel:system:c3lzdGVtOjpmb2N1cz1TdW4mbG9va2VyPXJlZjpnYWxhY3RpYy1jZW50ZXImdGFyZ2V0PUp1cGl0ZXIsTmVwdHVuZSxQbHV0byxTYXR1cm4sVXJhbnVzOjpsb2NrPTA6OmxvY2s9MA",
           "type": "system",
@@ -745,254 +1077,6 @@
           "favorite": false,
           "createdAt": 1772987946879,
           "updatedAt": 1772987946879
-        },
-        {
-          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1KdXBpdGVyLE1hcnMsTWVyY3VyeSxNb29uLE5lcHR1bmUsUGx1dG8sU2F0dXJuLFN1bixVcmFudXMsVmVudXM6OmxvY2s9MDo6bG9jaz0w",
-          "type": "compass",
-          "title": "Visible Sky",
-          "roles": {
-            "looker": "Earth",
-            "focus": null,
-            "target": [
-              "Sun",
-              "Moon",
-              "Mercury",
-              "Venus",
-              "Mars",
-              "Jupiter",
-              "Neptune",
-              "Pluto",
-              "Saturn",
-              "Uranus"
-            ]
-          },
-          "observer": {
-            "locationId": "loc:system",
-            "locked": false
-          },
-          "time": {
-            "live": false,
-            "ts": 1775265730000,
-            "locked": false
-          },
-          "view": {
-            "showVisual": true,
-            "showInfo": true,
-            "showPickers": false,
-            "infoChipOrder": [],
-            "infoChipSelected": [
-              "pinned"
-            ],
-            "infoChipLabels": {},
-            "compassInfoConfig": {
-              "general": {
-                "enabled": true,
-                "tags": [
-                  {
-                    "id": "custom:mmhwv9e0:s0g5",
-                    "label": "Description",
-                    "value": "",
-                    "enabled": true,
-                    "isCustom": true,
-                    "modal": "This compass wheel shows which major Solar System bodies are above or below your local horizon at the selected moment. It is the observational layer of the demo: use it to connect orbital-cycle context to real sky visibility, altitude peaks, and rising/setting windows."
-                  },
-                  {
-                    "id": "custom:mmhzvg01:guide",
-                    "enabled": true,
-                    "label": "Guide",
-                    "value": "",
-                    "modal": "Start by pinning the Sun or Moon, then use the horizon/compass/regular node filters to simplify the track. Shift the global time to compare observing windows, and read the pinned node list below the wheel to jump directly to rises, sets, and altitude extremes.",
-                    "isCustom": true
-                  }
-                ]
-              },
-              "dynamic": {
-                "enabled": true,
-                "tags": [
-                  {
-                    "id": "dynamic:altitude",
-                    "enabled": true,
-                    "modal": "Altitude is the target height relative to the local horizon. Positive values mean the body is above the horizon, negative values mean it is below."
-                  },
-                  {
-                    "id": "dynamic:azimuth",
-                    "enabled": false,
-                    "modal": "Azimuth is the horizontal direction along the horizon, measured clockwise from true north: N=0°, E=90°, S=180°, W=270°."
-                  },
-                  {
-                    "id": "dynamic:ra-hours",
-                    "enabled": false,
-                    "modal": "Right ascension is an equatorial sky coordinate, similar to celestial longitude. It is commonly expressed in hours along the celestial equator."
-                  },
-                  {
-                    "id": "dynamic:declination",
-                    "enabled": false,
-                    "modal": "Declination is an equatorial sky coordinate, similar to celestial latitude. Positive values are north of the celestial equator, negative values are south."
-                  },
-                  {
-                    "id": "dynamic:dist-au",
-                    "enabled": false,
-                    "modal": "Distance in astronomical units (AU). 1 AU is the average Earth-Sun distance, useful for comparing orbital scales."
-                  },
-                  {
-                    "id": "dynamic:dist-km",
-                    "enabled": false,
-                    "modal": "Distance in kilometers for precise range tracking at the selected horizon moment."
-                  },
-                  {
-                    "id": "dynamic:rising-horizon",
-                    "enabled": true,
-                    "modal": "Rising horizon marks the upward crossing of altitude 0°. These moments define when the target appears above the horizon line."
-                  },
-                  {
-                    "id": "dynamic:setting-horizon",
-                    "enabled": true,
-                    "modal": "Setting horizon marks the downward crossing of altitude 0°, when the target disappears below the horizon line."
-                  },
-                  {
-                    "id": "dynamic:max-altitude",
-                    "enabled": true,
-                    "modal": "Maximum altitude is the highest point of the target above the horizon within the current horizon cycle."
-                  },
-                  {
-                    "id": "dynamic:min-altitude",
-                    "enabled": true,
-                    "modal": "Minimum altitude is the lowest point of the target below the horizon within the current horizon cycle."
-                  },
-                  {
-                    "id": "dynamic:zenith",
-                    "enabled": true,
-                    "modal": "Zenith sector marks the local top-side arc of the cycle where altitude reaches its peak behavior."
-                  },
-                  {
-                    "id": "dynamic:nadir",
-                    "enabled": true,
-                    "modal": "Nadir sector marks the local bottom-side arc of the cycle where altitude reaches its minimum behavior."
-                  },
-                  {
-                    "id": "dynamic:above-horizon",
-                    "enabled": true,
-                    "modal": "This moment belongs to the interval where the target remains above the local horizon."
-                  },
-                  {
-                    "id": "dynamic:below-horizon",
-                    "enabled": true,
-                    "modal": "This moment belongs to the interval where the target remains below the local horizon."
-                  }
-                ]
-              },
-              "houses": {
-                "tags": [
-                  {
-                    "id": "house:E",
-                    "enabled": true,
-                    "label": "East"
-                  },
-                  {
-                    "id": "house:ENE",
-                    "enabled": true,
-                    "label": "ENE"
-                  },
-                  {
-                    "id": "house:NE",
-                    "enabled": true,
-                    "label": "North-East"
-                  },
-                  {
-                    "id": "house:NNE",
-                    "enabled": true,
-                    "label": "NNE"
-                  },
-                  {
-                    "id": "house:N",
-                    "enabled": true,
-                    "label": "North"
-                  },
-                  {
-                    "id": "house:NNW",
-                    "enabled": true,
-                    "label": "NNW"
-                  },
-                  {
-                    "id": "house:NW",
-                    "enabled": true,
-                    "label": "North-West"
-                  },
-                  {
-                    "id": "house:WNW",
-                    "enabled": true,
-                    "label": "WNW"
-                  },
-                  {
-                    "id": "house:W",
-                    "enabled": true,
-                    "label": "West"
-                  },
-                  {
-                    "id": "house:WSW",
-                    "enabled": true,
-                    "label": "WSW"
-                  },
-                  {
-                    "id": "house:SW",
-                    "enabled": true,
-                    "label": "South-West"
-                  },
-                  {
-                    "id": "house:SSW",
-                    "enabled": true,
-                    "label": "SSW"
-                  },
-                  {
-                    "id": "house:S",
-                    "enabled": true,
-                    "label": "South"
-                  },
-                  {
-                    "id": "house:SSE",
-                    "enabled": true,
-                    "label": "SSE"
-                  },
-                  {
-                    "id": "house:SE",
-                    "enabled": true,
-                    "label": "South-East"
-                  },
-                  {
-                    "id": "house:ESE",
-                    "enabled": true,
-                    "label": "ESE"
-                  },
-                  {
-                    "id": "house:E_next",
-                    "enabled": true,
-                    "label": "East"
-                  }
-                ]
-              },
-              "pinned": {
-                "enabled": true,
-                "groups": {
-                  "regular": true,
-                  "compass": true,
-                  "horizon": true,
-                  "nodal": true,
-                  "synod": true,
-                  "bind": true
-                },
-                "tags": [
-                  {
-                    "id": "pinned:duration",
-                    "enabled": true,
-                    "label": "Cycle"
-                  }
-                ]
-              }
-            }
-          },
-          "favorite": false,
-          "createdAt": 1772987929334,
-          "updatedAt": 1772987929334
         }
       ],
       "favorites": [],
@@ -1003,7 +1087,7 @@
       },
       "wheelsOnScreen": [
         {
-          "id": "BvGFyXHiSna-W_FtX2UcU",
+          "id": "3gw2RniHuDdmoHqLjuuEh",
           "wheelType": "system",
           "title": "Inner Planets",
           "roles": {
@@ -1377,7 +1461,7 @@
           }
         },
         {
-          "id": "2fiB8nlVvjlu5_nwWiiNB",
+          "id": "cSsZBT0VOoAmJhSguotjZ",
           "wheelType": "system",
           "title": "Outer Planets",
           "roles": {
@@ -1751,7 +1835,7 @@
           }
         },
         {
-          "id": "krOcRVTF_iZLfantWLWzE",
+          "id": "cdBjXjhbu4VpbW6hST6lg",
           "wheelType": "compass",
           "title": "Visible Sky",
           "roles": {
@@ -1784,7 +1868,7 @@
             "x": 0,
             "y": 0,
             "w": 8,
-            "h": 86
+            "h": 92
           },
           "view": {
             "showVisual": true,
@@ -1801,11 +1885,11 @@
                 "tags": [
                   {
                     "id": "custom:mmhwv9e0:s0g5",
+                    "enabled": true,
                     "label": "Description",
                     "value": "",
-                    "enabled": true,
-                    "isCustom": true,
-                    "modal": "This compass wheel shows which major Solar System bodies are above or below your local horizon at the selected moment. It is the observational layer of the demo: use it to connect orbital-cycle context to real sky visibility, altitude peaks, and rising/setting windows."
+                    "modal": "This compass wheel shows which major Solar System bodies are above or below your local horizon at the selected moment. It is the observational layer of the demo: use it to connect orbital-cycle context to real sky visibility, altitude peaks, and rising/setting windows.",
+                    "isCustom": true
                   },
                   {
                     "id": "custom:mmhzvg01:guide",
@@ -1996,6 +2080,91 @@
                     "id": "pinned:duration",
                     "enabled": true,
                     "label": "Cycle"
+                  },
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Rising"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Zenith"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Setting"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Nadir"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "Next Rising"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "East"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "North-East"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "North"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "North-West"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "West"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "South-West"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "South"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "South-East"
                   }
                 ]
               }
