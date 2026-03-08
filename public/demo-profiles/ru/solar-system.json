@@ -1,0 +1,2145 @@
+{
+  "schema": "chrono-compass.profile-export.v1",
+  "exportedAt": "2026-03-08T17:01:53.196Z",
+  "profile": {
+    "id": "profile_kbr2yydke8_kz3vq60vds",
+    "title": "Солнечная Система",
+    "system": false,
+    "locked": false,
+    "createdAt": 1772977755921,
+    "updatedAt": 1772989313196,
+    "data": {
+      "wheels": [
+        {
+          "dedupKey": "wheel:system:c3lzdGVtOjpmb2N1cz1TdW4mbG9va2VyPXJlZjpnYWxhY3RpYy1jZW50ZXImdGFyZ2V0PUp1cGl0ZXIsTmVwdHVuZSxQbHV0byxTYXR1cm4sVXJhbnVzOjpsb2NrPTA6OmxvY2s9MA",
+          "type": "system",
+          "title": "Внешние Планеты",
+          "roles": {
+            "looker": "ref:galactic-center",
+            "focus": "Sun",
+            "target": [
+              "Jupiter",
+              "Saturn",
+              "Uranus",
+              "Neptune",
+              "Pluto"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": false,
+            "ts": 1775265730000,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhyc0sd:aob2",
+                    "enabled": true,
+                    "label": "Описание",
+                    "value": "",
+                    "modal": "Это колесо показывает слой внешних планет Солнечной системы в одной рамке: синодическую фазу, динамику дистанции (bind) и узловую геометрию. Его удобно использовать для поиска долгих выравниваний, медленных структурных сдвигов и периодов, когда несколько внешних тел группируются в схожих секторах цикла.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhzog01:guide",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Закрепите одну внешнюю планету и сравнивайте ее узлы с остальными в том же срезе времени. Переключателями групп изолируйте структуру synod, bind и nodal, затем сдвигайте глобальные часы, чтобы видеть, как геометрия медленных циклов перестраивается по месяцам и годам.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": true,
+                    "modal": "Расстояние между focus и target в астрономических единицах (AU) на каждой синодической спице.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": true,
+                    "modal": "Полная фаза — это состояние максимальной освещённости, обычно совпадающее с оппозицией в этой синодической модели.",
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": true,
+                    "modal": "Новая фаза — это состояние минимальной освещённости, обычно совпадающее с соединением в этой синодической модели.",
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу растущей фазы, где фаза движется от новолуния к полнолунию.",
+                    "label": "Растущая фаза"
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу убывающей фазы, где фаза движется от полнолуния к новолунию.",
+                    "label": "Убывающая фаза"
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Максимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального максимума в текущем bind-цикле.",
+                    "label": "Макс. расстояние"
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Минимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального минимума в текущем bind-цикле.",
+                    "label": "Мин. расстояние"
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние растёт от минимума к максимуму.",
+                    "label": "Рост расстояния"
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние уменьшается от максимума к минимуму.",
+                    "label": "Падение расстояния"
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Нодальная широта — это угловое отклонение target от выбранной опорной плоскости. Положительные и отрицательные значения указывают на противоположные стороны этой плоскости.",
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": true,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в AU. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости (AU)"
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Максимальная нодальная широта — это пиковое положительное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Макс. широта"
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Минимальная нодальная широта — это пиковое отрицательное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на северной/положительной стороне опорной плоскости.",
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на южной/отрицательной стороне опорной плоскости.",
+                    "label": "Южная сторона"
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": false,
+                    "modal": "Нисходящий узел отмечает пересечение опорной плоскости сверху вниз, где нодальная широта меняется с положительной на отрицательную.",
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": false,
+                    "modal": "Восходящий узел отмечает пересечение опорной плоскости снизу вверх, где нодальная широта меняется с отрицательной на положительную.",
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": false,
+                    "modal": "Южный надир — это сектор цикла вокруг наименьшей отрицательной нодальной широты.",
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": false,
+                    "modal": "Северный апекс — это сектор цикла вокруг наибольшей положительной нодальной широты.",
+                    "label": "Северный апекс"
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Средняя дистанция отмечает пересечения середины цикла между локальным минимумом и максимумом расстояния.",
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": false,
+                    "modal": "Соединение отмечает синодическое выравнивание focus и target, как это видно из looker.",
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Последняя четверть отмечает противоположный сдвиг 90° относительно первой четверти в пределах синодического цикла.",
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": false,
+                    "modal": "Оппозиция отмечает синодическую фазу, в которой target и focus находятся по разные стороны, как это видно из looker.",
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "Первая четверть отмечает фазовый сдвиг 90° в синодическом цикле. В этой модели колеса она встречается на обеих границах цикла.",
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние между focus и target в километрах на каждой синодической спице.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние от looker до focus в AU, полезно для синодического контекста, зависящего от наблюдателя.",
+                    "label": "Дистанция наблюдателя"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": false,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в километрах. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:e-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Мин. широта"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772987953959,
+          "updatedAt": 1772987953959
+        },
+        {
+          "dedupKey": "wheel:system:c3lzdGVtOjpmb2N1cz1TdW4mbG9va2VyPXJlZjpnYWxhY3RpYy1jZW50ZXImdGFyZ2V0PUVhcnRoLE1hcnMsTWVyY3VyeSxWZW51czo6bG9jaz0wOjpsb2NrPTA",
+          "type": "system",
+          "title": "Внутренние Планеты",
+          "roles": {
+            "looker": "ref:galactic-center",
+            "focus": "Sun",
+            "target": [
+              "Mercury",
+              "Venus",
+              "Earth",
+              "Mars"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": false,
+            "ts": 1775265730000,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhx7q33:tyg5",
+                    "enabled": true,
+                    "label": "Описание",
+                    "value": "",
+                    "modal": "Это колесо сфокусировано на слое внутренних планет, где изменения циклов происходят быстрее и удобнее для сравнения бок о бок. Оно объединяет сигналы synod, bind и nodal, чтобы быстро читать фазовые переходы, точки разворота дистанции и контекст пересечения плоскости в одной шкале времени.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhx7xho:qr8u",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Начните с закрепления одного тела, затем переключайте группы узлов, чтобы изолировать структуру synod (S), bind (B) и nodal (N). Сравнивайте, как Меркурий, Венера, Земля и Марс проходят одни и те же сектора во времени, и используйте глобальные часы для переключения между потоком реального времени и фиксированными контрольными точками.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": true,
+                    "modal": "Расстояние между focus и target в астрономических единицах (AU) на каждой синодической спице.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": true,
+                    "modal": "Полная фаза — это состояние максимальной освещённости, обычно совпадающее с оппозицией в этой синодической модели.",
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": true,
+                    "modal": "Новая фаза — это состояние минимальной освещённости, обычно совпадающее с соединением в этой синодической модели.",
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу растущей фазы, где фаза движется от новолуния к полнолунию.",
+                    "label": "Растущая фаза"
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу убывающей фазы, где фаза движется от полнолуния к новолунию.",
+                    "label": "Убывающая фаза"
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Максимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального максимума в текущем bind-цикле.",
+                    "label": "Макс. расстояние"
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние растёт от минимума к максимуму.",
+                    "label": "Рост расстояния"
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние уменьшается от максимума к минимуму.",
+                    "label": "Падение расстояния"
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Нодальная широта — это угловое отклонение target от выбранной опорной плоскости. Положительные и отрицательные значения указывают на противоположные стороны этой плоскости.",
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": true,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в AU. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости (AU)"
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Максимальная нодальная широта — это пиковое положительное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Макс. широта"
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Минимальная нодальная широта — это пиковое отрицательное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на северной/положительной стороне опорной плоскости.",
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на южной/отрицательной стороне опорной плоскости.",
+                    "label": "Южная сторона"
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Минимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального минимума в текущем bind-цикле.",
+                    "label": "Мин. расстояние"
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": false,
+                    "modal": "Южный надир — это сектор цикла вокруг наименьшей отрицательной нодальной широты.",
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": false,
+                    "modal": "Северный апекс — это сектор цикла вокруг наибольшей положительной нодальной широты.",
+                    "label": "Северный апекс"
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": false,
+                    "modal": "Нисходящий узел отмечает пересечение опорной плоскости сверху вниз, где нодальная широта меняется с положительной на отрицательную.",
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": false,
+                    "modal": "Восходящий узел отмечает пересечение опорной плоскости снизу вверх, где нодальная широта меняется с отрицательной на положительную.",
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": false,
+                    "modal": "Соединение отмечает синодическое выравнивание focus и target, как это видно из looker.",
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Последняя четверть отмечает противоположный сдвиг 90° относительно первой четверти в пределах синодического цикла.",
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": false,
+                    "modal": "Оппозиция отмечает синодическую фазу, в которой target и focus находятся по разные стороны, как это видно из looker.",
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "Первая четверть отмечает фазовый сдвиг 90° в синодическом цикле. В этой модели колеса она встречается на обеих границах цикла.",
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Средняя дистанция отмечает пересечения середины цикла между локальным минимумом и максимумом расстояния.",
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние между focus и target в километрах на каждой синодической спице.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние от looker до focus в AU, полезно для синодического контекста, зависящего от наблюдателя.",
+                    "label": "Дистанция наблюдателя"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": false,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в километрах. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Первая Четверть"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Последняя Четверть"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "След. Первая Четверть"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "pinned-node:e-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:e-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772987946879,
+          "updatedAt": 1772987946879
+        },
+        {
+          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1KdXBpdGVyLE1hcnMsTWVyY3VyeSxNb29uLE5lcHR1bmUsUGx1dG8sU2F0dXJuLFN1bixVcmFudXMsVmVudXM6OmxvY2s9MDo6bG9jaz0w",
+          "type": "compass",
+          "title": "Видимое Небо",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon",
+              "Mercury",
+              "Venus",
+              "Mars",
+              "Jupiter",
+              "Neptune",
+              "Pluto",
+              "Saturn",
+              "Uranus"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": false,
+            "ts": 1775265730000,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhwv9e0:s0g5",
+                    "label": "Описание",
+                    "value": "",
+                    "enabled": true,
+                    "isCustom": true,
+                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода."
+                  },
+                  {
+                    "id": "custom:mmhzvg01:guide",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Начните с закрепления любого интересующего вас тела, затем используйте фильтры узлов horizon/compass/regular, чтобы упростить трек. Сдвигайте глобальное время для сравнения наблюдательных окон и используйте список закрепленных узлов под колесом для быстрых переходов к восходам, заходам, экстремумам высоты или другим интересующим вас узлам.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Высота (Altitude) — это положение цели относительно локального горизонта. Положительные значения означают, что тело над горизонтом, отрицательные — что под горизонтом.",
+                    "label": "Высота"
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Азимут (Azimuth) — это горизонтальное направление вдоль линии горизонта, измеряемое по часовой стрелке от истинного севера: N=0°, E=90°, S=180°, W=270°.",
+                    "label": "Азимут"
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Прямое восхождение (Right ascension) — экваториальная небесная координата, аналог небесной долготы. Обычно выражается в часах вдоль небесного экватора.",
+                    "label": "Прямое восхождение"
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Склонение (Declination) — экваториальная небесная координата, аналог небесной широты. Положительные значения — к северу от небесного экватора, отрицательные — к югу.",
+                    "label": "Склонение"
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние в астрономических единицах (AU). 1 AU — это среднее расстояние от Земли до Солнца, удобное для сравнения орбитальных масштабов.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние в километрах для более точного отслеживания дистанции в выбранный момент горизонта.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": true,
+                    "modal": "Восходящий горизонт отмечает пересечение высоты 0° снизу вверх. Эти моменты определяют, когда цель появляется над линией горизонта.",
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": true,
+                    "modal": "Заходящий горизонт отмечает пересечение высоты 0° сверху вниз, когда цель уходит под линию горизонта.",
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Максимальная высота — это наивысшая точка цели над горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Макс. высота"
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Минимальная высота — это наинизшая точка цели под горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Мин. высота"
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Сектор зенита отмечает верхнюю локальную дугу цикла, где высота достигает максимального значения.",
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Сектор надира отмечает нижнюю локальную дугу цикла, где высота достигает минимального значения.",
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается над локальным горизонтом.",
+                    "label": "Над горизонтом"
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается под локальным горизонтом.",
+                    "label": "Под горизонтом"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true,
+                    "label": "ENE"
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true,
+                    "label": "NNE"
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true,
+                    "label": "NNW"
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true,
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true,
+                    "label": "Перигей"
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true,
+                    "label": "Макс. широта"
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Дистанция до плоскости (AU)"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true,
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true,
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true,
+                    "label": "Северный максимум"
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "Расстояние (AU)"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772987929334,
+          "updatedAt": 1772987929334
+        }
+      ],
+      "favorites": [],
+      "bodies": {},
+      "locations": {
+        "currentId": "",
+        "saved": []
+      },
+      "wheelsOnScreen": [
+        {
+          "id": "BvGFyXHiSna-W_FtX2UcU",
+          "wheelType": "system",
+          "title": "Внутренние планеты",
+          "roles": {
+            "looker": "ref:galactic-center",
+            "focus": "Sun",
+            "target": [
+              "Mercury",
+              "Venus",
+              "Earth",
+              "Mars"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "order": 0,
+          "size": 560,
+          "layout": {
+            "x": 8,
+            "y": 0,
+            "w": 8,
+            "h": 68
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhx7q33:tyg5",
+                    "enabled": true,
+                    "label": "Описание",
+                    "value": "",
+                    "modal": "Это колесо сфокусировано на слое внутренних планет, где изменения циклов происходят быстрее и удобнее для сравнения бок о бок. Оно объединяет сигналы synod, bind и nodal, чтобы быстро читать фазовые переходы, точки разворота дистанции и контекст пересечения плоскости в одной шкале времени.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhx7xho:qr8u",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Начните с закрепления одного тела, затем переключайте группы узлов, чтобы изолировать структуру synod (S), bind (B) и nodal (N). Сравнивайте, как Меркурий, Венера, Земля и Марс проходят одни и те же сектора во времени, и используйте глобальные часы для переключения между потоком реального времени и фиксированными контрольными точками.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": true,
+                    "modal": "Расстояние между focus и target в астрономических единицах (AU) на каждой синодической спице.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": true,
+                    "modal": "Полная фаза — это состояние максимальной освещённости, обычно совпадающее с оппозицией в этой синодической модели.",
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": true,
+                    "modal": "Новая фаза — это состояние минимальной освещённости, обычно совпадающее с соединением в этой синодической модели.",
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу растущей фазы, где фаза движется от новолуния к полнолунию.",
+                    "label": "Растущая фаза"
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу убывающей фазы, где фаза движется от полнолуния к новолунию.",
+                    "label": "Убывающая фаза"
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Максимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального максимума в текущем bind-цикле.",
+                    "label": "Макс. расстояние"
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние растёт от минимума к максимуму.",
+                    "label": "Рост расстояния"
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние уменьшается от максимума к минимуму.",
+                    "label": "Падение расстояния"
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Нодальная широта — это угловое отклонение target от выбранной опорной плоскости. Положительные и отрицательные значения указывают на противоположные стороны этой плоскости.",
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": true,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в AU. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости (AU)"
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Максимальная нодальная широта — это пиковое положительное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Макс. широта"
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Минимальная нодальная широта — это пиковое отрицательное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на северной/положительной стороне опорной плоскости.",
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на южной/отрицательной стороне опорной плоскости.",
+                    "label": "Южная сторона"
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Минимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального минимума в текущем bind-цикле.",
+                    "label": "Мин. расстояние"
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": false,
+                    "modal": "Южный надир — это сектор цикла вокруг наименьшей отрицательной нодальной широты.",
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": false,
+                    "modal": "Северный апекс — это сектор цикла вокруг наибольшей положительной нодальной широты.",
+                    "label": "Северный апекс"
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": false,
+                    "modal": "Нисходящий узел отмечает пересечение опорной плоскости сверху вниз, где нодальная широта меняется с положительной на отрицательную.",
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": false,
+                    "modal": "Восходящий узел отмечает пересечение опорной плоскости снизу вверх, где нодальная широта меняется с отрицательной на положительную.",
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": false,
+                    "modal": "Соединение отмечает синодическое выравнивание focus и target, как это видно из looker.",
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Последняя четверть отмечает противоположный сдвиг 90° относительно первой четверти в пределах синодического цикла.",
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": false,
+                    "modal": "Оппозиция отмечает синодическую фазу, в которой target и focus находятся по разные стороны, как это видно из looker.",
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "Первая четверть отмечает фазовый сдвиг 90° в синодическом цикле. В этой модели колеса она встречается на обеих границах цикла.",
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Средняя дистанция отмечает пересечения середины цикла между локальным минимумом и максимумом расстояния.",
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние между focus и target в километрах на каждой синодической спице.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние от looker до focus в AU, полезно для синодического контекста, зависящего от наблюдателя.",
+                    "label": "Дистанция наблюдателя"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": false,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в километрах. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Первая Четверть"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Последняя Четверть"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "След. Первая Четверть"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "pinned-node:e-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:e-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "2fiB8nlVvjlu5_nwWiiNB",
+          "wheelType": "system",
+          "title": "Внешние планеты",
+          "roles": {
+            "looker": "ref:galactic-center",
+            "focus": "Sun",
+            "target": [
+              "Jupiter",
+              "Saturn",
+              "Uranus",
+              "Neptune",
+              "Pluto"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "order": 1,
+          "size": 560,
+          "layout": {
+            "x": 16,
+            "y": 0,
+            "w": 8,
+            "h": 76
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhyc0sd:aob2",
+                    "enabled": true,
+                    "label": "Описание",
+                    "value": "",
+                    "modal": "Это колесо показывает слой внешних планет Солнечной системы в одной рамке: синодическую фазу, динамику дистанции (bind) и узловую геометрию. Его удобно использовать для поиска долгих выравниваний, медленных структурных сдвигов и периодов, когда несколько внешних тел группируются в схожих секторах цикла.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhzog01:guide",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Закрепите одну внешнюю планету и сравнивайте ее узлы с остальными в том же срезе времени. Переключателями групп изолируйте структуру synod, bind и nodal, затем сдвигайте глобальные часы, чтобы видеть, как геометрия медленных циклов перестраивается по месяцам и годам.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": true,
+                    "modal": "Расстояние между focus и target в астрономических единицах (AU) на каждой синодической спице.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": true,
+                    "modal": "Полная фаза — это состояние максимальной освещённости, обычно совпадающее с оппозицией в этой синодической модели.",
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": true,
+                    "modal": "Новая фаза — это состояние минимальной освещённости, обычно совпадающее с соединением в этой синодической модели.",
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу растущей фазы, где фаза движется от новолуния к полнолунию.",
+                    "label": "Растущая фаза"
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу убывающей фазы, где фаза движется от полнолуния к новолунию.",
+                    "label": "Убывающая фаза"
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Максимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального максимума в текущем bind-цикле.",
+                    "label": "Макс. расстояние"
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Минимальная дистанция отмечает спицу, где расстояние между focus и target достигает локального минимума в текущем bind-цикле.",
+                    "label": "Мин. расстояние"
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние растёт от минимума к максимуму.",
+                    "label": "Рост расстояния"
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где расстояние уменьшается от максимума к минимуму.",
+                    "label": "Падение расстояния"
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Нодальная широта — это угловое отклонение target от выбранной опорной плоскости. Положительные и отрицательные значения указывают на противоположные стороны этой плоскости.",
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": true,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в AU. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости (AU)"
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Максимальная нодальная широта — это пиковое положительное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Макс. широта"
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Минимальная нодальная широта — это пиковое отрицательное отклонение от опорной плоскости в пределах текущего нодального цикла.",
+                    "label": "Мин. широта"
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на северной/положительной стороне опорной плоскости.",
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, где нодальная широта находится на южной/отрицательной стороне опорной плоскости.",
+                    "label": "Южная сторона"
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": false,
+                    "modal": "Нисходящий узел отмечает пересечение опорной плоскости сверху вниз, где нодальная широта меняется с положительной на отрицательную.",
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": false,
+                    "modal": "Восходящий узел отмечает пересечение опорной плоскости снизу вверх, где нодальная широта меняется с отрицательной на положительную.",
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": false,
+                    "modal": "Южный надир — это сектор цикла вокруг наименьшей отрицательной нодальной широты.",
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": false,
+                    "modal": "Северный апекс — это сектор цикла вокруг наибольшей положительной нодальной широты.",
+                    "label": "Северный апекс"
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Средняя дистанция отмечает пересечения середины цикла между локальным минимумом и максимумом расстояния.",
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": false,
+                    "modal": "Соединение отмечает синодическое выравнивание focus и target, как это видно из looker.",
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Последняя четверть отмечает противоположный сдвиг 90° относительно первой четверти в пределах синодического цикла.",
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": false,
+                    "modal": "Оппозиция отмечает синодическую фазу, в которой target и focus находятся по разные стороны, как это видно из looker.",
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "Первая четверть отмечает фазовый сдвиг 90° в синодическом цикле. В этой модели колеса она встречается на обеих границах цикла.",
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние между focus и target в километрах на каждой синодической спице.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние от looker до focus в AU, полезно для синодического контекста, зависящего от наблюдателя.",
+                    "label": "Дистанция наблюдателя"
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": false,
+                    "modal": "Знаковое расстояние от target до опорной плоскости в километрах. Положительные и отрицательные значения указывают на противоположные стороны плоскости.",
+                    "label": "Дистанция до плоскости"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Первая Четверть"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Последняя Четверть"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "След. Первая Четверть"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:e-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Первая четверть"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Новолуние"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "Последняя четверть"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "Полнолуние"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:e-bind",
+                    "enabled": true,
+                    "label": "Средняя дистанция"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Северная сторона"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Южный надир"
+                  },
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "Восходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Нисходящий узел"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "Соединение"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Оппозиция"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Мин. широта"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "krOcRVTF_iZLfantWLWzE",
+          "wheelType": "compass",
+          "title": "Видимое Небо",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon",
+              "Mercury",
+              "Venus",
+              "Mars",
+              "Jupiter",
+              "Neptune",
+              "Pluto",
+              "Saturn",
+              "Uranus"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "order": 2,
+          "size": 560,
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 8,
+            "h": 86
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhwv9e0:s0g5",
+                    "label": "Описание",
+                    "value": "",
+                    "enabled": true,
+                    "isCustom": true,
+                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода."
+                  },
+                  {
+                    "id": "custom:mmhzvg01:guide",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Начните с закрепления любого интересующего вас тела, затем используйте фильтры узлов horizon/compass/regular, чтобы упростить трек. Сдвигайте глобальное время для сравнения наблюдательных окон и используйте список закрепленных узлов под колесом для быстрых переходов к восходам, заходам, экстремумам высоты, или другим интересующим вас узлам.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Высота (Altitude) — это положение цели относительно локального горизонта. Положительные значения означают, что тело над горизонтом, отрицательные — что под горизонтом.",
+                    "label": "Высота"
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Азимут (Azimuth) — это горизонтальное направление вдоль линии горизонта, измеряемое по часовой стрелке от истинного севера: N=0°, E=90°, S=180°, W=270°.",
+                    "label": "Азимут"
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Прямое восхождение (Right ascension) — экваториальная небесная координата, аналог небесной долготы. Обычно выражается в часах вдоль небесного экватора.",
+                    "label": "Прямое восхождение"
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Склонение (Declination) — экваториальная небесная координата, аналог небесной широты. Положительные значения — к северу от небесного экватора, отрицательные — к югу.",
+                    "label": "Склонение"
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние в астрономических единицах (AU). 1 AU — это среднее расстояние от Земли до Солнца, удобное для сравнения орбитальных масштабов.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние в километрах для более точного отслеживания дистанции в выбранный момент горизонта.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": true,
+                    "modal": "Восходящий горизонт отмечает пересечение высоты 0° снизу вверх. Эти моменты определяют, когда цель появляется над линией горизонта.",
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": true,
+                    "modal": "Заходящий горизонт отмечает пересечение высоты 0° сверху вниз, когда цель уходит под линию горизонта.",
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Максимальная высота — это наивысшая точка цели над горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Макс. высота"
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Минимальная высота — это наинизшая точка цели под горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Мин. высота"
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Сектор зенита отмечает верхнюю локальную дугу цикла, где высота достигает максимального значения.",
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Сектор надира отмечает нижнюю локальную дугу цикла, где высота достигает минимального значения.",
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается над локальным горизонтом.",
+                    "label": "Над горизонтом"
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается под локальным горизонтом.",
+                    "label": "Под горизонтом"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true,
+                    "label": "ENE"
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true,
+                    "label": "NNE"
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true,
+                    "label": "NNW"
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true,
+                    "label": "WNW"
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Запад"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true,
+                    "label": "WSW"
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true,
+                    "label": "Юго-Запад"
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true,
+                    "label": "SSW"
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Юг"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true,
+                    "label": "SSE"
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true,
+                    "label": "Юго-Восток"
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true,
+                    "label": "ESE"
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "Восток"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,13 +1,13 @@
 {
   "schema": "chrono-compass.profile-export.v1",
-  "exportedAt": "2026-03-08T16:51:11.909Z",
+  "exportedAt": "2026-03-08T17:01:53.196Z",
   "profile": {
     "id": "profile_kbr2yydke8_kz3vq60vds",
     "title": "Solar System",
     "system": false,
     "locked": false,
     "createdAt": 1772977755921,
-    "updatedAt": 1772988671909,
+    "updatedAt": 1772989313196,
     "data": {
       "wheels": [
         {
@@ -1003,7 +1003,7 @@
       },
       "wheelsOnScreen": [
         {
-          "id": "i9r_No97yXwDdwid9xR-h",
+          "id": "BvGFyXHiSna-W_FtX2UcU",
           "wheelType": "system",
           "title": "Inner Planets",
           "roles": {
@@ -1377,7 +1377,7 @@
           }
         },
         {
-          "id": "oBk2sSmaHAuxkvvI5Iaf0",
+          "id": "2fiB8nlVvjlu5_nwWiiNB",
           "wheelType": "system",
           "title": "Outer Planets",
           "roles": {
@@ -1582,7 +1582,8 @@
                 "tags": [
                   {
                     "id": "house:E",
-                    "enabled": true
+                    "enabled": true,
+                    "label": "First Quarter"
                   },
                   {
                     "id": "house:ENE",
@@ -1598,7 +1599,8 @@
                   },
                   {
                     "id": "house:N",
-                    "enabled": true
+                    "enabled": true,
+                    "label": "Opposition"
                   },
                   {
                     "id": "house:NNW",
@@ -1630,7 +1632,8 @@
                   },
                   {
                     "id": "house:S",
-                    "enabled": true
+                    "enabled": true,
+                    "label": "Conjunction"
                   },
                   {
                     "id": "house:SSE",
@@ -1646,7 +1649,8 @@
                   },
                   {
                     "id": "house:E_next",
-                    "enabled": true
+                    "enabled": true,
+                    "label": "Next First Quarter"
                   }
                 ]
               },
@@ -1747,7 +1751,7 @@
           }
         },
         {
-          "id": "FCGr_ASKFhfyUti9taW7W",
+          "id": "krOcRVTF_iZLfantWLWzE",
           "wheelType": "compass",
           "title": "Visible Sky",
           "roles": {
@@ -1780,7 +1784,7 @@
             "x": 0,
             "y": 0,
             "w": 8,
-            "h": 84
+            "h": 86
           },
           "view": {
             "showVisual": true,

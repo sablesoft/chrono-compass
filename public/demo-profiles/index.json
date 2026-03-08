@@ -1,3 +1,6 @@
 {
-  "profiles": ["moon-observation.json"]
+  "profiles": [
+    "moon-observation.json",
+    "solar-system.json"
+  ]
 }
