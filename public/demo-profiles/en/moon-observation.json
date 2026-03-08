@@ -1,0 +1,1273 @@
+{
+  "schema": "chrono-compass.profile-export.v1",
+  "exportedAt": "2026-03-08T02:34:15.650Z",
+  "profile": {
+    "id": "profile_ixeta435sw8_r1yo7d5b61",
+    "title": "Moon Observation",
+    "system": false,
+    "locked": true,
+    "createdAt": 1772848042692,
+    "updatedAt": 1772937255650,
+    "data": {
+      "wheels": [
+        {
+          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1Nb29uLFN1bjo6bG9jPWxvYzptbWZsc3pzai1jNmwzNXduNiZsb2NrPTA6Om1vZGU9bGl2ZSZsb2NrPTA",
+          "type": "compass",
+          "title": "Moon Visibility",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmh48grh:3338",
+                    "enabled": true,
+                    "label": "Description",
+                    "value": "",
+                    "modal": "This wheel shows where the Sun and Moon are in your local sky, combining azimuth, altitude, and horizon crossing structure in one view.\n\nIt helps you quickly see whether the Moon is above or below the horizon, how high it is, and how its position relates to the Sun for practical observation timing.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmh4a2gq:cjgm",
+                    "enabled": true,
+                    "label": "Guide",
+                    "value": "",
+                    "modal": "Click the Moon icon to pin it and reveal its track and node points on the wheel. Use the node-group visibility toggles in the bottom-right corner: compass (C), horizon (H), and regular (.).\n\nBelow the visual wheel, you will see the pinned body and the list of currently visible nodes. To move to a node, double-click that node on the track or single-click its label in the list under the wheel.\n\nHover over objects and wait briefly to open tooltips with extra details. Some tags are clickable and open additional explanations.\n\nTo return to real-time mode, press the Play button (▶️) on the global clock.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Altitude is the target height relative to the local horizon. Positive values mean the body is above the horizon, negative values mean it is below."
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Azimuth is the horizontal direction along the horizon, measured clockwise from true north: N=0°, E=90°, S=180°, W=270°."
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Right ascension is an equatorial sky coordinate, similar to celestial longitude. It is commonly expressed in hours along the celestial equator."
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Declination is an equatorial sky coordinate, similar to celestial latitude. Positive values are north of the celestial equator, negative values are south."
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Distance in astronomical units (AU). 1 AU is the average Earth-Sun distance, useful for comparing orbital scales."
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": true,
+                    "modal": "Distance in kilometers for precise range tracking at the selected horizon moment."
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": true,
+                    "modal": "Rising horizon marks the upward crossing of altitude 0°. These moments define when the target appears above the horizon line."
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": true,
+                    "modal": "Setting horizon marks the downward crossing of altitude 0°, when the target disappears below the horizon line."
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Maximum altitude is the highest point of the target above the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Minimum altitude is the lowest point of the target below the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Zenith sector marks the local top-side arc of the cycle where altitude reaches its peak behavior."
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Nadir sector marks the local bottom-side arc of the cycle where altitude reaches its minimum behavior."
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains above the local horizon."
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains below the local horizon."
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": []
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772935705643,
+          "updatedAt": 1772935982322
+        },
+        {
+          "dedupKey": "wheel:system:c3lzdGVtOjpmb2N1cz1FYXJ0aCZsb29rZXI9U3VuJnRhcmdldD1Nb29uOjpsb2M9bG9jOm1tZmxzenNqLWM2bDM1d242JmxvY2s9MDo6bW9kZT1saXZlJmxvY2s9MA",
+          "type": "system",
+          "title": "Moon Orbit",
+          "roles": {
+            "looker": "Sun",
+            "focus": "Earth",
+            "target": [
+              "Moon"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmh3orxe:84qg",
+                    "enabled": true,
+                    "label": "Description",
+                    "value": "",
+                    "modal": "This wheel shows the Moon’s orbit in a way that combines three layers at once: Earth-Moon distance dynamics (bind), lunar phases (synod), and the Moon’s crossings of the ecliptic (nodal).\n\nBecause these signals are aligned on one track, it is useful for quick visual estimation of eclipse likelihood by checking how the key phase nodes line up with the nodal crossings.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmh3pbxw:2xfj",
+                    "enabled": true,
+                    "label": "Guide",
+                    "value": "",
+                    "modal": "Click the Moon icon to pin this body and reveal its track and nodes. In the bottom-right corner, use the node-group visibility toggles: nodal (N), synod (S), bind (B), and regular (.). Below the visual wheel, you will see the pinned body and the list of nodes currently shown for it.\n\nTo move the body to any node, either double-click that node on the track or single-click its label in the list below the wheel.\n\nTo return to real-time mode, press the Play button (▶️) on the global clock.\n\nHover over objects and wait briefly to open tooltips with extra details. Some tags are clickable and open additional explanations.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Distance between focus and target in astronomical units (AU) at each synodic spoke."
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": true,
+                    "modal": "Opposition marks the synodic phase where target and focus are opposite as seen from the looker."
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": true,
+                    "modal": "Conjunction marks synodic alignment of focus and target as seen from the looker."
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "This moment belongs to the waxing interval, where phase progresses from new toward full."
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "This moment belongs to the waning interval, where phase progresses from full back toward new."
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Maximum distance marks the spoke where separation between focus and target reaches its local peak in the current bind cycle."
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Minimum distance marks the spoke where separation between focus and target reaches its local minimum in the current bind cycle."
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where distance is increasing from minimum toward maximum."
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where distance is decreasing from maximum toward minimum."
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Nodal latitude is the angular offset of the target from the selected reference plane. Positive and negative values indicate opposite sides of that plane."
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": false,
+                    "modal": "Signed distance from the target to the reference plane in AU. Positive and negative values indicate opposite sides of the plane."
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": true,
+                    "modal": "Ascending node marks the upward crossing of the reference plane, where nodal latitude changes from negative to positive."
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": true,
+                    "modal": "Descending node marks the downward crossing of the reference plane, where nodal latitude changes from positive to negative."
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Maximum nodal latitude is the peak positive offset from the reference plane within the current nodal cycle."
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Minimum nodal latitude is the peak negative offset from the reference plane within the current nodal cycle."
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": true,
+                    "modal": "North apex is the cycle sector around the highest positive nodal latitude."
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": true,
+                    "modal": "South nadir is the cycle sector around the lowest negative nodal latitude."
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where nodal latitude is on the north/positive side of the reference plane."
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where nodal latitude is on the south/negative side of the reference plane."
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Mid distance marks crossings of the cycle midpoint between local minimum and maximum separation."
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": false,
+                    "modal": "New phase is the minimal illumination-side state, typically aligned with conjunction in this synodic model."
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "First quarter marks a 90° phase offset in the synodic cycle. It appears at both cycle boundaries in this wheel model."
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Last quarter marks the opposite 90° phase offset from first quarter within the synodic cycle."
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": false,
+                    "modal": "Full phase is the peak illumination-side state, typically aligned with opposition in this synodic model."
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": true,
+                    "modal": "Distance between focus and target in kilometers at each synodic spoke."
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Distance from looker to focus in AU, useful for observer-dependent synodic context."
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": true,
+                    "modal": "Signed distance from the target to the reference plane in kilometers. Positive and negative values indicate opposite sides of the plane."
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "First Quarter"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Full Moon"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Last Quarter"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "New Moon"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "Next First Quarter"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "First Quarter"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Next First Quarter"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Full Moon"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Last Quarter"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "New Moon"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Perigee"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Apogee"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Mid Distance"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Mid Distance"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Descending Node"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Ascending Node"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "North Max"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "South Max"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772934922466,
+          "updatedAt": 1772935595529
+        }
+      ],
+      "favorites": [],
+      "bodies": {},
+      "locations": {
+        "currentId": "",
+        "saved": []
+      },
+      "wheelsOnScreen": [
+        {
+          "id": "ChuSe5m0JaSaKzK4FlYiy",
+          "wheelType": "system",
+          "title": "Moon Orbit",
+          "roles": {
+            "looker": "Sun",
+            "focus": "Earth",
+            "target": [
+              "Moon"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "order": 0,
+          "size": 560,
+          "layout": {
+            "x": 0,
+            "y": 0,
+            "w": 8,
+            "h": 59
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmh3orxe:84qg",
+                    "enabled": true,
+                    "label": "Description",
+                    "value": "",
+                    "modal": "This wheel shows the Moon’s orbit in a way that combines three layers at once: Earth-Moon distance dynamics (bind), lunar phases (synod), and the Moon’s crossings of the ecliptic (nodal).\n\nBecause these signals are aligned on one track, it is useful for quick visual estimation of eclipse likelihood by checking how the key phase nodes line up with the nodal crossings.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmh3pbxw:2xfj",
+                    "enabled": true,
+                    "label": "Guide",
+                    "value": "",
+                    "modal": "Click the Moon icon to pin this body and reveal its track and nodes. In the bottom-right corner, use the node-group visibility toggles: nodal (N), synod (S), bind (B), and regular (.). Below the visual wheel, you will see the pinned body and the list of nodes currently shown for it.\n\nTo move the body to any node, either double-click that node on the track or single-click its label in the list below the wheel.\n\nTo return to real-time mode, press the Play button (▶️) on the global clock.\n\nHover over objects and wait briefly to open tooltips with extra details. Some tags are clickable and open additional explanations.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Distance between focus and target in astronomical units (AU) at each synodic spoke."
+                  },
+                  {
+                    "id": "dynamic:opposition",
+                    "enabled": true,
+                    "modal": "Opposition marks the synodic phase where target and focus are opposite as seen from the looker."
+                  },
+                  {
+                    "id": "dynamic:conjunction",
+                    "enabled": true,
+                    "modal": "Conjunction marks synodic alignment of focus and target as seen from the looker."
+                  },
+                  {
+                    "id": "dynamic:waxing",
+                    "enabled": true,
+                    "modal": "This moment belongs to the waxing interval, where phase progresses from new toward full."
+                  },
+                  {
+                    "id": "dynamic:waning",
+                    "enabled": true,
+                    "modal": "This moment belongs to the waning interval, where phase progresses from full back toward new."
+                  },
+                  {
+                    "id": "dynamic:max-distance",
+                    "enabled": true,
+                    "modal": "Maximum distance marks the spoke where separation between focus and target reaches its local peak in the current bind cycle."
+                  },
+                  {
+                    "id": "dynamic:min-distance",
+                    "enabled": true,
+                    "modal": "Minimum distance marks the spoke where separation between focus and target reaches its local minimum in the current bind cycle."
+                  },
+                  {
+                    "id": "dynamic:distance-rising",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where distance is increasing from minimum toward maximum."
+                  },
+                  {
+                    "id": "dynamic:distance-falling",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where distance is decreasing from maximum toward minimum."
+                  },
+                  {
+                    "id": "dynamic:latitude",
+                    "enabled": true,
+                    "modal": "Nodal latitude is the angular offset of the target from the selected reference plane. Positive and negative values indicate opposite sides of that plane."
+                  },
+                  {
+                    "id": "dynamic:plane-dist-au",
+                    "enabled": false,
+                    "modal": "Signed distance from the target to the reference plane in AU. Positive and negative values indicate opposite sides of the plane."
+                  },
+                  {
+                    "id": "dynamic:ascending-node",
+                    "enabled": true,
+                    "modal": "Ascending node marks the upward crossing of the reference plane, where nodal latitude changes from negative to positive."
+                  },
+                  {
+                    "id": "dynamic:descending-node",
+                    "enabled": true,
+                    "modal": "Descending node marks the downward crossing of the reference plane, where nodal latitude changes from positive to negative."
+                  },
+                  {
+                    "id": "dynamic:max-latitude",
+                    "enabled": true,
+                    "modal": "Maximum nodal latitude is the peak positive offset from the reference plane within the current nodal cycle."
+                  },
+                  {
+                    "id": "dynamic:min-latitude",
+                    "enabled": true,
+                    "modal": "Minimum nodal latitude is the peak negative offset from the reference plane within the current nodal cycle."
+                  },
+                  {
+                    "id": "dynamic:north-side",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where nodal latitude is on the north/positive side of the reference plane."
+                  },
+                  {
+                    "id": "dynamic:south-side",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where nodal latitude is on the south/negative side of the reference plane."
+                  },
+                  {
+                    "id": "dynamic:south-nadir",
+                    "enabled": false,
+                    "modal": "South nadir is the cycle sector around the lowest negative nodal latitude."
+                  },
+                  {
+                    "id": "dynamic:north-apex",
+                    "enabled": false,
+                    "modal": "North apex is the cycle sector around the highest positive nodal latitude."
+                  },
+                  {
+                    "id": "dynamic:mid-distance",
+                    "enabled": false,
+                    "modal": "Mid distance marks crossings of the cycle midpoint between local minimum and maximum separation."
+                  },
+                  {
+                    "id": "dynamic:new-phase",
+                    "enabled": false,
+                    "modal": "New phase is the minimal illumination-side state, typically aligned with conjunction in this synodic model."
+                  },
+                  {
+                    "id": "dynamic:first-quarter",
+                    "enabled": false,
+                    "modal": "First quarter marks a 90° phase offset in the synodic cycle. It appears at both cycle boundaries in this wheel model."
+                  },
+                  {
+                    "id": "dynamic:last-quarter",
+                    "enabled": false,
+                    "modal": "Last quarter marks the opposite 90° phase offset from first quarter within the synodic cycle."
+                  },
+                  {
+                    "id": "dynamic:full-phase",
+                    "enabled": false,
+                    "modal": "Full phase is the peak illumination-side state, typically aligned with opposition in this synodic model."
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": true,
+                    "modal": "Distance between focus and target in kilometers at each synodic spoke."
+                  },
+                  {
+                    "id": "dynamic:looker-dist-au",
+                    "enabled": false,
+                    "modal": "Distance from looker to focus in AU, useful for observer-dependent synodic context."
+                  },
+                  {
+                    "id": "dynamic:plane-dist-km",
+                    "enabled": true,
+                    "modal": "Signed distance from the target to the reference plane in kilometers. Positive and negative values indicate opposite sides of the plane."
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "First Quarter"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Full Moon"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Last Quarter"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "New Moon"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "Next First Quarter"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned-node:e-synod",
+                    "enabled": true,
+                    "label": "First Quarter"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-synod",
+                    "enabled": true,
+                    "label": "Next First Quarter"
+                  },
+                  {
+                    "id": "pinned-node:n-synod",
+                    "enabled": true,
+                    "label": "Full Moon"
+                  },
+                  {
+                    "id": "pinned-node:w-synod",
+                    "enabled": true,
+                    "label": "Last Quarter"
+                  },
+                  {
+                    "id": "pinned-node:s-synod",
+                    "enabled": true,
+                    "label": "New Moon"
+                  },
+                  {
+                    "id": "pinned-node:s-bind",
+                    "enabled": true,
+                    "label": "Perigee"
+                  },
+                  {
+                    "id": "pinned-node:n-bind",
+                    "enabled": true,
+                    "label": "Apogee"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-bind",
+                    "enabled": true,
+                    "label": "Mid Distance"
+                  },
+                  {
+                    "id": "pinned-node:w-bind",
+                    "enabled": true,
+                    "label": "Mid Distance"
+                  },
+                  {
+                    "id": "pinned-node:w-nodal",
+                    "enabled": true,
+                    "label": "Descending Node"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-nodal",
+                    "enabled": true,
+                    "label": "Ascending Node"
+                  },
+                  {
+                    "id": "pinned-node:n-nodal",
+                    "enabled": true,
+                    "label": "North Max"
+                  },
+                  {
+                    "id": "pinned-node:s-nodal",
+                    "enabled": true,
+                    "label": "South Max"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "id": "VVZ6JRzTPfhvgosJTiU8S",
+          "wheelType": "compass",
+          "title": "Moon Visibility",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "order": 1,
+          "size": 560,
+          "layout": {
+            "x": 8,
+            "y": 0,
+            "w": 8,
+            "h": 52
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmh48grh:3338",
+                    "enabled": true,
+                    "label": "Description",
+                    "value": "",
+                    "modal": "This wheel shows where the Sun and Moon are in your local sky, combining azimuth, altitude, and horizon crossing structure in one view.\n\nIt helps you quickly see whether the Moon is above or below the horizon, how high it is, and how its position relates to the Sun for practical observation timing.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmh4a2gq:cjgm",
+                    "enabled": true,
+                    "label": "Guide",
+                    "value": "",
+                    "modal": "Click the Moon icon to pin it and reveal its track and node points on the wheel. Use the node-group visibility toggles in the bottom-right corner: compass (C), horizon (H), and regular (.).\n\nBelow the visual wheel, you will see the pinned body and the list of currently visible nodes. To move to a node, double-click that node on the track or single-click its label in the list under the wheel.\n\nHover over objects and wait briefly to open tooltips with extra details. Some tags are clickable and open additional explanations.\n\nTo return to real-time mode, press the Play button (▶️) on the global clock.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Altitude is the target height relative to the local horizon. Positive values mean the body is above the horizon, negative values mean it is below."
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Maximum altitude is the highest point of the target above the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Minimum altitude is the lowest point of the target below the horizon within the current horizon cycle."
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Zenith sector marks the local top-side arc of the cycle where altitude reaches its peak behavior."
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Nadir sector marks the local bottom-side arc of the cycle where altitude reaches its minimum behavior."
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains above the local horizon."
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "This moment belongs to the interval where the target remains below the local horizon."
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": false,
+                    "label": "Setting",
+                    "modal": "Setting horizon marks the downward crossing of altitude 0°, when the target disappears below the horizon line."
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": false,
+                    "label": "Rising",
+                    "modal": "Rising horizon marks the upward crossing of altitude 0°. These moments define when the target appears above the horizon line."
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Azimuth is the horizontal direction along the horizon, measured clockwise from true north: N=0°, E=90°, S=180°, W=270°."
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Right ascension is an equatorial sky coordinate, similar to celestial longitude. It is commonly expressed in hours along the celestial equator."
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Declination is an equatorial sky coordinate, similar to celestial latitude. Positive values are north of the celestial equator, negative values are south."
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Distance in astronomical units (AU). 1 AU is the average Earth-Sun distance, useful for comparing orbital scales."
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": true,
+                    "modal": "Distance in kilometers for precise range tracking at the selected horizon moment."
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "East"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true,
+                    "label": "ENE"
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true,
+                    "label": "North-East"
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true,
+                    "label": "NNE"
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "North"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true,
+                    "label": "NNW"
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true,
+                    "label": "North-West"
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true,
+                    "label": "WNW"
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "West"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true,
+                    "label": "WSW"
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true,
+                    "label": "South-West"
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true,
+                    "label": "SSW"
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "South"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true,
+                    "label": "SSE"
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true,
+                    "label": "South-East"
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true,
+                    "label": "ESE"
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "East"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Rising"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "Next Rising"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "East"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Zenith"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Setting"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Nadir"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Mid Above"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Mid Below"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "North"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "West"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "South"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "North-East"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "North-West"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "South-West"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "South-East"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

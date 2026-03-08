@@ -1613,7 +1613,7 @@
 
     .modalBody {
         white-space: pre-wrap;
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.4;
         padding: 6px 2px;
     }

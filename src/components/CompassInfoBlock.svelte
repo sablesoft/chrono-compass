@@ -1375,7 +1375,7 @@
     }
 
     .modalBody {
-        font-size: 13px;
+        font-size: 15px;
         line-height: 1.45;
         white-space: pre-wrap;
         opacity: 0.9;

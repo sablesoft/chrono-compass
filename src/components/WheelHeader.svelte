@@ -39,7 +39,8 @@
                 baseObserver={wheel.observer}
                 baseTime={wheel.time}
                 baseView={wheel.view}
-                baseId={wheelId}/>
+                baseId={wheelId}
+                locked={profileLocked}/>
     </div>
 
     <div class="btnRail">

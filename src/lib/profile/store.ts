@@ -23,6 +23,25 @@ function now(): number {
     return Date.now();
 }
 
+function preferredLangChain2(): string[] {
+    if (typeof navigator === 'undefined') return ['en'];
+    const list = (navigator.languages && navigator.languages.length)
+        ? navigator.languages
+        : [navigator.language || 'en'];
+
+    const out: string[] = [];
+    for (const raw of list) {
+        const lang2 = String(raw || '')
+            .toLowerCase()
+            .split('-')[0]
+            ?.slice(0, 2) || '';
+        if (!/^[a-z]{2}$/.test(lang2)) continue;
+        if (!out.includes(lang2)) out.push(lang2);
+    }
+    if (!out.includes('en')) out.push('en');
+    return out.length ? out : ['en'];
+}
+
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
 const DEFAULT_TIME: WheelTimeState = { live: true, locked: false };
 
@@ -149,12 +168,20 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
         const hasDefault = normalizedProfiles.some(p => p?.id === def.id);
         const profiles = hasDefault ? normalizedProfiles : [def, ...normalizedProfiles];
 
-        const activeId =
-            s.activeId && profiles.some(p => p.id === s.activeId)
-                ? s.activeId
-                : def.id;
+        // Keep requested active id even if profile is not loaded yet
+        // (system demo profiles are imported later during bootstrap).
+        const requestedActiveId =
+            (typeof s.activeId === 'string' && s.activeId.trim().length > 0)
+                ? s.activeId.trim()
+                : null;
+        const activeId = requestedActiveId ?? def.id;
 
-        dbg.log('normalizeState.ok', { hadDefault: hasDefault, profiles: profiles.length, activeId });
+        dbg.log('normalizeState.ok', {
+            hadDefault: hasDefault,
+            profiles: profiles.length,
+            activeId,
+            hasActiveProfile: profiles.some((p) => p.id === activeId)
+        });
         return { profiles, activeId };
     });
 }
@@ -963,16 +990,33 @@ export const profilesApi = {
             const json = await res.json();
             profilesApi.upsertProfileFromImport(json, { applyLocations: false, forceSystem: true });
         };
-        const toAbsoluteUrl = (entryUrl: string): string => {
-            const v = String(entryUrl || '').trim();
-            if (!v) return '';
-            if (/^(https?:)?\/\//i.test(v)) return v;
-            if (v.startsWith('/')) return v;
+        const langPrefs = preferredLangChain2();
+        const pickEntryPath = (entry: any): string => {
+            if (typeof entry === 'string') return entry.trim();
+            if (entry && typeof entry.url === 'string') return entry.url.trim();
+            return '';
+        };
+        const buildLocalizedEntryUrls = (entryPath: string): string[] => {
+            const v = String(entryPath || '').trim();
+            if (!v) return [];
+            if (/^(https?:)?\/\//i.test(v)) return [v];
+
             try {
-                const abs = new URL(v, new URL(indexUrl, window.location.origin));
-                return abs.pathname + abs.search + abs.hash;
+                const indexAbs = new URL(indexUrl, window.location.origin);
+                const entryAbs = new URL(v, indexAbs);
+                const basePath = indexAbs.pathname.replace(/\/[^/]*$/, '');
+                const entryPathname = entryAbs.pathname;
+                const relPath = entryPathname.startsWith(`${basePath}/`)
+                    ? entryPathname.slice(basePath.length + 1)
+                    : entryPathname.replace(/^\/+/, '');
+
+                const candidates = langPrefs.map((lang) => {
+                    const path = `${basePath}/${lang}/${relPath}`.replace(/\/{2,}/g, '/');
+                    return `${path}${entryAbs.search}${entryAbs.hash}`;
+                });
+                return Array.from(new Set(candidates));
             } catch {
-                return v;
+                return [];
             }
         };
 
@@ -987,20 +1031,31 @@ export const profilesApi = {
                 ? indexJson
                 : (Array.isArray(indexJson?.profiles) ? indexJson.profiles : []);
 
-            const urls = entriesRaw
-                .map((entry: any) => {
-                    if (typeof entry === 'string') return entry.trim();
-                    if (entry && typeof entry.url === 'string') return entry.url.trim();
-                    return '';
-                })
-                .map((x: string) => toAbsoluteUrl(x))
+            const entries = entriesRaw
+                .map((entry: any) => pickEntryPath(entry))
                 .filter((x: string) => !!x);
 
-            for (const url of urls) {
-                try {
-                    await loadOne(url);
-                } catch (err) {
-                    dbg.warn('api.loadSystemProfilesFromPublic.entry.fail', { url, err });
+            for (const entryPath of entries) {
+                const urls = buildLocalizedEntryUrls(entryPath);
+                let loaded = false;
+                let lastErr: unknown = null;
+
+                for (const url of urls) {
+                    try {
+                        await loadOne(url);
+                        loaded = true;
+                        break;
+                    } catch (err) {
+                        lastErr = err;
+                    }
+                }
+
+                if (!loaded) {
+                    dbg.warn('api.loadSystemProfilesFromPublic.entry.fail', {
+                        entryPath,
+                        tried: urls,
+                        err: lastErr
+                    });
                 }
             }
         } catch (err) {

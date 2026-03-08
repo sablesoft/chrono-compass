@@ -464,14 +464,14 @@
     }
 
     .itemAccordionTitle {
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 800;
         opacity: 0.86;
         letter-spacing: 0.02em;
     }
 
     .itemAccordionBody {
-        font-size: 13px;
+        font-size: 14px;
         line-height: 1.35;
         opacity: 0.95;
     }

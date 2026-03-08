@@ -6,8 +6,10 @@
     import { formatWheelSpec } from '../lib/wheel/control';
     import { activeProfile, isActiveProfileLocked, profilesApi, profilesState } from '../lib/profile/store';
     import { currentLocationId, locationState } from '../lib/location/store';
+    import { DEFAULT_LOCATION_ID } from '../lib/location/types';
     import type { Profile, SavedWheel } from '../lib/profile/types';
     import type { BoardWheel } from '../lib/board/types';
+    import type { WheelObserverState } from '../lib/wheel/types';
 
     let open = false;
     let modalEl: HTMLDivElement | null = null;
@@ -82,6 +84,15 @@
             layout: w.layout ? { ...w.layout } : undefined,
             view: w.view ? { ...w.view } : undefined
         };
+    }
+
+    function normalizeObserverForExport(observer: WheelObserverState | undefined): WheelObserverState {
+        const locked = !!observer?.locked;
+        if (!locked) {
+            return { locationId: DEFAULT_LOCATION_ID, locked: false };
+        }
+        const locationId = (observer?.locationId ?? '').trim() || DEFAULT_LOCATION_ID;
+        return { locationId, locked: true };
     }
 
     function profileBoard(profile: Profile | null): BoardWheel[] {
@@ -232,8 +243,14 @@
     function handleDownloadPlaceholder() {
         if (!selectedProfile) return;
 
-        const normalizedBoard = boardList.map((w, idx) => cloneBoardWheel(w, idx));
-        const normalizedWheels = wheelsList.map((w) => cloneSavedWheel(w));
+        const normalizedBoard = boardList.map((w, idx) => {
+            const copy = cloneBoardWheel(w, idx);
+            return { ...copy, observer: normalizeObserverForExport(copy.observer) };
+        });
+        const normalizedWheels = wheelsList.map((w) => {
+            const copy = cloneSavedWheel(w);
+            return { ...copy, observer: normalizeObserverForExport(copy.observer) };
+        });
         const favorites = normalizedWheels.filter((w) => !!w.favorite).map((w) => w.dedupKey);
         const globalLocState = get(locationState);
         const lockedLocationIds = new Set<string>();
@@ -535,8 +552,8 @@
                             <div class="rows">
                                 {#each boardList as w (w.id)}
                                     <div class="rowItem">
-                                        <div class="spec">{wheelSpec(w.wheelType, w.roles)}</div>
                                         <div class="title" title={userTitle(w.title)}>{userTitle(w.title)}</div>
+                                        <div class="spec">{wheelSpec(w.wheelType, w.roles)}</div>
                                         <div class="rowActions">
                                             {#if !hideDeleteActions}
                                                 <button class="mini danger" type="button" on:click={() => removeBoardById(w.id)} disabled={pendingDelete}>Delete</button>
@@ -561,8 +578,8 @@
                                 <div class="rows">
                                     {#each wheelsList as w (w.dedupKey)}
                                         <div class="rowItem">
-                                            <div class="spec">{wheelSpec(w.type, w.roles)}</div>
                                             <div class="title" title={userTitle(w.title)}>{userTitle(w.title)}</div>
+                                            <div class="spec">{wheelSpec(w.type, w.roles)}</div>
                                             <div class="rowActions">
                                                 <button class="mini" type="button" title={w.favorite ? 'Unfavorite' : 'Favorite'} on:click={() => toggleSavedWheelFavorite(w.dedupKey)} disabled={pendingDelete || selectedProfileLocked}>
                                                     {w.favorite ? '★' : '☆'}
@@ -906,7 +923,8 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        font-weight: 800;
+        font-weight: 650;
+        opacity: 0.82;
     }
 
     .title {
@@ -914,8 +932,8 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        opacity: 0.8;
-        font-weight: 700;
+        opacity: 0.95;
+        font-weight: 850;
     }
 
     .rowActions {

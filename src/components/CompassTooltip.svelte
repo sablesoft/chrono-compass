@@ -974,13 +974,13 @@
         padding-left: 10px;
     }
     .itemAccordionTitle {
-        font-size: 11px;
+        font-size: 12px;
         font-weight: 800;
         opacity: 0.9;
         margin-bottom: 2px;
     }
     .itemAccordionBody {
-        font-size: 12px;
+        font-size: 14px;
         opacity: 0.84;
         line-height: 1.35;
     }

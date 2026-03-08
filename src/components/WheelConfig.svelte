@@ -25,6 +25,7 @@
     export let baseObserver: WheelObserverState;
     export let baseTime: WheelTimeState;
     export let baseView: BoardWheelView | undefined = undefined;
+    export let locked = false;
 
     export let onApply: (payload: { roles: WheelRolesState; title: string }) => void = () => {};
     export let onCancel: () => void = () => {};
@@ -68,8 +69,8 @@
     $: hasAllRolesOk = usedRoles.every((r) => hasRoleValue(spec, r, effectiveDraftRoles[r]));
     $: isDirty = !shallowEqualRoles(roles, effectiveDraftRoles);
 
-    $: canUpdate = hasAllRolesOk && draftCompatible && isDirty;
-    $: canNew = hasAllRolesOk && draftCompatible;
+    $: canUpdate = !locked && hasAllRolesOk && draftCompatible && isDirty;
+    $: canNew = !locked && hasAllRolesOk && draftCompatible;
 
     function openModal() {
         initialRoles = { ...roles };
@@ -95,6 +96,7 @@
     }
 
     function clearDraft() {
+        if (locked) return;
         for (const r of usedRoles) {
             if (r === 'target' && multiTarget) continue;
             draftRoles[r] = null;
@@ -104,6 +106,7 @@
     }
 
     function resetDraft() {
+        if (locked) return;
         if (multiTarget) {
             const t = initialRoles.target;
             draftTargets = Array.isArray(t) ? (t as ObjId[]) : (t ? [t as ObjId] : []);
@@ -117,6 +120,7 @@
     }
 
     function setRole(role: RoleName, value: string) {
+        if (locked) return;
         const v = (value || '') as ObjId;
         if (role === 'target' && multiTarget) return;
 
@@ -142,6 +146,7 @@
     }
 
     function toggleRoleOption(role: RoleName, id: ObjId) {
+        if (locked) return;
         if (role === 'target') {
             toggleDraftTarget(id);
             return;
@@ -151,6 +156,7 @@
     }
 
     function toggleDraftTarget(id: ObjId) {
+        if (locked) return;
         if (multiTarget) {
             const has = draftTargets.includes(id);
             const picked = has ? draftTargets.filter((x) => x !== id) : [...draftTargets, id];
@@ -171,6 +177,7 @@
     }
 
     function updateExisting() {
+        if (locked) return;
         if (!canUpdate) return;
 
         onApply({ roles: effectiveDraftRoles, title: title ?? '' });
@@ -184,6 +191,7 @@
     }
 
     function createNew() {
+        if (locked) return;
         if (!canNew) return;
 
         const nextTitle = formatWheelSpec(type, effectiveDraftRoles);
@@ -278,11 +286,12 @@
                                 {@const checked = r === 'target'
                                     ? (multiTarget ? draftTargets.includes(id) : effectiveDraftRoles.target === id)
                                     : effectiveDraftRoles[r] === id}
-                                <label class="checkItem" class:checked={checked}>
+                                <label class="checkItem" class:checked={checked} class:readonly={locked}>
                                     <input
                                         class="checkInput"
                                         type="checkbox"
                                         checked={checked}
+                                        disabled={locked}
                                         on:change={() => toggleRoleOption(r, id)}
                                     />
                                     <span class="checkBox" aria-hidden="true"></span>
@@ -300,8 +309,8 @@
 
             <footer class="modalBottom">
                 <div class="leftBtns">
-                    <button type="button" class="btn ghost" on:click={clearDraft}>Clear</button>
-                    <button type="button" class="btn ghost" on:click={resetDraft} disabled={!isDirty}>Reset</button>
+                    <button type="button" class="btn ghost" on:click={clearDraft} disabled={locked}>Clear</button>
+                    <button type="button" class="btn ghost" on:click={resetDraft} disabled={locked || !isDirty}>Reset</button>
                 </div>
 
                 <div class="rightBtns">
@@ -449,6 +458,10 @@
         border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
         background: color-mix(in oklab, var(--btn-bg), transparent 18%);
         cursor: pointer;
+    }
+
+    .checkItem.readonly {
+        cursor: default;
     }
 
     .checkItem.checked {

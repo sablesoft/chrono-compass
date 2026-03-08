@@ -1067,6 +1067,12 @@
             const applies = !def.spokes || def.spokes === '*' || (Array.isArray(def.spokes) && def.spokes.includes(code as any));
             if (!applies) continue;
             const label = uiLabel(defaultLabel);
+            const id = `dynamic:${tagIdFromLabel(label)}`;
+            const cfg = dynamicTagConfigById.get(id);
+            const resolvedLabel = (cfg?.label && cfg.label.trim()) ? cfg.label.trim() : label;
+            const resolvedModal = (cfg?.modal && cfg.modal.trim())
+                ? cfg.modal.trim()
+                : (typeof def.modal === 'string' ? def.modal : undefined);
             if (def.metaField) {
                 const rawValue = meta?.[def.metaField];
                 if (rawValue == null || rawValue === '') continue;
@@ -1075,17 +1081,17 @@
                     : String(rawValue);
                 const value = def.format ? formatInfoValue(def.format, formatInput) : String(formatInput);
                 out.push({
-                    id: `dynamic:${tagIdFromLabel(label)}`,
-                    label,
+                    id,
+                    label: resolvedLabel,
                     value,
-                    modal: typeof def.modal === 'string' ? def.modal : undefined
+                    modal: resolvedModal
                 });
                 continue;
             }
             out.push({
-                id: `dynamic:${tagIdFromLabel(label)}`,
-                label,
-                modal: typeof def.modal === 'string' ? def.modal : undefined
+                id,
+                label: resolvedLabel,
+                modal: resolvedModal
             });
         }
         return out;
@@ -1729,6 +1735,7 @@
     };
     let compassTagDefs: CompassTagDef[] = [];
     let compassTagDefById: Map<string, CompassTagDef> = new Map();
+    let dynamicTagConfigById: Map<string, CompassInfoTagConfig> = new Map();
     let pinnedLabelByTagId: Map<string, string> = new Map();
     let defaultCompassInfoConfig: CompassInfoConfig = {
         general: { enabled: false, tags: [] },
@@ -2199,6 +2206,10 @@
         ] satisfies CompassTagDef[];
     })();
     $: compassTagDefById = new Map(compassTagDefs.map((d) => [d.id, d]));
+    $: dynamicTagConfigById = new Map(
+        (compassInfoConfig?.dynamic?.tags ?? [])
+            .map((t) => [t.id, t] as const)
+    );
     $: pinnedLabelByTagId = new Map(
         (compassInfoConfig?.pinned?.tags ?? [])
             .map((t) => [t.id, String(t.label ?? '').trim()] as const)
