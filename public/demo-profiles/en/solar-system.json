@@ -60,7 +60,7 @@
                     "enabled": true,
                     "label": "Guide",
                     "value": "",
-                    "modal": "Pin one outer planet and compare its nodes against the others in the same time slice. Use group toggles to isolate synod, bind, and nodal structure, then move the global clock to watch how slow-cycle geometry reorganizes over months and years.",
+                    "modal": "Pin one outer planet and compare its nodes against the others in the same time slice. Use group toggles to isolate synod, bind, and nodal structure, then move the global clock to watch how slow-cycle geometry reorganizes over months and years.\n\nNote: for outer (slow) planets, this wheel may take noticeably longer to compute. The reason is that the solver must search and refine node moments across very long time intervals, and it does so for multiple slowly changing bodies at once.",
                     "isCustom": true
                   }
                 ]
@@ -1433,7 +1433,7 @@
                     "enabled": true,
                     "label": "Guide",
                     "value": "",
-                    "modal": "Pin one outer planet and compare its nodes against the others in the same time slice. Use group toggles to isolate synod, bind, and nodal structure, then move the global clock to watch how slow-cycle geometry reorganizes over months and years.",
+                    "modal": "Pin one outer planet and compare its nodes against the others in the same time slice. Use group toggles to isolate synod, bind, and nodal structure, then move the global clock to watch how slow-cycle geometry reorganizes over months and years.\n\nNote: for outer (slow) planets, this wheel may take noticeably longer to compute. The reason is that the solver must search and refine node moments across very long time intervals, and it does so for multiple slowly changing bodies at once.",
                     "isCustom": true
                   }
                 ]
