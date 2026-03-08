@@ -6,7 +6,7 @@ import type { MarkerItem } from '../wheel/types';
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
 import { resolveWheelMeta } from '../board/registry';
-import { AU_KM, clamp, norm360, trackInMainCycleWindow } from './helpers';
+import { AU_KM, clamp, currentHouseAtTs, norm360, trackInMainCycleWindow } from './helpers';
 import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
@@ -64,6 +64,11 @@ export type SystemTargetState = {
     distanceAu: number;
     focusDistAu: number;
     distanceLabel: string;
+    currentHouses?: {
+        synod?: string;
+        bind?: string;
+        nodal?: string;
+    };
     infoMeta?: {
         synod?: Record<string, unknown>;
         bind?: Record<string, unknown>;
@@ -725,6 +730,11 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         phaseDeg: number;
         distanceAu: number;
         focusDistAu: number;
+        currentHouses: {
+            synod?: string;
+            bind?: string;
+            nodal?: string;
+        };
         orbitTrack?: SystemTrackPoint[];
     } | null> => {
         const inst = synodInstantAt(looker, focus, id, ts);
@@ -753,6 +763,11 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const orbitTrackRaw = mergeTrackPointsPreferSynod(denseTrack);
         const orbitTrackTagged = applySystemBoundaryCycleTags(orbitTrackRaw);
         const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, systemSpec.mainCycle, ts);
+        const currentHouses = {
+            synod: currentHouseAtTs(synodSpokes, ts),
+            bind: currentHouseAtTs(bindSpokes, ts),
+            nodal: currentHouseAtTs(nodalSpokes, ts)
+        };
 
         return {
             id,
@@ -760,6 +775,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
+            currentHouses,
             orbitTrack
         };
     }));
@@ -803,6 +819,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             distanceAu: r.distanceAu,
             focusDistAu: r.focusDistAu,
             distanceLabel: `Dist to ${bodyNameEn(focus)}`,
+            currentHouses: r.currentHouses,
             infoMeta: {
                 synod: {
                     phaseDeg: r.phaseDeg,

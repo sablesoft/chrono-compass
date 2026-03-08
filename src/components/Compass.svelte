@@ -1104,6 +1104,21 @@
         return {};
     }
 
+    function normalizeBodyCurrentHouses(t: CompassTargetState): CompassBodyCurrentHouses {
+        const raw = (t as any).currentHouses;
+        if (!raw || typeof raw !== 'object') return {};
+        const obj = raw as Record<string, unknown>;
+        const out: CompassBodyCurrentHouses = {};
+        for (const source of ['compass', 'horizon', 'synod', 'bind', 'nodal'] as const) {
+            const value = obj[source];
+            if (typeof value !== 'string') continue;
+            const code = value.trim();
+            if (!code) continue;
+            out[source] = code;
+        }
+        return out;
+    }
+
     // ------------------------------------------------------------
     // Role emoji placements (center / label / spoke)
     // ------------------------------------------------------------
@@ -1467,6 +1482,7 @@
             house,
             visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true,
             infoMeta: normalizeBodyInfoMeta(t),
+            currentHouses: normalizeBodyCurrentHouses(t),
             activeNode
         };
     });
@@ -1641,6 +1657,7 @@
     };
 
     type CompassBodyInfoMeta = Partial<Record<'horizon' | 'synod' | 'bind' | 'nodal', Record<string, unknown>>>;
+    type CompassBodyCurrentHouses = Partial<Record<'compass' | 'horizon' | 'synod' | 'bind' | 'nodal', string>>;
 
     type CompassBodyRow = {
         id: ObjId;
@@ -1658,6 +1675,7 @@
         visible: boolean;
         activeNode: MomentTip | null;
         infoMeta: CompassBodyInfoMeta;
+        currentHouses: CompassBodyCurrentHouses;
     };
 
     type CompassPinnedInfoRow = {
@@ -2131,10 +2149,11 @@
 
     function dynamicTagValue(def: CompassTagDef, row: CompassBodyRow): string | undefined {
         if (!def.source) return undefined;
-        if (!tagAppliesToCode(def, row.house)) return undefined;
+        const sourceCode = row.currentHouses[def.source];
+        if (!sourceCode || !tagAppliesToCode(def, sourceCode)) return undefined;
         if (!def.metaField) return '';
         const meta = row.infoMeta[def.source] ?? {};
-        return tagValueFromMeta(def, meta, row.house);
+        return tagValueFromMeta(def, meta, sourceCode);
     }
 
     function chipLabelKey(label: string): string {

@@ -5,7 +5,7 @@ import {cycleSpokeTags} from '../catalog/tags';
 import type {MarkerItem} from '../wheel/types'; // если путь у тебя другой — скажи, поправлю
 import type {CompassSolveResult, CycleSpoke, WheelInput} from '../board/runtime';
 import {resolveWheel} from '../board/dispatcher';
-import {toSigned180, trackInMainCycleWindow} from "./helpers";
+import {currentHouseAtTs, toSigned180, trackInMainCycleWindow} from "./helpers";
 import {computeHorizonInstant, type HorizonMeta} from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
 
@@ -31,7 +31,10 @@ export type CompassTargetState = {
     angleDeg: number;     // wheel angle from azimuth
     orbit: number;        // radial coefficient [0..2]
     visible: boolean;
-    cycleSpokes?: CycleSpoke<HorizonMeta>[];
+    currentHouses?: {
+        horizon?: string;
+        compass?: string;
+    };
     orbitTrack?: CompassTrackPoint[];
     infoMeta?: {
         horizon: Record<string, unknown>;
@@ -434,8 +437,8 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
             });
             if (!instant) return null;
 
-            const cycleSpokes = await resolveHorizonSpokesForTarget(input, id);
-            const baseTrack = buildTrackFromHorizonSpokes(cycleSpokes);
+            const horizonSpokes = await resolveHorizonSpokesForTarget(input, id);
+            const baseTrack = buildTrackFromHorizonSpokes(horizonSpokes);
             const spokeTrack = computeSpokeIntersectionsCompass({
                 looker,
                 target: id,
@@ -445,6 +448,10 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
             const orbitTrackRaw = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
             const orbitTrackTagged = applyCompassBoundaryCycleTags(orbitTrackRaw);
             const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, compassSpec.mainCycle, ts);
+            const currentHouses = {
+                horizon: currentHouseAtTs(horizonSpokes, ts),
+                compass: currentHouseAtTs(spokeTrack, ts)
+            };
 
             return {
                 id,
@@ -453,7 +460,7 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 angleDeg: azimuthToWheelAngleDeg(instant.azimuthDeg),
                 orbit: instant.orbit,
                 visible: instant.visible,
-                cycleSpokes,
+                currentHouses,
                 orbitTrack,
                 infoMeta: {
                     horizon: {

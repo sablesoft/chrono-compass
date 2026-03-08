@@ -176,6 +176,28 @@ export type CycleWindowPoint = {
     tags?: string[];
 };
 
+export function currentHouseAtTs<T extends { ts: number; code: string }>(
+    spokes: T[] | undefined,
+    ts: number
+): string | undefined {
+    if (!spokes?.length || !Number.isFinite(ts)) return undefined;
+
+    const sorted = spokes
+        .filter((row) => Number.isFinite(row.ts))
+        .slice()
+        .sort((a, b) => a.ts - b.ts);
+    if (!sorted.length) return undefined;
+
+    if (ts <= sorted[0].ts) return sorted[0].code;
+    for (let i = 0; i < sorted.length - 1; i++) {
+        const cur = sorted[i];
+        const next = sorted[i + 1];
+        if (ts < next.ts) return cur.code;
+        if (ts === next.ts) return next.code;
+    }
+    return sorted[sorted.length - 1].code;
+}
+
 export function trackInMainCycleWindow<T extends CycleWindowPoint>(
     track: T[] | undefined,
     mainCycle: string,
