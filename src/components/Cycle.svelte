@@ -458,6 +458,15 @@
         return b?.emoji ?? null;
     }
 
+    function bodyColor(id: ObjId | null | undefined): string | null {
+        if (!id) return null;
+        const b = (objects as any)[id] as { meta?: { color?: string } } | undefined;
+        const raw = b?.meta?.color;
+        if (typeof raw !== 'string') return null;
+        const trimmed = raw.trim();
+        return trimmed.length > 0 ? trimmed : null;
+    }
+
     type UiAnchor =
         | { kind: 'center' }
         | { kind: 'pointer' }
@@ -483,7 +492,7 @@
         return arr.map((x) => parsePlacement(x));
     }
 
-    type EmojiAt = { anchor: UiAnchor; text: string };
+    type EmojiAt = { anchor: UiAnchor; text: string; color?: string | null };
 
     let spec: WheelSpec | null = null;
     let emojiAt: EmojiAt[] = [];
@@ -492,7 +501,7 @@
         spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
 
         const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
-        const draws: Array<{ anchor: UiAnchor; emoji: string }> = [];
+        const draws: Array<{ anchor: UiAnchor; emoji: string; color?: string | null }> = [];
 
         const focusId = (wheel?.roles as any)?.focus as ObjId | null;
         const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
@@ -500,52 +509,56 @@
 
         if (ui?.focus && focusId) {
             const e = bodyEmoji(focusId);
+            const c = bodyColor(focusId);
             if (e) {
-                for (const a of parsePlacements(ui.focus)) draws.push({ anchor: a, emoji: e });
+                for (const a of parsePlacements(ui.focus)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
         if (ui?.target && targetId) {
             const e = bodyEmoji(targetId);
+            const c = bodyColor(targetId);
             if (e) {
-                for (const a of parsePlacements(ui.target)) draws.push({ anchor: a, emoji: e });
+                for (const a of parsePlacements(ui.target)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
         if (ui?.looker) {
             const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
             const e = bodyEmoji(lookerId);
+            const c = bodyColor(lookerId);
             if (e) {
-                for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e });
+                for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
-        const m = new Map<string, { anchor: UiAnchor; parts: string[] }>();
+        const m = new Map<string, { anchor: UiAnchor; parts: string[]; color?: string | null }>();
         for (const d of draws) {
             const k = anchorKey(d.anchor);
-            const cur = m.get(k) ?? { anchor: d.anchor, parts: [] };
+            const cur = m.get(k) ?? { anchor: d.anchor, parts: [], color: d.color };
             cur.parts.push(d.emoji);
+            if (!cur.color && d.color) cur.color = d.color;
             m.set(k, cur);
         }
 
-        emojiAt = Array.from(m.values()).map(x => ({ anchor: x.anchor, text: x.parts.join('') }));
+        emojiAt = Array.from(m.values()).map(x => ({ anchor: x.anchor, text: x.parts.join(''), color: x.color }));
     }
 
-    function emojiAtPointer(): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'pointer')?.text ?? null;
+    function emojiAtPointer(): EmojiAt | null {
+        return emojiAt.find(x => x.anchor.kind === 'pointer') ?? null;
     }
-    function emojiAtCenter(): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'center')?.text ?? null;
+    function emojiAtCenter(): EmojiAt | null {
+        return emojiAt.find(x => x.anchor.kind === 'center') ?? null;
     }
-    function emojiAtLabel(spoke: SpokeCode): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'label' && x.anchor.spoke === spoke)?.text ?? null;
+    function emojiAtLabel(spoke: SpokeCode): EmojiAt | null {
+        return emojiAt.find(x => x.anchor.kind === 'label' && x.anchor.spoke === spoke) ?? null;
     }
-    function emojiAtSpoke(spoke: SpokeCode): string | null {
-        return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke)?.text ?? null;
+    function emojiAtSpoke(spoke: SpokeCode): EmojiAt | null {
+        return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke) ?? null;
     }
 
-    let pointerEmoji: string | null = null;
-    let centerEmoji: string | null = null;
+    let pointerEmoji: EmojiAt | null = null;
+    let centerEmoji: EmojiAt | null = null;
 
     $: {
         pointerEmoji = emojiAtPointer();
@@ -1358,8 +1371,11 @@
                                 <text class="roleEmoji roleEmojiOnSpoke"
                                       x={midPt.x} y={midPt.y}
                                       text-anchor="middle"
-                                      dominant-baseline="middle">
-                                    {spokeEmoji}
+                                      dominant-baseline="middle"
+                                      class:useObjectColor={!!spokeEmoji.color}
+                                      style={spokeEmoji.color ? `color:${spokeEmoji.color}` : ''}
+                                >
+                                    {spokeEmoji.text}
                                 </text>
                             {/if}
 
@@ -1400,8 +1416,11 @@
                                     <text class="roleEmoji roleEmojiOnLabel"
                                           x={pt.x} y={pt.y}
                                           text-anchor="middle"
-                                          dominant-baseline="middle">
-                                        {labelEmoji}
+                                          dominant-baseline="middle"
+                                          class:useObjectColor={!!labelEmoji.color}
+                                          style={labelEmoji.color ? `color:${labelEmoji.color}` : ''}
+                                    >
+                                        {labelEmoji.text}
                                     </text>
                                 {:else}
                                     <text class="spokeLabel"
@@ -1544,8 +1563,11 @@
                                 <text class="roleEmoji roleEmojiPointer"
                                       x={rOuter} y="0"
                                       text-anchor="middle"
-                                      dominant-baseline="middle">
-                                    {pointerEmoji}
+                                      dominant-baseline="middle"
+                                      class:useObjectColor={!!pointerEmoji.color}
+                                      style={pointerEmoji.color ? `color:${pointerEmoji.color}` : ''}
+                                >
+                                    {pointerEmoji.text}
                                 </text>
                             {/if}
                         </g>
@@ -1557,8 +1579,10 @@
                                 x={cx} y={cy}
                                 text-anchor="middle"
                                 dominant-baseline="middle"
+                                class:useObjectColor={!!centerEmoji.color}
+                                style={centerEmoji.color ? `color:${centerEmoji.color}` : ''}
                         >
-                            {centerEmoji}
+                            {centerEmoji.text}
                         </text>
                     {:else}
                         <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
@@ -1804,6 +1828,10 @@
         font-variant-emoji: emoji;
         fill: currentColor;
         opacity: 0.95;
+    }
+    :global([data-theme="light"]) .roleEmoji.useObjectColor {
+        fill: currentColor !important;
+        color: inherit !important;
     }
 
     .roleEmojiCenter{

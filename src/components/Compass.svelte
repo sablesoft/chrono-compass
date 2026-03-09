@@ -56,6 +56,7 @@
 
     const dbg = debug('COMPASS', '🧭');
 
+
     function docsPathForWheelType(type: string | undefined): string {
         const wt = String(type ?? 'compass');
         return `concept/${wt}.md`;
@@ -1473,9 +1474,10 @@
 
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
-        const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
+        const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string }; meta?: { color?: string } } | undefined;
         const name = b?.name?.en ?? String(t.id);
         const emoji = b?.emoji ?? '•';
+        const color = typeof b?.meta?.color === 'string' && b.meta.color.trim().length > 0 ? b.meta.color.trim() : undefined;
         const house = houseLabelForAzimuth(t.azimuthDeg);
         const isSystemWheel = wheel?.wheelType === 'system';
         const primaryDeg = isSystemWheel ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg;
@@ -1502,6 +1504,7 @@
             id: t.id,
             emoji,
             name,
+            color,
             distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
             distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
@@ -1538,13 +1541,16 @@
         const t = lastTargets?.find((x) => x.id === pinnedBodyId);
         if (!t) return null;
 
-        const emoji = (objects as any)?.[pinnedBodyId]?.emoji ?? '•';
-        const name = (objects as any)?.[pinnedBodyId]?.name?.en ?? String(pinnedBodyId);
+        const rawPinned = (objects as any)?.[pinnedBodyId] as { emoji?: string; name?: { en?: string }; meta?: { color?: string } } | undefined;
+        const emoji = rawPinned?.emoji ?? '•';
+        const name = rawPinned?.name?.en ?? String(pinnedBodyId);
+        const color = typeof rawPinned?.meta?.color === 'string' && rawPinned.meta.color.trim().length > 0 ? rawPinned.meta.color.trim() : undefined;
 
         return {
             id: pinnedBodyId,
             emoji,
             name,
+            color,
             distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
             distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
@@ -1681,6 +1687,7 @@
         id: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         houseCode: string;
         houseLabel: string;
         pinned: boolean;
@@ -1700,6 +1707,7 @@
         id: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         distanceAu: number;
         distanceLabel: string;
         primaryDeg: number;
@@ -1720,6 +1728,7 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         description?: string;
         durationItem?: {
             id: string;
@@ -2400,6 +2409,7 @@
                 id: b.id,
                 emoji: b.emoji,
                 name: b.name,
+                color: b.color,
                 houseCode,
                 houseLabel,
                 pinned: pinnedBodyId === b.id,
@@ -2541,6 +2551,7 @@
             bodyId: pinnedBodyId,
             emoji: body?.emoji ?? '•',
             name: body?.name ?? String(pinnedBodyId),
+            color: body?.color,
             description: showDescription ? description : undefined,
             durationItem,
             nodes
@@ -2867,7 +2878,7 @@
                                     stroke="currentColor"
                                     stroke-opacity={0.28}/>
                             <text
-                                    class="markerGlyph"
+                                    class="markerGlyph useObjectColor"
                                     text-anchor="middle"
                                     dominant-baseline="middle"
                                     font-size={VB * (isCluster ? 0.022 : (isReference ? 0.02 : 0.035))}
@@ -3338,6 +3349,10 @@
         filter:
                 drop-shadow(0 0 2px color-mix(in oklab, var(--bg), transparent 0%))
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));
+    }
+    :global([data-theme="light"]) .markerGlyph.useObjectColor {
+        fill: currentColor !important;
+        stroke: currentColor !important;
     }
     .compassNav {
         position: absolute;

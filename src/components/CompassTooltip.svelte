@@ -22,6 +22,7 @@
         id: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         distanceAu: number;
         distanceLabel: string;
         primaryDeg: number;
@@ -64,6 +65,11 @@
     let el: HTMLDivElement | null = null;
     let left = 0;
     let top = 0;
+    function themeColor(color?: string): string | undefined {
+        if (typeof color !== 'string') return undefined;
+        const trimmed = color.trim();
+        return trimmed.length > 0 ? trimmed : undefined;
+    }
 
     function updatePosition() {
         const vw = window.innerWidth || 1000;
@@ -129,6 +135,7 @@
         id: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         distanceAu: number;
         distanceLabel: string;
         primaryDeg: number;
@@ -227,6 +234,7 @@
             id,
             emoji: it.emoji ?? '•',
             name: it.title ?? String(id),
+            color: typeof (objects as any)?.[id]?.meta?.color === 'string' ? (objects as any)[id].meta.color : undefined,
             distanceAu: NaN,
             distanceLabel: 'Dist',
             primaryDeg: az,
@@ -350,6 +358,7 @@
                 house: found.house,
                 name: found.name,
                 emoji: found.emoji,
+                color: found.color,
                 distanceAu: found.distanceAu,
                 distanceLabel: found.distanceLabel,
                 primaryDeg: found.primaryDeg,
@@ -373,6 +382,7 @@
             id: b.id,
             emoji: b.emoji,
             name: b.name,
+            color: b.color,
             distanceAu: b.distanceAu,
             distanceLabel: b.distanceLabel,
             primaryDeg: b.primaryDeg,
@@ -584,8 +594,8 @@
                 {#if pinnedRow}
                     <div class="pinnedRow" title="Pinned body">
                         <span class="prefix">Pinned: </span>
-                        <span class="pin">{pinnedRow.emoji}</span>
-                        <span class="pinName">{pinnedRow.name}</span>
+                        <span class="pin useObjectColor" style={`color:${themeColor(pinnedRow.color) ?? 'inherit'}`}>{pinnedRow.emoji}</span>
+                        <span class="pinName useObjectColor" style={`color:${themeColor(pinnedRow.color) ?? 'inherit'}`}>{pinnedRow.name}</span>
                         <span class="pinSpoke">{pinnedRow.house}</span>
                     </div>
                 {:else}
@@ -616,11 +626,11 @@
                                 on:keydown={(e) => handleBodyKeydown(e, row)}
                                 title="Click to pin/unpin"
                         >
-                            <div class="l"><span class="emoji">{row.emoji}</span></div>
+                            <div class="l"><span class="emoji useObjectColor" style={`color:${themeColor(row.color) ?? 'inherit'}`}>{row.emoji}</span></div>
 
                             <div class="m">
                                 <div class="t">
-                                    <span class="name">{row.name}</span>
+                                    <span class="name useObjectColor" style={`color:${themeColor(row.color) ?? 'inherit'}`}>{row.name}</span>
                                     <span class="vis ok">{row.aboveLabel}</span>
                                 </div>
 
@@ -703,11 +713,11 @@
                                 on:keydown={(e) => handleBodyKeydown(e, row)}
                                 title="Click to pin/unpin"
                         >
-                            <div class="l"><span class="emoji">{row.emoji}</span></div>
+                            <div class="l"><span class="emoji useObjectColor" style={`color:${themeColor(row.color) ?? 'inherit'}`}>{row.emoji}</span></div>
 
                             <div class="m">
                                 <div class="t">
-                                    <span class="name">{row.name}</span>
+                                    <span class="name useObjectColor" style={`color:${themeColor(row.color) ?? 'inherit'}`}>{row.name}</span>
                                     <span class="vis bad">{row.belowLabel}</span>
                                 </div>
 
@@ -967,6 +977,10 @@
     .chipAction {
         display: inline-flex;
         cursor: pointer;
+    }
+
+    :global([data-theme="light"]) .useObjectColor {
+        color: inherit !important;
     }
     .chipStatic {
         border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);

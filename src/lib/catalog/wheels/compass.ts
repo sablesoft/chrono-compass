@@ -41,7 +41,7 @@ export const compass = {
                 'ref:altair',
                 'ref:nunki',
 
-                // South Cross:
+                // Southern Cross:
                 'ref:acrux',
                 'ref:mimosa',
                 'ref:imai',

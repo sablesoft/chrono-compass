@@ -14,6 +14,7 @@
         id: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         houseCode: string;
         houseLabel: string;
         pinned: boolean;
@@ -31,6 +32,7 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        color?: string;
         description?: string;
         durationItem?: {
             id: string;
@@ -120,6 +122,7 @@
         modalRowsOpen = new Set();
         showEditor = false;
     }
+
 
     function applyEditor() {
         if (locked) return;
@@ -588,7 +591,7 @@
                             class="rowNameBtn pinnedNameBtn"
                             title="Pinned body"
                             on:click={() => onBodyPick(row.bodyId)}
-                        >{row.emoji} {row.name}</button>
+                        ><span class="rowEmoji useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.emoji}</span> <span class="rowName useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.name}</span></button>
                         <div class="chipGrid">
                             {#if row.nodes.length === 0}
                                 <span class="empty">No enabled nodes.</span>
@@ -676,7 +679,7 @@
                                     class="rowNameBtn"
                                     title="Pin/unpin body"
                                     on:click={() => onBodyPick(row.id)}
-                                >{row.emoji} {row.name}</button>
+                                ><span class="rowEmoji useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.emoji}</span> <span class="rowName useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.name}</span></button>
                                 <div class="chipGrid">
                                     {#each row.items as item (`${row.id}:${item.id}`)}
                                         {#if item.modal}
@@ -1086,6 +1089,10 @@
         line-height: 1.35;
         color: color-mix(in oklab, var(--fg), transparent 25%);
         padding: 2px 4px 0;
+    }
+
+    :global([data-theme="light"]) .useObjectColor {
+        color: inherit !important;
     }
 
     .ui-tag {
