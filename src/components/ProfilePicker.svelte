@@ -119,10 +119,9 @@
         return out || '-';
     }
 
-    function selectedProfileTitle(): string {
-        if (!selectedId) return 'New profile...';
-        return (selectedProfile?.title ?? '').trim() || 'Profile';
-    }
+    $: selectedProfileTitleText = !selectedId
+        ? 'New profile...'
+        : ((selectedProfile?.title ?? '').trim() || 'Profile');
 
     function closeSavedMenu() {
         savedMenuOpen = false;
@@ -562,7 +561,7 @@
                                             <path d="M12 12.75a4.75 4.75 0 1 0 0-9.5 4.75 4.75 0 0 0 0 9.5Zm0 1.5c-4.38 0-7.75 2.58-7.75 5.5 0 .41.34.75.75.75h14a.75.75 0 0 0 .75-.75c0-2.92-3.37-5.5-7.75-5.5Z" />
                                         </svg>
                                     {/if}
-                                    <span class="savedBtnLabel">{selectedProfileTitle()}</span>
+                                    <span class="savedBtnLabel">{selectedProfileTitleText}</span>
                                     <span class="savedBtnChevron" aria-hidden="true">{savedMenuOpen ? '▴' : '▾'}</span>
                                 </button>
                                 {#if savedMenuOpen}
