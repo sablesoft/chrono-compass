@@ -1,7 +1,7 @@
 <!-- src/components/Cycle.svelte -->
 <!--suppress HtmlUnknownTag -->
 <script lang="ts">
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { slide } from 'svelte/transition';
     import { createWheelGeom, SPOKE_LABELS, safeAngle } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
@@ -166,6 +166,91 @@
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
+    const MARKER_STYLE = {
+        // Transparent hit circle radius in px (interaction target).
+        hitPx: 18,
+        // Outer ring radius in px (visual outline).
+        ringOuterPx: 10,
+        // Inner ring radius in px (accent line).
+        ringInnerPx: 9,
+        // Emoji font size in px for single-body markers.
+        fontSinglePx: 16,
+        // Font size in px for clustered markers (count label).
+        fontClusterPx: 18
+    };
+    const MARKER_SCALE_MIN = 0.2;
+    const MARKER_SCALE_MAX = 3;
+    const MARKER_SCALE_STEP = 0.1;
+
+    function clampMarkerScale(value: number): number {
+        if (!Number.isFinite(value)) return 1;
+        return Math.min(MARKER_SCALE_MAX, Math.max(MARKER_SCALE_MIN, value));
+    }
+
+    function stepMarkerScale(value: number): number {
+        return Math.round(value / MARKER_SCALE_STEP) * MARKER_SCALE_STEP;
+    }
+
+    let markerScaleBias = 1;
+
+    $: markerScaleBias = stepMarkerScale(
+        clampMarkerScale((wheel?.view?.markerScaleBias ?? 1) as number)
+    );
+
+    function setMarkerScaleBias(next: number) {
+        if (!wheelId) return;
+        const value = stepMarkerScale(clampMarkerScale(next));
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { markerScaleBias: value } },
+            'Cycle.markerScale'
+        );
+    }
+
+    function incMarkerScale() {
+        setMarkerScaleBias(markerScaleBias + MARKER_SCALE_STEP);
+    }
+
+    function decMarkerScale() {
+        setMarkerScaleBias(markerScaleBias - MARKER_SCALE_STEP);
+    }
+
+    let svgEl: SVGSVGElement | null = null;
+    let svgPx = 0;
+    let svgRo: ResizeObserver | null = null;
+
+    function updateSvgPx() {
+        const w = svgEl?.getBoundingClientRect().width ?? 0;
+        svgPx = w > 0 ? w : size;
+    }
+
+    function pxToVb(px: number): number {
+        const base = svgPx > 0 ? svgPx : size;
+        return base > 0 ? (px / base) * VB : px;
+    }
+
+    $: markerSizes = {
+        hit: pxToVb(MARKER_STYLE.hitPx * markerScaleBias),
+        ringOuter: pxToVb(MARKER_STYLE.ringOuterPx * markerScaleBias),
+        ringInner: pxToVb(MARKER_STYLE.ringInnerPx * markerScaleBias),
+        fontSingle: pxToVb(MARKER_STYLE.fontSinglePx * markerScaleBias),
+        fontCluster: pxToVb(MARKER_STYLE.fontClusterPx * markerScaleBias),
+        dbg: { size, svgPx, markerScaleBias }
+    };
+
+    onMount(() => {
+        updateSvgPx();
+        if (typeof ResizeObserver !== 'undefined') {
+            svgRo = new ResizeObserver(() => updateSvgPx());
+            if (svgEl) svgRo.observe(svgEl);
+        }
+        return () => svgRo?.disconnect();
+    });
+
+    $: if (svgEl) {
+        void size;
+        updateSvgPx();
+    }
 
     const tip = useCycleTooltip({
         isCoarsePointer: () => isCoarsePointer,
@@ -1297,7 +1382,7 @@
         <div class="wrap" bind:this={wrapEl} transition:slide|local>
             <section class="wheelPanel">
             <div class="wheelBox">
-                <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
+                <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
 
@@ -1498,20 +1583,22 @@
                            transform={`translate(${p.x} ${p.y})`}
                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}>
-                            <circle r={VB * 0.035} fill="transparent" />
-                            <circle r={VB * 0.02} fill={c.bg} stroke="currentColor" stroke-opacity="0.45" stroke-width="3" />
-                            <circle r={VB * 0.018} fill="none" stroke="var(--bg)" stroke-opacity="0.5" stroke-width="2" />
-                            <text
-                                    text-anchor="middle"
-                                    dominant-baseline="middle"
-                                    font-size={c.count === 1 ? VB * 0.02 : VB * 0.024}
-                                    font-weight={c.count === 1 ? 500 : 800}
-                                    letter-spacing={c.count === 1 ? 0 : 0.5}
-                                    fill="currentColor"
-                                    fill-opacity="0.95"
-                                    style="pointer-events:none">
-                                {c.count === 1 ? c.emoji : c.label}
-                            </text>
+                            <g class="markerBody">
+                                <circle r={markerSizes.hit} fill="transparent" />
+                                <circle r={markerSizes.ringOuter} fill={c.bg} stroke="currentColor" stroke-opacity="0.45" stroke-width="3" />
+                                <circle r={markerSizes.ringInner} fill="none" stroke="var(--bg)" stroke-opacity="0.5" stroke-width="2" />
+                                <text
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                        font-size={c.count === 1 ? markerSizes.fontSingle : markerSizes.fontCluster}
+                                        font-weight={c.count === 1 ? 500 : 800}
+                                        letter-spacing={c.count === 1 ? 0 : 0.5}
+                                        fill="currentColor"
+                                        fill-opacity="0.95"
+                                        style="pointer-events:none">
+                                    {c.count === 1 ? c.emoji : c.label}
+                                </text>
+                            </g>
                         </g>
                     {/each}
 
@@ -1592,6 +1679,24 @@
                 <div class="cycleNav">
                     <button class="cycleUp navBtn" title="Next Cycle" on:click={() => shiftCycle(1)}>▲</button>
                     <button class="cycleDown navBtn" title="Previous Cycle" on:click={() => shiftCycle(-1)}>▼</button>
+                </div>
+                <div class="cycleNav cycleNavTopLeft">
+                    <button
+                            class="markerScaleBtn navBtn"
+                            title="Marker size -"
+                            on:click={decMarkerScale}
+                            disabled={$isActiveProfileLocked}
+                    >
+                        −
+                    </button>
+                    <button
+                            class="markerScaleBtn navBtn"
+                            title="Marker size +"
+                            on:click={incMarkerScale}
+                            disabled={$isActiveProfileLocked}
+                    >
+                        +
+                    </button>
                 </div>
             </div>
 
@@ -1875,6 +1980,22 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+    .markerScaleBtn {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 9px;
+        font-weight: 900;
+        line-height: 1;
+    }
+    .cycleNavTopLeft {
+        position: absolute;
+        left: 0;
+        right: auto;
+        top: 4px;
+        flex-direction: row;
+        gap: 6px;
     }
 
     .cycleUp,

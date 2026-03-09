@@ -13,6 +13,7 @@ export type BoardWheelView = {
     infoChipLabels?: Record<string, string>;
     infoConfig?: CycleInfoConfig;
     compassInfoConfig?: CompassInfoConfig;
+    markerScaleBias?: number;
 };
 
 export type BoardWheel = {

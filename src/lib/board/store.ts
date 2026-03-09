@@ -40,7 +40,8 @@ const DEFAULT_VIEW: BoardWheelView = {
     infoChipSelected: [],
     infoChipLabels: {},
     infoConfig: undefined,
-    compassInfoConfig: undefined
+    compassInfoConfig: undefined,
+    markerScaleBias: 1
 };
 
 function defaultInfoChipSelectedForWheel(wheelType: WheelType): string[] {
@@ -95,6 +96,9 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
     const showPickers = typeof src.showPickers === 'boolean'
         ? src.showPickers
         : (base.showPickers === true);
+    const markerScaleBias = Number.isFinite(src.markerScaleBias)
+        ? (src.markerScaleBias as number)
+        : (base.markerScaleBias ?? 1);
     return {
         showVisual: src.showVisual !== false,
         showInfo,
@@ -107,7 +111,8 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
             : base.infoConfig,
         compassInfoConfig: (src.compassInfoConfig && typeof src.compassInfoConfig === 'object')
             ? (src.compassInfoConfig as BoardWheelView['compassInfoConfig'])
-            : base.compassInfoConfig
+            : base.compassInfoConfig,
+        markerScaleBias
     };
 }
 

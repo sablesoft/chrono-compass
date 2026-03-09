@@ -1,7 +1,7 @@
 <!-- src/components/Compass.svelte -->
 <script lang="ts">
     import { slide } from 'svelte/transition';
-    import { onDestroy } from 'svelte';
+    import { onDestroy, onMount } from 'svelte';
     import { get } from 'svelte/store';
     import { createWheelGeom, SPOKE_LABELS } from '../lib/wheel/geom';
     import { useWheelResponsive } from '../lib/wheel/ui/useWheelResponsive';
@@ -181,7 +181,6 @@
     // ------------------------------------------------------------
     // Marker clustering + pinning
     // ------------------------------------------------------------
-    const MIN_ARC_PX = 28;
     const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.022;
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
     let markerClusters: MarkerCluster[] = [];
@@ -218,6 +217,111 @@
         ts: number;
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
+    const MARKER_STYLE = {
+        // Transparent hit circle radius in px (interaction target).
+        hitPx: 18,
+        // Marker ring radius in px (visual outline).
+        ringPx: 10,
+        // Emoji font size in px for single-body markers.
+        fontSinglePx: 18,
+        // Emoji font size in px for reference objects (stars).
+        fontReferencePx: 14,
+        // Font size in px for clustered markers (count label).
+        fontClusterPx: 12
+    };
+    const NODE_STYLE = {
+        // Track node radius for regular groups in px.
+        regularPx: 1.5,
+        // Track node radius for special groups in px.
+        specialPx: 2
+    };
+    const MARKER_SCALE_MIN = 0.2;
+    const MARKER_SCALE_MAX = 3;
+    const MARKER_SCALE_STEP = 0.1;
+
+    function clampMarkerScale(value: number): number {
+        if (!Number.isFinite(value)) return 1;
+        return Math.min(MARKER_SCALE_MAX, Math.max(MARKER_SCALE_MIN, value));
+    }
+
+    function stepMarkerScale(value: number): number {
+        return Math.round(value / MARKER_SCALE_STEP) * MARKER_SCALE_STEP;
+    }
+
+    let markerScaleBias = 1;
+
+    $: markerScaleBias = stepMarkerScale(
+        clampMarkerScale((wheel?.view?.markerScaleBias ?? 1) as number)
+    );
+
+    function setMarkerScaleBias(next: number) {
+        if (!wheelId) return;
+        const value = stepMarkerScale(clampMarkerScale(next));
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { markerScaleBias: value } },
+            'Compass.markerScale'
+        );
+    }
+
+    function incMarkerScale() {
+        setMarkerScaleBias(markerScaleBias + MARKER_SCALE_STEP);
+    }
+
+    function decMarkerScale() {
+        setMarkerScaleBias(markerScaleBias - MARKER_SCALE_STEP);
+    }
+
+    let svgEl: SVGSVGElement | null = null;
+    let svgPx = 0;
+    let svgRo: ResizeObserver | null = null;
+
+    function updateSvgPx() {
+        const w = svgEl?.getBoundingClientRect().width ?? 0;
+        svgPx = w > 0 ? w : size;
+    }
+
+    function pxToVb(px: number): number {
+        const base = svgPx > 0 ? svgPx : size;
+        return base > 0 ? (px / base) * VB : px;
+    }
+    function vbToPx(vb: number): number {
+        const base = svgPx > 0 ? svgPx : size;
+        return base > 0 ? (vb / VB) * base : vb;
+    }
+
+    $: markerSizes = {
+        hit: pxToVb(MARKER_STYLE.hitPx * markerScaleBias),
+        ring: pxToVb(MARKER_STYLE.ringPx * markerScaleBias),
+        fontSingle: pxToVb(MARKER_STYLE.fontSinglePx * markerScaleBias),
+        fontReference: pxToVb(MARKER_STYLE.fontReferencePx * markerScaleBias),
+        fontCluster: pxToVb(MARKER_STYLE.fontClusterPx * markerScaleBias),
+        dbg: { size, svgPx, markerScaleBias }
+    };
+
+    $: nodeSizes = {
+        regular: pxToVb(NODE_STYLE.regularPx * markerScaleBias),
+        special: pxToVb(NODE_STYLE.specialPx * markerScaleBias)
+    };
+
+    function orbitNodeRadiusVB(node: { tip?: MomentTip }): number {
+        const g = orbitNodeGroup(node);
+        return g === 'regular' ? nodeSizes.regular : nodeSizes.special;
+    }
+
+    onMount(() => {
+        updateSvgPx();
+        if (typeof ResizeObserver !== 'undefined') {
+            svgRo = new ResizeObserver(() => updateSvgPx());
+            if (svgEl) svgRo.observe(svgEl);
+        }
+        return () => svgRo?.disconnect();
+    });
+
+    $: if (svgEl) {
+        void size;
+        updateSvgPx();
+    }
 
     function localizedDescription(obj: { description?: { en: string; ru?: string } } | null | undefined): string {
         if (!obj?.description) return '';
@@ -995,11 +1099,6 @@
         tip.closeNow();
     }
 
-    function orbitNodeRadiusVB(node: { tip?: MomentTip }): number {
-        const g = orbitNodeGroup(node);
-        return g === 'regular' ? (VB * 0.005) : (VB * 0.007);
-    }
-
     // ------------------------------------------------------------
     // Helpers: roles parsing
     // ------------------------------------------------------------
@@ -1333,7 +1432,9 @@
         const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
         const visibleDisplayTargets = displayTargets.filter((t) => !t.hiddenDuringTween);
         const items: MarkerItem[] = compassTargetsToMarkerItems(effTs, visibleDisplayTargets, looker);
-        markerClusters = compassClusters(items, orbitToRadiusVB, MIN_ARC_PX);
+        const markerClusterRadiusPx = MARKER_STYLE.ringPx * markerScaleBias;
+        const orbitToRadiusPx = (orbit: number) => vbToPx(orbitToRadiusVB(orbit));
+        markerClusters = compassClusters(items, orbitToRadiusPx, markerClusterRadiusPx);
     }
 
     $: orbitCurves = lastTargets
@@ -2660,7 +2761,7 @@
         <div class="wrap" bind:this={wrapEl} transition:slide|local>
             <section class="wheelPanel">
             <div class="wheelBox">
-                <svg width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
+                <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
                      role="button"
                      tabindex="0"
                      on:click={(e) => {
@@ -2836,7 +2937,7 @@
                         {@const markerKey = `marker:${c.id}`}
                         {@const isCluster = c.count > 1}
                         {@const singleId = clusterSingleBodyId(c)}
-                        {@const isReference = !!singleId && (objects as any)?.[singleId]?.kind === 'reference'}
+                        {@const isReference = !!singleId && objects?.[singleId]?.kind === 'reference'}
                         {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                         {@const o = c.opacity ?? 1}
 
@@ -2870,29 +2971,31 @@
                            on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
                            on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
                         >
-                            <circle r={VB * 0.035} fill="transparent" />
+                            <g class="markerBody">
+                                <circle r={markerSizes.hit} fill="transparent" />
 
-                            <circle
-                                    r={VB * 0.02}
-                                    fill="transparent"
-                                    stroke="currentColor"
-                                    stroke-opacity={0.28}/>
-                            <text
-                                    class="markerGlyph useObjectColor"
-                                    text-anchor="middle"
-                                    dominant-baseline="middle"
-                                    font-size={VB * (isCluster ? 0.022 : (isReference ? 0.02 : 0.035))}
-                                    font-weight={isCluster ? 900 : 850}
-                                    letter-spacing={c.count === 1 ? 0 : 0.6}
-                                    fill={glyphColor}
-                                    fill-opacity={Math.max(0.92, o)}
-                                    stroke={glyphColor}
-                                    stroke-opacity={isCluster ? 0.35 : 0.55}
-                                    stroke-width={isCluster ? 2.5 : 2}
-                                    style="pointer-events:none"
-                            >
-                                {c.count === 1 ? c.emoji : c.label}
-                            </text>
+                                <circle
+                                        r={markerSizes.ring}
+                                        fill="transparent"
+                                        stroke="currentColor"
+                                        stroke-opacity={0.28}/>
+                                <text
+                                        class="markerGlyph useObjectColor"
+                                        text-anchor="middle"
+                                        dominant-baseline="middle"
+                                        font-size={isCluster ? markerSizes.fontCluster : (isReference ? markerSizes.fontReference : markerSizes.fontSingle)}
+                                        font-weight={isCluster ? 900 : 850}
+                                        letter-spacing={c.count === 1 ? 0 : 0.6}
+                                        fill={glyphColor}
+                                        fill-opacity={Math.max(0.92, o)}
+                                        stroke={glyphColor}
+                                        stroke-opacity={isCluster ? 0.35 : 0.55}
+                                        stroke-width={isCluster ? 2.5 : 2}
+                                        style="pointer-events:none"
+                                >
+                                    {c.count === 1 ? c.emoji : c.label}
+                                </text>
+                            </g>
                         </g>
                     {/each}
 
@@ -2936,6 +3039,28 @@
                             {showOrbitNodesAny ? '◉' : '○'}
                         </button>
                     {/if}
+                </div>
+                <div class="compassNav compassNavTopLeft">
+                    <button
+                            class="markerScaleBtn navBtn"
+                            type="button"
+                            title="Marker size -"
+                            aria-label="Marker size -"
+                            on:click={decMarkerScale}
+                            disabled={$isActiveProfileLocked}
+                    >
+                        −
+                    </button>
+                    <button
+                            class="markerScaleBtn navBtn"
+                            type="button"
+                            title="Marker size +"
+                            aria-label="Marker size +"
+                            on:click={incMarkerScale}
+                            disabled={$isActiveProfileLocked}
+                    >
+                        +
+                    </button>
                 </div>
 
                 {#if pinnedBodyId}
@@ -3350,6 +3475,14 @@
                 drop-shadow(0 0 2px color-mix(in oklab, var(--bg), transparent 0%))
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));
     }
+    .markerScaleBtn {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 9px;
+        font-weight: 900;
+        line-height: 1;
+    }
     :global([data-theme="light"]) .markerGlyph.useObjectColor {
         fill: currentColor !important;
         stroke: currentColor !important;
@@ -3364,6 +3497,14 @@
         align-items: end;
         z-index: 3;
         pointer-events: auto;
+    }
+    .wheelBox .compassNav.compassNavTopLeft {
+        left: 0;
+        right: auto;
+        top: 4px;
+        flex-direction: row;
+        gap: 6px;
+        align-items: flex-start;
     }
     .nodeNav {
         position: absolute;
@@ -3442,7 +3583,7 @@
         fill: color-mix(in oklab, var(--fg), var(--bg) 20%);
         fill-opacity: 0.9;
         stroke: color-mix(in oklab, var(--bg), var(--fg) 30%);
-        stroke-width: 1.5;
+        stroke-width: 1.5px;
         cursor: pointer;
     }
     /*noinspection CssUnusedSymbol*/
@@ -3459,7 +3600,7 @@
     .orbitNode.pinnedNode {
         fill-opacity: 0.92;
         stroke-opacity: 0.85;
-        stroke-width: 1.7;
+        stroke-width: 1.7px;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
     }
     .orbitNode.grp-compass {

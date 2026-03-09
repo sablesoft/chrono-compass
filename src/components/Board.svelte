@@ -34,6 +34,9 @@
     let pickerContentHeight = 220;
     let layoutAnimMs = 0;
     let layoutAnimTimer = 0;
+    let resizeState: { id: string; startX: number; startW: number } | null = null;
+    let resizeRaf = 0;
+    let resizeNextW: number | null = null;
 
     function pickComponentStable(w: BoardWheel) {
         const id = w.id;
@@ -149,10 +152,12 @@
 
     onDestroy(() => {
         if (syncRaf) cancelAnimationFrame(syncRaf);
+        if (resizeRaf) cancelAnimationFrame(resizeRaf);
         if (layoutAnimTimer) {
             clearTimeout(layoutAnimTimer);
             layoutAnimTimer = 0;
         }
+        finishResize();
         if (ro && packedEl) ro.unobserve(packedEl);
         if (ro && pickerEl) ro.unobserve(pickerEl);
         for (const [, el] of cellEls) {
@@ -183,6 +188,16 @@
         return `grid-column:${colStart} / span ${rect.w}; grid-row:${rowStart} / span ${rect.h};`;
     }
 
+    function widthPxFromCols(w: number): number {
+        return w * unitPx + (w - 1) * GRID_COL_GAP;
+    }
+
+    function colsFromWidthPx(px: number): number {
+        const step = unitPx + GRID_COL_GAP;
+        if (!(step > 0)) return 1;
+        return Math.max(1, Math.round((px + GRID_COL_GAP) / step));
+    }
+
     function dragStartWheel(id: string, e: DragEvent) {
         if ($isActiveProfileLocked) return;
         dragWheelId = id;
@@ -194,6 +209,55 @@
 
     function dragEndWheel() {
         dragWheelId = null;
+    }
+
+    function finishResize() {
+        if (resizeRaf) cancelAnimationFrame(resizeRaf);
+        resizeRaf = 0;
+        resizeState = null;
+        resizeNextW = null;
+        document.body.style.cursor = '';
+        window.removeEventListener('pointermove', handleResizeMove);
+        window.removeEventListener('pointerup', handleResizeEnd);
+        window.removeEventListener('pointercancel', handleResizeEnd);
+    }
+
+    function applyResizeTick() {
+        resizeRaf = 0;
+        if (!resizeState || resizeNextW == null) return;
+        const nextW = resizeNextW;
+        resizeNextW = null;
+        boardApi.updateWheelById(resizeState.id, { layout: { w: nextW } }, 'Board.resizeWidth');
+        scheduleHeightSync();
+    }
+
+    function handleResizeMove(e: PointerEvent) {
+        if (!resizeState) return;
+        const dx = e.clientX - resizeState.startX;
+        const basePx = widthPxFromCols(resizeState.startW);
+        const nextPx = Math.max(10, basePx + dx);
+        const nextW = Math.min(BOARD_GRID_COLUMNS, colsFromWidthPx(nextPx));
+        if (nextW === resizeState.startW && resizeNextW == null) return;
+        resizeNextW = nextW;
+        if (!resizeRaf) resizeRaf = requestAnimationFrame(applyResizeTick);
+    }
+
+    function handleResizeEnd() {
+        finishResize();
+    }
+
+    function startResize(id: string, e: PointerEvent) {
+        if ($isActiveProfileLocked || !isDesktop) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const targetItem = items.find((x) => x.id === id);
+        if (!targetItem) return;
+        const rect = itemRect(targetItem);
+        resizeState = { id, startX: e.clientX, startW: rect.w };
+        document.body.style.cursor = 'ew-resize';
+        window.addEventListener('pointermove', handleResizeMove);
+        window.addEventListener('pointerup', handleResizeEnd);
+        window.addEventListener('pointercancel', handleResizeEnd);
     }
 
     function triggerLayoutAnimation(ms = 260) {
@@ -299,6 +363,15 @@
                             onCardDragEnd={dragEndWheel}
                     />
                 </div>
+                {#if !$isActiveProfileLocked}
+                    <button
+                            class="resizeHandle"
+                            type="button"
+                            aria-label="Resize card"
+                            title="Resize card"
+                            on:pointerdown={(e) => startResize(row.w.id, e)}
+                    ></button>
+                {/if}
             </div>
         {/each}
 
@@ -350,7 +423,24 @@
         pointer-events: auto;
         position: relative;
     }
-    .packedSurface > :global(*) {
+    .resizeHandle {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--fg), transparent 80%);
+        cursor: ew-resize;
+        padding: 0;
+        pointer-events: auto;
+        touch-action: none;
+    }
+    .resizeHandle:hover {
+        background: color-mix(in oklab, var(--fg), transparent 70%);
+    }
+    .packedSurface > :global(*:not(.resizeHandle)) {
         width: 100%;
         max-width: 100%;
         box-sizing: border-box;
