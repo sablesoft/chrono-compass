@@ -10,8 +10,8 @@ export const Altair = {
     kind: 'reference',
     name: { en: 'Altair', ru: 'Альтаир' },
     description: {
-        en: 'Reference direction toward Altair (ICRF/J2000), the brightest star in Aquila and a vertex of the Summer Triangle. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Альтаир (ICRF/J2000) — самая яркая звезда Орла и вершина Летнего треугольника. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Altair (ICRF/J2000) — the brightest star in Aquila and a vertex of the Summer Triangle.',
+        ru: 'Альтаир (ICRF/J2000) — самая яркая звезда Орла и вершина Летнего треугольника.'
     },
     emoji: '★',
     meta: {

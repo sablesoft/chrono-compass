@@ -10,8 +10,8 @@ export const Polaris = {
     kind: 'reference',
     name: { en: 'Polaris', ru: 'Полярная звезда' },
     description: {
-        en: 'Reference direction toward Polaris (ICRF/J2000), the North Star in Ursa Minor, located close to the north celestial pole and used for navigation. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Полярную звезду (ICRF/J2000) в созвездии Малой Медведицы, близкую к северному полюсу мира и традиционно используемую для навигации. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Polaris (ICRF/J2000), the North Star in Ursa Minor, located close to the north celestial pole and used for navigation.',
+        ru: 'Полярная звезда (ICRF/J2000) в созвездии Малой Медведицы близка к северному полюсу мира и традиционно используемую для навигации.'
     },
     emoji: '★',
     meta: {

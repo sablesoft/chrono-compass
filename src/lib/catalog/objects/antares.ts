@@ -10,8 +10,8 @@ export const Antares = {
     kind: 'reference',
     name: { en: 'Antares', ru: 'Антарес' },
     description: {
-        en: 'Reference direction toward Antares (ICRF/J2000), a red supergiant and the brightest star in Scorpius, often called the “heart of the scorpion”. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Антарес (ICRF/J2000) — красный сверхгигант и самая яркая звезда Скорпиона, часто называемая «сердцем Скорпиона». Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Antares (ICRF/J2000) - a red supergiant and the brightest star in Scorpius, often called the “heart of the scorpion”.',
+        ru: 'Антарес (ICRF/J2000) — красный сверхгигант и самая яркая звезда Скорпиона, часто называемая «сердцем Скорпиона».'
     },
     emoji: '★',
     meta: {

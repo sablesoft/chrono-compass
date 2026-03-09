@@ -10,8 +10,8 @@ export const Sirius = {
     kind: 'reference',
     name: { en: 'Sirius', ru: 'Сириус' },
     description: {
-        en: 'Reference direction toward Sirius (ICRF/J2000), the brightest star in the night sky and the “Dog Star” of Canis Major. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Сириус (ICRF/J2000) — самую яркую звезду ночного неба, «Пса» созвездия Большого Пса. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Sirius (ICRF/J2000) — the brightest star in the night sky and the “Dog Star” of Canis Major.',
+        ru: 'Сириус (ICRF/J2000) — самая яркая звезда ночного неба, «Пса» созвездия Большого Пса.'
     },
     emoji: '★',
     meta: {

@@ -10,8 +10,8 @@ export const Nunki = {
     kind: 'reference',
     name: { en: 'Nunki', ru: 'Нунки' },
     description: {
-        en: 'Reference direction toward Nunki (ICRF/J2000), the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Нунки (ICRF/J2000) — официальное имя Сигмы Стрельца, одной из самых ярких звёзд в созвездии Стрельца у полосы Млечного Пути. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Nunki (ICRF/J2000) — the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way.',
+        ru: 'Нунки (ICRF/J2000) — официальное имя Сигмы Стрельца, одной из самых ярких звёзд в созвездии Стрельца у полосы Млечного Пути.'
     },
     emoji: '★',
     meta: {

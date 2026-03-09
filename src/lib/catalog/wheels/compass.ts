@@ -33,13 +33,19 @@ export const compass = {
                 'ref:galactic-center',
 
                 // stars:
-                'ref:sirius',
                 'ref:polaris',
+                'ref:sirius',
                 'ref:betelgeuse',
                 'ref:antares',
                 'ref:deneb',
                 'ref:altair',
                 'ref:nunki',
+
+                // South Cross:
+                'ref:acrux',
+                'ref:mimosa',
+                'ref:imai',
+                'ref:gacrux',
             ]
         }
     ]

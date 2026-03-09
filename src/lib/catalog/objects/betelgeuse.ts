@@ -10,8 +10,8 @@ export const Betelgeuse = {
     kind: 'reference',
     name: { en: 'Betelgeuse', ru: 'Бетельгейзе' },
     description: {
-        en: 'Reference direction toward Betelgeuse (ICRF/J2000), a bright red supergiant in Orion that is famously variable in brightness. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Бетельгейзе (ICRF/J2000) — яркий красный сверхгигант в Орионе, известный заметной переменностью блеска. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Betelgeuse (ICRF/J2000) — a bright red supergiant in Orion that is famously variable in brightness.',
+        ru: 'Бетельгейзе (ICRF/J2000) — яркий красный сверхгигант в Орионе, известный заметной переменностью блеска.'
     },
     emoji: '★',
     meta: {

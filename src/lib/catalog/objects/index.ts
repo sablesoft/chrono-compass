@@ -20,6 +20,10 @@ import { Antares } from './antares';
 import { Deneb } from './deneb';
 import { Altair } from './altair';
 import { Nunki } from './nunki';
+import { Acrux } from './acrux';
+import { Mimosa } from './mimosa';
+import { Gacrux } from './gacrux';
+import { Imai } from './imai';
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -42,4 +46,8 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Deneb.id]: Deneb,
     [Altair.id]: Altair,
     [Nunki.id]: Nunki,
+    [Acrux.id]: Acrux,
+    [Mimosa.id]: Mimosa,
+    [Gacrux.id]: Gacrux,
+    [Imai.id]: Imai,
 } satisfies Partial<Record<ObjId, Obj>>;

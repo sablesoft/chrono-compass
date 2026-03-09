@@ -10,8 +10,8 @@ export const Deneb = {
     kind: 'reference',
     name: { en: 'Deneb', ru: 'Денеб' },
     description: {
-        en: 'Reference direction toward Deneb (ICRF/J2000), a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle. This is a fixed line-of-sight vector, not a physical orbit.',
-        ru: 'Опорное направление на Денеб (ICRF/J2000) — яркий голубой сверхгигант в созвездии Лебедя и одна из вершин Летнего треугольника. Это фиксированный вектор линии визирования, а не физическая орбита.'
+        en: 'Deneb (ICRF/J2000) — a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle.',
+        ru: 'Денеб (ICRF/J2000) — яркий голубой сверхгигант в созвездии Лебедя и одна из вершин Летнего треугольника.'
     },
     emoji: '★',
     meta: {
