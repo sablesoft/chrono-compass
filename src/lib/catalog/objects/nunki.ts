@@ -1,0 +1,27 @@
+// src/lib/catalog/objects/nunki.ts
+import { dmsToDeg, hmsToDeg, type Obj } from '../types';
+
+// J2000 coordinates for Nunki (Sigma Sagittarii)
+const RA_NUNKI_DEG = hmsToDeg(18, 55, 15);
+const DEC_NUNKI_DEG = dmsToDeg(-1, 26, 17, 48);
+
+export const Nunki = {
+    id: 'ref:nunki',
+    kind: 'reference',
+    name: { en: 'Nunki', ru: 'Нунки' },
+    description: {
+        en: 'Reference direction toward Nunki (ICRF/J2000), the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way. This is a fixed line-of-sight vector, not a physical orbit.',
+        ru: 'Опорное направление на Нунки (ICRF/J2000) — официальное имя Сигмы Стрельца, одной из самых ярких звёзд в созвездии Стрельца у полосы Млечного Пути. Это фиксированный вектор линии визирования, а не физическая орбита.'
+    },
+    emoji: '★',
+    meta: {
+        color: '#aabfff',
+        direction: {
+            frame: 'icrf_j2000',
+            raDecDeg: {
+                ra: RA_NUNKI_DEG,
+                dec: DEC_NUNKI_DEG
+            }
+        }
+    }
+} satisfies Obj;

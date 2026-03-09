@@ -31,6 +31,7 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        description?: string;
         durationItem?: {
             id: string;
             label: string;
@@ -636,6 +637,9 @@
                                 {/if}
                             </div>
                         {/if}
+                        {#if row.description}
+                            <div class="pinnedDescription">{row.description}</div>
+                        {/if}
                     </div>
                 {/each}
             </div>
@@ -1075,6 +1079,13 @@
         opacity: 1;
         cursor: not-allowed;
         filter: saturate(1.06) brightness(1.03);
+    }
+
+    .pinnedDescription {
+        font-size: 14px;
+        line-height: 1.35;
+        color: color-mix(in oklab, var(--fg), transparent 25%);
+        padding: 2px 4px 0;
     }
 
     .ui-tag {

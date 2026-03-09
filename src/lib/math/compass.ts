@@ -6,7 +6,7 @@ import type {MarkerItem} from '../wheel/types'; // если путь у тебя
 import type {CompassSolveResult, CycleSpoke, WheelInput} from '../board/runtime';
 import {resolveWheel} from '../board/dispatcher';
 import {currentHouseAtTs, toSigned180, trackInMainCycleWindow} from "./helpers";
-import {computeHorizonInstant, type HorizonMeta} from './horizon';
+import { classifyHorizonVisibility, computeHorizonInstant, type HorizonMeta } from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
 
 export type CompassTrackPoint = {
@@ -20,7 +20,7 @@ export type CompassTrackPoint = {
     visible: boolean;
     source?: 'cycle' | 'spoke' | 'seam';
     tags?: string[];
-    sourceWheel?: 'horizon' | 'synod' | 'bind' | 'nodal';
+    sourceWheel?: 'horizon' | 'compass' | 'synod' | 'bind' | 'nodal';
     meta?: Record<string, unknown>;
 };
 
@@ -51,6 +51,12 @@ const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', '
 function bodyEmoji(id: ObjId): string {
     const b = (objects as any)[id] as { emoji?: string } | undefined;
     return b?.emoji ?? '•';
+}
+
+function bodyColor(id: ObjId): string | undefined {
+    const b = (objects as any)[id] as { meta?: { color?: string } } | undefined;
+    const color = b?.meta?.color;
+    return typeof color === 'string' && color.trim().length > 0 ? color.trim() : undefined;
 }
 
 function bodyNameEn(id: ObjId): string {
@@ -136,6 +142,75 @@ function buildTrackFromHorizonSpokes(spokes: CycleSpoke<HorizonMeta>[] | undefin
     return out;
 }
 
+function buildTrackFromInstantSamples(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    fromTs: number;
+    toTs: number;
+    stepMinutes?: number;
+    sourceWheel?: 'horizon' | 'compass';
+}): CompassTrackPoint[] | undefined {
+    const { looker, target, location, fromTs, toTs } = opts;
+    if (!location) return undefined;
+    if (!Number.isFinite(fromTs) || !Number.isFinite(toTs) || toTs <= fromTs) return undefined;
+    const stepMinutes = Number.isFinite(opts.stepMinutes) ? Math.max(5, opts.stepMinutes as number) : 30;
+    const stepMs = stepMinutes * 60_000;
+    const sourceWheel = opts.sourceWheel ?? 'horizon';
+
+    const out: CompassTrackPoint[] = [];
+    for (let t = fromTs; t <= toTs + 1; t += stepMs) {
+        const inst = computeHorizonInstant({ ts: t, looker, target, location });
+        if (!inst) continue;
+        out.push({
+            ts: t,
+            index: 0,
+            code: 'E',
+            azimuthDeg: inst.azimuthDeg,
+            altitudeDeg: inst.altitudeDeg,
+            angleDeg: azimuthToWheelAngleDeg(inst.azimuthDeg),
+            orbit: inst.orbit,
+            visible: inst.visible,
+            source: 'cycle',
+            sourceWheel,
+            meta: {
+                altitudeDeg: inst.altitudeDeg,
+                azimuthDeg: inst.azimuthDeg,
+                orbit: inst.orbit,
+                raHours: inst.raHours,
+                decDeg: inst.decDeg,
+                distanceAu: inst.distanceAu,
+                distanceKm: inst.distanceKm
+            }
+        });
+    }
+
+    return out.length >= 2 ? out : undefined;
+}
+
+function buildTrackFromInstantSamplesCentered(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    ts: number;
+    windowHours?: number;
+    stepMinutes?: number;
+    sourceWheel?: 'horizon' | 'compass';
+}): CompassTrackPoint[] | undefined {
+    const { ts } = opts;
+    const windowHours = Number.isFinite(opts.windowHours) ? Math.max(1, opts.windowHours as number) : 24;
+    const halfMs = (windowHours * 60 * 60_000) / 2;
+    return buildTrackFromInstantSamples({
+        looker: opts.looker,
+        target: opts.target,
+        location: opts.location,
+        fromTs: ts - halfMs,
+        toTs: ts + halfMs,
+        stepMinutes: opts.stepMinutes,
+        sourceWheel: opts.sourceWheel
+    });
+}
+
 function unwrapAnglesByTs(points: CompassTrackPoint[]): Array<CompassTrackPoint & { angleUnwrapped: number }> {
     const sorted = points.slice().sort((a, b) => a.ts - b.ts);
     const out: Array<CompassTrackPoint & { angleUnwrapped: number }> = [];
@@ -162,6 +237,7 @@ function computeSpokeIntersectionsCompass(opts: {
     target: ObjId;
     location: WheelInput['location'];
     baseTrack: CompassTrackPoint[] | undefined;
+    sourceWheel?: 'horizon' | 'compass';
 }): CompassTrackPoint[] {
     const { looker, target, location, baseTrack } = opts;
     if (!location || !baseTrack || baseTrack.length < 2) return [];
@@ -292,7 +368,7 @@ function computeSpokeIntersectionsCompass(opts: {
                     visible: final.inst.visible,
                     source: 'spoke',
                     tags: cycleSpokeTags('compass', spokeCode),
-                    sourceWheel: 'horizon',
+                    sourceWheel: opts.sourceWheel ?? 'horizon',
                     meta: {
                         altitudeDeg: final.inst.altitudeDeg,
                         azimuthDeg: final.inst.azimuthDeg,
@@ -308,6 +384,131 @@ function computeSpokeIntersectionsCompass(opts: {
     }
 
     return out;
+}
+
+function findCompassCycleWindow(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    ts: number;
+}): { startTs: number; endTs: number } | null {
+    const { looker, target, location, ts } = opts;
+    if (!location) return null;
+
+    const windowHoursList = [36, 72];
+    for (const windowHours of windowHoursList) {
+        const baseTrack = buildTrackFromInstantSamplesCentered({
+            looker,
+            target,
+            location,
+            ts,
+            windowHours,
+            stepMinutes: 30,
+            sourceWheel: 'compass'
+        });
+        const spokeTrack = computeSpokeIntersectionsCompass({
+            looker,
+            target,
+            location,
+            baseTrack,
+            sourceWheel: 'compass'
+        });
+        const ePoints = spokeTrack
+            .filter((p) => p.code === 'E' && Number.isFinite(p.ts))
+            .slice()
+            .sort((a, b) => a.ts - b.ts);
+        if (!ePoints.length) continue;
+        const prev = ePoints.filter((p) => p.ts <= ts).slice(-1)[0];
+        const next = ePoints.find((p) => p.ts > ts);
+        if (prev && next) return { startTs: prev.ts, endTs: next.ts };
+    }
+
+    return null;
+}
+
+function buildCompassCycleWithoutHorizon(opts: {
+    looker: ObjId;
+    target: ObjId;
+    location: WheelInput['location'];
+    ts: number;
+}): { baseTrack: CompassTrackPoint[] | undefined; spokeTrack: CompassTrackPoint[] } | null {
+    const { looker, target, location, ts } = opts;
+    if (!location) return null;
+
+    const window = findCompassCycleWindow({ looker, target, location, ts });
+    if (!window) return null;
+
+    const baseTrack = buildTrackFromInstantSamples({
+        looker,
+        target,
+        location,
+        fromTs: window.startTs,
+        toTs: window.endTs,
+        stepMinutes: 30,
+        sourceWheel: 'compass'
+    });
+
+    const spokeTrack = computeSpokeIntersectionsCompass({
+        looker,
+        target,
+        location,
+        baseTrack,
+        sourceWheel: 'compass'
+    });
+
+    const startInst = computeHorizonInstant({ ts: window.startTs, looker, target, location });
+    if (startInst) {
+        spokeTrack.push({
+            ts: window.startTs,
+            index: 0,
+            code: 'E',
+            azimuthDeg: startInst.azimuthDeg,
+            altitudeDeg: startInst.altitudeDeg,
+            angleDeg: spokeAngleByIndex(0),
+            orbit: startInst.orbit,
+            visible: startInst.visible,
+            source: 'spoke',
+            tags: cycleSpokeTags('compass', 'E'),
+            sourceWheel: 'compass',
+            meta: {
+                altitudeDeg: startInst.altitudeDeg,
+                azimuthDeg: startInst.azimuthDeg,
+                orbit: startInst.orbit,
+                raHours: startInst.raHours,
+                decDeg: startInst.decDeg,
+                distanceAu: startInst.distanceAu,
+                distanceKm: startInst.distanceKm
+            }
+        });
+    }
+
+    const endInst = computeHorizonInstant({ ts: window.endTs, looker, target, location });
+    if (endInst) {
+        spokeTrack.push({
+            ts: window.endTs,
+            index: COMPASS_SPOKES.length,
+            code: 'E_next',
+            azimuthDeg: endInst.azimuthDeg,
+            altitudeDeg: endInst.altitudeDeg,
+            angleDeg: spokeAngleByIndex(0),
+            orbit: endInst.orbit,
+            visible: endInst.visible,
+            source: 'spoke',
+            tags: cycleSpokeTags('compass', 'E_next'),
+            sourceWheel: 'compass',
+            meta: {
+                altitudeDeg: endInst.altitudeDeg,
+                azimuthDeg: endInst.azimuthDeg,
+                orbit: endInst.orbit,
+                raHours: endInst.raHours,
+                decDeg: endInst.decDeg,
+                distanceAu: endInst.distanceAu,
+                distanceKm: endInst.distanceKm
+            }
+        });
+    }
+
+    return { baseTrack, spokeTrack };
 }
 
 function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
@@ -377,15 +578,21 @@ function mergeTrackPointsPreferSpokes(points: CompassTrackPoint[] | undefined): 
     return merged.sort((a, b) => a.ts - b.ts);
 }
 
-function applyCompassBoundaryCycleTags(track: CompassTrackPoint[] | undefined): CompassTrackPoint[] | undefined {
+function applyCompassBoundaryCycleTags(
+    track: CompassTrackPoint[] | undefined,
+    mode: 'horizon' | 'compass'
+): CompassTrackPoint[] | undefined {
     if (!track?.length) return track;
+
+    const startTag = mode === 'horizon' ? 'E-horizon' : 'E-compass';
+    const endTag = mode === 'horizon' ? 'E_next-horizon' : 'E_next-compass';
 
     return track.map((p) => {
         const tags = uniqueTags(Array.isArray(p.tags) ? p.tags : []);
-        if (tags.includes('E-horizon')) {
+        if (tags.includes(startTag)) {
             tags.push('cycle start');
         }
-        if (tags.includes('E_next-horizon')) {
+        if (tags.includes(endTag)) {
             tags.push('cycle end');
         }
         const nextTags = uniqueTags(tags);
@@ -437,17 +644,67 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
             });
             if (!instant) return null;
 
-            const horizonSpokes = await resolveHorizonSpokesForTarget(input, id);
-            const baseTrack = buildTrackFromHorizonSpokes(horizonSpokes);
-            const spokeTrack = computeSpokeIntersectionsCompass({
-                looker,
+            const visibility = classifyHorizonVisibility({
                 target: id,
                 location: loc,
-                baseTrack
+                ts,
+                looker
             });
+
+            const hasHorizonCycle = visibility.status === 'crosses' || visibility.status === 'unknown';
+            const horizonSpokes = hasHorizonCycle ? await resolveHorizonSpokesForTarget(input, id) : undefined;
+
+            let baseTrack: CompassTrackPoint[] | undefined;
+            let spokeTrack: CompassTrackPoint[] = [];
+            let mainCycle: 'horizon' | 'compass' = compassSpec.mainCycle;
+
+            if (hasHorizonCycle) {
+                baseTrack = buildTrackFromHorizonSpokes(horizonSpokes);
+                spokeTrack = computeSpokeIntersectionsCompass({
+                    looker,
+                    target: id,
+                    location: loc,
+                    baseTrack,
+                    sourceWheel: 'horizon'
+                });
+            } else {
+                const noHorizon = buildCompassCycleWithoutHorizon({
+                    looker,
+                    target: id,
+                    location: loc,
+                    ts
+                });
+                if (noHorizon) {
+                    baseTrack = noHorizon.baseTrack;
+                    spokeTrack = noHorizon.spokeTrack;
+                    mainCycle = 'compass';
+                } else {
+                    baseTrack = buildTrackFromInstantSamplesCentered({
+                        looker,
+                        target: id,
+                        location: loc,
+                        ts,
+                        windowHours: 24,
+                        stepMinutes: 30,
+                        sourceWheel: 'compass'
+                    });
+                    spokeTrack = computeSpokeIntersectionsCompass({
+                        looker,
+                        target: id,
+                        location: loc,
+                        baseTrack,
+                        sourceWheel: 'compass'
+                    });
+                    mainCycle = 'compass';
+                    dbg?.warn?.('compass.noHorizon.windowFallback', { id, ts });
+                }
+            }
             const orbitTrackRaw = mergeTrackPointsPreferSpokes([...(baseTrack ?? []), ...spokeTrack]);
-            const orbitTrackTagged = applyCompassBoundaryCycleTags(orbitTrackRaw);
-            const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, compassSpec.mainCycle, ts);
+            const orbitTrackTagged = applyCompassBoundaryCycleTags(
+                orbitTrackRaw,
+                hasHorizonCycle ? 'horizon' : 'compass'
+            );
+            const orbitTrack = trackInMainCycleWindow(orbitTrackTagged, mainCycle, ts);
             const currentHouses = {
                 horizon: currentHouseAtTs(horizonSpokes, ts),
                 compass: currentHouseAtTs(spokeTrack, ts)
@@ -513,6 +770,7 @@ export function compassTargetsToMarkerItems(
     return targets.map((t) => {
         const baseId = `body:${String(t.id)}`;
         const emoji = bodyEmoji(t.id);
+        const color = bodyColor(t.id);
         const name = bodyNameEn(t.id);
 
         return {
@@ -526,6 +784,7 @@ export function compassTargetsToMarkerItems(
 
             bg: 'transparent',
             emoji,
+            color,
 
             title: name,
             description: t.visible

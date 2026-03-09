@@ -77,7 +77,7 @@ type ObjBase = {
     name: LocalizedString;
     description?: LocalizedString;
     emoji: string;
-    meta?: ObjMeta;
+    meta?: (ObjMeta & { color?: string }) | { color?: string };
 };
 
 export type EngineBodyObj = ObjBase & {

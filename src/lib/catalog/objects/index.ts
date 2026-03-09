@@ -13,6 +13,13 @@ import { Neptune } from './neptune';
 import { Pluto } from './pluto';
 import {GalacticCenter} from "./galactic-center";
 import { EclipticAxis } from './ecliptic-axis';
+import { Sirius } from './sirius';
+import { Polaris } from './polaris';
+import { Betelgeuse } from './betelgeuse';
+import { Antares } from './antares';
+import { Deneb } from './deneb';
+import { Altair } from './altair';
+import { Nunki } from './nunki';
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -28,4 +35,11 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Uranus.id]: Uranus,
     [GalacticCenter.id]: GalacticCenter,
     [EclipticAxis.id]: EclipticAxis,
+    [Sirius.id]: Sirius,
+    [Polaris.id]: Polaris,
+    [Betelgeuse.id]: Betelgeuse,
+    [Antares.id]: Antares,
+    [Deneb.id]: Deneb,
+    [Altair.id]: Altair,
+    [Nunki.id]: Nunki,
 } satisfies Partial<Record<ObjId, Obj>>;

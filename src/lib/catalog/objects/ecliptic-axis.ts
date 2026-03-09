@@ -15,6 +15,7 @@ export const EclipticAxis = {
     },
     emoji: '🧭',
     meta: {
+        color: '#9aa3ad',
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

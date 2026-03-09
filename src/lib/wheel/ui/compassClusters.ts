@@ -136,6 +136,7 @@ export function compassClusters(
             bg: head.bg,
             count,
             emoji: count === 1 ? head.emoji : undefined,
+            color: count === 1 ? head.color : undefined,
             label: count > 1 ? String(count) : undefined,
             items: itemsSortedByTs,
             opacity

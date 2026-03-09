@@ -3,7 +3,8 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/types';
-    import type { ObjId } from '../lib/catalog';
+    import { objects, type ObjId } from '../lib/catalog';
+    import { getPreferredLang2 } from '../lib/docs';
     import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
@@ -40,6 +41,7 @@
     export let dynamicDisabledIds: Set<string> = new Set();
 
     export let pinnedBodyId: ObjId | null = null;
+    export let descriptionLabel = '';
     export let onTogglePin: (bodyId: ObjId) => void = () => {};
 
     export let onPickTs: (ts: number) => void = () => {};
@@ -189,6 +191,19 @@
 
     function uniqueBodyInfoItems(items: Array<{ id: string; label: string; value?: string; modal?: string }>, excluded: Set<string>) {
         return items.filter((item) => !excluded.has(normalizeLabelKey(item.label)));
+    }
+
+    function descriptionInfoItem(id: ObjId): { id: string; label: string; modal: string } | null {
+        const obj = (objects as any)[id] as { description?: { en: string; ru?: string } } | undefined;
+        const desc = obj?.description;
+        if (!desc) return null;
+        const lang = getPreferredLang2();
+        const text = (desc as any)[lang] || desc.en;
+        if (typeof text !== 'string' || !text.trim()) return null;
+        const label = descriptionLabel && descriptionLabel.trim().length > 0
+            ? descriptionLabel.trim()
+            : (lang === 'ru' ? 'Описание' : 'Description');
+        return { id: 'system:description', label, modal: text.trim() };
     }
 
     function filteredRowInfoItems(row: BodyRow) {
@@ -344,7 +359,10 @@
                 aboveLabel: found.aboveLabel,
                 belowLabel: found.belowLabel,
                 visible: found.visible,
-                infoItems: dynamic?.items ?? []
+                infoItems: [
+                    ...(descriptionInfoItem(r.id) ? [descriptionInfoItem(r.id)!] : []),
+                    ...(dynamic?.items ?? [])
+                ]
             }
             : r;
     });
@@ -366,7 +384,10 @@
             house: b.house,
             visible: b.visible,
             opacity: undefined,
-            infoItems: dynamicRows.find((x) => x.id === b.id)?.items ?? []
+            infoItems: [
+                ...(descriptionInfoItem(b.id) ? [descriptionInfoItem(b.id)!] : []),
+                ...(dynamicRows.find((x) => x.id === b.id)?.items ?? [])
+            ]
         })) as BodyRow[])
         : ([] as BodyRow[]);
 

@@ -12,13 +12,35 @@ export const compass = {
     },
     requiredRoles: {
         'looker' : ['engine_body'],
-        'target' : ['engine_body']
+        'target' : ['engine_body', 'reference']
     },
     roles: [
         // Earth Compass: Sky (targets are selectable)
         {
             looker: ['Earth'],
-            target: ['Sun', 'Moon', 'Mercury', 'Venus', "Mars", "Jupiter", "Neptune", "Pluto", "Saturn", "Uranus"]
+            target: [
+                'Sun',
+                'Moon',
+                'Mercury',
+                'Venus',
+                'Mars',
+                'Jupiter',
+                'Neptune',
+                'Pluto',
+                'Saturn',
+                'Uranus',
+                // orientations:
+                'ref:galactic-center',
+
+                // stars:
+                'ref:sirius',
+                'ref:polaris',
+                'ref:betelgeuse',
+                'ref:antares',
+                'ref:deneb',
+                'ref:altair',
+                'ref:nunki',
+            ]
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'compass' }>;

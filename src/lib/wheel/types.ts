@@ -150,6 +150,7 @@ export type MarkerItem = {
     bg: string;
     opacity?: number;
     emoji: string;
+    color?: string;
 
     title: string;
     description: string;
@@ -165,6 +166,7 @@ export type MarkerCluster = {
     // отображение:
     count: number;
     emoji?: string;     // если count=1
+    color?: string;
     opacity?: number;
     label?: string;     // если count>1 (например "3")
 

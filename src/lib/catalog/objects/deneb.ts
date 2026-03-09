@@ -1,0 +1,27 @@
+// src/lib/catalog/objects/deneb.ts
+import { dmsToDeg, hmsToDeg, type Obj } from '../types';
+
+// J2000 coordinates for Deneb
+const RA_DENEB_DEG = hmsToDeg(20, 41, 25.915);
+const DEC_DENEB_DEG = dmsToDeg(1, 45, 16, 49.22);
+
+export const Deneb = {
+    id: 'ref:deneb',
+    kind: 'reference',
+    name: { en: 'Deneb', ru: 'Денеб' },
+    description: {
+        en: 'Reference direction toward Deneb (ICRF/J2000), a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle. This is a fixed line-of-sight vector, not a physical orbit.',
+        ru: 'Опорное направление на Денеб (ICRF/J2000) — яркий голубой сверхгигант в созвездии Лебедя и одна из вершин Летнего треугольника. Это фиксированный вектор линии визирования, а не физическая орбита.'
+    },
+    emoji: '★',
+    meta: {
+        color: '#cad7ff',
+        direction: {
+            frame: 'icrf_j2000',
+            raDecDeg: {
+                ra: RA_DENEB_DEG,
+                dec: DEC_DENEB_DEG
+            }
+        }
+    }
+} satisfies Obj;

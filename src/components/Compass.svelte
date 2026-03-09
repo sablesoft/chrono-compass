@@ -15,14 +15,13 @@
     import WheelHeader from './WheelHeader.svelte';
     import CompassInfoBlock from './CompassInfoBlock.svelte';
 
-    import { useDocs } from '../lib/docs';
+    import { getPreferredLang2, useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
 
     import { objects, wheels } from '../lib/catalog';
     import type { ObjId, EmojiPlacement, EmojiPlacementInput, RoleName, WheelNodeGroups, WheelSpec } from '../lib/catalog';
 
-    import { formatLabelTitleCaseUi, formatSpokeCodeUi, formatSpokeTextUi, SPOKES_ORDER, type InfoItem, type MarkerCluster, type MarkerItem, type MomentTip } from '../lib/wheel/types';
-    import { formatDateTime } from '../lib/format';
+    import { formatLabelTitleCaseUi, formatSpokeCodeUi, SPOKES_ORDER, type InfoItem, type MarkerCluster, type MarkerItem, type MomentTip } from '../lib/wheel/types';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
     import { compassClusters } from '../lib/wheel/ui/compassClusters';
 
@@ -182,7 +181,7 @@
     // Marker clustering + pinning
     // ------------------------------------------------------------
     const MIN_ARC_PX = 28;
-    const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.028;
+    const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.022;
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
     let markerClusters: MarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
@@ -218,6 +217,14 @@
         ts: number;
     }> = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
+
+    function localizedDescription(obj: { description?: { en: string; ru?: string } } | null | undefined): string {
+        if (!obj?.description) return '';
+        const lang = getPreferredLang2();
+        const byLang = (obj.description as any)[lang];
+        if (typeof byLang === 'string' && byLang.trim()) return byLang.trim();
+        return (obj.description.en ?? '').trim();
+    }
     let orbitNodesVisible: OrbitNodeUi[] = [];
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
@@ -1713,6 +1720,7 @@
         bodyId: ObjId;
         emoji: string;
         name: string;
+        description?: string;
         durationItem?: {
             id: string;
             label: string;
@@ -2242,15 +2250,25 @@
     }
 
     const PINNED_DURATION_TAG_ID = 'pinned:duration';
+    const PINNED_DESCRIPTION_TAG_ID = 'pinned:description';
 
     function buildPinnedMetaDefs(): CompassTagDef[] {
-        return [{
-            id: PINNED_DURATION_TAG_ID,
-            label: 'Duration',
-            scope: 'pinned',
-            enabledByDefault: true,
-            group: 'general'
-        }];
+        return [
+            {
+                id: PINNED_DURATION_TAG_ID,
+                label: 'Duration',
+                scope: 'pinned',
+                enabledByDefault: true,
+                group: 'general'
+            },
+            {
+                id: PINNED_DESCRIPTION_TAG_ID,
+                label: 'Description',
+                scope: 'pinned',
+                enabledByDefault: true,
+                group: 'general'
+            }
+        ];
     }
 
     function pinnedGroupFromNode(node: OrbitNodeUi): OrbitNodeGroup {
@@ -2471,8 +2489,12 @@
             }
             return chosen;
         })();
-        const body = allBodies.find((b) => b.id === pinnedBodyId);
         const pinnedTagConfigById = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
+        const body = allBodies.find((b) => b.id === pinnedBodyId);
+        const rawBody = (objects as any)[pinnedBodyId] as { description?: { en: string; ru?: string } } | undefined;
+        const description = localizedDescription(rawBody);
+        const descriptionCfg = pinnedTagConfigById.get(PINNED_DESCRIPTION_TAG_ID);
+        const showDescription = descriptionCfg?.enabled !== false && !!description;
         const mainCycle = mainCycleSourceForActiveWheel();
         const durationItem = (() => {
             if (!mainCycle) return undefined;
@@ -2519,10 +2541,21 @@
             bodyId: pinnedBodyId,
             emoji: body?.emoji ?? '•',
             name: body?.name ?? String(pinnedBodyId),
+            description: showDescription ? description : undefined,
             durationItem,
             nodes
         });
         return out;
+    })();
+
+    $: pinnedDescriptionLabel = (() => {
+        const def = compassTagDefById.get(PINNED_DESCRIPTION_TAG_ID);
+        const cfg = compassInfoConfig?.pinned?.tags?.find((t) => t.id === PINNED_DESCRIPTION_TAG_ID);
+        if (cfg?.enabled === false) return '';
+        const label = (cfg?.label && cfg.label.trim())
+            ? cfg.label.trim()
+            : (def?.label ?? 'Description');
+        return label;
     })();
 </script>
 
@@ -2791,6 +2824,9 @@
                         {@const p = polarToXY(rMark, a)}
                         {@const markerKey = `marker:${c.id}`}
                         {@const isCluster = c.count > 1}
+                        {@const singleId = clusterSingleBodyId(c)}
+                        {@const isReference = !!singleId && (objects as any)?.[singleId]?.kind === 'reference'}
+                        {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                         {@const o = c.opacity ?? 1}
 
                         <g class="marker"
@@ -2834,12 +2870,12 @@
                                     class="markerGlyph"
                                     text-anchor="middle"
                                     dominant-baseline="middle"
-                                    font-size={VB * (isCluster ? 0.022 : 0.035)}
+                                    font-size={VB * (isCluster ? 0.022 : (isReference ? 0.02 : 0.035))}
                                     font-weight={isCluster ? 900 : 850}
                                     letter-spacing={c.count === 1 ? 0 : 0.6}
-                                    fill="currentColor"
+                                    fill={glyphColor}
                                     fill-opacity={Math.max(0.92, o)}
-                                    stroke="currentColor"
+                                    stroke={glyphColor}
                                     stroke-opacity={isCluster ? 0.35 : 0.55}
                                     stroke-width={isCluster ? 2.5 : 2}
                                     style="pointer-events:none"
@@ -2992,6 +3028,7 @@
                         allBodies={allBodies}
                         dynamicRows={compassDynamicRows}
                         dynamicDisabledIds={compassDynamicDisabledIds}
+                        descriptionLabel={pinnedDescriptionLabel}
                         pinnedBodyId={pinnedBodyId}
                         onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}

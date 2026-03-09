@@ -15,6 +15,7 @@ export const GalacticCenter = {
     },
     emoji: '🌀',
     meta: {
+        color: '#b285ff',
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

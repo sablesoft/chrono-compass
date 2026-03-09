@@ -33,12 +33,14 @@ import {
     Observer,
 } from 'astronomy-engine';
 
-import type { ObjId } from '../catalog';
+import type { Obj, ObjId, ReferenceMeta } from '../catalog';
+import { objects } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { SPOKES_ORDER } from '../wheel/types';
 import {AU_KM, clamp, lerp, norm360} from './helpers';
 import type { Location } from '../location/types';
+import { normalize3, refUnit } from './vector';
 
 const DAY_MS = 86_400_000;
 
@@ -103,6 +105,35 @@ function makeObserver(lat: number, lon: number, heightMeters = 0) {
  * Compute (alt, az, eq) for target at time ts for a topocentric observer.
  * Refraction is DISABLED (geometric horizon).
  */
+function referenceRaDecDeg(id: ObjId): { raDeg: number; decDeg: number } | null {
+    const obj = (objects as any)[id] as Obj | undefined;
+    if (!obj || obj.kind !== 'reference') return null;
+    const meta = obj.meta as ReferenceMeta | undefined;
+    const dir = meta?.direction as any;
+    if (!dir || dir.frame !== 'icrf_j2000') return null;
+
+    const raDec = dir.raDecDeg as { ra: number; dec: number } | undefined;
+    if (raDec && isFiniteNumber(raDec.ra) && isFiniteNumber(raDec.dec)) {
+        return { raDeg: norm360(raDec.ra), decDeg: raDec.dec };
+    }
+
+    if (dir.unit) {
+        const u0 = normalize3(dir.unit);
+        if (!u0) return null;
+        const raDeg = norm360(Math.atan2(u0[1], u0[0]) * 180 / Math.PI);
+        const decDeg = Math.asin(u0[2]) * 180 / Math.PI;
+        if (!isFiniteNumber(raDeg) || !isFiniteNumber(decDeg)) return null;
+        return { raDeg, decDeg };
+    }
+
+    const unit = meta ? refUnit(meta) : null;
+    if (!unit) return null;
+    const raDeg = norm360(Math.atan2(unit[1], unit[0]) * 180 / Math.PI);
+    const decDeg = Math.asin(unit[2]) * 180 / Math.PI;
+    if (!isFiniteNumber(raDeg) || !isFiniteNumber(decDeg)) return null;
+    return { raDeg, decDeg };
+}
+
 function targetState(ts: number, obs: Observer, target: ObjId): {
     altDeg: number;
     azDeg: number;
@@ -112,6 +143,29 @@ function targetState(ts: number, obs: Observer, target: ObjId): {
 } | null {
     try {
         const time = new AstroTime(new Date(ts));
+        const obj = (objects as any)[target] as Obj | undefined;
+
+        if (obj?.kind === 'reference') {
+            const ref = referenceRaDecDeg(target);
+            if (!ref) return null;
+            const raHours = ref.raDeg / 15;
+            const decDeg = ref.decDeg;
+            const hor = Horizon(time, obs, raHours, decDeg, undefined);
+
+            const alt = clamp(hor.altitude, -90, 90);
+            const az = norm360(hor.azimuth);
+
+            if (!isFiniteNumber(alt) || !isFiniteNumber(az)) return null;
+
+            return {
+                altDeg: alt,
+                azDeg: az,
+                raHours,
+                decDeg,
+                distAu: NaN,
+            };
+        }
+
         const body = toEngineBody(target);
 
         // (ofDate=true, aberration=true) matches compass.ts usage
@@ -142,6 +196,89 @@ function targetState(ts: number, obs: Observer, target: ObjId): {
 function targetAltitudeDeg(ts: number, obs: Observer, target: ObjId): number {
     const s = targetState(ts, obs, target);
     return s ? s.altDeg : NaN;
+}
+
+export type HorizonVisibility = 'crosses' | 'alwaysAbove' | 'alwaysBelow' | 'unknown';
+
+function referenceDeclinationDeg(id: ObjId): number | null {
+    const obj = (objects as any)[id] as { kind?: string; meta?: ReferenceMeta } | undefined;
+    if (!obj || obj.kind !== 'reference') return null;
+    const meta = obj.meta;
+    const dir = meta?.direction as any;
+    if (!dir || dir.frame !== 'icrf_j2000') return null;
+
+    const raDec = dir.raDecDeg as { ra: number; dec: number } | undefined;
+    if (raDec && isFiniteNumber(raDec.dec) && raDec.dec >= -90 && raDec.dec <= 90) {
+        return raDec.dec;
+    }
+
+    if (dir.unit) {
+        const u0 = normalize3(dir.unit);
+        if (!u0) return null;
+        const dec = Math.asin(u0[2]) * 180 / Math.PI;
+        if (!isFiniteNumber(dec)) return null;
+        return dec;
+    }
+
+    const unit = meta ? refUnit(meta) : null;
+    if (!unit) return null;
+    const dec = Math.asin(unit[2]) * 180 / Math.PI;
+    if (!isFiniteNumber(dec)) return null;
+    return dec;
+}
+
+function classifyByDeclination(latDeg: number, decDeg: number): { status: HorizonVisibility; minAlt: number; maxAlt: number } {
+    const maxAlt = 90 - Math.abs(latDeg - decDeg);
+    const minAlt = -90 + Math.abs(latDeg + decDeg);
+    if (minAlt >= 0) return { status: 'alwaysAbove', minAlt, maxAlt };
+    if (maxAlt <= 0) return { status: 'alwaysBelow', minAlt, maxAlt };
+    return { status: 'crosses', minAlt, maxAlt };
+}
+
+export function classifyHorizonVisibility(opts: {
+    target: ObjId;
+    location: Pick<Location, 'lat' | 'lon'>;
+    ts: number;
+    looker?: ObjId;
+    scanHours?: number;
+    scanStepMinutes?: number;
+}): { status: HorizonVisibility; minAlt?: number; maxAlt?: number; decDeg?: number; reason?: string } {
+    const looker = (opts.looker ?? 'Earth') as ObjId;
+    if (looker !== 'Earth') return { status: 'unknown', reason: 'looker not supported' };
+
+    const lat = Number(opts.location?.lat);
+    if (!isFiniteNumber(lat)) return { status: 'unknown', reason: 'invalid location' };
+
+    const dec = referenceDeclinationDeg(opts.target);
+    if (isFiniteNumber(dec)) {
+        const res = classifyByDeclination(lat, dec as number);
+        return { status: res.status, minAlt: res.minAlt, maxAlt: res.maxAlt, decDeg: dec as number };
+    }
+
+    const obs = makeObserver(opts.location.lat, opts.location.lon, 0);
+    const spanHours = Number.isFinite(opts.scanHours) ? Math.max(1, opts.scanHours as number) : 24;
+    const stepMin = Number.isFinite(opts.scanStepMinutes) ? Math.max(5, opts.scanStepMinutes as number) : 120;
+    const stepMs = stepMin * 60_000;
+    const halfMs = (spanHours * 60 * 60_000) / 2;
+    const t0 = opts.ts - halfMs;
+    const t1 = opts.ts + halfMs;
+
+    let minAlt = Number.POSITIVE_INFINITY;
+    let maxAlt = Number.NEGATIVE_INFINITY;
+    let samples = 0;
+
+    for (let t = t0; t <= t1 + 1; t += stepMs) {
+        const alt = targetAltitudeDeg(t, obs, opts.target);
+        if (!isFiniteNumber(alt)) continue;
+        samples++;
+        if (alt < minAlt) minAlt = alt;
+        if (alt > maxAlt) maxAlt = alt;
+    }
+
+    if (samples === 0) return { status: 'unknown', reason: 'no samples' };
+    if (minAlt >= 0) return { status: 'alwaysAbove', minAlt, maxAlt };
+    if (maxAlt <= 0) return { status: 'alwaysBelow', minAlt, maxAlt };
+    return { status: 'crosses', minAlt, maxAlt };
 }
 
 export function orbitFromAltitudeDeg(altitudeDeg: number): number {

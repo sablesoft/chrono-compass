@@ -9,7 +9,7 @@ export type DocsState = {
     title: string;
 };
 
-function getPreferredLang2(): string {
+export function getPreferredLang2(): string {
     if (typeof navigator === 'undefined') return 'en';
 
     const list = (navigator.languages && navigator.languages.length)
