@@ -24,7 +24,7 @@ export const horizon = {
     },
     requiredRoles: {
         'looker' : ['engine_body'],
-        'target' : ['engine_body']
+        'target' : ['engine_body', 'reference']
     },
     roles: [
         // Earth Horizon: Sun / Moon
@@ -32,7 +32,27 @@ export const horizon = {
         // but at this MVP level we allow the pair.)
         {
             looker: ['Earth'],
-            target: ['Sun', 'Moon', 'Mercury', 'Venus', "Mars", "Jupiter", "Neptune", "Pluto", "Saturn", "Uranus"]
+            target: [
+                'Sun', 'Moon', 'Mercury', 'Venus', "Mars", "Jupiter", "Neptune", "Pluto", "Saturn", "Uranus",
+
+                // orientations:
+                'ref:galactic-center',
+
+                // stars:
+                'ref:polaris',
+                'ref:sirius',
+                'ref:betelgeuse',
+                'ref:antares',
+                'ref:deneb',
+                'ref:altair',
+                'ref:nunki',
+
+                // Southern Cross:
+                'ref:acrux',
+                'ref:mimosa',
+                'ref:imai',
+                'ref:gacrux',
+            ]
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'horizon' }>;
