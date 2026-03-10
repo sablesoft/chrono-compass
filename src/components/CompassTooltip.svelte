@@ -43,6 +43,7 @@
 
     export let pinnedBodyId: ObjId | null = null;
     export let descriptionLabel = '';
+    export let separatorLabel = 'HORIZON';
     export let onTogglePin: (bodyId: ObjId) => void = () => {};
 
     export let onPickTs: (ts: number) => void = () => {};
@@ -700,7 +701,7 @@
                 {#if aboveRows.length > 0 && belowRows.length > 0}
                     <div class="horizonSep">
                         <div class="line"></div>
-                        <div class="txt">HORIZON</div>
+                        <div class="txt">{separatorLabel}</div>
                         <div class="line"></div>
                     </div>
                 {/if}

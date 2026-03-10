@@ -334,6 +334,7 @@
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
     let showOrbitNodesAny = true;
+    let lastShowOrbitsWheelType: string | undefined;
     type OrbitNodeGroup = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
     const ORBIT_NODE_GROUP_ORDER: OrbitNodeGroup[] = ['compass', 'horizon', 'nodal', 'bind', 'synod', 'regular'];
     let orbitNodeGroupVisible: Record<OrbitNodeGroup, boolean> = {
@@ -355,6 +356,14 @@
 
     function clearPinned() {
         pinnedBodyId = null;
+    }
+
+    $: {
+        const wheelType = wheel?.wheelType;
+        if (wheelType !== lastShowOrbitsWheelType) {
+            showOrbits = wheelType === 'compass' ? false : true;
+            lastShowOrbitsWheelType = wheelType;
+        }
     }
 
     function toggleOrbits() {
@@ -1664,6 +1673,8 @@
             visible: !!t.visible
         };
     })();
+
+    $: tooltipSeparatorLabel = wheel?.wheelType === 'system' ? 'PLANE' : 'HORIZON';
 
     function buildHouseTip(label: string): MomentTip {
         return { label, ts: effTs, desc: `house:${label}` };
@@ -3165,6 +3176,7 @@
                         dynamicRows={compassDynamicRows}
                         dynamicDisabledIds={compassDynamicDisabledIds}
                         descriptionLabel={pinnedDescriptionLabel}
+                        separatorLabel={tooltipSeparatorLabel}
                         pinnedBodyId={pinnedBodyId}
                         onTogglePin={togglePin}
                         onPickTs={handleMarkerPick}
