@@ -46,6 +46,21 @@ import { Mintaka } from './mintaka';
 import { Avior } from './avior';
 import { Markab } from './markab';
 import { DenebKaitos } from './deneb-kaitos';
+import { Acamar } from './acamar';
+import { Kochab } from './kochab';
+import { Acubens } from './acubens';
+import { Alfard } from './alfard';
+import { ZubenElschemali } from './zuben-elschemali';
+import { ZubenElakrab } from './zuben-elakrab';
+import { Polis } from './polis';
+import { Fomalhaut } from './fomalhaut';
+import { Rasalhague } from './rasalhague';
+import { Sabik } from './sabik';
+import { Sargas } from './sargas';
+import { Dschubba } from './dschubba';
+import { Graffias } from './graffias';
+import { Hadar } from './hadar';
+import { Adhara } from './adhara';
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -94,4 +109,19 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Avior.id]: Avior,
     [Markab.id]: Markab,
     [DenebKaitos.id]: DenebKaitos,
+    [Acamar.id]: Acamar,
+    [Kochab.id]: Kochab,
+    [Acubens.id]: Acubens,
+    [Alfard.id]: Alfard,
+    [ZubenElschemali.id]: ZubenElschemali,
+    [ZubenElakrab.id]: ZubenElakrab,
+    [Polis.id]: Polis,
+    [Fomalhaut.id]: Fomalhaut,
+    [Rasalhague.id]: Rasalhague,
+    [Sabik.id]: Sabik,
+    [Sargas.id]: Sargas,
+    [Dschubba.id]: Dschubba,
+    [Graffias.id]: Graffias,
+    [Hadar.id]: Hadar,
+    [Adhara.id]: Adhara,
 } satisfies Partial<Record<ObjId, Obj>>;
