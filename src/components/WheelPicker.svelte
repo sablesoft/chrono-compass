@@ -62,6 +62,12 @@
 
     // selects
     let selects: RoleSelects = { looker: [], focus: [], target: [] };
+    let lookerSearch = '';
+    let focusSearch = '';
+    let targetSearch = '';
+    let filteredLookerItems: ObjId[] = [];
+    let filteredFocusItems: ObjId[] = [];
+    let filteredTargetItems: ObjId[] = [];
 
     let multiTarget = false;
 
@@ -126,6 +132,9 @@
         required = [];
         multiTarget = false;
         draftTitle = '';
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
         observerDraft = { locationId: DEFAULT_LOCATION_ID, locked: false };
         timeDraft = { ...DEFAULT_TIME };
         lastGlobalLocId = '';
@@ -163,6 +172,9 @@
         values = { looker: null, focus: null, target: [] };
         selects = { looker: [], focus: [], target: [] };
         draftTitle = '';
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
 
         required = requiredRoles(spec);
         multiTarget = (spec as any).multiTarget === true;
@@ -181,6 +193,9 @@
         required = [];
         multiTarget = false;
         draftTitle = '';
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
         resetObserverDraftForType(null);
         timeDraft = { ...DEFAULT_TIME };
     }
@@ -263,6 +278,9 @@
         draftTitle = '';
         pickedSavedId = '';
         savedAutoEnabled = true;
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
 
         // keep observer/time as-is (type-specific defaults already applied)
         selects = { looker: [], focus: [], target: [] };
@@ -301,6 +319,16 @@
             : (has ? [] : [id]);
         setTargets(next);
     }
+
+    function filterRoleItems(items: ObjId[], query: string): ObjId[] {
+        const q = query.trim().toLowerCase();
+        if (!q) return items;
+        return items.filter((id) => objectLabel(id).toLowerCase().includes(q));
+    }
+
+    $: filteredLookerItems = filterRoleItems(selects.looker, lookerSearch);
+    $: filteredFocusItems = filterRoleItems(selects.focus, focusSearch);
+    $: filteredTargetItems = filterRoleItems(selects.target, targetSearch);
 
     function addWheel() {
         if (!spec || !type) return;
@@ -531,6 +559,18 @@
                 </select>
             </div>
 
+            <div class="row">
+                <label class="lbl" for={`${formId}-name`}>Name</label>
+                <input
+                        id={`${formId}-name`}
+                        class="inp"
+                        type="text"
+                        placeholder="-"
+                        bind:value={draftTitle}
+                        on:input={() => { pickedSavedId = ''; }}
+                />
+            </div>
+
             <!-- Type selector -->
             <div class="row multiRow">
                 <div class="lbl" id={`${formId}-type-label`}>Type</div>
@@ -567,35 +607,31 @@
                     />
                 {/if}
 
-                <div class="row">
-                    <label class="lbl" for={`${formId}-name`}>Name</label>
-                    <input
-                            id={`${formId}-name`}
-                            class="inp"
-                            type="text"
-                            placeholder="-"
-                            bind:value={draftTitle}
-                            on:input={() => { pickedSavedId = ''; }}
-                    />
-                </div>
-
                 {#if selects.looker.length > 0}
                     <div class="row multiRow">
                         <div class="lbl" id={`${formId}-looker-label`}>looker</div>
-                        <div class="checks" role="group" aria-labelledby={`${formId}-looker-label`}>
-                            {#each selects.looker as id (id)}
-                                {@const checked = values.looker === id}
-                                <label class="checkItem" class:checked={checked}>
-                                    <input
-                                            class="checkInput"
-                                            type="checkbox"
-                                            checked={checked}
-                                            on:change={() => toggleSingleRole('looker', id)}
-                                    />
-                                    <span class="checkBox" aria-hidden="true"></span>
-                                    <span class="checkText">{objectLabel(id)}</span>
-                                </label>
-                            {/each}
+                        <div class="checksWrap">
+                            <input
+                                    class="inp roleSearch"
+                                    type="text"
+                                    placeholder="Search looker"
+                                    bind:value={lookerSearch}
+                            />
+                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-looker-label`}>
+                                {#each filteredLookerItems as id (id)}
+                                    {@const checked = values.looker === id}
+                                    <label class="checkItem" class:checked={checked}>
+                                        <input
+                                                class="checkInput"
+                                                type="checkbox"
+                                                checked={checked}
+                                                on:change={() => toggleSingleRole('looker', id)}
+                                        />
+                                        <span class="checkBox" aria-hidden="true"></span>
+                                        <span class="checkText">{objectLabel(id)}</span>
+                                    </label>
+                                {/each}
+                            </div>
                         </div>
                     </div>
                 {/if}
@@ -603,20 +639,28 @@
                 {#if selects.focus.length > 0}
                     <div class="row multiRow">
                         <div class="lbl" id={`${formId}-focus-label`}>focus</div>
-                        <div class="checks" role="group" aria-labelledby={`${formId}-focus-label`}>
-                            {#each selects.focus as id (id)}
-                                {@const checked = values.focus === id}
-                                <label class="checkItem" class:checked={checked}>
-                                    <input
-                                            class="checkInput"
-                                            type="checkbox"
-                                            checked={checked}
-                                            on:change={() => toggleSingleRole('focus', id)}
-                                    />
-                                    <span class="checkBox" aria-hidden="true"></span>
-                                    <span class="checkText">{objectLabel(id)}</span>
-                                </label>
-                            {/each}
+                        <div class="checksWrap">
+                            <input
+                                    class="inp roleSearch"
+                                    type="text"
+                                    placeholder="Search focus"
+                                    bind:value={focusSearch}
+                            />
+                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-focus-label`}>
+                                {#each filteredFocusItems as id (id)}
+                                    {@const checked = values.focus === id}
+                                    <label class="checkItem" class:checked={checked}>
+                                        <input
+                                                class="checkInput"
+                                                type="checkbox"
+                                                checked={checked}
+                                                on:change={() => toggleSingleRole('focus', id)}
+                                        />
+                                        <span class="checkBox" aria-hidden="true"></span>
+                                        <span class="checkText">{objectLabel(id)}</span>
+                                    </label>
+                                {/each}
+                            </div>
                         </div>
                     </div>
                 {/if}
@@ -624,20 +668,28 @@
                 {#if selects.target.length > 0}
                     <div class="row" class:multiRow={multiTarget}>
                         <div class="lbl" id={`${formId}-target-label`}>target</div>
-                        <div class="checks" role="group" aria-labelledby={`${formId}-target-label`}>
-                            {#each selects.target as id (id)}
-                                {@const checked = values.target.includes(id)}
-                                <label class="checkItem" class:checked={checked}>
-                                    <input
-                                            class="checkInput"
-                                            type="checkbox"
-                                            checked={checked}
-                                            on:change={() => toggleTarget(id)}
-                                    />
-                                    <span class="checkBox" aria-hidden="true"></span>
-                                    <span class="checkText">{objectLabel(id)}</span>
-                                </label>
-                            {/each}
+                        <div class="checksWrap">
+                            <input
+                                    class="inp roleSearch"
+                                    type="text"
+                                    placeholder="Search target"
+                                    bind:value={targetSearch}
+                            />
+                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-target-label`}>
+                                {#each filteredTargetItems as id (id)}
+                                    {@const checked = values.target.includes(id)}
+                                    <label class="checkItem" class:checked={checked}>
+                                        <input
+                                                class="checkInput"
+                                                type="checkbox"
+                                                checked={checked}
+                                                on:change={() => toggleTarget(id)}
+                                        />
+                                        <span class="checkBox" aria-hidden="true"></span>
+                                        <span class="checkText">{objectLabel(id)}</span>
+                                    </label>
+                                {/each}
+                            </div>
                         </div>
                     </div>
                 {/if}
@@ -801,6 +853,16 @@
         outline-offset: 2px;
     }
 
+    .checksWrap {
+        display: grid;
+        gap: 8px;
+        min-width: 0;
+    }
+
+    .roleSearch {
+        padding-block: 8px;
+    }
+
     .checks {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -809,6 +871,12 @@
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         padding: 10px;
+    }
+
+    .checksScrollable {
+        max-height: 120px;
+        overflow-y: auto;
+        align-content: start;
     }
     .checkItem {
         position: relative;
