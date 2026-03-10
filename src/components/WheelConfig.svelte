@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
+    import { objectLabel, wheels } from '../lib/catalog';
     import type { ObjId, RoleName, WheelSpec, WheelType } from '../lib/catalog';
-    import { objects, wheels } from '../lib/catalog';
     import {
         formatWheelSpec,
         hasRoleValue,
@@ -60,10 +60,14 @@
     const uid = `wcfg_${Math.random().toString(36).slice(2)}`;
     const idSpec = `${uid}_spec`;
     const roleId = (r: string) => `${uid}_role_${r}`;
+    const roleSearchId = (r: string) => `${uid}_role_search_${r}`;
 
     let draftCompatible = false;
     let hasAllRolesOk = false;
     let isDirty = false;
+    let lookerSearch = '';
+    let focusSearch = '';
+    let targetSearch = '';
 
     $: draftCompatible = isCompatible(spec, effectiveDraftRoles);
     $: hasAllRolesOk = usedRoles.every((r) => hasRoleValue(spec, r, effectiveDraftRoles[r]));
@@ -74,6 +78,9 @@
 
     function openModal() {
         initialRoles = { ...roles };
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
 
         if (multiTarget) {
             const t = roles.target;
@@ -92,6 +99,9 @@
 
     function closeModal(reason: 'cancel' | 'update' | 'new' = 'cancel') {
         open = false;
+        lookerSearch = '';
+        focusSearch = '';
+        targetSearch = '';
         if (reason === 'cancel') onCancel();
     }
 
@@ -230,8 +240,32 @@
     onDestroy(() => window.removeEventListener('keydown', onKeyDown));
 
     function bodyLabel(id: ObjId): string {
-        const b = (objects as any)[id];
-        return b?.name?.en ?? String(id);
+        return objectLabel(id);
+    }
+
+    function roleSearchValue(role: RoleName): string {
+        if (role === 'looker') return lookerSearch;
+        if (role === 'focus') return focusSearch;
+        return targetSearch;
+    }
+
+    function setRoleSearch(role: RoleName, value: string) {
+        if (role === 'looker') {
+            lookerSearch = value;
+            return;
+        }
+        if (role === 'focus') {
+            focusSearch = value;
+            return;
+        }
+        targetSearch = value;
+    }
+
+    function filteredRoleOptions(role: RoleName): ObjId[] {
+        const items = optionsForRole(spec, role, effectiveDraftRoles);
+        const query = roleSearchValue(role).trim().toLowerCase();
+        if (!query) return items;
+        return items.filter((id) => bodyLabel(id).toLowerCase().includes(query));
     }
 
     let draftSpec = '';
@@ -281,23 +315,33 @@
                 {#each usedRoles as r (r)}
                     <div class="row" class:multiRow={r === 'target'}>
                         <div class="lbl" id={`${roleId(r)}_label`}>{r}</div>
-                        <div class="checks" role="group" aria-labelledby={`${roleId(r)}_label`}>
-                            {#each optionsForRole(spec, r, effectiveDraftRoles) as id (id)}
-                                {@const checked = r === 'target'
-                                    ? (multiTarget ? draftTargets.includes(id) : effectiveDraftRoles.target === id)
-                                    : effectiveDraftRoles[r] === id}
-                                <label class="checkItem" class:checked={checked} class:readonly={locked}>
-                                    <input
-                                        class="checkInput"
-                                        type="checkbox"
-                                        checked={checked}
-                                        disabled={locked}
-                                        on:change={() => toggleRoleOption(r, id)}
-                                    />
-                                    <span class="checkBox" aria-hidden="true"></span>
-                                    <span class="checkText">{bodyLabel(id)}</span>
-                                </label>
-                            {/each}
+                        <div class="checksWrap" role="group" aria-labelledby={`${roleId(r)}_label`}>
+                            <input
+                                id={roleSearchId(r)}
+                                class="roleSearch"
+                                type="search"
+                                placeholder={`Search ${r}`}
+                                value={roleSearchValue(r)}
+                                on:input={(e) => setRoleSearch(r, e.currentTarget.value)}
+                            />
+                            <div class="checks checksScrollable">
+                                {#each filteredRoleOptions(r) as id (id)}
+                                    {@const checked = r === 'target'
+                                        ? (multiTarget ? draftTargets.includes(id) : effectiveDraftRoles.target === id)
+                                        : effectiveDraftRoles[r] === id}
+                                    <label class="checkItem" class:checked={checked} class:readonly={locked}>
+                                        <input
+                                            class="checkInput"
+                                            type="checkbox"
+                                            checked={checked}
+                                            disabled={locked}
+                                            on:change={() => toggleRoleOption(r, id)}
+                                        />
+                                        <span class="checkBox" aria-hidden="true"></span>
+                                        <span class="checkText">{bodyLabel(id)}</span>
+                                    </label>
+                                {/each}
+                            </div>
                         </div>
                     </div>
                 {/each}
@@ -437,6 +481,22 @@
         letter-spacing: 0.04em;
     }
 
+    .checksWrap {
+        display: grid;
+        gap: 8px;
+    }
+
+    .roleSearch {
+        width: 100%;
+        min-width: 0;
+        border-radius: 10px;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--bg), white 4%);
+        color: inherit;
+        padding: 9px 11px;
+        font: inherit;
+    }
+
     .checks {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -445,6 +505,12 @@
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         padding: 10px;
+    }
+
+    .checksScrollable {
+        max-height: 120px;
+        overflow-y: auto;
+        align-content: start;
     }
 
     .checkItem {
