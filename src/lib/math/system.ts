@@ -1,22 +1,23 @@
 import * as Astronomy from 'astronomy-engine';
 import { objects } from '../catalog';
-import type { ObjId } from '../catalog';
-import type { MarkerItem } from '../wheel/types';
+import type { ObjId, ReferenceMeta } from '../catalog';
+import { type MarkerItem, SPOKES_ORDER } from '../wheel/types';
 
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
 import { resolveWheelMeta } from '../board/registry';
 import { AU_KM, clamp, currentHouseAtTs, norm360, trackInMainCycleWindow } from './helpers';
-import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, type SynodMeta } from './synod';
+import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, synodProjectedPhaseAt, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
 import { solveNodalWheel } from './nodal';
 import type { NodalMeta } from './nodal';
 import type { CompassTrackPoint } from './compass';
-import { eqToEcl } from './vector';
+import { eqToEcl, refUnit } from './vector';
 import { system as systemSpec } from '../catalog/wheels/system';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
+const SYSTEM_REFERENCE_RING_ORBIT = 1.5;
 
 function uniqueTags(tags: Array<string | null | undefined>): string[] {
     const out: string[] = [];
@@ -86,6 +87,11 @@ function bodyNameEn(id: ObjId): string {
     return b?.name?.en ?? String(id);
 }
 
+function bodyKind(id: ObjId): 'engine_body' | 'reference' | null {
+    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference' } | undefined;
+    return b?.kind ?? null;
+}
+
 function asTargetArray(v: unknown): ObjId[] {
     if (Array.isArray(v)) return v.filter(Boolean) as ObjId[];
     if (typeof v === 'string' && v) return [v as ObjId];
@@ -126,7 +132,39 @@ function helioVec(id: ObjId, ts: number): { x: number; y: number; z: number } | 
     return null;
 }
 
+function referenceDirectionVec(id: ObjId): { x: number; y: number; z: number } | null {
+    const b = (objects as any)[id] as { meta?: ReferenceMeta } | undefined;
+    const unit = b?.meta ? refUnit(b.meta) : null;
+    if (!unit) return null;
+    return { x: unit[0], y: unit[1], z: unit[2] };
+}
+
+function referenceTargetInstant(
+    looker: ObjId,
+    focus: ObjId,
+    target: ObjId,
+    ts: number
+): { phaseDeg: number; angleDeg: number; focusDistAu: number } | null {
+    const projected = synodProjectedPhaseAt(looker, focus, target, ts);
+    if (!projected) return null;
+    const phaseDeg = projected.phaseDeg;
+    return {
+        phaseDeg,
+        angleDeg: synodPhaseToWheelAngleDeg(phaseDeg),
+        focusDistAu: projected.lookerDistAu
+    };
+}
+
 function eclipticLatitudeDegAt(focus: ObjId, target: ObjId, ts: number): number {
+    if (bodyKind(target) === 'reference') {
+        const dirEq = referenceDirectionVec(target);
+        if (!dirEq) return NaN;
+        const dirEcl = eqToEcl(dirEq);
+        const r = Math.hypot(dirEcl.x, dirEcl.y, dirEcl.z);
+        if (!(r > 0)) return NaN;
+        return (Math.asin(dirEcl.z / r) * 180) / Math.PI;
+    }
+
     // Keep Earth's heliocentric path exactly on the ecliptic baseline in system wheel.
     if (focus === 'Sun' && target === 'Earth') return 0;
 
@@ -853,6 +891,23 @@ function angleDeltaDeg(a: number, b: number): number {
     return d;
 }
 
+function synodHouseFromPhaseDeg(phaseDeg: number): string | undefined {
+    if (!Number.isFinite(phaseDeg)) return undefined;
+
+    let bestId: string | undefined;
+    let bestDist = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < SPOKES_ORDER.length; i++) {
+        const centerDeg = norm360(90 + i * (360 / SPOKES_ORDER.length));
+        let dist = Math.abs(norm360(phaseDeg) - centerDeg);
+        if (dist > 180) dist = 360 - dist;
+        if (dist < bestDist) {
+            bestDist = dist;
+            bestId = SPOKES_ORDER[i];
+        }
+    }
+    return bestId;
+}
+
 function normalizeOrbit(distanceAu: number, maxAu: number): number {
     if (!(distanceAu > 0) || !Number.isFinite(distanceAu)) return 0;
     if (!(maxAu > 0) || !Number.isFinite(maxAu)) return 0;
@@ -880,6 +935,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
     const raw = await Promise.all(targets.map(async (id): Promise<{
         id: ObjId;
+        kind: 'engine_body' | 'reference';
         angleDeg: number;
         phaseDeg: number;
         distanceAu: number;
@@ -891,6 +947,24 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         };
         orbitTrack?: SystemTrackPoint[];
     } | null> => {
+        const kind = bodyKind(id);
+        if (!kind) return null;
+        if (kind === 'reference') {
+            const inst = referenceTargetInstant(looker, focus, id, ts);
+            if (!inst) return null;
+            return {
+                id,
+                kind,
+                angleDeg: inst.angleDeg,
+                phaseDeg: inst.phaseDeg,
+                distanceAu: NaN,
+                focusDistAu: inst.focusDistAu,
+                currentHouses: {
+                    synod: synodHouseFromPhaseDeg(inst.phaseDeg)
+                }
+            };
+        }
+
         const inst = synodInstantAt(looker, focus, id, ts);
         if (!inst) return null;
 
@@ -925,6 +999,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
         return {
             id,
+            kind,
             angleDeg: systemAngleDeg(inst),
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
@@ -942,6 +1017,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
     }
 
     const distances = rows.flatMap((r) => {
+        if (r.kind !== 'engine_body') return [];
         const vals = [r.distanceAu];
         if (r.orbitTrack?.length) vals.push(...r.orbitTrack.map((p) => p.distanceAu));
         return vals.filter((x) => Number.isFinite(x) && x > 0);
@@ -949,7 +1025,9 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
     const maxAu = distances.length ? Math.max(...distances) : 1;
 
     const bodies: SystemTargetState[] = rows.map((r) => {
-        const orbit = normalizeOrbit(r.distanceAu, maxAu);
+        const orbit = r.kind === 'reference'
+            ? SYSTEM_REFERENCE_RING_ORBIT
+            : normalizeOrbit(r.distanceAu, maxAu);
         const eclLat = eclipticLatitudeDegAt(focus, r.id, ts);
 
         const orbitTrack = r.orbitTrack?.map((p) => {
@@ -972,27 +1050,27 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             phaseDeg: r.phaseDeg,
             distanceAu: r.distanceAu,
             focusDistAu: r.focusDistAu,
-            distanceLabel: `Dist to ${bodyNameEn(focus)}`,
+            distanceLabel: r.kind === 'reference' ? '' : `Dist to ${bodyNameEn(focus)}`,
             currentHouses: r.currentHouses,
             infoMeta: {
                 synod: {
                     phaseDeg: r.phaseDeg,
                     distanceAu: r.distanceAu,
-                    distanceKm: r.distanceAu * AU_KM,
+                    distanceKm: Number.isFinite(r.distanceAu) ? r.distanceAu * AU_KM : NaN,
                     focusDistAu: r.focusDistAu,
                     eclipticLatDeg: eclLat
                 },
-                bind: {
+                bind: r.kind === 'engine_body' ? {
                     distanceAu: r.distanceAu,
                     distanceKm: r.distanceAu * AU_KM
-                },
-                nodal: {
+                } : undefined,
+                nodal: r.kind === 'engine_body' ? {
                     nodalLatitudeDeg: eclLat,
                     distanceAu: r.distanceAu,
                     distanceKm: r.distanceAu * AU_KM,
                     planeDistanceAu: Number.isFinite(eclLat) ? (r.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
                     planeDistanceKm: Number.isFinite(eclLat) ? (r.distanceAu * AU_KM * Math.sin((eclLat * Math.PI) / 180)) : NaN
-                }
+                } : undefined
             }
         };
     });
@@ -1033,7 +1111,9 @@ export function systemTargetsToMarkerItems(
             emoji,
 
             title: name,
-            description: `Distance ${t.distanceAu.toFixed(5)} AU, phase ${t.phaseDeg.toFixed(1)}°`,
+            description: Number.isFinite(t.distanceAu)
+                ? `Distance ${t.distanceAu.toFixed(5)} AU, phase ${t.phaseDeg.toFixed(1)}°`
+                : `Phase ${t.phaseDeg.toFixed(1)}°`,
             opacity: 1
         };
     });

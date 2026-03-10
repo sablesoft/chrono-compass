@@ -592,26 +592,24 @@
                             title="Pinned body"
                             on:click={() => onBodyPick(row.bodyId)}
                         ><span class="rowEmoji useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.emoji}</span> <span class="rowName useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.name}</span></button>
+                        {#if row.nodes.length !== 0}
                         <div class="chipGrid">
-                            {#if row.nodes.length === 0}
-                                <span class="empty">No enabled nodes.</span>
-                            {:else}
-                                {#each row.nodes as node (`${row.id}:${node.id}:${node.ts}`)}
-                                    <button
-                                        type="button"
-                                        class="ui-tag chipButton pinnedChipButton"
-                                        class:isActive={node.disabled === true}
-                                        class:time-tone-past={nodeTimeClass(node.ts) === 'past'}
-                                        class:time-border-past={nodeTimeClass(node.ts) === 'past'}
-                                        class:time-tone-future={nodeTimeClass(node.ts) === 'future'}
-                                        class:time-border-future={nodeTimeClass(node.ts) === 'future'}
-                                        title={pinnedNodeTitle(node)}
-                                        disabled={node.disabled === true}
-                                        on:click={() => onPinnedPick(node.ts, row.bodyId, node.code, node.sourceWheel)}
-                                    >{node.label}</button>
-                                {/each}
-                            {/if}
+                            {#each row.nodes as node (`${row.id}:${node.id}:${node.ts}`)}
+                                <button
+                                    type="button"
+                                    class="ui-tag chipButton pinnedChipButton"
+                                    class:isActive={node.disabled === true}
+                                    class:time-tone-past={nodeTimeClass(node.ts) === 'past'}
+                                    class:time-border-past={nodeTimeClass(node.ts) === 'past'}
+                                    class:time-tone-future={nodeTimeClass(node.ts) === 'future'}
+                                    class:time-border-future={nodeTimeClass(node.ts) === 'future'}
+                                    title={pinnedNodeTitle(node)}
+                                    disabled={node.disabled === true}
+                                    on:click={() => onPinnedPick(node.ts, row.bodyId, node.code, node.sourceWheel)}
+                                >{node.label}</button>
+                            {/each}
                         </div>
+                        {/if}
                         {#if row.durationItem}
                             <div class="chipGrid">
                                 {#if row.durationItem.modal}

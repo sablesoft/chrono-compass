@@ -231,9 +231,9 @@
     };
     const NODE_STYLE = {
         // Track node radius for regular groups in px.
-        regularPx: 1.5,
+        regularPx: 1.6,
         // Track node radius for special groups in px.
-        specialPx: 2
+        specialPx: 1.8
     };
     const MARKER_SCALE_MIN = 0.2;
     const MARKER_SCALE_MAX = 3;
@@ -1607,9 +1607,9 @@
             name,
             color,
             distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
-            distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
+            distanceLabel: Number.isFinite((t as any).distanceAu) && typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
-                : 'Dist',
+                : '',
             primaryDeg,
             secondaryDeg,
             primaryLabel: isSystemWheel ? 'Phase' : 'Az',
@@ -1653,9 +1653,9 @@
             name,
             color,
             distanceAu: Number.isFinite((t as any).distanceAu) ? Number((t as any).distanceAu) : NaN,
-            distanceLabel: typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
+            distanceLabel: Number.isFinite((t as any).distanceAu) && typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
-                : 'Dist',
+                : '',
             house: houseFromAzimuth(t.azimuthDeg),
             primaryDeg: wheel?.wheelType === 'system' ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg,
             secondaryDeg: t.altitudeDeg,

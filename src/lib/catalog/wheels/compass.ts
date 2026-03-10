@@ -1,4 +1,4 @@
-import type { WheelSpec } from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const compass = {
     type: 'compass',
@@ -29,23 +29,7 @@ export const compass = {
                 'Pluto',
                 'Saturn',
                 'Uranus',
-                // orientations:
-                'ref:galactic-center',
-
-                // stars:
-                'ref:polaris',
-                'ref:sirius',
-                'ref:betelgeuse',
-                'ref:antares',
-                'ref:deneb',
-                'ref:altair',
-                'ref:nunki',
-
-                // Southern Cross:
-                'ref:acrux',
-                'ref:mimosa',
-                'ref:imai',
-                'ref:gacrux',
+                ...REFERENCES,
             ]
         }
     ]

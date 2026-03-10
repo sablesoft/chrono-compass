@@ -7,6 +7,23 @@ export const WHEEL_LOADING_OVERLAY_DELAY_MS = 200;
 
 const ROLE_ORDER: RoleName[] = ['looker', 'focus', 'target'];
 
+function roleValueArray(role: RoleName, value: WheelRolesState[RoleName]): ObjId[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return role === 'target' ? value as ObjId[] : [];
+    return [value as ObjId];
+}
+
+function idsUsedOutsideRole(roles: WheelRolesState, role: RoleName): Set<ObjId> {
+    const out = new Set<ObjId>();
+    for (const otherRole of ROLE_ORDER) {
+        if (otherRole === role) continue;
+        for (const id of roleValueArray(otherRole, roles[otherRole])) {
+            out.add(id);
+        }
+    }
+    return out;
+}
+
 /**
  * Можно и так:
  *   return (spec as any)?.multiTarget === true;
@@ -85,6 +102,7 @@ export function isCompatible(spec: WheelSpec, roles: WheelRolesState): boolean {
 export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRolesState): ObjId[] {
     const used = rolesUsedBySpec(spec);
     if (!used.includes(role)) return [];
+    const blocked = idsUsedOutsideRole(roles, role);
 
     // все кандидаты по этой роли из всех RoleSet
     const all = new Set<ObjId>();
@@ -99,6 +117,7 @@ export function optionsForRole(spec: WheelSpec, role: RoleName, roles: WheelRole
     const filtered: ObjId[] = [];
 
     for (const candidate of all) {
+        if (blocked.has(candidate)) continue;
         const ok = spec.roles.some(rs => {
             // кандидат должен входить в allowed для этой роли в данном roleset
             if (!roleArray(rs, role).includes(candidate)) return false;
@@ -177,6 +196,14 @@ export function normalizeRolesForType(spec: WheelSpec, roles: WheelRolesState): 
         }
 
         if (!opts.includes(v as ObjId)) next[r] = null;
+    }
+
+    if (isMultiTarget(spec)) {
+        const blocked = idsUsedOutsideRole(next, 'target');
+        const target = next.target;
+        if (Array.isArray(target)) {
+            next.target = target.filter((id) => !blocked.has(id));
+        }
     }
 
     return next;

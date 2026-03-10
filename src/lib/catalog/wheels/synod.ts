@@ -1,10 +1,12 @@
 // src/lib/catalog/wheels/synod.ts
-import type { WheelSpec } from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const synod = {
     type: 'synod',
     ready: true,
     info: [
+        { defaultLabel: 'phase', metaField: 'phaseDeg', format: 'deg', spokes: '*', enabled: true, modal: 'Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel.' },
+        { defaultLabel: 'ecl', metaField: 'eclipticLatDeg', format: 'deg', spokes: '*', enabled: true, modal: 'Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south.' },
         { defaultLabel: 'dist au', metaField: 'distanceAu', enabledStatic: false, format: 'au', spokes: '*', modal: 'Distance between focus and target in astronomical units (AU) at each synodic spoke.' },
         { defaultLabel: 'dist km', metaField: 'distanceKm', enabled: false, format: 'km', spokes: '*', modal: 'Distance between focus and target in kilometers at each synodic spoke.' },
         { defaultLabel: 'looker dist au', metaField: 'focusDistAu', enabled: false, format: 'au', spokes: '*', modal: 'Distance from looker to focus in AU, useful for observer-dependent synodic context.' },
@@ -28,7 +30,7 @@ export const synod = {
     requiredRoles: {
         looker: ['engine_body', 'reference'],
         focus: ['engine_body'],
-        target: ['engine_body'],
+        target: ['engine_body', 'reference'],
     },
     ui: {
         looker: 'S',
@@ -42,7 +44,7 @@ export const synod = {
 
         // Sun Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Sun'],
             target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'],
         },
@@ -89,7 +91,7 @@ export const synod = {
 
         // Mercury Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Mercury'],
             target: ['Venus', 'Earth', 'Mars'],
         },
@@ -126,7 +128,7 @@ export const synod = {
 
         // Venus Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Venus'],
             target: ['Earth', 'Mars'],
         },
@@ -163,7 +165,7 @@ export const synod = {
             target: ['Moon'],
         },
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Earth'],
             target: ['Mars'],
         },
@@ -195,7 +197,7 @@ export const synod = {
 
         // Mars Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Mars'],
             target: ['Jupiter'],
         },
@@ -217,7 +219,7 @@ export const synod = {
 
         // Jupiter Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Jupiter'],
             target: ['Saturn'],
         },
@@ -234,7 +236,7 @@ export const synod = {
 
         // Saturn Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Saturn'],
             target: ['Uranus', 'Pluto'],
         },
@@ -246,21 +248,21 @@ export const synod = {
 
         // Uranus Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Uranus'],
             target: ['Neptune', 'Pluto'],
         },
 
         // Neptune Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Neptune'],
             target: ['Pluto'],
         },
 
         // Moon Focus
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Moon'],
             target: ['Sun','Mercury','Venus','Earth','Mars'],
         },

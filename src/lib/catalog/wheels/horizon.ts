@@ -1,4 +1,4 @@
-import type { WheelSpec } from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const horizon = {
     type: 'horizon',
@@ -35,23 +35,7 @@ export const horizon = {
             target: [
                 'Sun', 'Moon', 'Mercury', 'Venus', "Mars", "Jupiter", "Neptune", "Pluto", "Saturn", "Uranus",
 
-                // orientations:
-                'ref:galactic-center',
-
-                // stars:
-                'ref:polaris',
-                'ref:sirius',
-                'ref:betelgeuse',
-                'ref:antares',
-                'ref:deneb',
-                'ref:altair',
-                'ref:nunki',
-
-                // Southern Cross:
-                'ref:acrux',
-                'ref:mimosa',
-                'ref:imai',
-                'ref:gacrux',
+                ...REFERENCES,
             ]
         }
     ]

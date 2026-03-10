@@ -680,8 +680,10 @@
                                         <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                         <span class="sep">•</span>
                                         <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                        <span class="sep">•</span>
-                                        <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                        {#if Number.isFinite(row.distanceAu) && row.distanceLabel}
+                                            <span class="sep">•</span>
+                                            <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                        {/if}
                                     </div>
                                 {/if}
                             </div>
@@ -767,8 +769,10 @@
                                         <span>{row.primaryLabel} {fmtDeg(row.primaryDeg)}</span>
                                         <span class="sep">•</span>
                                         <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
-                                        <span class="sep">•</span>
-                                        <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                        {#if Number.isFinite(row.distanceAu) && row.distanceLabel}
+                                            <span class="sep">•</span>
+                                            <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                        {/if}
                                     </div>
                                 {/if}
                             </div>

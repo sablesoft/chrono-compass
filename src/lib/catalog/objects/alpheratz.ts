@@ -1,0 +1,26 @@
+import { dmsToDeg, hmsToDeg, type Obj } from '../types';
+
+// J2000 coordinates for Alpheratz
+const RA_ALPHERATZ_DEG = hmsToDeg(0, 8, 23.3);
+const DEC_ALPHERATZ_DEG = dmsToDeg(1, 29, 5, 25.6);
+
+export const Alpheratz = {
+    id: 'ref:alpheratz',
+    kind: 'reference',
+    name: { en: 'Alpheratz', ru: 'Альферац' },
+    description: {
+        en: 'Alpheratz (ICRF/J2000) — the bright corner star shared by Andromeda and Pegasus, often marking the Great Square.',
+        ru: 'Альферац (ICRF/J2000) — яркая угловая звезда Андромеды и Пегаса, часто отмечающая Большой квадрат.'
+    },
+    emoji: '★',
+    meta: {
+        color: '#dce5ff',
+        direction: {
+            frame: 'icrf_j2000',
+            raDecDeg: {
+                ra: RA_ALPHERATZ_DEG,
+                dec: DEC_ALPHERATZ_DEG
+            }
+        }
+    }
+} satisfies Obj;

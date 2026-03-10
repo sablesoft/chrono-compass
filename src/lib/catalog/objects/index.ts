@@ -24,6 +24,28 @@ import { Acrux } from './acrux';
 import { Mimosa } from './mimosa';
 import { Gacrux } from './gacrux';
 import { Imai } from './imai';
+import { Vega } from './vega';
+import { Pollux } from './pollux';
+import { Aldebaran } from './aldebaran';
+import { Arcturus } from './arcturus';
+import { Achernar } from './achernar';
+import { Alnair } from './alnair';
+import { KausAustralis } from './kaus-australis';
+import { Spica } from './spica';
+import { Regulus } from './regulus';
+import { Dubhe } from './dubhe';
+import { Castor } from './castor';
+import { Capella } from './capella';
+import { Mirfak } from './mirfak';
+import { Hamal } from './hamal';
+import { Alpheratz } from './alpheratz';
+import { Shaula } from './shaula';
+import { Menkar } from './menkar';
+import { Denebola } from './denebola';
+import { Mintaka } from './mintaka';
+import { Avior } from './avior';
+import { Markab } from './markab';
+import { DenebKaitos } from './deneb-kaitos';
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -50,4 +72,26 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Mimosa.id]: Mimosa,
     [Gacrux.id]: Gacrux,
     [Imai.id]: Imai,
+    [Vega.id]: Vega,
+    [Pollux.id]: Pollux,
+    [Aldebaran.id]: Aldebaran,
+    [Arcturus.id]: Arcturus,
+    [Achernar.id]: Achernar,
+    [Alnair.id]: Alnair,
+    [KausAustralis.id]: KausAustralis,
+    [Spica.id]: Spica,
+    [Regulus.id]: Regulus,
+    [Dubhe.id]: Dubhe,
+    [Castor.id]: Castor,
+    [Capella.id]: Capella,
+    [Mirfak.id]: Mirfak,
+    [Hamal.id]: Hamal,
+    [Alpheratz.id]: Alpheratz,
+    [Shaula.id]: Shaula,
+    [Menkar.id]: Menkar,
+    [Denebola.id]: Denebola,
+    [Mintaka.id]: Mintaka,
+    [Avior.id]: Avior,
+    [Markab.id]: Markab,
+    [DenebKaitos.id]: DenebKaitos,
 } satisfies Partial<Record<ObjId, Obj>>;

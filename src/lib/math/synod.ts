@@ -204,13 +204,22 @@ function dirFromOrigin(origin: ObjId, obj: ObjId, ts: number): { u: Vec; distAu:
 // Phase definition (vertex at focus; default ecliptic plane)
 // ---------------------------
 
-function phaseDeg(
+export type SynodProjectedPhase = {
+    phaseDeg: number;
+    lookerLonDeg: number;
+    targetLonDeg: number;
+    targetDistAu: number;
+    lookerDistAu: number;
+};
+
+export function synodProjectedPhaseAt(
     looker: ObjId,
     focus: ObjId,
     target: ObjId,
     ts: number,
-): { phi: number; dT: number; dL: number } | null {
-    // vectors are from focus -> looker/target (vertex at focus)
+): SynodProjectedPhase | null {
+    // Both rays are defined at the same vertex (focus) and then projected into the ecliptic plane.
+    // This is the canonical synod/system phase geometry used across wheel types.
     const dL = dirFromOrigin(focus, looker, ts);
     const dT = dirFromOrigin(focus, target, ts);
     if (!dL || !dT) return null;
@@ -218,10 +227,16 @@ function phaseDeg(
     const lonL = lonDegEcliptic(dL.u);
     const lonT = lonDegEcliptic(dT.u);
 
-    // φ measures target relative to looker direction in the vertex frame
-    const phi = norm360(lonT - lonL);
+    // Phase is the oriented angle between the two projected rays in the shared ecliptic plane.
+    const phaseDeg = norm360(lonT - lonL);
 
-    return { phi, dT: dT.distAu, dL: dL.distAu };
+    return {
+        phaseDeg,
+        lookerLonDeg: lonL,
+        targetLonDeg: lonT,
+        targetDistAu: dT.distAu,
+        lookerDistAu: dL.distAu
+    };
 }
 
 // ---------------------------
@@ -601,11 +616,12 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
     }
 
     const phiRawAt = (t: number) => {
-        const r = phaseDeg(looker, focus, target, t);
-        return r ? r.phi : NaN;
+        const r = synodProjectedPhaseAt(looker, focus, target, t);
+        return r ? r.phaseDeg : NaN;
     };
 
-    const phi0 = phiRawAt(ts);
+    const phase0 = synodProjectedPhaseAt(looker, focus, target, ts);
+    const phi0 = phase0?.phaseDeg;
     if (!isFiniteNumber(phi0)) {
         return fail(
             `Synod wheel: cannot compute phase for looker=${String(looker)} focus=${String(focus)} target=${String(target)}`,
@@ -813,9 +829,9 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
         const tSolve = tExact[i];
         const tDisplay = tOut[i];
 
-        const r = phaseDeg(looker, focus, target, tSolve);
+        const r = synodProjectedPhaseAt(looker, focus, target, tSolve);
 
-        const rAu = isFiniteNumber(r?.dT) ? r!.dT : NaN;
+        const rAu = isFiniteNumber(r?.targetDistAu) ? r!.targetDistAu : NaN;
         const rKm = isFiniteNumber(rAu) ? rAu * AU_KM : NaN;
 
         const code = SPOKES_ORDER[i] ?? (i === 16 ? 'E_next' : 'E');
@@ -827,7 +843,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
             meta: {
                 distanceAu: rAu,
                 distanceKm: rKm,
-                focusDistAu: isFiniteNumber(r?.dL) ? r!.dL : NaN,
+                focusDistAu: isFiniteNumber(r?.lookerDistAu) ? r!.lookerDistAu : NaN,
                 exactTs: tSolve,
             },
         };
@@ -893,29 +909,29 @@ export function synodInstantAt(
     if (focusRec?.kind === 'reference') return null;
 
     const phiRawAt = (t: number) => {
-        const r = phaseDeg(looker, focus, target, t);
-        return r ? r.phi : NaN;
+        const r = synodProjectedPhaseAt(looker, focus, target, t);
+        return r ? r.phaseDeg : NaN;
     };
 
-    const r0 = phaseDeg(looker, focus, target, ts);
-    if (!r0 || !isFiniteNumber(r0.phi)) return null;
+    const r0 = synodProjectedPhaseAt(looker, focus, target, ts);
+    if (!r0 || !isFiniteNumber(r0.phaseDeg)) return null;
 
     const dirInfo = detectMotionDir(phiRawAt, ts);
     if (!dirInfo) return null;
 
     const motion = dirInfo.motion;
-    const thetaModDeg = forwardPhase(r0.phi, motion);
+    const thetaModDeg = forwardPhase(r0.phaseDeg, motion);
 
     return {
         looker,
         focus,
         target,
         ts,
-        phaseDeg: r0.phi,
+        phaseDeg: r0.phaseDeg,
         motion,
         thetaModDeg,
-        distanceAu: r0.dT,
-        focusDistAu: r0.dL,
+        distanceAu: r0.targetDistAu,
+        focusDistAu: r0.lookerDistAu,
     };
 }
 

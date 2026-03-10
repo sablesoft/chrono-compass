@@ -139,6 +139,44 @@ export type RoleName = 'looker' | 'focus' | 'target';
 
 export const ROLE_NAMES: RoleName[] = ['looker', 'focus', 'target'];
 
+export const REFERENCES: ObjId[] = [
+    'ref:galactic-center',
+
+    'ref:achernar',
+    'ref:acrux',
+    'ref:aldebaran',
+    'ref:alnair',
+    'ref:alpheratz',
+    'ref:altair',
+    'ref:antares',
+    'ref:arcturus',
+    'ref:avior',
+    'ref:betelgeuse',
+    'ref:capella',
+    'ref:castor',
+    'ref:deneb',
+    'ref:deneb-kaitos',
+    'ref:denebola',
+    'ref:dubhe',
+    'ref:gacrux',
+    'ref:hamal',
+    'ref:imai',
+    'ref:kaus-australis',
+    'ref:markab',
+    'ref:menkar',
+    'ref:mimosa',
+    'ref:mintaka',
+    'ref:mirfak',
+    'ref:nunki',
+    'ref:polaris',
+    'ref:pollux',
+    'ref:regulus',
+    'ref:shaula',
+    'ref:sirius',
+    'ref:spica',
+    'ref:vega',
+];
+
 /**
  * REQUIRED ROLES (new model):
  * key = role name

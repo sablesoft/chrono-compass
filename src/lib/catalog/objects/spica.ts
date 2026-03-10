@@ -1,0 +1,26 @@
+import { dmsToDeg, hmsToDeg, type Obj } from '../types';
+
+// J2000 coordinates for Spica
+const RA_SPICA_DEG = hmsToDeg(13, 25, 11.58);
+const DEC_SPICA_DEG = dmsToDeg(-1, 11, 9, 40.7);
+
+export const Spica = {
+    id: 'ref:spica',
+    kind: 'reference',
+    name: { en: 'Spica', ru: 'Спика' },
+    description: {
+        en: 'Spica (ICRF/J2000) — the brightest star in Virgo and one of the classical zodiacal stars.',
+        ru: 'Спика (ICRF/J2000) — самая яркая звезда Девы и одна из классических звёзд зодиака.'
+    },
+    emoji: '★',
+    meta: {
+        color: '#cbd9ff',
+        direction: {
+            frame: 'icrf_j2000',
+            raDecDeg: {
+                ra: RA_SPICA_DEG,
+                dec: DEC_SPICA_DEG
+            }
+        }
+    }
+} satisfies Obj;

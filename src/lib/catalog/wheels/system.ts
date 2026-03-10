@@ -1,4 +1,4 @@
-import type { WheelSpec } from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const system = {
     type: 'system',
@@ -16,20 +16,37 @@ export const system = {
         'looker': 'S',
     },
     requiredRoles: {
-        'looker' : ['reference'],
+        'looker' : ['engine_body', 'reference'],
         'focus' : ['engine_body'],
-        'target' : ['engine_body'],
+        'target' : ['engine_body', 'reference'],
     },
     roles: [
         {
-            looker: ['ref:galactic-center'],
+            looker: REFERENCES,
             focus: ['Sun'],
-            target: ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto',]
+            target: [
+                // planets:
+                'Mercury',
+                'Venus',
+                'Earth',
+                'Mars',
+                'Jupiter',
+                'Saturn',
+                'Uranus',
+                'Neptune',
+                'Pluto',
+                // references:
+                ...REFERENCES,
+            ]
         },
         {
             looker: ['Sun'],
             focus: ['Earth'],
-            target: ['Moon',]
+            target: [
+                'Moon',
+                // references:
+                ...REFERENCES,
+            ]
         }
     ]
 } satisfies Extract<WheelSpec, { type: 'system' }>;

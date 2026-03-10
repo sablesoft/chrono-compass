@@ -6,6 +6,23 @@ export * from './types';
 
 import {ROLE_NAMES, type ObjId, type RoleName, type RoleSelects, type RoleValues, type WheelSpec} from "./types";
 
+function roleValueArray(role: RoleName, value: ObjId | null | ObjId[] | undefined): ObjId[] {
+    if (!value) return [];
+    if (Array.isArray(value)) return role === 'target' ? value : [];
+    return [value];
+}
+
+function idsUsedOutsideRole(values: RoleValues, role: RoleName): Set<ObjId> {
+    const out = new Set<ObjId>();
+    for (const otherRole of ROLE_NAMES) {
+        if (otherRole === role) continue;
+        for (const id of roleValueArray(otherRole, values[otherRole])) {
+            out.add(id);
+        }
+    }
+    return out;
+}
+
 export function filteredRoles(
     spec: WheelSpec,
     values: RoleValues
@@ -61,7 +78,9 @@ export function filteredRoles(
     for (const rs of rows) {
         for (const role of rolesToBuild) {
             const arr = (rs as Record<RoleName, ObjId[] | undefined>)[role] ?? [];
+            const blocked = idsUsedOutsideRole(values, role);
             for (const id of arr) {
+                if (blocked.has(id)) continue;
                 if (!selects[role].includes(id)) selects[role].push(id);
             }
         }
@@ -81,8 +100,18 @@ export function filteredRoles(
 
     // target
     if (Array.isArray(nextValues.target)) {
+        const blocked = idsUsedOutsideRole(nextValues, 'target');
+        nextValues.target = nextValues.target.filter((id) => !blocked.has(id) && selects.target.includes(id));
         if (nextValues.target.length === 0 && selects.target.length === 1) {
             nextValues.target = [selects.target[0]] as any;
+        }
+    }
+
+    for (const role of ['looker', 'focus'] as const) {
+        const picked = nextValues[role];
+        if (!picked) continue;
+        if (!selects[role].includes(picked)) {
+            nextValues[role] = null;
         }
     }
 
