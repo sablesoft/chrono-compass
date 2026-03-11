@@ -12,7 +12,7 @@ export const Regulus = {
     emoji: '★',
     meta: {
         color: '#d6deff',
-        distanceLy: 79.299,
+        distancePc: 24.3132,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

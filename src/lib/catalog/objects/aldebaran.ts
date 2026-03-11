@@ -12,7 +12,7 @@ export const Aldebaran = {
     emoji: '★',
     meta: {
         color: '#ffb46d',
-        distanceLy: 66.644,
+        distancePc: 20.4332,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

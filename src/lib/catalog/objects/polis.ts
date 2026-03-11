@@ -12,7 +12,7 @@ export const Polis = {
     emoji: '★',
     meta: {
         color: '#ffe0ba',
-        distanceLy: 259.678,
+        distancePc: 79.6177,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

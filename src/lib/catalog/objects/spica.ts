@@ -12,7 +12,7 @@ export const Spica = {
     emoji: '★',
     meta: {
         color: '#cbd9ff',
-        distanceLy: 249.737,
+        distancePc: 76.5698,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -12,7 +12,7 @@ export const Mintaka = {
     emoji: '★',
     meta: {
         color: '#dfe8ff',
-        distanceLy: 692.476,
+        distancePc: 212.3144,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -58,8 +58,10 @@ export type ReferenceDirection =
 
 export type ReferenceMeta = {
     direction: ReferenceDirection;
-    // Heliocentric distance in light-years for physical references (stars, galactic center).
+    // Heliocentric distance in parsecs for physical references (stars, galactic center).
     // Leave undefined for abstract directions/axes.
+    distancePc?: number;
+    // Legacy distance unit kept only for migration compatibility.
     distanceLy?: number;
 };
 

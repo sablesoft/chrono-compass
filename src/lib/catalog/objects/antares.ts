@@ -13,7 +13,7 @@ export const Antares = {
     emoji: '★',
     meta: {
         color: '#ffcc6f',
-        distanceLy: 553.745,
+        distancePc: 169.7792,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

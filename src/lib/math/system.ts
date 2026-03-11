@@ -167,10 +167,12 @@ function referenceDirectionVec(id: ObjId): { x: number; y: number; z: number } |
 
 function referenceDistanceAu(id: ObjId): number {
     const b = (objects as any)[id] as { meta?: ReferenceMeta } | undefined;
-    const distanceLy = Number(b?.meta?.distanceLy);
-    return Number.isFinite(distanceLy) && distanceLy > 0
-        ? distanceLy * AU_PER_LY
-        : NaN;
+    const distancePc = Number((b?.meta as any)?.distancePc);
+    if (Number.isFinite(distancePc) && distancePc > 0) {
+        return distancePc * 3.26156 * AU_PER_LY;
+    }
+    const distanceLy = Number((b?.meta as any)?.distanceLy);
+    return Number.isFinite(distanceLy) && distanceLy > 0 ? distanceLy * AU_PER_LY : NaN;
 }
 
 function normalizeVec(v: Vec3d): Vec3d | null {

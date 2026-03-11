@@ -12,7 +12,7 @@ export const Sabik = {
     emoji: '★',
     meta: {
         color: '#e6edff',
-        distanceLy: 88.365,
+        distancePc: 27.0929,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

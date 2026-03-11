@@ -13,7 +13,7 @@ export const Betelgeuse = {
     emoji: '★',
     meta: {
         color: '#ffcc6f',
-        distanceLy: 497.948,
+        distancePc: 152.6717,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

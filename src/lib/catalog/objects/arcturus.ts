@@ -12,7 +12,7 @@ export const Arcturus = {
     emoji: '★',
     meta: {
         color: '#ffb47e',
-        distanceLy: 36.717,
+        distancePc: 11.2575,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

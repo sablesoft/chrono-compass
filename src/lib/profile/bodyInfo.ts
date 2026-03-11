@@ -1,4 +1,6 @@
 import { objects, type ObjId, type ReferenceMeta } from '../catalog';
+import { STAR_INFO_ITEMS } from '../catalog/starInfoItems';
+import { AU_PER_LY } from '../math/helpers';
 import { formatInfoValue } from '../wheel/infoFormat';
 import type { BodyUserInfoItem, BodyUserOverride } from './types';
 
@@ -27,6 +29,15 @@ function catalogBody(id: ObjId): {
 
 function trimText(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
+}
+
+function itemIdFromLabel(label: string): string {
+    const key = String(label ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+    return `system:${key || 'item'}`;
 }
 
 export function bodyOverrideRecord(overrides: BodyOverrideMap | null | undefined, id: ObjId): BodyUserOverride | null {
@@ -60,8 +71,16 @@ export function resolveBodyDescriptionLabel(id: ObjId, overrides: BodyOverrideMa
 }
 
 export function resolveBodyDistanceLy(id: ObjId): number {
-    const distanceLy = Number(catalogBody(id)?.meta?.distanceLy);
-    return Number.isFinite(distanceLy) && distanceLy > 0 ? distanceLy : NaN;
+    const distancePc = resolveBodyDistancePc(id);
+    return Number.isFinite(distancePc) && distancePc > 0 ? distancePc * 3.26156 : NaN;
+}
+
+export function resolveBodyDistancePc(id: ObjId): number {
+    const meta = catalogBody(id)?.meta;
+    const distancePc = Number((meta as any)?.distancePc);
+    if (Number.isFinite(distancePc) && distancePc > 0) return distancePc;
+    const distanceLy = Number((meta as any)?.distanceLy);
+    return Number.isFinite(distanceLy) && distanceLy > 0 ? distanceLy / 3.26156 : NaN;
 }
 
 export function resolveBodyDistanceLyLabel(id: ObjId, overrides: BodyOverrideMap | null | undefined, lang = 'en'): string {
@@ -101,13 +120,23 @@ export function resolveBodyInfoItems(id: ObjId, overrides: BodyOverrideMap | nul
         });
     }
 
-    const distanceLy = resolveBodyDistanceLy(id);
-    if (Number.isFinite(distanceLy)) {
-        items.push({
-            id: 'system:distance-ly',
-            label: resolveBodyDistanceLyLabel(id, overrides, lang),
-            value: formatInfoValue('ly', distanceLy)
-        });
+    const distancePc = resolveBodyDistancePc(id);
+    if (Number.isFinite(distancePc)) {
+        const distanceAu = distancePc * 3.26156 * AU_PER_LY;
+        const starMeta: Record<string, number> = { distanceAu };
+        for (const def of STAR_INFO_ITEMS) {
+            const label = trimText(def.defaultLabel ?? def.label);
+            if (!label || !def.metaField) continue;
+            const raw = starMeta[def.metaField];
+            const value = formatInfoValue(def.format, raw);
+            if (!value || value === '—') continue;
+            items.push({
+                id: itemIdFromLabel(label),
+                label,
+                value,
+                modal: typeof def.modal === 'string' ? def.modal : undefined
+            });
+        }
     }
 
     items.push(...resolveBodyCustomInfoItems(id, overrides));

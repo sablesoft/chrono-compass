@@ -12,7 +12,7 @@ export const Hadar = {
     emoji: '★',
     meta: {
         color: '#cfe0ff',
-        distanceLy: 392.014,
+        distancePc: 120.1922,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

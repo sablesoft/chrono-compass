@@ -1,6 +1,9 @@
 import { formatDateTime } from '../format';
 
 export type FormatInput = number | string | null | undefined;
+const AU_PER_LY = 63_241.077;
+const LY_PER_PC = 3.26156;
+const AU_PER_PC = AU_PER_LY * LY_PER_PC;
 
 function toNum(v: FormatInput): number {
     if (typeof v === 'number') return v;
@@ -81,8 +84,10 @@ export function formatInfoValue(format: string | undefined, raw: FormatInput): s
             return formatNum(n, 2);
         case 'au':
             return formatNum(n, 6);
+        case 'pc':
+            return Number.isFinite(n) ? formatNum(n / AU_PER_PC, 3) : '—';
         case 'ly':
-            return formatNum(n, 6);
+            return Number.isFinite(n) ? formatNum(n / AU_PER_LY, 3) : '—';
         case 'km':
             return formatKm(n);
         case 'duration':

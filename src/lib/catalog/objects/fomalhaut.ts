@@ -12,7 +12,7 @@ export const Fomalhaut = {
     emoji: '★',
     meta: {
         color: '#dff5ff',
-        distanceLy: 25.126,
+        distancePc: 7.7037,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

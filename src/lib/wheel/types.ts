@@ -96,6 +96,7 @@ export type InfoValueFormat =
     | 'deg'
     | 'deg2'
     | 'au'
+    | 'pc'
     | 'ly'
     | 'km'
     | 'duration';

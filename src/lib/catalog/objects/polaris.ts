@@ -13,7 +13,7 @@ export const Polaris = {
     emoji: '★',
     meta: {
         color: '#f8f7ff',
-        distanceLy: 432.568,
+        distancePc: 132.6261,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

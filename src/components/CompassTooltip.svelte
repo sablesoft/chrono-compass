@@ -8,7 +8,8 @@
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
     import { formatLabelTitleCaseUi, formatSpokeTextUi } from '../lib/wheel/types';
-    import {clamp, norm360} from "../lib/math/helpers";
+    import { AU_PER_LY, clamp, norm360 } from '../lib/math/helpers';
+    import { resolveBodyDistancePc } from '../lib/profile/bodyInfo';
     import RelatedWheels from './RelatedWheels.svelte';
 
     export let x = 0;
@@ -61,6 +62,8 @@
     const MAX_W = 420;
     const MAX_H = 420;
     const SEAM_NEXT_EPS_MS = 1500;
+    const LY_PER_PC = 3.26156;
+    const AU_PER_PC = AU_PER_LY * LY_PER_PC;
 
     let el: HTMLDivElement | null = null;
     let left = 0;
@@ -107,8 +110,17 @@
         return `${x.toFixed(1)}°`;
     }
 
-    function fmtDistAu(x: number) {
+    function isReferenceStarDistance(id: ObjId): boolean {
+        const distancePc = resolveBodyDistancePc(id);
+        return Number.isFinite(distancePc) && distancePc > 0;
+    }
+
+    function fmtDist(row: BodyRow) {
+        const x = row.distanceAu;
         if (!Number.isFinite(x)) return '—';
+        if (isReferenceStarDistance(row.id)) {
+            return `${(x / AU_PER_PC).toFixed(3)} pc`;
+        }
         const AU_KM = 149_597_870.7;
         const absAu = Math.abs(x);
         if (absAu < 0.005) {
@@ -197,7 +209,14 @@
     }
 
     function uniqueBodyInfoItems(items: Array<{ id: string; label: string; value?: string; modal?: string }>, excluded: Set<string>) {
-        return items.filter((item) => !excluded.has(normalizeLabelKey(item.label)));
+        const byLabel = new Map<string, { id: string; label: string; value?: string; modal?: string }>();
+        for (const item of items) {
+            const key = normalizeLabelKey(item.label);
+            if (!key || excluded.has(key)) continue;
+            // Keep the latest item for the same label (dynamic rows should override base body info).
+            byLabel.set(key, item);
+        }
+        return Array.from(byLabel.values());
     }
 
     function filteredRowInfoItems(row: BodyRow) {
@@ -669,7 +688,7 @@
                                         <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
                                         {#if Number.isFinite(row.distanceAu) && row.distanceLabel}
                                             <span class="sep">•</span>
-                                            <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                            <span>{row.distanceLabel} {fmtDist(row)}</span>
                                         {/if}
                                     </div>
                                 {/if}
@@ -758,7 +777,7 @@
                                         <span>{row.secondaryLabel} {fmtDeg(row.secondaryDeg)}</span>
                                         {#if Number.isFinite(row.distanceAu) && row.distanceLabel}
                                             <span class="sep">•</span>
-                                            <span>{row.distanceLabel} {fmtDistAu(row.distanceAu)}</span>
+                                            <span>{row.distanceLabel} {fmtDist(row)}</span>
                                         {/if}
                                     </div>
                                 {/if}

@@ -12,7 +12,7 @@ export const Mirfak = {
     emoji: '★',
     meta: {
         color: '#fff0c8',
-        distanceLy: 506.453,
+        distancePc: 155.2794,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

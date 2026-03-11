@@ -13,7 +13,7 @@ export const Imai = {
     emoji: '★',
     meta: {
         color: '#aabfff',
-        distanceLy: 345.139,
+        distancePc: 105.8202,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

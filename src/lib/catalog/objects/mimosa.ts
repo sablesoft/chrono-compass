@@ -13,7 +13,7 @@ export const Mimosa = {
     emoji: '★',
     meta: {
         color: '#aabfff',
-        distanceLy: 278.528,
+        distancePc: 85.3972,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

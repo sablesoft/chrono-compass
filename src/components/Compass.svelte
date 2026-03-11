@@ -39,16 +39,18 @@
 
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
-    import { norm360 } from '../lib/math/helpers';
+    import { AU_PER_LY, norm360 } from '../lib/math/helpers';
     import { projectSystemSideCoordinates, systemLookerSideDirection } from '../lib/math/system';
     import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { activeProfile, isActiveProfileLocked } from '../lib/profile/store';
     import {
         resolveBodyColor,
+        resolveBodyDistancePc,
         resolveBodyEmoji,
         resolveBodyInfoItems,
         resolveBodyName
     } from '../lib/profile/bodyInfo';
+    import { STAR_INFO_ITEMS } from '../lib/catalog/starInfoItems';
     import type { BodyUserOverride } from '../lib/profile/types';
 
     // ------------------------------------------------------------
@@ -1397,10 +1399,37 @@
         return `${x.toFixed(3)} AU`;
     }
 
+    const LY_PER_PC = 3.26156;
+    const AU_PER_PC = AU_PER_LY * LY_PER_PC;
+
+    function isReferenceStarDistance(id: ObjId): boolean {
+        const distancePc = resolveBodyDistancePc(id);
+        return Number.isFinite(distancePc) && distancePc > 0;
+    }
+
+    function fmtNodeDistForBody(id: ObjId, au: number): string {
+        if (!Number.isFinite(au)) return '—';
+        if (isReferenceStarDistance(id)) {
+            return `${(au / AU_PER_PC).toFixed(3)} pc`;
+        }
+        return fmtNodeDistAu(au);
+    }
+
+    function formatDistAuValue3(au: number): string | undefined {
+        if (!Number.isFinite(au)) return undefined;
+        return au.toFixed(3);
+    }
+
+    function normalizeCompassBodyInfoItems(bodyId: ObjId, items: CompassInfoChip[]): CompassInfoChip[] {
+        if (!isReferenceStarDistance(bodyId)) return items;
+        return items.filter((item) => item.id === 'system:dist-ps' || item.id === 'system:dist-ly' || !item.id.startsWith('system:dist-'));
+    }
+
     function nodeInfoItemsFromSpec(
         source: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal' | undefined,
         code: string,
-        meta: Record<string, unknown>
+        meta: Record<string, unknown>,
+        bodyId?: ObjId
     ): CompassInfoChip[] {
         if (!source) return [];
         const specRaw = (wheels as Record<string, unknown>)[source] as { info?: InfoItem[] } | undefined;
@@ -1421,16 +1450,39 @@
             if (def.metaField) {
                 const rawValue = meta?.[def.metaField];
                 if (rawValue == null || rawValue === '') continue;
+                const rawNumber = Number(rawValue);
                 const formatInput = (typeof rawValue === 'number' || typeof rawValue === 'string' || rawValue == null)
                     ? rawValue
                     : String(rawValue);
-                const value = def.format ? formatInfoValue(def.format, formatInput) : String(formatInput);
+                const labelKey = tagIdFromLabel(defaultLabel);
+                const isDistAu = def.metaField === 'distanceAu' && labelKey === 'dist-au';
+                const isStar = !!(bodyId && isReferenceStarDistance(bodyId));
+                if (isDistAu && isStar) {
+                    for (const starDef of STAR_INFO_ITEMS) {
+                        const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
+                        if (!starLabel) continue;
+                        const starValue = formatInfoValue(starDef.format, rawNumber);
+                        if (!starValue || starValue === '—') continue;
+                        out.push({
+                            id: `dynamic:${tagIdFromLabel(starLabel)}`,
+                            label: uiLabel(starLabel),
+                            value: starValue,
+                            modal: typeof starDef.modal === 'string' ? starDef.modal : resolvedModal
+                        });
+                    }
+                    continue;
+                }
+
+                const value = isDistAu
+                    ? (formatDistAuValue3(rawNumber) ?? '—')
+                    : (def.format ? formatInfoValue(def.format, formatInput) : String(formatInput));
                 out.push({
                     id,
                     label: resolvedLabel,
                     value,
                     modal: resolvedModal
                 });
+
                 continue;
             }
             out.push({
@@ -1770,7 +1822,7 @@
                 const pointTechTagsUi = pointTechTags.map((tag) => resolvePinnedTechTagLabel(tag));
                 const sourceWheel = p.sourceWheel;
                 const pointMeta = (p.meta && typeof p.meta === 'object') ? p.meta : {};
-                const infoItems = nodeInfoItemsFromSpec(sourceWheel, p.code, pointMeta);
+                const infoItems = nodeInfoItemsFromSpec(sourceWheel, p.code, pointMeta, t.id);
                 const nextSynodBoundaryTs = (t.orbitTrack ?? [])
                     .filter((q) => q.source === 'spoke' && q.code === 'E_next' && Number.isFinite(q.ts))
                     .map((q) => q.ts)
@@ -1796,7 +1848,7 @@
                 const metaParts = [
                     `${primaryLabel} ${fmtNodeDeg(primaryDeg)}`,
                     `${secondaryLabel} ${fmtNodeDeg(secondaryDeg)}`,
-                    Number.isFinite(distAu) ? `${distanceLabel} ${fmtNodeDistAu(distAu)}` : ''
+                    Number.isFinite(distAu) ? `${distanceLabel} ${fmtNodeDistForBody(t.id, distAu)}` : ''
                 ].filter((x) => !!x);
                 const metaText = metaParts.join(' • ');
                 const uiCode = formatSpokeCodeUi(p.code);
@@ -1914,7 +1966,10 @@
             visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true,
             infoMeta: normalizeBodyInfoMeta(t),
             currentHouses: normalizeBodyCurrentHouses(t),
-            bodyInfoItems: resolveBodyInfoItems(t.id, activeBodyOverrides),
+            bodyInfoItems: normalizeCompassBodyInfoItems(
+                t.id,
+                resolveBodyInfoItems(t.id, activeBodyOverrides)
+            ),
             activeNode
         };
     });
@@ -2409,6 +2464,28 @@
                 format: typeof row.format === 'string' ? row.format : undefined,
                 spokes: row.spokes
             });
+
+            const labelKey = tagIdFromLabel(defaultLabel);
+            if (row.metaField === 'distanceAu' && labelKey === 'dist-au') {
+                for (const starDef of STAR_INFO_ITEMS) {
+                    const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
+                    if (!starLabel) continue;
+                    const starId = `${scope}:${source}:${tagIdFromLabel(starLabel)}`;
+                    if (seen.has(starId)) continue;
+                    seen.add(starId);
+                    out.push({
+                        id: starId,
+                        label: uiLabel(starLabel),
+                        scope,
+                        enabledByDefault,
+                        modal: typeof starDef.modal === 'string' ? starDef.modal : undefined,
+                        source,
+                        metaField: 'distanceAu',
+                        format: starDef.format,
+                        spokes: row.spokes
+                    });
+                }
+            }
         }
         return out;
     }
@@ -2695,6 +2772,20 @@
         if (!sourceCode || !tagAppliesToCode(def, sourceCode)) return undefined;
         if (!def.metaField) return '';
         const meta = row.infoMeta[def.source] ?? {};
+        if (def.metaField === 'distanceAu') {
+            const rawValue = Number(meta?.[def.metaField]);
+            if (!Number.isFinite(rawValue)) return undefined;
+            const isDistPs = tagIdFromLabel(def.label) === 'dist-ps';
+            const isDistLy = tagIdFromLabel(def.label) === 'dist-ly';
+            const isStar = isReferenceStarDistance(row.id);
+            if (isDistPs) {
+                return isStar ? tagValueFromMeta(def, meta, sourceCode) : undefined;
+            }
+            if (isDistLy) {
+                return isStar ? tagValueFromMeta(def, meta, sourceCode) : undefined;
+            }
+            return isStar ? undefined : formatDistAuValue3(rawValue);
+        }
         return tagValueFromMeta(def, meta, sourceCode);
     }
 

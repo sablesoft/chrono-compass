@@ -12,7 +12,7 @@ export const ZubenElschemali = {
     emoji: '★',
     meta: {
         color: '#b6ddff',
-        distanceLy: 185.106,
+        distancePc: 56.7538,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

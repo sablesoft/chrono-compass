@@ -12,7 +12,7 @@ export const Alnair = {
     emoji: '★',
     meta: {
         color: '#d6e2ff',
-        distanceLy: 101.008,
+        distancePc: 30.9692,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

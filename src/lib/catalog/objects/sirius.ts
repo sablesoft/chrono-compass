@@ -13,7 +13,7 @@ export const Sirius = {
     emoji: '★',
     meta: {
         color: '#cad7ff',
-        distanceLy: 8.601,
+        distancePc: 2.6371,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

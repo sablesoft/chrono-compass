@@ -12,7 +12,7 @@ export const Vega = {
     emoji: '★',
     meta: {
         color: '#d8e4ff',
-        distanceLy: 25.045,
+        distancePc: 7.6788,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

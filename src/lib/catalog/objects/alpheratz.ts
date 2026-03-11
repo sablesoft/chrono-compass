@@ -12,7 +12,7 @@ export const Alpheratz = {
     emoji: '★',
     meta: {
         color: '#dce5ff',
-        distanceLy: 97.012,
+        distancePc: 29.744,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {
