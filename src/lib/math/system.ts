@@ -51,10 +51,13 @@ export type SystemTrackPoint = CompassTrackPoint & {
     phaseDeg: number;
     distanceAu: number;
     focusDistAu: number;
+    planeDistanceAu: number;
+    planeDistanceRatio: number;
 };
 
 export type SystemTargetState = {
     id: ObjId;
+    kind: 'engine_body' | 'reference';
     azimuthDeg: number;
     altitudeDeg: number;
     angleDeg: number;
@@ -64,6 +67,8 @@ export type SystemTargetState = {
     phaseDeg: number;
     distanceAu: number;
     focusDistAu: number;
+    planeDistanceAu: number;
+    planeDistanceRatio: number;
     distanceLabel: string;
     currentHouses?: {
         synod?: string;
@@ -76,6 +81,14 @@ export type SystemTargetState = {
         nodal?: Record<string, unknown>;
     };
 };
+
+export type SystemSideProjection = {
+    x: number;
+    y: number;
+    visible: boolean;
+};
+
+type Vec3d = { x: number; y: number; z: number };
 
 function bodyEmoji(id: ObjId): string {
     const b = (objects as any)[id] as { emoji?: string } | undefined;
@@ -137,6 +150,56 @@ function referenceDirectionVec(id: ObjId): { x: number; y: number; z: number } |
     const unit = b?.meta ? refUnit(b.meta) : null;
     if (!unit) return null;
     return { x: unit[0], y: unit[1], z: unit[2] };
+}
+
+function normalizeVec(v: Vec3d): Vec3d | null {
+    const len = Math.hypot(v.x, v.y, v.z);
+    if (!(len > 0)) return null;
+    return { x: v.x / len, y: v.y / len, z: v.z / len };
+}
+
+function projectToEclipticPlane(v: Vec3d): Vec3d {
+    return { x: v.x, y: v.y, z: 0 };
+}
+
+function dotVec(a: Vec3d, b: Vec3d): number {
+    return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+function lookerSideBasisVec(looker: ObjId, focus: ObjId, ts: number): Vec3d | null {
+    if (bodyKind(looker) === 'reference') {
+        const dirEq = referenceDirectionVec(looker);
+        if (!dirEq) return null;
+        return normalizeVec(projectToEclipticPlane(eqToEcl(dirEq)));
+    }
+
+    const pFocus = helioVec(focus, ts);
+    const pLooker = helioVec(looker, ts);
+    if (!pFocus || !pLooker) return null;
+    const relEq = {
+        x: pLooker.x - pFocus.x,
+        y: pLooker.y - pFocus.y,
+        z: pLooker.z - pFocus.z
+    };
+    return normalizeVec(projectToEclipticPlane(eqToEcl(relEq)));
+}
+
+export function projectSystemReferenceToSide(
+    looker: ObjId,
+    focus: ObjId,
+    target: ObjId,
+    ts: number
+): SystemSideProjection | null {
+    const dirEq = referenceDirectionVec(target);
+    if (!dirEq) return null;
+    const dirEcl = normalizeVec(eqToEcl(dirEq));
+    const axis = lookerSideBasisVec(looker, focus, ts);
+    if (!dirEcl || !axis) return null;
+    return {
+        x: dotVec(dirEcl, axis),
+        y: dirEcl.z,
+        visible: dirEcl.z >= 0
+    };
 }
 
 function referenceTargetInstant(
@@ -488,6 +551,8 @@ function buildTrackFromSynodSpokes(
             phaseDeg: spokePhaseNormDeg,
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
+            planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
+            planeDistanceRatio: NaN,
             tags: tags.length ? tags : undefined,
             meta: {
                 ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
@@ -495,7 +560,8 @@ function buildTrackFromSynodSpokes(
                 eclipticLatDeg: eclLat,
                 distanceAu: inst.distanceAu,
                 distanceKm: inst.distanceAu * AU_KM,
-                focusDistAu: inst.focusDistAu
+                focusDistAu: inst.focusDistAu,
+                planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN
             }
         });
     }
@@ -665,12 +731,15 @@ function densifyTrackByAngleGap(
                 phaseDeg: systemPhaseDeg(inst),
                 distanceAu: inst.distanceAu,
                 focusDistAu: inst.focusDistAu,
+                planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
+                planeDistanceRatio: NaN,
                 meta: {
                     phaseDeg: systemPhaseDeg(inst),
                     eclipticLatDeg: eclLat,
                     distanceAu: inst.distanceAu,
                     distanceKm: inst.distanceAu * AU_KM,
-                    focusDistAu: inst.focusDistAu
+                    focusDistAu: inst.focusDistAu,
+                    planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN
                 }
             });
         }
@@ -721,6 +790,8 @@ function buildTrackFromBindSpokes(
             phaseDeg: systemPhaseDeg(inst),
             distanceAu,
             focusDistAu: inst.focusDistAu,
+            planeDistanceAu: Number.isFinite(eclLat) ? (distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
+            planeDistanceRatio: NaN,
             tags: tags.length ? tags : undefined,
             meta: {
                 ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
@@ -728,7 +799,8 @@ function buildTrackFromBindSpokes(
                 eclipticLatDeg: eclLat,
                 distanceAu,
                 distanceKm: distanceAu * AU_KM,
-                focusDistAu: inst.focusDistAu
+                focusDistAu: inst.focusDistAu,
+                planeDistanceAu: Number.isFinite(eclLat) ? (distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN
             }
         });
     }
@@ -768,6 +840,8 @@ function buildTrackFromNodalSpokes(
             phaseDeg: systemPhaseDeg(inst),
             distanceAu: inst.distanceAu,
             focusDistAu: inst.focusDistAu,
+            planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
+            planeDistanceRatio: NaN,
             tags: tags.length ? tags : undefined,
             meta: {
                 ...(s.meta && typeof s.meta === 'object' ? (s.meta as Record<string, unknown>) : {}),
@@ -775,7 +849,8 @@ function buildTrackFromNodalSpokes(
                 eclipticLatDeg: eclLat,
                 distanceAu: inst.distanceAu,
                 distanceKm: inst.distanceAu * AU_KM,
-                focusDistAu: inst.focusDistAu
+                focusDistAu: inst.focusDistAu,
+                planeDistanceAu: Number.isFinite(eclLat) ? (inst.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN
             }
         });
     }
@@ -914,6 +989,34 @@ function normalizeOrbit(distanceAu: number, maxAu: number): number {
     return clamp(distanceAu / maxAu, 0, 1);
 }
 
+export function projectSystemSideCoordinates(
+    angleDeg: number,
+    distanceRatio: number,
+    planeDistanceRatio: number
+): SystemSideProjection {
+    const angleRad = (angleDeg * Math.PI) / 180;
+    const radius = Number.isFinite(distanceRatio) ? distanceRatio : 0;
+    const x = radius * Math.cos(angleRad);
+    const y = Number.isFinite(planeDistanceRatio) ? planeDistanceRatio : 0;
+    return {
+        x,
+        y,
+        visible: Number.isFinite(planeDistanceRatio) ? planeDistanceRatio >= 0 : true
+    };
+}
+
+export function projectSystemTargetToSide(
+    target: Pick<SystemTargetState, 'angleDeg' | 'orbit' | 'planeDistanceRatio'>
+): SystemSideProjection {
+    return projectSystemSideCoordinates(target.angleDeg, target.orbit, target.planeDistanceRatio);
+}
+
+export function systemLookerSideDirection(looker: ObjId, focus: ObjId, ts: number): 'N' | 'S' {
+    const latDeg = eclipticLatitudeDegAt(focus, looker, ts);
+    if (!Number.isFinite(latDeg)) return 'S';
+    return latDeg > 0 ? 'N' : 'S';
+}
+
 export async function solveSystemWheel(input: WheelInput<'system'>): Promise<CompassSolveResult<SystemTargetState>> {
     const dbg = input.dbg;
     const ts = input.ts;
@@ -1029,18 +1132,28 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             ? SYSTEM_REFERENCE_RING_ORBIT
             : normalizeOrbit(r.distanceAu, maxAu);
         const eclLat = eclipticLatitudeDegAt(focus, r.id, ts);
+        const planeDistanceAu = r.kind === 'engine_body' && Number.isFinite(eclLat)
+            ? (r.distanceAu * Math.sin((eclLat * Math.PI) / 180))
+            : NaN;
+        const planeDistanceRatio = r.kind === 'engine_body' && Number.isFinite(planeDistanceAu)
+            ? (planeDistanceAu / maxAu)
+            : NaN;
 
         const orbitTrack = r.orbitTrack?.map((p) => {
             const o = normalizeOrbit(p.distanceAu, maxAu);
             return {
                 ...p,
                 orbit: o,
+                planeDistanceRatio: Number.isFinite(p.planeDistanceAu)
+                    ? (p.planeDistanceAu / maxAu)
+                    : NaN,
                 visible: Number.isFinite(p.altitudeDeg) ? p.altitudeDeg >= 0 : true
             };
         });
 
         return {
             id: r.id,
+            kind: r.kind,
             azimuthDeg: pseudoAzimuthFromWheelAngle(r.angleDeg),
             altitudeDeg: eclLat,
             angleDeg: r.angleDeg,
@@ -1050,6 +1163,8 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             phaseDeg: r.phaseDeg,
             distanceAu: r.distanceAu,
             focusDistAu: r.focusDistAu,
+            planeDistanceAu,
+            planeDistanceRatio,
             distanceLabel: r.kind === 'reference' ? '' : `Dist to ${bodyNameEn(focus)}`,
             currentHouses: r.currentHouses,
             infoMeta: {
@@ -1068,8 +1183,8 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
                     nodalLatitudeDeg: eclLat,
                     distanceAu: r.distanceAu,
                     distanceKm: r.distanceAu * AU_KM,
-                    planeDistanceAu: Number.isFinite(eclLat) ? (r.distanceAu * Math.sin((eclLat * Math.PI) / 180)) : NaN,
-                    planeDistanceKm: Number.isFinite(eclLat) ? (r.distanceAu * AU_KM * Math.sin((eclLat * Math.PI) / 180)) : NaN
+                    planeDistanceAu,
+                    planeDistanceKm: Number.isFinite(planeDistanceAu) ? (planeDistanceAu * AU_KM) : NaN
                 } : undefined
             }
         };

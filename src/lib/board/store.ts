@@ -34,8 +34,12 @@ export const DEFAULT_WHEEL_CARD_SIZE = 560;
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
 const DEFAULT_VIEW: BoardWheelView = {
     showVisual: true,
+    showSecondaryVisual: false,
     showInfo: false,
     showPickers: false,
+    visualLayout: 'column',
+    visualRowSide: 'right',
+    visualColumnOrder: 'top-first',
     infoChipOrder: [],
     infoChipSelected: [],
     infoChipLabels: {},
@@ -93,16 +97,38 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
     const showInfo = typeof src.showInfo === 'boolean'
         ? src.showInfo
         : (base.showInfo === true);
+    const showSecondaryVisual = typeof src.showSecondaryVisual === 'boolean'
+        ? src.showSecondaryVisual
+        : (base.showSecondaryVisual === true);
     const showPickers = typeof src.showPickers === 'boolean'
         ? src.showPickers
         : (base.showPickers === true);
+    const visualLayout = src.visualLayout === 'row'
+        ? 'row'
+        : (src.visualLayout === 'column'
+            ? 'column'
+            : (base.visualLayout === 'row' ? 'row' : 'column'));
+    const visualRowSide = src.visualRowSide === 'left'
+        ? 'left'
+        : (src.visualRowSide === 'right'
+            ? 'right'
+            : (base.visualRowSide === 'left' ? 'left' : 'right'));
+    const visualColumnOrder = src.visualColumnOrder === 'side-first'
+        ? 'side-first'
+        : (src.visualColumnOrder === 'top-first'
+            ? 'top-first'
+            : (base.visualColumnOrder === 'side-first' ? 'side-first' : 'top-first'));
     const markerScaleBias = Number.isFinite(src.markerScaleBias)
         ? (src.markerScaleBias as number)
         : (base.markerScaleBias ?? 1);
     return {
         showVisual: src.showVisual !== false,
+        showSecondaryVisual,
         showInfo,
         showPickers,
+        visualLayout,
+        visualRowSide,
+        visualColumnOrder,
         infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder),
         infoChipSelected: normalizeInfoChipOrder(src.infoChipSelected ?? base.infoChipSelected),
         infoChipLabels: normalizeInfoChipLabels(src.infoChipLabels ?? base.infoChipLabels),

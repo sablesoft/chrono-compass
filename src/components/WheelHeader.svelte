@@ -11,10 +11,13 @@
     export let onDragStart: (e: DragEvent) => void = () => {};
     export let onDragEnd: () => void = () => {};
     export let visualOpen = true;
+    export let secondaryVisualAvailable = false;
+    export let secondaryVisualOpen = false;
     export let infoOpen = true;
     export let pickersOpen = true;
     export let profileLocked = false;
     export let onToggleVisual: (() => void) | null = null;
+    export let onToggleSecondaryVisual: (() => void) | null = null;
     export let onToggleInfo: (() => void) | null = null;
     export let onTogglePickers: (() => void) | null = null;
     $: wheelId = wheel?.id ?? '';
@@ -64,6 +67,16 @@
                 aria-pressed={visualOpen}
                 on:click={() => onToggleVisual?.()}
         >◍</button>
+        {#if secondaryVisualAvailable}
+            <button
+                    type="button"
+                    class="navBtn toggleBtn"
+                    class:off={!secondaryVisualOpen}
+                    title={secondaryVisualOpen ? 'Hide side view' : 'Show side view'}
+                    aria-pressed={secondaryVisualOpen}
+                    on:click={() => onToggleSecondaryVisual?.()}
+            >⊣</button>
+        {/if}
         <button
                 type="button"
                 class="navBtn toggleBtn"

@@ -39,6 +39,7 @@
     import { compassTargetsToMarkerItems } from '../lib/math/compass';
     import type { CompassTargetState } from '../lib/math/compass';
     import { norm360 } from '../lib/math/helpers';
+    import { projectSystemSideCoordinates, systemLookerSideDirection } from '../lib/math/system';
     import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { isActiveProfileLocked } from '../lib/profile/store';
 
@@ -149,10 +150,20 @@
     const rLabel = geom.rLabel;
 
     const rHorizon = rOuter * 0.87;
+    const systemReferenceRingOrbit = 1.5;
+    const SIDE_AXIS_HALF = rOuter * 0.92;
+    const SIDE_LABEL_OFFSET = VB * 0.045;
+    const SIDE_LOOKER_OFFSET = SIDE_AXIS_HALF + VB * 0.05;
 
     const boundaryAngleDeg = geom.boundaryAngleDeg;
     const spokeAngleDeg = geom.spokeAngleDeg;
     const polarToXY = geom.polarToXY;
+
+    type VisualPaneMode = 'top' | 'side';
+    type VisualMarkerCluster = MarkerCluster & {
+        x: number;
+        y: number;
+    };
 
     function orbitToRadiusVB(orbit: number) {
         const o = Math.max(0, orbit);
@@ -184,10 +195,12 @@
     const BODY_MARKER_HIDE_RADIUS_VB = VB * 0.022;
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
     let markerClusters: MarkerCluster[] = [];
+    let sideMarkerClusters: VisualMarkerCluster[] = [];
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
     let allBodies: CompassBodyRow[] = [];
     let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
+    let sideOrbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     type OrbitNodeUi = {
         key: string;
         x: number;
@@ -202,21 +215,14 @@
         infoItems?: CompassInfoChip[];
         ts: number;
     };
-    let orbitNodes: Array<{
-        key: string;
-        x: number;
-        y: number;
-        tip: MomentTip;
-        visible: boolean;
-        bodyId: ObjId;
-        code: string;
-        source?: 'cycle' | 'spoke' | 'seam';
-        sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
-        meta?: Record<string, unknown>;
-        infoItems?: CompassInfoChip[];
-        ts: number;
-    }> = [];
+    type RawOrbitNodeUi = Omit<OrbitNodeUi, 'x' | 'y' | 'visible'> & {
+        trackPoint: NonNullable<CompassTargetState['orbitTrack']>[number];
+    };
+    let rawOrbitNodes: RawOrbitNodeUi[] = [];
+    let orbitNodes: OrbitNodeUi[] = [];
     let orbitNodesAll: OrbitNodeUi[] = [];
+    let orbitNodesSide: OrbitNodeUi[] = [];
+    let orbitNodesSideAll: OrbitNodeUi[] = [];
     const MARKER_STYLE = {
         // Transparent hit circle radius in px (interaction target).
         hitPx: 18,
@@ -272,13 +278,16 @@
         setMarkerScaleBias(markerScaleBias - MARKER_SCALE_STEP);
     }
 
-    let svgEl: SVGSVGElement | null = null;
+    let primarySvgEl: SVGSVGElement | null = null;
+    let secondarySvgEl: SVGSVGElement | null = null;
     let svgPx = 0;
     let svgRo: ResizeObserver | null = null;
 
     function updateSvgPx() {
-        const w = svgEl?.getBoundingClientRect().width ?? 0;
-        svgPx = w > 0 ? w : size;
+        const widths = [primarySvgEl, secondarySvgEl]
+            .map((el) => el?.getBoundingClientRect().width ?? 0)
+            .filter((w) => w > 0);
+        svgPx = widths[0] ?? size;
     }
 
     function pxToVb(px: number): number {
@@ -313,12 +322,18 @@
         updateSvgPx();
         if (typeof ResizeObserver !== 'undefined') {
             svgRo = new ResizeObserver(() => updateSvgPx());
-            if (svgEl) svgRo.observe(svgEl);
         }
         return () => svgRo?.disconnect();
     });
 
-    $: if (svgEl) {
+    $: if (svgRo) {
+        svgRo.disconnect();
+        if (primarySvgEl) svgRo.observe(primarySvgEl);
+        if (secondarySvgEl) svgRo.observe(secondarySvgEl);
+        updateSvgPx();
+    }
+
+    $: if (primarySvgEl || secondarySvgEl) {
         void size;
         updateSvgPx();
     }
@@ -488,6 +503,15 @@
         return `grp-${orbitNodeGroup(node)}`;
     }
 
+    function filterVisibleOrbitNodes(nodes: OrbitNodeUi[]): OrbitNodeUi[] {
+        return nodes.filter((n) => {
+            if (isMainCycleBoundaryNode(n)) return true;
+            const g = orbitNodeGroup(n);
+            if (!showOrbitNodesAny) return false;
+            return isOrbitNodeGroupVisible(g);
+        });
+    }
+
     $: orbitNodesVisible = (() => {
         const nodeGroupToggles = [
             orbitNodeGroupVisible.regular,
@@ -498,13 +522,21 @@
             orbitNodeGroupVisible.bind
         ];
         void nodeGroupToggles;
+        return filterVisibleOrbitNodes(orbitNodes);
+    })();
 
-        return orbitNodes.filter((n) => {
-            if (isMainCycleBoundaryNode(n)) return true;
-            const g = orbitNodeGroup(n);
-            if (!showOrbitNodesAny) return false;
-            return isOrbitNodeGroupVisible(g);
-        });
+    let orbitNodesSideVisible: OrbitNodeUi[] = [];
+    $: orbitNodesSideVisible = (() => {
+        const nodeGroupToggles = [
+            orbitNodeGroupVisible.regular,
+            orbitNodeGroupVisible.compass,
+            orbitNodeGroupVisible.horizon,
+            orbitNodeGroupVisible.nodal,
+            orbitNodeGroupVisible.synod,
+            orbitNodeGroupVisible.bind
+        ];
+        void nodeGroupToggles;
+        return filterVisibleOrbitNodes(orbitNodesSide);
     })();
 
     $: hasPinnedNodalNodes = !!pinnedBodyId && orbitNodesAll.some(
@@ -775,6 +807,187 @@
             d += ` C ${cp1.x} ${cp1.y}, ${cp2.x} ${cp2.y}, ${p2.x} ${p2.y}`;
         }
 
+        return d;
+    }
+
+    function projectTargetPoint(
+        target: Pick<CompassTargetState, 'angleDeg' | 'orbit' | 'altitudeDeg' | 'visible'> & {
+            kind?: 'engine_body' | 'reference';
+            planeDistanceAu?: number;
+            planeDistanceRatio?: number;
+        },
+        mode: VisualPaneMode
+    ) {
+        if (mode === 'top') {
+            const r = orbitToRadiusVB(target.orbit);
+            const xy = polarToXY(r, target.angleDeg);
+            return { x: xy.x, y: xy.y, visible: !!target.visible };
+        }
+
+        if (target.kind === 'reference') {
+            const r = orbitToRadiusVB(target.orbit);
+            const xy = polarToXY(r, target.angleDeg);
+            return { x: xy.x, y: xy.y, visible: !!target.visible };
+        }
+
+        const angleDeg = Number.isFinite(target.angleDeg) ? Number(target.angleDeg) : 0;
+        const distanceRatio = Number.isFinite(target.orbit) ? Number(target.orbit) : 0;
+        const planeDistanceRatioRaw = target.planeDistanceRatio;
+        const planeDistanceRatio = Number.isFinite(planeDistanceRatioRaw)
+            ? Number(planeDistanceRatioRaw)
+            : 0;
+        const projected = projectSystemSideCoordinates(angleDeg, distanceRatio, planeDistanceRatio);
+        return {
+            x: cx + projected.x * rHorizon,
+            y: cy - projected.y * rHorizon,
+            visible: projected.visible
+        };
+    }
+
+    function projectTrackPoint(point: NonNullable<CompassTargetState['orbitTrack']>[number], mode: VisualPaneMode) {
+        return projectTargetPoint(point, mode);
+    }
+
+    function projectReferenceRingPoint(targetId: ObjId) {
+        const target = lastTargets.find((t) => t.id === targetId);
+        if (!target) return null;
+        const r = orbitToRadiusVB(systemReferenceRingOrbit);
+        const topPoint = polarToXY(r, target.angleDeg);
+        const dx = topPoint.x - cx;
+        const x = cx + dx;
+        const yOffset = Math.sqrt(Math.max(0, (r * r) - (dx * dx)));
+        const north = Number.isFinite(target.altitudeDeg) ? target.altitudeDeg >= 0 : true;
+        return {
+            x,
+            y: north ? (cy - yOffset) : (cy + yOffset),
+            visible: north
+        };
+    }
+
+    function filterOrbitNodesNearBodies(
+        nodes: OrbitNodeUi[],
+        targets: CompassTargetState[],
+        mode: VisualPaneMode
+    ): OrbitNodeUi[] {
+        const bodyPos = new Map<ObjId, { x: number; y: number }>();
+        for (const t of targets) {
+            const projected = projectTargetPoint(t, mode);
+            bodyPos.set(t.id, { x: projected.x, y: projected.y });
+        }
+
+        return nodes.filter((n) => {
+            const bp = bodyPos.get(n.bodyId);
+            if (!bp) return true;
+            const dx = n.x - bp.x;
+            const dy = n.y - bp.y;
+            return Math.hypot(dx, dy) > BODY_MARKER_HIDE_RADIUS_VB;
+        });
+    }
+
+    function clusterProjectedMarkers(
+        items: MarkerItem[],
+        getPoint: (item: MarkerItem) => { x: number; y: number } | null,
+        markerRadiusPx: number
+    ): VisualMarkerCluster[] {
+        if (!items.length) return [];
+
+        const thresholdPx = 0.8 * markerRadiusPx;
+        const pts = items
+            .map((it) => {
+                const point = getPoint(it);
+                if (!point) return null;
+                return { it, x: vbToPx(point.x - cx), y: vbToPx(point.y - cy) };
+            })
+            .filter((row): row is { it: MarkerItem; x: number; y: number } => !!row);
+
+        if (!pts.length) return [];
+
+        pts.sort((a, b) => a.y - b.y || a.x - b.x || a.it.ts - b.it.ts);
+
+        const parent = Array.from({ length: pts.length }, (_, i) => i);
+        const find = (i: number): number => {
+            while (parent[i] !== i) {
+                parent[i] = parent[parent[i]];
+                i = parent[i];
+            }
+            return i;
+        };
+        const union = (a: number, b: number) => {
+            const ra = find(a);
+            const rb = find(b);
+            if (ra !== rb) parent[rb] = ra;
+        };
+
+        for (let i = 0; i < pts.length; i++) {
+            for (let j = i + 1; j < pts.length; j++) {
+                const dx = pts[i].x - pts[j].x;
+                const dy = pts[i].y - pts[j].y;
+                if (Math.hypot(dx, dy) < thresholdPx) union(i, j);
+            }
+        }
+
+        const groups = new Map<number, MarkerItem[]>();
+        for (let i = 0; i < pts.length; i++) {
+            const root = find(i);
+            const rows = groups.get(root);
+            if (rows) rows.push(pts[i].it);
+            else groups.set(root, [pts[i].it]);
+        }
+
+        const out: VisualMarkerCluster[] = [];
+        for (const group of groups.values()) {
+            const itemsSortedByTs = group.slice().sort((a, b) => a.ts - b.ts);
+            const head = itemsSortedByTs[0];
+            let sx = 0;
+            let sy = 0;
+            for (const it of itemsSortedByTs) {
+                const point = getPoint(it);
+                if (!point) continue;
+                sx += point.x;
+                sy += point.y;
+            }
+            sx /= itemsSortedByTs.length;
+            sy /= itemsSortedByTs.length;
+
+            const opacityValues = itemsSortedByTs
+                .map((it) => it.opacity)
+                .filter((v): v is number => Number.isFinite(v));
+            const opacity = opacityValues.length ? Math.min(...opacityValues) : head.opacity;
+            const count = itemsSortedByTs.length;
+            const id = count === 1
+                ? head.id
+                : `cluster:${head.collectionId}:${head.ts}:${Math.round(sx)}:${Math.round(sy)}:${count}`;
+
+            out.push({
+                id,
+                ts: head.ts,
+                angleDeg: head.angleDeg,
+                orbit: head.orbit,
+                bg: head.bg,
+                count,
+                emoji: count === 1 ? head.emoji : undefined,
+                color: count === 1 ? head.color : undefined,
+                label: count > 1 ? String(count) : undefined,
+                items: itemsSortedByTs,
+                opacity,
+                x: sx,
+                y: sy
+            });
+        }
+
+        return out.sort((a, b) => a.y - b.y || a.x - b.x || a.ts - b.ts);
+    }
+
+    function sideTrackPathD(track: NonNullable<CompassTargetState['orbitTrack']>): string {
+        const pts = track
+            .slice()
+            .sort((a, b) => a.ts - b.ts)
+            .map((p) => projectTrackPoint(p, 'side'));
+        if (pts.length < 2) return '';
+        let d = `M ${pts[0].x} ${pts[0].y}`;
+        for (let i = 1; i < pts.length; i++) {
+            d += ` L ${pts[i].x} ${pts[i].y}`;
+        }
         return d;
     }
 
@@ -1279,6 +1492,7 @@
     let spec: WheelSpec | null = null;
     let emojiAt: EmojiAt[] = [];
     let centerEmoji: string | null = null;
+    let lookerEmoji: string | null = null;
 
     function roleTargetIds(raw: unknown): ObjId[] {
         if (Array.isArray(raw)) return raw.filter((x): x is ObjId => typeof x === 'string' && !!x);
@@ -1309,6 +1523,8 @@
                 for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e });
             }
         }
+
+        lookerEmoji = roleEmojiById(lookerId);
 
         if (ui?.target && targetIds.length) {
             const anchors = parsePlacements(ui.target);
@@ -1342,6 +1558,15 @@
 
     function emojiAtSpoke(label: string): string | null {
         return emojiAt.find((x) => x.anchor.kind === 'spoke' && x.anchor.spoke === label)?.text ?? null;
+    }
+
+    function sideEmojiAtLabel(label: string): string | null {
+        return emojiAtLabel(label);
+    }
+
+    function sideEmojiAtSpoke(label: string): string | null {
+        if (wheel?.wheelType === 'system' && label === 'S') return null;
+        return emojiAtSpoke(label);
     }
 
     $: {
@@ -1444,6 +1669,23 @@
         const markerClusterRadiusPx = MARKER_STYLE.ringPx * markerScaleBias;
         const orbitToRadiusPx = (orbit: number) => vbToPx(orbitToRadiusVB(orbit));
         markerClusters = compassClusters(items, orbitToRadiusPx, markerClusterRadiusPx);
+        const targetByBaseId = new Map<string, (CompassTargetState & { hiddenDuringTween?: boolean })>(
+            visibleDisplayTargets.map((t) => [`body:${String(t.id)}`, t])
+        );
+        sideMarkerClusters = supportsSecondaryVisual
+            ? clusterProjectedMarkers(
+                items,
+                (item) => {
+                    const target = targetByBaseId.get(item.baseId);
+                    if (!target) return null;
+                    if (objects?.[target.id]?.kind === 'reference') {
+                        return projectReferenceRingPoint(target.id);
+                    }
+                    return projectTargetPoint(target, 'side');
+                },
+                markerClusterRadiusPx
+            )
+            : [];
     }
 
     $: orbitCurves = lastTargets
@@ -1468,15 +1710,31 @@
         })
         .filter((x): x is { id: ObjId; seg: number; d: string; visible: boolean } => !!x);
 
-    $: orbitNodes = (() => {
-        const bodyPos = new Map<ObjId, { x: number; y: number }>();
-        for (const t of lastTargets) {
-            const r = orbitToRadiusVB(t.orbit);
-            const p = polarToXY(r, t.angleDeg);
-            bodyPos.set(t.id, { x: p.x, y: p.y });
-        }
+    $: sideOrbitCurves = supportsSecondaryVisual
+        ? lastTargets
+            .flatMap((t) => {
+                const track = t.orbitTrack;
+                if (!track || track.length < 2) return [];
 
-        const rawNodes: OrbitNodeUi[] = lastTargets
+                const segments = splitTrackByVisibility(track);
+                return segments
+                    .map((s, idx) => {
+                        if (!s.pts || s.pts.length < 2) return null;
+                        const d = sideTrackPathD(s.pts);
+                        if (!d) return null;
+                        return {
+                            id: t.id,
+                            seg: idx,
+                            d,
+                            visible: s.visible
+                        };
+                    })
+                    .filter((x): x is { id: ObjId; seg: number; d: string; visible: boolean } => !!x);
+            })
+            .filter((x): x is { id: ObjId; seg: number; d: string; visible: boolean } => !!x)
+        : [];
+
+    $: rawOrbitNodes = lastTargets
         .flatMap((t) => {
             const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
             const emoji = b?.emoji ?? '•';
@@ -1493,8 +1751,6 @@
             const nodeTrack = t.orbitTrack ?? [];
             return nodeTrack
                 .map((p) => {
-                const r = orbitToRadiusVB(p.orbit);
-                const xy = polarToXY(r, p.angleDeg);
                 const pointTags = Array.isArray(p.tags) ? p.tags.filter((x): x is string => typeof x === 'string') : [];
                 const pointTechTags = nodeTechTagsFromTags(pointTags);
                 const pointTechTagsUi = pointTechTags.map((tag) => resolvePinnedTechTagLabel(tag));
@@ -1543,9 +1799,6 @@
                 const keyTags = pointTags.length ? pointTags.join(',') : 'no-tags';
                 return {
                     key: `orbit-node:${t.id}:${p.code}:${p.source ?? 'cycle'}:${p.index}:${p.ts}:${keyTags}`,
-                    x: xy.x,
-                    y: xy.y,
-                    visible: p.visible,
                     bodyId: t.id,
                     code: p.code,
                     source: p.source,
@@ -1553,6 +1806,7 @@
                     meta: pointMeta,
                     infoItems,
                     ts: p.ts,
+                    trackPoint: p,
                     tip: {
                         label: `${emoji} ${name} orbit node (${uiCode})`,
                         ts: p.ts,
@@ -1570,17 +1824,35 @@
         })
         ;
 
-        const mergedNodes = dedupeOrbitNodesByBody(rawNodes);
-        orbitNodesAll = mergedNodes;
+    $: {
+        const projectedTop = dedupeOrbitNodesByBody(
+            rawOrbitNodes.map((node) => {
+                const projected = projectTrackPoint(node.trackPoint, 'top');
+                return {
+                    ...node,
+                    x: projected.x,
+                    y: projected.y,
+                    visible: projected.visible
+                };
+            })
+        );
+        orbitNodesAll = projectedTop;
+        orbitNodes = filterOrbitNodesNearBodies(projectedTop, lastTargets, 'top');
 
-        return mergedNodes.filter((n) => {
-            const bp = bodyPos.get(n.bodyId);
-            if (!bp) return true;
-            const dx = n.x - bp.x;
-            const dy = n.y - bp.y;
-            return Math.hypot(dx, dy) > BODY_MARKER_HIDE_RADIUS_VB;
-        });
-    })();
+        const projectedSide = dedupeOrbitNodesByBody(
+            rawOrbitNodes.map((node) => {
+                const projected = projectTrackPoint(node.trackPoint, 'side');
+                return {
+                    ...node,
+                    x: projected.x,
+                    y: projected.y,
+                    visible: projected.visible
+                };
+            })
+        );
+        orbitNodesSideAll = projectedSide;
+        orbitNodesSide = filterOrbitNodesNearBodies(projectedSide, lastTargets, 'side');
+    }
 
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
@@ -1754,9 +2026,23 @@
         }
     });
 
+    $: supportsSecondaryVisual = wheel?.wheelType === 'system';
     $: showVisualSection = wheel?.view?.showVisual !== false;
+    $: showSecondaryVisualSection = supportsSecondaryVisual && wheel?.view?.showSecondaryVisual === true;
     $: showInfoSection = wheel?.view?.showInfo === true;
     $: showPickersSection = wheel?.view?.showPickers === true;
+    $: hasVisualSection = showVisualSection || showSecondaryVisualSection;
+    $: showDualVisualRow = hasVisualSection && showVisualSection && showSecondaryVisualSection && wheel?.view?.visualLayout === 'row';
+    $: visualRowSide = wheel?.view?.visualRowSide === 'left' ? 'left' : 'right';
+    $: visualColumnOrder = wheel?.view?.visualColumnOrder === 'side-first' ? 'side-first' : 'top-first';
+    $: controlsPaneMode = showVisualSection ? 'top' : 'side';
+    $: systemSideLookerDirection = (() => {
+        if (wheel?.wheelType !== 'system') return 'S';
+        const looker = asBodyIdOrNull((roles as any)?.looker);
+        const focus = asBodyIdOrNull((roles as any)?.focus);
+        if (!looker || !focus) return 'S';
+        return systemLookerSideDirection(looker, focus, effTs);
+    })();
 
     function toggleVisualSection() {
         onUserActivity();
@@ -1765,6 +2051,46 @@
             wheelId,
             { view: { showVisual: !showVisualSection } },
             'Compass.toggleVisualSection'
+        );
+    }
+
+    function toggleSecondaryVisualSection() {
+        onUserActivity();
+        if (!wheelId || !supportsSecondaryVisual) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { showSecondaryVisual: !showSecondaryVisualSection } },
+            'Compass.toggleSecondaryVisualSection'
+        );
+    }
+
+    function toggleVisualLayout() {
+        onUserActivity();
+        if (!wheelId || !supportsSecondaryVisual || !showSecondaryVisualSection) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { visualLayout: showDualVisualRow ? 'column' : 'row' } },
+            'Compass.toggleVisualLayout'
+        );
+    }
+
+    function toggleVisualRowSide() {
+        onUserActivity();
+        if (!wheelId || !supportsSecondaryVisual || !showDualVisualRow) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { visualRowSide: visualRowSide === 'left' ? 'right' : 'left' } },
+            'Compass.toggleVisualRowSide'
+        );
+    }
+
+    function toggleVisualColumnOrder() {
+        onUserActivity();
+        if (!wheelId || !supportsSecondaryVisual || showDualVisualRow || !showSecondaryVisualSection) return;
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { visualColumnOrder: visualColumnOrder === 'side-first' ? 'top-first' : 'side-first' } },
+            'Compass.toggleVisualColumnOrder'
         );
     }
 
@@ -2691,10 +3017,13 @@
             onDragStart={onCardDragStart}
             onDragEnd={onCardDragEnd}
             visualOpen={showVisualSection}
+            secondaryVisualAvailable={supportsSecondaryVisual}
+            secondaryVisualOpen={showSecondaryVisualSection}
             infoOpen={showInfoSection}
             pickersOpen={showPickersSection}
             profileLocked={$isActiveProfileLocked}
             onToggleVisual={toggleVisualSection}
+            onToggleSecondaryVisual={toggleSecondaryVisualSection}
             onToggleInfo={toggleInfoSection}
             onTogglePickers={togglePickersSection}
     />
@@ -2763,16 +3092,55 @@
     </section>
     {/if}
 
-    {#if showVisualSection || showInfoSection}
+    {#if hasVisualSection || showInfoSection}
         <div class="sectionSep" aria-hidden="true"></div>
     {/if}
 
     <!-- WHEEL SVG -->
-    {#if showVisualSection}
+    {#if hasVisualSection}
         <div class="wrap" bind:this={wrapEl} transition:slide|local>
-            <section class="wheelPanel">
-            <div class="wheelBox">
-                <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
+            <section class="wheelPanel" class:twoPaneRow={showDualVisualRow}>
+            {#if supportsSecondaryVisual && showSecondaryVisualSection}
+                <div class="visualLayoutBar">
+                    <button
+                            class="nodeToggle navBtn"
+                            type="button"
+                            title={showDualVisualRow ? 'Stack views vertically' : 'Show both views side by side'}
+                            aria-label={showDualVisualRow ? 'Stack views vertically' : 'Show both views side by side'}
+                            on:click={toggleVisualLayout}
+                    >
+                        {showDualVisualRow ? '↕' : '↔'}
+                    </button>
+                    {#if showDualVisualRow}
+                        <button
+                                class="nodeToggle navBtn"
+                                type="button"
+                                title={visualRowSide === 'left' ? 'Move side view to the right' : 'Move side view to the left'}
+                                aria-label={visualRowSide === 'left' ? 'Move side view to the right' : 'Move side view to the left'}
+                                on:click={toggleVisualRowSide}
+                        >
+                            {visualRowSide === 'left' ? '⇢' : '⇠'}
+                        </button>
+                    {:else}
+                        <button
+                                class="nodeToggle navBtn"
+                                type="button"
+                                title={visualColumnOrder === 'side-first' ? 'Move top view above side view' : 'Move side view above top view'}
+                                aria-label={visualColumnOrder === 'side-first' ? 'Move top view above side view' : 'Move side view above top view'}
+                                on:click={toggleVisualColumnOrder}
+                        >
+                            {visualColumnOrder === 'side-first' ? '⇣' : '⇡'}
+                        </button>
+                    {/if}
+                </div>
+            {/if}
+            {#if showVisualSection}
+            <div
+                class="wheelBox"
+                class:rowSecond={showDualVisualRow && visualRowSide === 'left'}
+                class:columnSecond={!showDualVisualRow && visualColumnOrder === 'side-first'}
+            >
+                <svg bind:this={primarySvgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
                      role="button"
                      tabindex="0"
                      on:click={(e) => {
@@ -3024,6 +3392,7 @@
                     <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
                 </svg>
 
+                {#if controlsPaneMode === 'top'}
                 <div class="compassNav">
                     <button
                             class="orbitToggle navBtn"
@@ -3073,8 +3442,9 @@
                         +
                     </button>
                 </div>
+                {/if}
 
-                {#if pinnedBodyId}
+                {#if pinnedBodyId && controlsPaneMode === 'top'}
                     {#if wheel?.wheelType === 'compass'}
                         <div class="nodeNav nodeNavCompass">
                             <button
@@ -3165,6 +3535,366 @@
                     {/if}
                 {/if}
             </div>
+            {/if}
+
+            {#if showSecondaryVisualSection}
+                <div
+                    class="wheelBox wheelBoxSide"
+                    class:rowFirst={showDualVisualRow && visualRowSide === 'left'}
+                    class:columnFirst={!showDualVisualRow && visualColumnOrder === 'side-first'}
+                >
+                    <svg bind:this={secondarySvgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
+                         role="button"
+                         tabindex="0"
+                         on:click={(e) => {
+                          const t = e.target;
+                          if (!(t instanceof Element)) return clearPinned();
+                          if (t.closest('[data-marker], [data-tooltip-root], [data-keep-pin]')) return;
+                          clearPinned();
+                        }}
+                         on:keydown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            clearPinned();
+                          }
+                         }}
+                         aria-label="System Side View">
+                        <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
+                        <circle cx={cx} cy={cy} r={rHorizon} fill="none" class="horizon" />
+
+                        {#each Array(spokeCount) as _, i (i)}
+                            {@const a = boundaryAngleDeg(i)}
+                            {@const pA = polarToXY(rOuter * 0.96, a)}
+                            {@const pB = polarToXY(rOuter * 1.1, a)}
+                            {@const pHit = polarToXY(rOuter, a)}
+
+                            <g class="tick" aria-hidden="true">
+                                <line x1={pA.x} y1={pA.y} x2={pB.x} y2={pB.y} class="tickLine" />
+                                <circle cx={pHit.x} cy={pHit.y} r={VB * 0.03} fill="transparent" />
+                            </g>
+                        {/each}
+
+                        <g class="quadrants" aria-hidden="true" transform={`rotate(90 ${cx} ${cy})`}>
+                            <path d={pieSectorPath(-45,  -135, rHorizon)} class="q q-red" />
+                            <path d={pieSectorPath(-135, -225, rHorizon)} class="q q-white" />
+                            <path d={pieSectorPath(-225, -315, rHorizon)} class="q q-blue" />
+                            <path d={pieSectorPath(-315, -405, rHorizon)} class="q q-gold" />
+                        </g>
+
+                        {#each labels as label, i (label)}
+                            {@const a = spokeAngleDeg(i)}
+                            {@const p1 = { x: cx, y: cy }}
+                            {@const p2 = polarToXY(rOuter, a)}
+                            {@const pt = polarToXY(rLabel, a)}
+                            {@const midPt = polarToXY(rOuter * 0.56, a)}
+                            {@const houseTip = buildHouseTip(label)}
+                            {@const houseKey = `side-house:${label}`}
+                            {@const labelEmoji = sideEmojiAtLabel(label)}
+                            {@const spokeEmoji = sideEmojiAtSpoke(label)}
+
+                            <g
+                                    class="spoke"
+                                    class:hot={activeSpokeCode === label}
+                                    data-keep-pin="1"
+                                    role="button"
+                                    tabindex="0"
+                                    aria-label={`House ${label}`}
+                                    on:click={(e) => tip.openMomentNow(e, houseTip)}
+                                    on:dblclick={() => handleSpokeDoubleClick(label)}
+                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
+                                    on:mouseleave={() => tip.hoverLeave(houseKey)}
+                                    on:keydown={(e) => handleHouseKeydown(e, houseTip)}
+                            >
+                                <line
+                                        x1={p1.x} y1={p1.y}
+                                        x2={p2.x} y2={p2.y}
+                                        stroke="currentColor"
+                                        stroke-opacity={0.35}
+                                        stroke-width={i % 4 === 0 ? 4 : 2}
+                                        stroke-linecap="round"
+                                />
+
+                                {#if spokeEmoji}
+                                    <text
+                                            class="roleEmoji roleEmojiOnSpoke"
+                                            x={midPt.x}
+                                            y={midPt.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                    >
+                                        {spokeEmoji}
+                                    </text>
+                                {/if}
+
+                                <circle
+                                        cx={pt.x}
+                                        cy={pt.y}
+                                        r={VB * 0.046}
+                                        fill="transparent"
+                                        stroke="currentColor"
+                                        class="spokeHalo"
+                                        class:occupied={occupiedSpokes[i]}
+                                />
+
+                                {#if labelEmoji}
+                                    <text
+                                            class="roleEmoji roleEmojiOnLabel"
+                                            x={pt.x}
+                                            y={pt.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                    >
+                                        {labelEmoji}
+                                    </text>
+                                {:else}
+                                    <text
+                                            class="spokeLabel"
+                                            x={pt.x}
+                                            y={pt.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                            font-size={VB * 0.035}
+                                            fill="currentColor"
+                                            fill-opacity={0.65}
+                                    >
+                                        {label}
+                                    </text>
+                                {/if}
+
+                                <circle cx={p2.x} cy={p2.y} r={VB * 0.045} fill="transparent" />
+                            </g>
+                        {/each}
+
+                        {#each sideOrbitCurves as c (`side-orbit:${c.id}:${c.seg}`)}
+                            {#if showOrbits || pinnedBodyId === c.id}
+                                <path
+                                        class="orbitCurve orbitCurveSide"
+                                        class:dim={!c.visible}
+                                        class:pinnedCurve={pinnedBodyId === c.id}
+                                        d={c.d}
+                                />
+                            {/if}
+                        {/each}
+
+                        {#if pinnedBodyId}
+                            {#each orbitNodesSideVisible as n (n.key)}
+                                {#if n.bodyId === pinnedBodyId}
+                                    <circle
+                                            class={`orbitNode ${orbitNodeTagClassList(n)} ${orbitNodeGroupClass(n)}`}
+                                            class:dim={!n.visible}
+                                            class:pinnedNode={pinnedBodyId === n.bodyId}
+                                            data-marker="1"
+                                            role="button"
+                                            tabindex="0"
+                                            aria-label={n.tip.label}
+                                            cx={n.x}
+                                            cy={n.y}
+                                            r={orbitNodeRadiusVB(n)}
+                                            on:click={(e) => tip.openMomentNow(e, n.tip)}
+                                            on:dblclick={(e) => {
+                                                if ((n.tip.pickTsList?.length ?? 0) > 1) return;
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleMarkerPick(n.tip.ts, n.bodyId, n.code, n.sourceWheel);
+                                            }}
+                                            on:mouseenter={(e) => {
+                                                activateSpokeFromOrbitNode(n);
+                                                tip.hoverMomentEnter(e, n.tip, `${n.key}:side`);
+                                            }}
+                                            on:mouseleave={() => {
+                                                clearActiveSpoke();
+                                                tip.hoverLeave(`${n.key}:side`);
+                                            }}
+                                            on:focus={() => activateSpokeFromOrbitNode(n)}
+                                            on:blur={clearActiveSpoke}
+                                            on:keydown={(e) => handleOrbitNodeKeydown(e, n.tip)}
+                                    />
+                                {/if}
+                            {/each}
+                        {/if}
+
+                        {#each sideMarkerClusters as c (c.id)}
+                            {@const markerKey = `side-marker:${c.id}`}
+                            {@const isCluster = c.count > 1}
+                            {@const singleId = clusterSingleBodyId(c)}
+                            {@const isReference = !!singleId && objects?.[singleId]?.kind === 'reference'}
+                            {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
+                            {@const o = c.opacity ?? 1}
+
+                            <g class="marker"
+                               role="button"
+                               tabindex="0"
+                               class:pinnedMark={clusterContainsPinned(c)}
+                               data-marker="1"
+                               transform={`translate(${c.x} ${c.y})`}
+                               style={`opacity:${c.opacity ?? 1}`}
+                               on:click={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+
+                                      const id = clusterSingleBodyId(c);
+                                      if (id) {
+                                        togglePin(id);
+                                        tip.openClusterNow(e, c);
+                                      } else {
+                                       tip.openClusterNow(e, c);
+                                      }
+                                    }}
+                               on:keydown={(e) => {
+                                   if (e.key === 'Enter' || e.key === ' ') {
+                                       e.preventDefault();
+                                       const id = clusterSingleBodyId(c);
+                                       if (id) togglePin(id);
+                                   }
+                               }}
+                               on:mouseenter={(e) => { if (!isCoarsePointer) tip.hoverClusterEnter(e, c, markerKey); }}
+                               on:mousemove={(e) => { if (!isCoarsePointer) tip.move(e); }}
+                               on:mouseleave={() => { if (!isCoarsePointer) tip.hoverLeave(markerKey); }}
+                            >
+                                <g class="markerBody">
+                                    <circle r={markerSizes.hit} fill="transparent" />
+                                    <circle
+                                            r={markerSizes.ring}
+                                            fill="transparent"
+                                            stroke="currentColor"
+                                            stroke-opacity={0.28}/>
+                                    <text
+                                            class="markerGlyph useObjectColor"
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                            font-size={isCluster ? markerSizes.fontCluster : (isReference ? markerSizes.fontReference : markerSizes.fontSingle)}
+                                            font-weight={isCluster ? 900 : 850}
+                                            letter-spacing={c.count === 1 ? 0 : 0.6}
+                                            fill={glyphColor}
+                                            fill-opacity={Math.max(0.92, o)}
+                                            stroke={glyphColor}
+                                            stroke-opacity={isCluster ? 0.35 : 0.55}
+                                            stroke-width={isCluster ? 2.5 : 2}
+                                            style="pointer-events:none"
+                                    >
+                                        {c.count === 1 ? c.emoji : c.label}
+                                    </text>
+                                </g>
+                            </g>
+                        {/each}
+
+                        {#if centerEmoji}
+                            <text
+                                    class="roleEmoji roleEmojiCenter"
+                                    x={cx}
+                                    y={cy}
+                                    text-anchor="middle"
+                                    dominant-baseline="middle"
+                            >
+                                {centerEmoji}
+                            </text>
+                        {/if}
+                        <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
+                    </svg>
+
+                    {#if controlsPaneMode === 'side'}
+                        <div class="compassNav">
+                            <button
+                                    class="orbitToggle navBtn"
+                                    class:off={!showOrbits}
+                                    type="button"
+                                    title={showOrbits ? 'Hide orbits' : 'Show orbits'}
+                                    aria-label={showOrbits ? 'Hide orbits' : 'Show orbits'}
+                                    aria-pressed={showOrbits}
+                                    on:click={toggleOrbits}
+                            >
+                                ≋
+                            </button>
+
+                            {#if pinnedBodyId}
+                                <button
+                                        class="nodeToggle navBtn nodeAll"
+                                        class:off={!showOrbitNodesAny}
+                                        type="button"
+                                        title={showOrbitNodesAny ? 'Hide all nodes (except main cycle E/E+)' : 'Show nodes'}
+                                        aria-label={showOrbitNodesAny ? 'Hide all nodes (except main cycle E/E+)' : 'Show nodes'}
+                                        aria-pressed={showOrbitNodesAny}
+                                        on:click|stopPropagation={toggleOrbitNodesAny}
+                                >
+                                    {showOrbitNodesAny ? '◉' : '○'}
+                                </button>
+                            {/if}
+                        </div>
+                        <div class="compassNav compassNavTopLeft">
+                            <button
+                                    class="markerScaleBtn navBtn"
+                                    type="button"
+                                    title="Marker size -"
+                                    aria-label="Marker size -"
+                                    on:click={decMarkerScale}
+                                    disabled={$isActiveProfileLocked}
+                            >
+                                −
+                            </button>
+                            <button
+                                    class="markerScaleBtn navBtn"
+                                    type="button"
+                                    title="Marker size +"
+                                    aria-label="Marker size +"
+                                    on:click={incMarkerScale}
+                                    disabled={$isActiveProfileLocked}
+                            >
+                                +
+                            </button>
+                        </div>
+                        {#if pinnedBodyId}
+                            <div class="nodeNav">
+                                {#if hasPinnedNodalNodes}
+                                    <button
+                                            class="nodeToggle navBtn nodeNodal"
+                                            class:off={!orbitNodeGroupVisible.nodal}
+                                            type="button"
+                                            title="Toggle nodals"
+                                            aria-label="Toggle nodals"
+                                            aria-pressed={orbitNodeGroupVisible.nodal}
+                                            on:click|stopPropagation={() => toggleOrbitNodeGroup('nodal')}
+                                    >
+                                        N
+                                    </button>
+                                {/if}
+                                <button
+                                        class="nodeToggle navBtn nodeRegular"
+                                        class:off={!orbitNodeGroupVisible.regular}
+                                        type="button"
+                                        title="Toggle regular nodes"
+                                        aria-label="Toggle regular nodes"
+                                        aria-pressed={orbitNodeGroupVisible.regular}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('regular')}
+                                >
+                                    .
+                                </button>
+                                <button
+                                        class="nodeToggle navBtn nodeSynod"
+                                        class:off={!orbitNodeGroupVisible.synod}
+                                        type="button"
+                                        title="Toggle synod nodes"
+                                        aria-label="Toggle synod nodes"
+                                        aria-pressed={orbitNodeGroupVisible.synod}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('synod')}
+                                >
+                                    S
+                                </button>
+                                <button
+                                        class="nodeToggle navBtn nodeBind"
+                                        class:off={!orbitNodeGroupVisible.bind}
+                                        type="button"
+                                        title="Toggle bind nodes"
+                                        aria-label="Toggle bind nodes"
+                                        aria-pressed={orbitNodeGroupVisible.bind}
+                                        on:click|stopPropagation={() => toggleOrbitNodeGroup('bind')}
+                                >
+                                    B
+                                </button>
+                            </div>
+                        {/if}
+                    {/if}
+                </div>
+            {/if}
 
             {#if $tipState.open && ($tipState.cluster || $tipState.moment)}
                 <CompassTooltip
@@ -3198,7 +3928,7 @@
         </div>
     {/if}
 
-    {#if showVisualSection && showInfoSection}
+    {#if hasVisualSection && showInfoSection}
         <div class="sectionSep" aria-hidden="true"></div>
     {/if}
 
@@ -3291,7 +4021,32 @@
         padding-inline: 8px;
         box-sizing: border-box;
     }
-    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: visible; position: relative; }
+    .visualLayoutBar {
+        width: 100%;
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+    }
+    .wheelPanel.twoPaneRow {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        align-items: start;
+    }
+    .wheelBox { width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: stretch; overflow: visible; position: relative; min-width: 0; }
+    .wheelBox.rowFirst {
+        order: 1;
+    }
+    .wheelBox.rowSecond {
+        order: 2;
+    }
+    .wheelBox.columnFirst {
+        order: 1;
+    }
+    .wheelBox.columnSecond {
+        order: 2;
+    }
+    .wheelPanel.twoPaneRow .visualLayoutBar {
+        grid-column: 1 / -1;
+    }
     .wheelBox svg {
         width: 100%;
         height: 100%;
@@ -3351,6 +4106,23 @@
 
     .horizon { stroke: currentColor; stroke-opacity: 0.28; stroke-width: 6; }
     .zenith { fill: currentColor; opacity: 0.85; }
+    .sideAxis {
+        stroke: currentColor;
+        stroke-opacity: 0.34;
+        stroke-width: 5;
+        stroke-linecap: round;
+    }
+    .sideAxisVertical {
+        stroke-opacity: 0.28;
+    }
+    .sideLabel {
+        fill: currentColor;
+        fill-opacity: 0.72;
+        font-size: 28px;
+        font-weight: 700;
+        user-select: none;
+        pointer-events: none;
+    }
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
@@ -3588,6 +4360,9 @@
         stroke-opacity: 0.42;
         stroke-width: 2.8;
         filter: drop-shadow(0 0 3px color-mix(in oklab, var(--fg), transparent 70%));
+    }
+    .orbitCurveSide {
+        stroke-opacity: 0.28;
     }
 
     /*noinspection CssUnusedSymbol*/

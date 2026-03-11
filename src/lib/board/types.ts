@@ -6,8 +6,12 @@ import type { BoardLayoutRect } from './layoutEngine';
 
 export type BoardWheelView = {
     showVisual: boolean;
+    showSecondaryVisual?: boolean;
     showInfo: boolean;
     showPickers?: boolean;
+    visualLayout?: 'column' | 'row';
+    visualRowSide?: 'left' | 'right';
+    visualColumnOrder?: 'top-first' | 'side-first';
     infoChipOrder?: string[];
     infoChipSelected?: string[];
     infoChipLabels?: Record<string, string>;

@@ -223,6 +223,11 @@ export type WheelNodeGroups = Partial<Record<WheelNodeGroup, string[]>>;
 export type WheelHouseType = WheelNodeGroup;
 export type CompassMainCycle = 'horizon';
 export type SystemMainCycle = 'synod' | 'bind' | 'nodal';
+export type WheelVisualSide = 'top' | 'side';
+export type WheelVisualSupport = {
+    primary: WheelVisualSide;
+    secondary?: WheelVisualSide;
+};
 
 /* =============================================================================
    Role values/selects
@@ -278,12 +283,14 @@ type CompassWheelSpec = WheelSpecBase<'compass', CompassRoleSet, true> & {
     nodes?: WheelNodeGroups;
     mainCycle: CompassMainCycle;
     houseType: WheelHouseType;
+    visuals?: WheelVisualSupport;
 };
 
 type SystemWheelSpec = WheelSpecBase<'system', SystemRoleSet, true> & {
     nodes?: WheelNodeGroups;
     mainCycle: SystemMainCycle;
     houseType: WheelHouseType;
+    visuals?: WheelVisualSupport;
 };
 
 /* =============================================================================
