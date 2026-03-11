@@ -349,6 +349,7 @@
     }
 
     $: activeBodyOverrides = (($activeProfile?.data?.bodies ?? {}) as Partial<Record<ObjId, BodyUserOverride>>);
+    $: activeBodyDescriptionLabel = $activeProfile?.data?.bodyDescriptionLabel;
     $: activeStarInfoItems = $activeProfile?.data?.starInfoItems ?? [];
 
     let orbitNodesVisible: OrbitNodeUi[] = [];
@@ -1431,10 +1432,6 @@
         return STAR_INFO_ITEMS.filter((row) => row.metaField === metaField);
     }
 
-    function starInfoTagKey(def: InfoItem): string {
-        return String(def.description ?? def.defaultLabel ?? def.label ?? '').trim();
-    }
-
     function nodeInfoItemsFromSpec(
         source: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal' | undefined,
         code: string,
@@ -1469,13 +1466,12 @@
                 if (starDefs.length > 0) {
                     for (const starDef of starDefs) {
                         const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
-                        const starKey = starInfoTagKey(starDef);
-                        if (!starLabel || !starKey) continue;
+                        if (!starLabel) continue;
                         const starFormatInput = starDef.metaField === def.metaField ? formatInput : rawNumber;
                         const starValue = formatInfoValue(starDef.format, starFormatInput);
                         if (!starValue || starValue === '—') continue;
                         out.push({
-                            id: `dynamic:${tagIdFromLabel(starKey)}`,
+                            id: `dynamic:${tagIdFromLabel(starLabel)}`,
                             label: uiLabel(starLabel),
                             value: starValue,
                             modal: typeof starDef.modal === 'string' ? starDef.modal : resolvedModal
@@ -1979,7 +1975,7 @@
             currentHouses: normalizeBodyCurrentHouses(t),
             bodyInfoItems: normalizeCompassBodyInfoItems(
                 t.id,
-                resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems)
+                resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems, activeBodyDescriptionLabel)
             ),
             activeNode
         };
@@ -2480,9 +2476,8 @@
             if (starDefs.length > 0) {
                 for (const starDef of starDefs) {
                     const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
-                    const starKey = starInfoTagKey(starDef);
-                    if (!starLabel || !starKey) continue;
-                    const starId = `${scope}:${source}:${tagIdFromLabel(starKey)}`;
+                    if (!starLabel) continue;
+                    const starId = `${scope}:${source}:${tagIdFromLabel(starLabel)}`;
                     if (seen.has(starId)) continue;
                     seen.add(starId);
                     out.push({

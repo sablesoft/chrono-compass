@@ -54,6 +54,7 @@ function emptyProfileData() {
     return {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
+        bodyDescriptionLabel: undefined as string | undefined,
         starInfoItems: undefined as BodyUserInfoItem[] | undefined,
         bodies: {} as Partial<Record<ObjId, BodyUserOverride>>,
         wheelsOnScreen: [] as BoardWheel[]
@@ -163,6 +164,7 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
                 data: {
                     ...emptyProfileData(),
                     ...(p?.data ?? {}),
+                    bodyDescriptionLabel: typeof p?.data?.bodyDescriptionLabel === 'string' ? p.data.bodyDescriptionLabel.trim() || undefined : undefined,
                     starInfoItems: normalizeStarInfoItems(p?.data?.starInfoItems),
                     bodies: normalizeBodies(p?.data?.bodies)
                 }
@@ -716,6 +718,7 @@ export const profilesApi = {
             const wheels = normalizeImportedWheels(src?.data?.wheels);
             const board = normalizeImportedBoard(src?.data?.wheelsOnScreen);
             const locations = normalizeLocationsData(src?.data?.locations);
+            const bodyDescriptionLabel = typeof src?.data?.bodyDescriptionLabel === 'string' ? src.data.bodyDescriptionLabel.trim() || undefined : undefined;
             const starInfoItems = normalizeStarInfoItems(src?.data?.starInfoItems);
             const bodies = normalizeBodies(src?.data?.bodies);
             const favorites = normalizeFavorites(
@@ -735,6 +738,7 @@ export const profilesApi = {
                     ...emptyProfileData(),
                     wheels,
                     favorites,
+                    bodyDescriptionLabel,
                     starInfoItems,
                     bodies,
                     wheelsOnScreen: board
@@ -1017,6 +1021,34 @@ export const profilesApi = {
                     ...p,
                     updatedAt: t,
                     data: { ...p.data, starInfoItems: nextShared, bodies }
+                };
+            });
+        });
+    },
+
+    setBodyDescriptionLabel(label: string | undefined) {
+        dbg.group('api.setBodyDescriptionLabel', () => {
+            const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.setBodyDescriptionLabel.skip system', { profileId: ap.id });
+                return;
+            }
+            const t = now();
+            const nextLabel = typeof label === 'string' ? label.trim() || undefined : undefined;
+
+            updateProfile(ap.id, (p) => {
+                const bodies: Partial<Record<ObjId, BodyUserOverride>> = {};
+                for (const [bodyId, body] of Object.entries(p.data.bodies) as Array<[ObjId, BodyUserOverride]>) {
+                    const merged = normalizeBodyOverride({
+                        ...body,
+                        descriptionLabel: undefined
+                    });
+                    if (merged) bodies[bodyId] = merged;
+                }
+                return {
+                    ...p,
+                    updatedAt: t,
+                    data: { ...p.data, bodyDescriptionLabel: nextLabel, bodies }
                 };
             });
         });

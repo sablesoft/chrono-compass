@@ -16,7 +16,6 @@ export type SpokeKey =
     | 'E_next';
 
 export type InfoItem = {
-    description?: string;
     defaultLabel?: string;
     label?: string;
     value?: string;

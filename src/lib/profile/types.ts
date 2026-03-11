@@ -46,6 +46,7 @@ export type BodyUserOverride = {
 export type ProfileData = {
     wheels: SavedWheel[];
     favorites: string[]; // stores dedupKey values
+    bodyDescriptionLabel?: string;
     starInfoItems?: BodyUserInfoItem[];
     bodies: Partial<Record<ObjId, BodyUserOverride>>;
 

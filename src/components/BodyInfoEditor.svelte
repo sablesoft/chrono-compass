@@ -62,7 +62,7 @@
         const sharedStarInfoItems = $activeProfile?.data?.starInfoItems ?? [];
         const existing = overrides[bodyId];
         labelDraft = resolveBodyName(bodyId, overrides);
-        descriptionLabelDraft = resolveBodyDescriptionLabel(bodyId, overrides);
+        descriptionLabelDraft = resolveBodyDescriptionLabel(bodyId, overrides, 'en', $activeProfile?.data?.bodyDescriptionLabel);
         descriptionDraft = resolveBodyDescription(bodyId, overrides);
         distanceLyLabelDraft = resolveBodyDistanceLyLabel(bodyId, overrides);
         systemItemsDraft = resolveBodyStarInfoItems(bodyId, overrides, sharedStarInfoItems, { includeEmpty: true }).map((item) => {
@@ -194,6 +194,9 @@
         const distanceLyLabel = trimText(distanceLyLabelDraft);
         const systemInfoItems = sanitizeSystemItems(systemItemsDraft) ?? [];
         const customInfoItems = sanitizeCustomItems(customItemsDraft) ?? [];
+        const currentSharedDescriptionLabel = typeof $activeProfile?.data?.bodyDescriptionLabel === 'string'
+            ? $activeProfile.data.bodyDescriptionLabel.trim()
+            : '';
         const currentSharedSystemItems = (($activeProfile?.data?.starInfoItems ?? []) as BodyUserInfoItem[])
             .filter((item) => isSystemBodyInfoItemId(item.id));
         const nextSharedSignature = JSON.stringify(systemInfoItems);
@@ -202,12 +205,15 @@
         const patch = {
             name: name && name !== defaultName ? name : undefined,
             description: description && description !== defaultDescription ? description : undefined,
-            descriptionLabel: descriptionLabel && descriptionLabel !== defaultDescriptionLabel ? descriptionLabel : undefined,
+            descriptionLabel: undefined,
             distanceLyLabel: distanceLyLabel && distanceLyLabel !== defaultDistanceLyLabel ? distanceLyLabel : undefined,
             infoItems: customInfoItems.length ? customInfoItems : undefined
         };
 
-        const hasPatch = !!(patch.name || patch.description || patch.descriptionLabel || patch.distanceLyLabel || patch.infoItems?.length);
+        const hasPatch = !!(patch.name || patch.description || patch.distanceLyLabel || patch.infoItems?.length);
+        if (descriptionLabel !== currentSharedDescriptionLabel) {
+            profilesApi.setBodyDescriptionLabel(descriptionLabel && descriptionLabel !== defaultDescriptionLabel ? descriptionLabel : undefined);
+        }
         if (nextSharedSignature !== currentSharedSignature) {
             profilesApi.setStarInfoOverrides(systemInfoItems.length ? systemInfoItems : undefined);
         }
@@ -218,6 +224,7 @@
 
     function resetOverrides() {
         if (!bodyId || locked) return;
+        profilesApi.setBodyDescriptionLabel(undefined);
         if (systemItemsDraft.length > 0) {
             profilesApi.setStarInfoOverrides(undefined);
         }

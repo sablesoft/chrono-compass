@@ -35,10 +35,6 @@ function trimText(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function starInfoItemKey(input: { description?: string; defaultLabel?: string; label?: string }): string {
-    return trimText(input.description) || trimText(input.defaultLabel) || trimText(input.label);
-}
-
 export function bodyInfoItemIdFromLabel(label: string): string {
     const key = String(label ?? '')
         .trim()
@@ -80,7 +76,14 @@ export function resolveBodyDescription(id: ObjId, overrides: BodyOverrideMap | n
     return trimText(catalogBody(id)?.description);
 }
 
-export function resolveBodyDescriptionLabel(id: ObjId, overrides: BodyOverrideMap | null | undefined, lang = 'en'): string {
+export function resolveBodyDescriptionLabel(
+    id: ObjId,
+    overrides: BodyOverrideMap | null | undefined,
+    lang = 'en',
+    sharedDescriptionLabel?: string | null
+): string {
+    const shared = trimText(sharedDescriptionLabel);
+    if (shared) return shared;
     const custom = trimText(bodyOverrideRecord(overrides, id)?.descriptionLabel);
     if (custom) return custom;
     return lang === 'ru' ? 'Описание' : 'Description';
@@ -154,12 +157,11 @@ export function resolveBodyStarInfoItems(
     // STAR_INFO_ITEMS defines only catalog defaults; editor/runtime need merged rows with profile overrides.
     return STAR_INFO_ITEMS.reduce<BodyInfoChip[]>((items, def) => {
         const defaultLabel = trimText(def.defaultLabel ?? def.label);
-        const key = starInfoItemKey(def);
-        if (!defaultLabel || !key || !def.metaField) return items;
+        if (!defaultLabel || !def.metaField) return items;
         const raw = starMeta?.[def.metaField];
         const value = formatInfoValue(def.format, raw);
         if ((!value || value === '—') && !includeEmpty) return items;
-        const itemId = bodyInfoItemIdFromLabel(key);
+        const itemId = bodyInfoItemIdFromLabel(defaultLabel);
         const override = overrideItems.get(itemId);
         const label = trimText(override?.label) || defaultLabel;
         const modal = trimText(override?.modal) || trimText(def.modal);
@@ -198,14 +200,15 @@ export function resolveBodyInfoItems(
     id: ObjId,
     overrides: BodyOverrideMap | null | undefined,
     lang = 'en',
-    sharedInfoItems?: BodyUserInfoItem[] | null
+    sharedInfoItems?: BodyUserInfoItem[] | null,
+    sharedDescriptionLabel?: string | null
 ): BodyInfoChip[] {
     const items: BodyInfoChip[] = [];
     const description = resolveBodyDescription(id, overrides);
     if (description) {
         items.push({
             id: 'system:description',
-            label: resolveBodyDescriptionLabel(id, overrides, lang),
+            label: resolveBodyDescriptionLabel(id, overrides, lang, sharedDescriptionLabel),
             modal: description
         });
     }
