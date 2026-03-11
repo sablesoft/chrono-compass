@@ -73,6 +73,11 @@
     export let onEditPinnedBody: (bodyId: ObjId) => void = () => {};
     export let onConfigure: (next: CompassInfoConfig) => void = () => {};
     export let locked = false;
+    export let canPlaceSide = false;
+    export let layoutPosition: 'left' | 'right' | 'bottom' = 'bottom';
+    export let onMoveLeft: () => void = () => {};
+    export let onMoveRight: () => void = () => {};
+    export let onMoveBottom: () => void = () => {};
 
     let showEditor = false;
     let draftConfig: CompassInfoConfig | null = null;
@@ -527,15 +532,46 @@
 </script>
 
 <section class="infoBlock">
-    {#if !locked}
-        <button
-            type="button"
-            class="editBtn navBtn"
-            title="Edit compass info"
-            aria-label="Edit compass info"
-            on:click|stopPropagation={openEditor}
-        >✎</button>
-    {/if}
+    <div class="blockToolbar">
+        <div class="layoutControls" aria-label="Info block position">
+            <button
+                type="button"
+                class="navBtn layoutBtn"
+                class:isActive={layoutPosition === 'left'}
+                title={canPlaceSide ? 'Place info block on the left' : 'Left side is available only when visual is visible'}
+                aria-label="Place info block on the left"
+                on:click|stopPropagation={onMoveLeft}
+                disabled={!canPlaceSide}
+            >⇠</button>
+            <button
+                type="button"
+                class="navBtn layoutBtn"
+                class:isActive={layoutPosition === 'bottom'}
+                title="Place info block under the visual"
+                aria-label="Place info block under the visual"
+                on:click|stopPropagation={onMoveBottom}
+            >⇣</button>
+            <button
+                type="button"
+                class="navBtn layoutBtn"
+                class:isActive={layoutPosition === 'right'}
+                title={canPlaceSide ? 'Place info block on the right' : 'Right side is available only when visual is visible'}
+                aria-label="Place info block on the right"
+                on:click|stopPropagation={onMoveRight}
+                disabled={!canPlaceSide}
+            >⇢</button>
+        </div>
+
+        {#if !locked}
+            <button
+                type="button"
+                class="editBtn navBtn"
+                title="Edit compass info"
+                aria-label="Edit compass info"
+                on:click|stopPropagation={openEditor}
+            >✎</button>
+        {/if}
+    </div>
 
     {#if config.general.enabled}
         <section class="infoSection">
@@ -975,6 +1011,46 @@
         display: grid;
         gap: 8px;
         position: relative;
+        min-height: 0;
+        height: 100%;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-right: 2px;
+    }
+
+    .blockToolbar {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding-bottom: 4px;
+        background: linear-gradient(
+            to bottom,
+            color-mix(in oklab, var(--panel), transparent 2%) 0%,
+            color-mix(in oklab, var(--panel), transparent 10%) 78%,
+            transparent 100%
+        );
+    }
+
+    .layoutControls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+    }
+
+    .layoutBtn {
+        min-width: 34px;
+        height: 28px;
+        padding: 0 8px;
+    }
+
+    .layoutBtn.isActive {
+        border-color: color-mix(in oklab, var(--accent-live), transparent 46%);
+        background: color-mix(in oklab, var(--accent-live), transparent 84%);
     }
 
     .infoSection {
@@ -993,10 +1069,6 @@
     }
 
     .editBtn {
-        position: absolute;
-        top: 2px;
-        right: 2px;
-        z-index: 3;
         height: 28px;
         min-width: 34px;
         padding: 0 8px;

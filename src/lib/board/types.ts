@@ -12,6 +12,10 @@ export type BoardWheelView = {
     visualLayout?: 'column' | 'row';
     visualRowSide?: 'left' | 'right';
     visualColumnOrder?: 'top-first' | 'side-first';
+    compassInfoPosition?: 'bottom' | 'left' | 'right';
+    compassVisualSize?: number;
+    compassInfoSideWidth?: number;
+    compassInfoBottomHeight?: number;
     infoChipOrder?: string[];
     infoChipSelected?: string[];
     infoChipLabels?: Record<string, string>;

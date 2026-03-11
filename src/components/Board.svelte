@@ -50,6 +50,11 @@
         return Comp;
     }
 
+    function showBoardResizeHandle(w: BoardWheel): boolean {
+        const entry = getWheelEntry(w.wheelType);
+        return entry.ui !== 'compass';
+    }
+
     // стабильный порядок на всякий — boardItems уже отсортирован, но лучше не надеяться
     $: globalLocId = $currentLocationId;
     function coord(v: unknown): number {
@@ -363,7 +368,7 @@
                             onCardDragEnd={dragEndWheel}
                     />
                 </div>
-                {#if !$isActiveProfileLocked}
+                {#if !$isActiveProfileLocked && showBoardResizeHandle(row.w)}
                     <button
                             class="resizeHandle"
                             type="button"
@@ -410,7 +415,7 @@
         padding-top: 12px;
         column-gap: var(--col-gap);
         row-gap: var(--row-gap);
-        grid-template-columns: repeat(24, minmax(0, 1fr));
+        grid-template-columns: repeat(36, minmax(0, 1fr));
         grid-auto-rows: var(--row-unit);
         align-items: start;
     }

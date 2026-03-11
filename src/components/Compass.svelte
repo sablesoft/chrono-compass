@@ -28,6 +28,7 @@
 
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
+    import { BOARD_GRID_COLUMNS } from '../lib/board/layoutEngine';
 
     // unified resolver (runtime+idb, and if wheel type is excluded -> compute)
     import { resolveWheel } from '../lib/board/dispatcher';
@@ -170,6 +171,7 @@
     const polarToXY = geom.polarToXY;
 
     type VisualPaneMode = 'top' | 'side';
+    type CompassInfoPosition = 'bottom' | 'left' | 'right';
     type VisualMarkerCluster = MarkerCluster & {
         x: number;
         y: number;
@@ -254,10 +256,41 @@
     const MARKER_SCALE_MIN = 0.2;
     const MARKER_SCALE_MAX = 3;
     const MARKER_SCALE_STEP = 0.1;
+    const COMPASS_VISUAL_SIZE_DEFAULT = 520;
+    const COMPASS_VISUAL_SIZE_MIN = 320;
+    const COMPASS_VISUAL_SIZE_MAX = 4096;
+    const COMPASS_INFO_SIDE_WIDTH_DEFAULT = 460;
+    const COMPASS_INFO_SIDE_WIDTH_MIN = 260;
+    const COMPASS_INFO_SIDE_WIDTH_MAX = 2048;
+    const COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT = 420;
+    const COMPASS_INFO_BOTTOM_HEIGHT_MIN = 220;
+    const COMPASS_INFO_BOTTOM_HEIGHT_MAX = 1600;
+    const COMPASS_PANE_GAP_PX = 12;
 
     function clampMarkerScale(value: number): number {
         if (!Number.isFinite(value)) return 1;
         return Math.min(MARKER_SCALE_MAX, Math.max(MARKER_SCALE_MIN, value));
+    }
+
+    function clampCompassVisualSize(value: number): number {
+        if (!Number.isFinite(value)) return COMPASS_VISUAL_SIZE_DEFAULT;
+        return Math.min(COMPASS_VISUAL_SIZE_MAX, Math.max(COMPASS_VISUAL_SIZE_MIN, Math.round(value)));
+    }
+
+    function clampCompassInfoSideWidth(value: number): number {
+        if (!Number.isFinite(value)) return COMPASS_INFO_SIDE_WIDTH_DEFAULT;
+        return Math.min(COMPASS_INFO_SIDE_WIDTH_MAX, Math.max(COMPASS_INFO_SIDE_WIDTH_MIN, Math.round(value)));
+    }
+
+    function clampCompassInfoBottomHeight(value: number): number {
+        if (!Number.isFinite(value)) return COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT;
+        return Math.min(COMPASS_INFO_BOTTOM_HEIGHT_MAX, Math.max(COMPASS_INFO_BOTTOM_HEIGHT_MIN, Math.round(value)));
+    }
+
+    function normalizeCompassInfoPosition(value: unknown, canPlaceSide: boolean): CompassInfoPosition {
+        if (!canPlaceSide) return 'bottom';
+        if (value === 'left' || value === 'right') return value;
+        return 'bottom';
     }
 
     function stepMarkerScale(value: number): number {
@@ -2036,12 +2069,221 @@
 
     let wrapEl: HTMLDivElement | null = null;
     $: responsive.bindWrap(wrapEl);
+    let panelEl: HTMLElement | null = null;
+    let contentLayoutEl: HTMLDivElement | null = null;
+    let visualPaneEl: HTMLDivElement | null = null;
+    let visualPaneHeight = 0;
+    let visualPaneResizeObserver: ResizeObserver | null = null;
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
+    let pendingBottomShrink = false;
+    let paneResizeState:
+        | { kind: 'visual'; startX: number; startY: number; startValue: number; startPanelWidth: number; startCols: number }
+        | { kind: 'info'; startX: number; startValue: number; position: 'left' | 'right'; startPanelWidth: number; startCols: number }
+        | { kind: 'info-bottom-height'; startY: number; startValue: number }
+        | null = null;
 
     function handleMarkerActivate(c: MarkerCluster) {
         dbg.log('Cluster Activate', c);
+    }
+
+    function updateVisualPaneHeight() {
+        visualPaneHeight = Math.max(0, Math.round(visualPaneEl?.getBoundingClientRect().height ?? 0));
+    }
+
+    let observedVisualPaneEl: HTMLDivElement | null = null;
+
+    $: {
+        if (visualPaneResizeObserver && observedVisualPaneEl && observedVisualPaneEl !== visualPaneEl) {
+            visualPaneResizeObserver.unobserve(observedVisualPaneEl);
+            observedVisualPaneEl = null;
+        }
+        if (!visualPaneEl || typeof ResizeObserver === 'undefined') {
+            updateVisualPaneHeight();
+        } else {
+            if (!visualPaneResizeObserver) {
+                visualPaneResizeObserver = new ResizeObserver(() => updateVisualPaneHeight());
+            }
+            if (observedVisualPaneEl !== visualPaneEl) {
+                visualPaneResizeObserver.observe(visualPaneEl);
+                observedVisualPaneEl = visualPaneEl;
+            }
+            queueMicrotask(updateVisualPaneHeight);
+        }
+    }
+
+    function currentLayoutCols(): number {
+        const cols = Number(wheel?.layout?.w);
+        if (!Number.isFinite(cols) || cols <= 0) return 1;
+        return Math.max(1, Math.round(cols));
+    }
+
+    function nextLayoutColsFromWidth(startPanelWidth: number, startCols: number, targetPanelWidth: number): number {
+        if (!(startPanelWidth > 0) || !(startCols > 0)) return currentLayoutCols();
+        const pxPerCol = startPanelWidth / startCols;
+        if (!(pxPerCol > 0)) return currentLayoutCols();
+        const rawCols = targetPanelWidth / pxPerCol;
+        const nextCols = targetPanelWidth >= startPanelWidth ? Math.ceil(rawCols) : Math.floor(rawCols);
+        return Math.max(1, Math.min(BOARD_GRID_COLUMNS, nextCols));
+    }
+
+    function desiredContentWidthPx(): number {
+        if (!hasVisualSection) return 0;
+        if (paneResizeState) return 0;
+        if (pendingBottomShrink) return compassVisualSize;
+        if (showInfoSide) return (visualPaneMaxWidth ?? compassVisualSize) + compassInfoSideWidth + COMPASS_PANE_GAP_PX;
+        return 0;
+    }
+
+    function syncCompassCardWidth() {
+        if (!wheelId || !panelEl || !contentLayoutEl || !hasVisualSection) return;
+        const desiredContentWidth = desiredContentWidthPx();
+        if (!(desiredContentWidth > 0)) return;
+
+        const currentCols = currentLayoutCols();
+        const panelWidth = panelEl.getBoundingClientRect().width;
+        const contentWidth = contentLayoutEl.getBoundingClientRect().width;
+        if (!(panelWidth > 0) || !(contentWidth > 0)) return;
+
+        const chromeWidth = Math.max(0, panelWidth - contentWidth);
+        const desiredPanelWidth = desiredContentWidth + chromeWidth;
+        const pxPerCol = panelWidth / currentCols;
+        if (!(pxPerCol > 0)) return;
+
+        const rawCols = desiredPanelWidth / pxPerCol;
+        const nextCols = Math.max(
+            1,
+            Math.min(BOARD_GRID_COLUMNS, desiredPanelWidth >= panelWidth ? Math.ceil(rawCols) : Math.floor(rawCols))
+        );
+        if (nextCols === currentCols) return;
+
+        boardApi.updateWheelById(
+            wheelId,
+            { layout: { w: nextCols } },
+            'Compass.syncCardWidthToContent'
+        );
+    }
+
+    function finishPaneResize() {
+        paneResizeState = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', handlePaneResizeMove);
+        window.removeEventListener('pointerup', handlePaneResizeEnd);
+        window.removeEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function handlePaneResizeMove(e: PointerEvent) {
+        if (!paneResizeState || !wheelId) return;
+
+        if (paneResizeState.kind === 'visual') {
+            const dx = e.clientX - paneResizeState.startX;
+            const dy = e.clientY - paneResizeState.startY;
+            const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+            const nextVisualSize = clampCompassVisualSize(paneResizeState.startValue + delta);
+            const nextPanelWidth = paneResizeState.startPanelWidth + (nextVisualSize - paneResizeState.startValue);
+            const nextCols = nextLayoutColsFromWidth(
+                paneResizeState.startPanelWidth,
+                paneResizeState.startCols,
+                nextPanelWidth
+            );
+            boardApi.updateWheelById(
+                wheelId,
+                {
+                    view: { compassVisualSize: nextVisualSize },
+                    layout: { w: nextCols }
+                },
+                'Compass.resizeVisual'
+            );
+            return;
+        }
+
+        if (paneResizeState.kind === 'info-bottom-height') {
+            const dy = e.clientY - paneResizeState.startY;
+            boardApi.updateWheelById(
+                wheelId,
+                { view: { compassInfoBottomHeight: clampCompassInfoBottomHeight(paneResizeState.startValue + dy) } },
+                'Compass.resizeInfoBottomHeight'
+            );
+            return;
+        }
+
+        const dx = e.clientX - paneResizeState.startX;
+        const signedDx = dx;
+        const nextInfoWidth = clampCompassInfoSideWidth(paneResizeState.startValue + signedDx);
+        const nextPanelWidth = paneResizeState.startPanelWidth + (nextInfoWidth - paneResizeState.startValue);
+        const nextCols = nextLayoutColsFromWidth(
+            paneResizeState.startPanelWidth,
+            paneResizeState.startCols,
+            nextPanelWidth
+        );
+        boardApi.updateWheelById(
+            wheelId,
+            {
+                view: { compassInfoSideWidth: nextInfoWidth },
+                layout: { w: nextCols }
+            },
+            'Compass.resizeInfoSideWidth'
+        );
+    }
+
+    function handlePaneResizeEnd() {
+        finishPaneResize();
+    }
+
+    function startVisualResize(e: PointerEvent) {
+        if (!wheelId || !panelEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'visual',
+            startX: e.clientX,
+            startY: e.clientY,
+            startValue: compassVisualSize,
+            startPanelWidth: panelEl.getBoundingClientRect().width,
+            startCols: currentLayoutCols()
+        };
+        document.body.style.cursor = 'nwse-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function startInfoWidthResize(e: PointerEvent) {
+        if (!wheelId || !panelEl || !showInfoWidthResizeHandle || compassInfoPosition === 'bottom') return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'info',
+            startX: e.clientX,
+            startValue: compassInfoSideWidth,
+            position: compassInfoPosition,
+            startPanelWidth: panelEl.getBoundingClientRect().width,
+            startCols: currentLayoutCols()
+        };
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function startInfoBottomHeightResize(e: PointerEvent) {
+        if (!wheelId || !showInfoHeightResizeHandle) return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'info-bottom-height',
+            startY: e.clientY,
+            startValue: compassInfoBottomHeight
+        };
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
     }
 
     function centerClickEvent(target: EventTarget | null): MouseEvent | null {
@@ -2095,6 +2337,9 @@
 
     onDestroy(() => {
         stopMarkerTween();
+        finishPaneResize();
+        if (visualPaneResizeObserver && observedVisualPaneEl) visualPaneResizeObserver.unobserve(observedVisualPaneEl);
+        visualPaneResizeObserver?.disconnect();
         if (loadingOverlayTimer) {
             clearTimeout(loadingOverlayTimer);
             loadingOverlayTimer = null;
@@ -2110,6 +2355,18 @@
     $: showDualVisualRow = hasVisualSection && showVisualSection && showSecondaryVisualSection && wheel?.view?.visualLayout === 'row';
     $: visualRowSide = wheel?.view?.visualRowSide === 'left' ? 'left' : 'right';
     $: visualColumnOrder = wheel?.view?.visualColumnOrder === 'side-first' ? 'side-first' : 'top-first';
+    $: compassInfoPosition = normalizeCompassInfoPosition(wheel?.view?.compassInfoPosition, hasVisualSection);
+    $: showInfoSide = showInfoSection && hasVisualSection && compassInfoPosition !== 'bottom';
+    $: showInfoWidthResizeHandle = showInfoSection && showInfoSide;
+    $: showInfoHeightResizeHandle = showInfoSection && !showInfoSide;
+    $: compassVisualSize = clampCompassVisualSize((wheel?.view?.compassVisualSize ?? COMPASS_VISUAL_SIZE_DEFAULT) as number);
+    $: compassInfoSideWidth = clampCompassInfoSideWidth((wheel?.view?.compassInfoSideWidth ?? COMPASS_INFO_SIDE_WIDTH_DEFAULT) as number);
+    $: compassInfoBottomHeight = clampCompassInfoBottomHeight((wheel?.view?.compassInfoBottomHeight ?? COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT) as number);
+    $: visualPaneMaxWidth = (showInfoSide || paneResizeState?.kind === 'visual' || pendingBottomShrink)
+        ? (showDualVisualRow
+            ? Math.max(compassVisualSize, compassVisualSize * 2 + COMPASS_PANE_GAP_PX)
+            : compassVisualSize)
+        : null;
     $: controlsPaneMode = showVisualSection ? 'top' : 'side';
     $: systemSideLookerDirection = (() => {
         if (wheel?.wheelType !== 'system') return 'S';
@@ -2187,6 +2444,45 @@
             { view: { showPickers: !showPickersSection } },
             'Compass.togglePickersSection'
         );
+    }
+
+    function setCompassInfoPosition(position: CompassInfoPosition) {
+        onUserActivity();
+        if (!wheelId) return;
+        pendingBottomShrink = position === 'bottom';
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { compassInfoPosition: hasVisualSection ? position : 'bottom' } },
+            'Compass.setInfoPosition'
+        );
+    }
+
+    $: {
+        if (!pendingBottomShrink || !panelEl || !contentLayoutEl || showInfoSide || !hasVisualSection) {
+            if (pendingBottomShrink && showInfoSide) pendingBottomShrink = false;
+        } else {
+            const panelWidth = panelEl.getBoundingClientRect().width;
+            const contentWidth = contentLayoutEl.getBoundingClientRect().width;
+            const chromeWidth = Math.max(0, panelWidth - contentWidth);
+            const targetVisualWidth = showDualVisualRow
+                ? Math.max(compassVisualSize, compassVisualSize * 2 + COMPASS_PANE_GAP_PX)
+                : compassVisualSize;
+            if (panelWidth <= targetVisualWidth + chromeWidth + 2) {
+                pendingBottomShrink = false;
+            }
+        }
+    }
+
+    $: {
+        void wheelId;
+        void hasVisualSection;
+        void showInfoSide;
+        void visualPaneMaxWidth;
+        void compassInfoSideWidth;
+        void compassInfoBottomHeight;
+        void panelEl;
+        void contentLayoutEl;
+        queueMicrotask(syncCompassCardWidth);
     }
 
     type CompassInfoChip = {
@@ -3125,7 +3421,7 @@
 
 </script>
 
-<section class="panel">
+<section class="panel" bind:this={panelEl}>
     <WheelHeader
             wheel={wheel}
             onDocs={docs.openDocs}
@@ -3213,10 +3509,20 @@
         <div class="sectionSep" aria-hidden="true"></div>
     {/if}
 
-    <!-- WHEEL SVG -->
-    {#if hasVisualSection}
-        <div class="wrap" bind:this={wrapEl} transition:slide|local>
-            <section class="wheelPanel" class:twoPaneRow={showDualVisualRow}>
+    {#if hasVisualSection || showInfoSection}
+        <div
+            class="contentLayout"
+            bind:this={contentLayoutEl}
+            class:infoSide={showInfoSide}
+            class:infoLeft={showInfoSide && compassInfoPosition === 'left'}
+            style={`--compass-info-side-width:${compassInfoSideWidth}px; --compass-visual-max-width:${visualPaneMaxWidth != null ? `${visualPaneMaxWidth}px` : '100%'};`}
+            transition:slide|local
+        >
+        <!-- WHEEL SVG -->
+        {#if hasVisualSection}
+            <div class="visualPane" bind:this={visualPaneEl}>
+                <div class="wrap" bind:this={wrapEl}>
+                    <section class="wheelPanel" class:twoPaneRow={showDualVisualRow}>
             {#if supportsSecondaryVisual && showSecondaryVisualSection}
                 <div class="visualLayoutBar">
                     <button
@@ -4040,32 +4346,67 @@
                         onClose={tip.closeNow}
                 />
             {/if}
-            </section>
-        </div>
-    {/if}
+                    </section>
+                </div>
+                <button
+                    type="button"
+                    class="paneResizeHandle visualResizeHandle"
+                    aria-label="Resize visual block"
+                    title="Resize visual block"
+                    on:pointerdown={startVisualResize}
+                ></button>
+            </div>
+        {/if}
 
-    {#if hasVisualSection && showInfoSection}
-        <div class="sectionSep" aria-hidden="true"></div>
-    {/if}
-
-    <!-- INFO -->
-    {#if showInfoSection}
-        <div transition:slide|local>
-            <CompassInfoBlock
-                    config={compassInfoConfig}
-                    tagDefs={compassTagDefs}
-                    houseDefs={compassHouseDefs}
-                    pinnedAvailableGroups={pinnedAvailableGroups}
-                    generalChips={compassGeneralChips}
-                    dynamicRows={compassDynamicRows}
-                    pinnedRows={compassPinnedRows}
-                    referenceTs={localLiveNowTs}
-                    onBodyPick={handleCompassBodyPick}
-                    onPinnedPick={handleCompassPinnedPick}
-                    onEditPinnedBody={openPinnedBodyEditor}
-                    onConfigure={applyCompassInfoConfig}
-                    locked={$isActiveProfileLocked}
-            />
+        <!-- INFO -->
+        {#if showInfoSection}
+            <div
+                class="infoPane"
+                class:side={showInfoSide}
+                style={`${showInfoSide && visualPaneHeight > 0 ? `--compass-info-pane-height:${visualPaneHeight}px;` : ''}${!showInfoSide ? `--compass-info-bottom-height:${compassInfoBottomHeight}px;` : ''}`}
+            >
+                {#if showInfoWidthResizeHandle}
+                    <button
+                        type="button"
+                        class="paneResizeHandle infoResizeHandle"
+                        class:leftEdge={compassInfoPosition === 'left'}
+                        class:rightEdge={compassInfoPosition === 'right'}
+                        aria-label="Resize info block width"
+                        title="Resize info block width"
+                        on:pointerdown={startInfoWidthResize}
+                    ></button>
+                {/if}
+                {#if showInfoHeightResizeHandle}
+                    <button
+                        type="button"
+                        class="paneResizeHandle infoBottomResizeHandle"
+                        aria-label="Resize info block height"
+                        title="Resize info block height"
+                        on:pointerdown={startInfoBottomHeightResize}
+                    ></button>
+                {/if}
+                <CompassInfoBlock
+                        config={compassInfoConfig}
+                        tagDefs={compassTagDefs}
+                        houseDefs={compassHouseDefs}
+                        pinnedAvailableGroups={pinnedAvailableGroups}
+                        generalChips={compassGeneralChips}
+                        dynamicRows={compassDynamicRows}
+                        pinnedRows={compassPinnedRows}
+                        referenceTs={localLiveNowTs}
+                        onBodyPick={handleCompassBodyPick}
+                        onPinnedPick={handleCompassPinnedPick}
+                        onEditPinnedBody={openPinnedBodyEditor}
+                        onConfigure={applyCompassInfoConfig}
+                        locked={$isActiveProfileLocked}
+                        canPlaceSide={hasVisualSection}
+                        layoutPosition={compassInfoPosition}
+                        onMoveLeft={() => setCompassInfoPosition('left')}
+                        onMoveRight={() => setCompassInfoPosition('right')}
+                        onMoveBottom={() => setCompassInfoPosition('bottom')}
+                />
+            </div>
+        {/if}
         </div>
     {/if}
 
@@ -4103,13 +4444,154 @@
         min-height: 0;
         position: relative;
     }
+    .contentLayout {
+        display: grid;
+        gap: 12px;
+        min-height: 0;
+        align-items: start;
+    }
+    .contentLayout.infoSide {
+        grid-template-columns:
+            minmax(0, var(--compass-visual-max-width))
+            minmax(var(--compass-info-side-width), 1fr);
+        align-items: stretch;
+    }
+    .contentLayout.infoSide.infoLeft {
+        grid-template-columns:
+            minmax(var(--compass-info-side-width), 1fr)
+            minmax(0, var(--compass-visual-max-width));
+    }
+    .visualPane {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        align-self: start;
+        width: min(100%, var(--compass-visual-max-width));
+    }
     .wrap {
-        width: 100%;
+        width: min(100%, var(--compass-visual-max-width, 100%));
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
         padding-block: 10px;
         box-sizing: border-box;
+        margin-inline: auto;
+    }
+    .infoPane {
+        min-width: 0;
+        min-height: 0;
+        height: var(--compass-info-bottom-height, 420px);
+        display: grid;
+        overflow: visible;
+        position: relative;
+        border-radius: 16px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
+        padding: 10px 10px 18px;
+        box-sizing: border-box;
+    }
+    .infoPane.side {
+        height: var(--compass-info-pane-height, auto);
+        max-height: var(--compass-info-pane-height, none);
+        align-self: start;
+        width: 100%;
+        max-width: 100%;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+    .contentLayout.infoSide .visualPane {
+        order: 1;
+    }
+    .contentLayout.infoSide .infoPane.side {
+        order: 2;
+    }
+    .contentLayout.infoSide.infoLeft .infoPane.side {
+        order: 1;
+    }
+    .contentLayout.infoSide.infoLeft .visualPane {
+        order: 2;
+    }
+    .paneResizeHandle {
+        position: absolute;
+        z-index: 5;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--fg), transparent 78%);
+        padding: 0;
+        touch-action: none;
+        pointer-events: auto;
+    }
+    .paneResizeHandle:hover {
+        background: color-mix(in oklab, var(--fg), transparent 66%);
+    }
+    .visualResizeHandle {
+        right: 10px;
+        bottom: 10px;
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        cursor: nwse-resize;
+    }
+    .infoResizeHandle {
+        top: 50%;
+        width: 14px;
+        height: 96px;
+        border-radius: 999px;
+        cursor: ew-resize;
+        transform: translateY(-50%);
+        border-color: color-mix(in oklab, var(--fg), transparent 58%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--fg), transparent 82%),
+            0 6px 20px color-mix(in oklab, black, transparent 78%);
+    }
+    .infoResizeHandle.leftEdge {
+        right: -7px;
+        left: auto;
+    }
+    .infoResizeHandle.rightEdge {
+        right: -7px;
+        left: auto;
+    }
+    .infoResizeHandle::before {
+        content: '';
+        position: absolute;
+        inset: 14px 4px;
+        border-radius: 999px;
+        background:
+            repeating-linear-gradient(
+                to bottom,
+                color-mix(in oklab, var(--fg), transparent 14%) 0 6px,
+                transparent 6px 12px
+            );
+        opacity: 0.9;
+    }
+    .infoBottomResizeHandle {
+        left: 50%;
+        bottom: -7px;
+        width: 96px;
+        height: 14px;
+        border-radius: 999px;
+        cursor: ns-resize;
+        transform: translateX(-50%);
+        border-color: color-mix(in oklab, var(--fg), transparent 58%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--fg), transparent 82%),
+            0 6px 20px color-mix(in oklab, black, transparent 78%);
+    }
+    .infoBottomResizeHandle::before {
+        content: '';
+        position: absolute;
+        inset: 4px 14px;
+        border-radius: 999px;
+        background:
+            repeating-linear-gradient(
+                to right,
+                color-mix(in oklab, var(--fg), transparent 14%) 0 6px,
+                transparent 6px 12px
+            );
+        opacity: 0.9;
     }
     .headerBottom {
         display: grid;
@@ -4312,6 +4794,22 @@
     @media (max-width: 980px) {
         .headerBottom.twoCols {
             grid-template-columns: 1fr;
+        }
+    }
+    @media (max-width: 1100px) {
+        .contentLayout.infoSide,
+        .contentLayout.infoSide.infoLeft {
+            grid-template-columns: 1fr;
+        }
+        .contentLayout.infoSide.infoLeft .infoPane {
+            order: 1;
+        }
+        .contentLayout.infoSide.infoLeft .visualPane {
+            order: 2;
+        }
+        .contentLayout.infoSide .infoPane.side {
+            height: clamp(320px, 48vh, 460px);
+            max-height: none;
         }
     }
 

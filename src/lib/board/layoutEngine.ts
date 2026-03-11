@@ -1,5 +1,5 @@
-export const BOARD_GRID_COLUMNS = 24;
-export const BOARD_DEFAULT_W = 8;
+export const BOARD_GRID_COLUMNS = 36;
+export const BOARD_DEFAULT_W = 12;
 export const BOARD_DEFAULT_H = 10;
 
 export type BoardLayoutRect = {
