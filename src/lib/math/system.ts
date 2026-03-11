@@ -1,7 +1,7 @@
 import * as Astronomy from 'astronomy-engine';
 import { objects } from '../catalog';
 import type { ObjId, ReferenceMeta } from '../catalog';
-import { type MarkerItem, SPOKES_ORDER } from '../wheel/types';
+import { type MarkerItem, SPOKES_ORDER, type SpokeKey } from '../wheel/types';
 
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
@@ -45,6 +45,19 @@ function cleanSystemCycleTags(rawTags: unknown, code: string): string[] {
             return true;
         })
     );
+}
+
+function normalizeSecondaryCycleCode(code: string): SpokeKey {
+    return (code === 'E_next' || code === 'E+' ? 'E' : code) as SpokeKey;
+}
+
+function normalizeSecondaryCycleTags(rawTags: unknown, cycleType: 'bind' | 'nodal'): string[] {
+    const tags = Array.isArray(rawTags) ? rawTags : [];
+    return uniqueTags(tags.map((tag) => {
+        if (typeof tag !== 'string') return null;
+        if (tag === `E_next-${cycleType}`) return `E-${cycleType}`;
+        return tag;
+    }));
 }
 
 export type SystemTrackPoint = CompassTrackPoint & {
@@ -461,43 +474,95 @@ async function collectBindSpokesInWindow(
     startTs: number,
     endTs: number
 ): Promise<CycleSpoke<BindMeta>[]> {
+    const spokes = await collectCycleSpokesInWindow(input, startTs, endTs, (probeTs) =>
+        resolveBindSpokesForTarget(input, focus, target, probeTs)
+    );
+    return spokes.map((s) => ({
+        ...s,
+        code: normalizeSecondaryCycleCode(s.code),
+        tags: normalizeSecondaryCycleTags(s.tags, 'bind')
+    }));
+}
+
+async function collectNodalSpokesInWindow(
+    input: WheelInput,
+    target: ObjId,
+    startTs: number,
+    endTs: number
+): Promise<CycleSpoke<NodalMeta>[]> {
+    const spokes = await collectCycleSpokesInWindow(input, startTs, endTs, (probeTs) =>
+        resolveNodalSpokesForTarget(input, target, probeTs)
+    );
+    return spokes.map((s) => ({
+        ...s,
+        code: normalizeSecondaryCycleCode(s.code),
+        tags: normalizeSecondaryCycleTags(s.tags, 'nodal')
+    }));
+}
+
+async function collectCycleSpokesInWindow<TMeta>(
+    input: WheelInput,
+    startTs: number,
+    endTs: number,
+    resolveCycle: (probeTs: number) => Promise<CycleSpoke<TMeta>[] | undefined>
+): Promise<CycleSpoke<TMeta>[]> {
     if (!Number.isFinite(startTs) || !Number.isFinite(endTs) || endTs <= startTs) return [];
 
-    const out: CycleSpoke<BindMeta>[] = [];
+    const out: CycleSpoke<TMeta>[] = [];
     const seenCycles = new Set<string>();
     const seenSpokes = new Set<string>();
     const RANGE_EPS_MS = 60_000;
-
     const CYCLE_SHIFT_EPS_MS = 1_500;
-    const MAX_CYCLES = 160;
-    let probe = startTs + CYCLE_SHIFT_EPS_MS;
+    const MAX_CYCLES_PER_SIDE = 160;
 
-    for (let i = 0; i < MAX_CYCLES; i++) {
-        const spokes = await resolveBindSpokesForTarget(input, focus, target, probe);
-        if (!spokes?.length) break;
-
-        const sorted = spokes.slice().sort((a, b) => a.index - b.index);
-        const s0 = sorted.find((s) => s.index === 0);
-        const s16 = sorted.find((s) => s.index === 16);
-        if (!s0 || !s16 || !(s16.ts > s0.ts)) break;
-
-        const cycleKey = `${Math.round(s0.ts)}:${Math.round(s16.ts)}`;
-        if (seenCycles.has(cycleKey)) break;
-        seenCycles.add(cycleKey);
-
-        for (const s of sorted) {
+    const pushCycle = (spokes: CycleSpoke<TMeta>[]) => {
+        for (const s of spokes) {
             if (s.ts < (startTs - RANGE_EPS_MS) || s.ts > (endTs + RANGE_EPS_MS)) continue;
             const key = `${s.index}:${Math.round(s.ts)}`;
             if (seenSpokes.has(key)) continue;
             seenSpokes.add(key);
             out.push(s);
         }
+    };
 
-        if (s16.ts >= endTs) break;
+    const cycleBounds = (spokes: CycleSpoke<TMeta>[] | undefined) => {
+        if (!spokes?.length) return null;
+        const sorted = spokes.slice().sort((a, b) => a.index - b.index);
+        const s0 = sorted.find((s) => s.index === 0);
+        const s16 = sorted.find((s) => s.index === 16);
+        if (!s0 || !s16 || !(s16.ts > s0.ts)) return null;
+        return { sorted, start: s0.ts, end: s16.ts, key: `${Math.round(s0.ts)}:${Math.round(s16.ts)}` };
+    };
 
-        const nextProbe = s16.ts + CYCLE_SHIFT_EPS_MS;
-        if (!(nextProbe > probe)) break;
-        probe = nextProbe;
+    const seedProbe = startTs + ((endTs - startTs) * 0.5);
+    const seedBounds = cycleBounds(await resolveCycle(seedProbe));
+    if (!seedBounds) return [];
+
+    seenCycles.add(seedBounds.key);
+    pushCycle(seedBounds.sorted);
+
+    let prevCycleStart = seedBounds.start;
+    for (let i = 0; i < MAX_CYCLES_PER_SIDE; i++) {
+        if (prevCycleStart <= startTs) break;
+        const probeTs = prevCycleStart - CYCLE_SHIFT_EPS_MS;
+        const bounds = cycleBounds(await resolveCycle(probeTs));
+        if (!bounds || seenCycles.has(bounds.key)) break;
+        seenCycles.add(bounds.key);
+        pushCycle(bounds.sorted);
+        prevCycleStart = bounds.start;
+        if (bounds.end < startTs) break;
+    }
+
+    let nextCycleEnd = seedBounds.end;
+    for (let i = 0; i < MAX_CYCLES_PER_SIDE; i++) {
+        if (nextCycleEnd >= endTs) break;
+        const probeTs = nextCycleEnd + CYCLE_SHIFT_EPS_MS;
+        const bounds = cycleBounds(await resolveCycle(probeTs));
+        if (!bounds || seenCycles.has(bounds.key)) break;
+        seenCycles.add(bounds.key);
+        pushCycle(bounds.sorted);
+        nextCycleEnd = bounds.end;
+        if (bounds.start > endTs) break;
     }
 
     return out.sort((a, b) => a.ts - b.ts);
@@ -1085,7 +1150,9 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         const bindSpokes = hasSynodWindow
             ? await collectBindSpokesInWindow(input, focus, id, synodStart, synodEnd)
             : [];
-        const nodalSpokes = await resolveNodalSpokesForTarget(input, id, ts) ?? [];
+        const nodalSpokes = hasSynodWindow
+            ? await collectNodalSpokesInWindow(input, id, synodStart, synodEnd)
+            : (await resolveNodalSpokesForTarget(input, id, ts) ?? []);
         const bindTrack = buildTrackFromBindSpokes(bindSpokes, looker, focus, id);
         const nodalTrack = buildTrackFromNodalSpokes(nodalSpokes, looker, focus, id);
 
