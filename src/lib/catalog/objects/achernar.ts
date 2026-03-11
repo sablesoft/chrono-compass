@@ -12,6 +12,7 @@ export const Achernar = {
     emoji: '★',
     meta: {
         color: '#cfe0ff',
+        distanceLy: 139.442,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

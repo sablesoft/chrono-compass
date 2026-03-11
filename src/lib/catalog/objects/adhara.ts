@@ -12,6 +12,7 @@ export const Adhara = {
     emoji: '★',
     meta: {
         color: '#dce7ff',
+        distanceLy: 405.163,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

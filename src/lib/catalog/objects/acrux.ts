@@ -13,6 +13,7 @@ export const Acrux = {
     emoji: '★',
     meta: {
         color: '#aabfff',
+        distanceLy: 321.97,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

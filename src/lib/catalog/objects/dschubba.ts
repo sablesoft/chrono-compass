@@ -12,6 +12,7 @@ export const Dschubba = {
     emoji: '★',
     meta: {
         color: '#d8e5ff',
+        distanceLy: 491.199,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

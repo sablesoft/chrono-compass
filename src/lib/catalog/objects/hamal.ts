@@ -12,6 +12,7 @@ export const Hamal = {
     emoji: '★',
     meta: {
         color: '#ffcb8a',
+        distanceLy: 65.81,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

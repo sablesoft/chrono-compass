@@ -12,6 +12,7 @@ export const Shaula = {
     emoji: '★',
     meta: {
         color: '#cfe0ff',
+        distanceLy: 571.201,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

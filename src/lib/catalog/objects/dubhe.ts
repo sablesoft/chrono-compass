@@ -12,6 +12,7 @@ export const Dubhe = {
     emoji: '★',
     meta: {
         color: '#ffd7ab',
+        distanceLy: 122.892,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

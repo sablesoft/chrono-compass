@@ -12,6 +12,7 @@ export const Acamar = {
     emoji: '★',
     meta: {
         color: '#d7e2ff',
+        distanceLy: 161.224,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

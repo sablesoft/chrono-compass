@@ -12,6 +12,7 @@ export const Castor = {
     emoji: '★',
     meta: {
         color: '#e8ebff',
+        distanceLy: 50.867,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -12,6 +12,7 @@ export const Rasalhague = {
     emoji: '★',
     meta: {
         color: '#edf2ff',
+        distanceLy: 48.586,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

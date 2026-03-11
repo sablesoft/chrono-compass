@@ -13,6 +13,7 @@ export const Deneb = {
     emoji: '★',
     meta: {
         color: '#cad7ff',
+        distanceLy: 1411.931,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

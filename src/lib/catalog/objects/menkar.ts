@@ -12,6 +12,7 @@ export const Menkar = {
     emoji: '★',
     meta: {
         color: '#ffb27c',
+        distanceLy: 249.164,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

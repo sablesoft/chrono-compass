@@ -12,6 +12,7 @@ export const KausAustralis = {
     emoji: '★',
     meta: {
         color: '#e2ddff',
+        distanceLy: 143.302,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

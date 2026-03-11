@@ -12,6 +12,7 @@ export const Denebola = {
     emoji: '★',
     meta: {
         color: '#f2f3ff',
+        distanceLy: 35.877,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

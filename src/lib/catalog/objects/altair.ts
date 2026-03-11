@@ -13,6 +13,7 @@ export const Altair = {
     emoji: '★',
     meta: {
         color: '#cad7ff',
+        distanceLy: 16.73,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

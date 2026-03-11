@@ -12,6 +12,7 @@ export const ZubenElakrab = {
     emoji: '★',
     meta: {
         color: '#c9dfff',
+        distanceLy: 860.57,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

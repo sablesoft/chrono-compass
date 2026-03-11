@@ -12,6 +12,7 @@ export const Alfard = {
     emoji: '★',
     meta: {
         color: '#f0d6b5',
+        distanceLy: 180.296,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -12,6 +12,7 @@ export const Kochab = {
     emoji: '★',
     meta: {
         color: '#efe6c8',
+        distanceLy: 130.934,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

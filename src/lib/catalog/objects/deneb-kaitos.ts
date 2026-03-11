@@ -12,6 +12,7 @@ export const DenebKaitos = {
     emoji: '★',
     meta: {
         color: '#ffd0a6',
+        distanceLy: 96.325,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

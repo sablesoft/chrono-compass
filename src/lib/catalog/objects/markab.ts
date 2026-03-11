@@ -12,6 +12,7 @@ export const Markab = {
     emoji: '★',
     meta: {
         color: '#dde5ff',
+        distanceLy: 133.343,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

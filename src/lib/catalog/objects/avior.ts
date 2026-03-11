@@ -12,6 +12,7 @@ export const Avior = {
     emoji: '★',
     meta: {
         color: '#ffe0b5',
+        distanceLy: 605.113,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

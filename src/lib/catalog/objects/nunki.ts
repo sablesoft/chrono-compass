@@ -13,6 +13,7 @@ export const Nunki = {
     emoji: '★',
     meta: {
         color: '#aabfff',
+        distanceLy: 227.763,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

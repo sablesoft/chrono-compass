@@ -13,6 +13,7 @@ export const Gacrux = {
     emoji: '★',
     meta: {
         color: '#ffcc6f',
+        distanceLy: 88.557,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

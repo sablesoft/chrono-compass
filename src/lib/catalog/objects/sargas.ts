@@ -12,6 +12,7 @@ export const Sargas = {
     emoji: '★',
     meta: {
         color: '#ffe1b8',
+        distanceLy: 300.328,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -12,6 +12,7 @@ export const Pollux = {
     emoji: '★',
     meta: {
         color: '#ffd79d',
+        distanceLy: 33.785,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

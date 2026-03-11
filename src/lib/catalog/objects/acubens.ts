@@ -12,6 +12,7 @@ export const Acubens = {
     emoji: '★',
     meta: {
         color: '#d9e6ff',
+        distanceLy: 188.312,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

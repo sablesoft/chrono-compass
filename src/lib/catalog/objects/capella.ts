@@ -12,6 +12,7 @@ export const Capella = {
     emoji: '★',
     meta: {
         color: '#ffd68e',
+        distanceLy: 42.803,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

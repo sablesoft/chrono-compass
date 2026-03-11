@@ -12,6 +12,7 @@ export const Graffias = {
     emoji: '★',
     meta: {
         color: '#d7e1ff',
+        distanceLy: 404.158,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {
