@@ -8,11 +8,8 @@ const DEC_SIRIUS_DEG = dmsToDeg(-1, 16, 42, 58.11);
 export const Sirius = {
     id: 'ref:sirius',
     kind: 'reference',
-    name: { en: 'Sirius', ru: 'Сириус' },
-    description: {
-        en: 'Sirius (ICRF/J2000) — the brightest star in the night sky and the “Dog Star” of Canis Major.',
-        ru: 'Сириус (ICRF/J2000) — самая яркая звезда ночного неба, «Пса» созвездия Большого Пса.'
-    },
+    name: 'Sirius',
+    description: 'Sirius (ICRF/J2000) — the brightest star in the night sky and the “Dog Star” of Canis Major.',
     emoji: '★',
     meta: {
         color: '#cad7ff',

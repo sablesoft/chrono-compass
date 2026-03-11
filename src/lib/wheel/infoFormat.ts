@@ -81,6 +81,8 @@ export function formatInfoValue(format: string | undefined, raw: FormatInput): s
             return formatNum(n, 2);
         case 'au':
             return formatNum(n, 6);
+        case 'ly':
+            return formatNum(n, 6);
         case 'km':
             return formatKm(n);
         case 'duration':

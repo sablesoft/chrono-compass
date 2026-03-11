@@ -7,11 +7,8 @@ const DEC_RASALHAGUE_DEG = dmsToDeg(1, 12, 33, 36.0);
 export const Rasalhague = {
     id: 'ref:rasalhague',
     kind: 'reference',
-    name: { en: 'Rasalhague', ru: 'Расальхаге' },
-    description: {
-        en: 'Rasalhague (ICRF/J2000) — Alpha Ophiuchi, the bright head star of the Serpent Bearer and a prominent marker of Ophiuchus.',
-        ru: 'Расальхаге (ICRF/J2000) — Альфа Змееносца, яркая звезда головы Змееносца и заметный маркер этого созвездия.'
-    },
+    name: 'Rasalhague',
+    description: 'Rasalhague (ICRF/J2000) — Alpha Ophiuchi, the bright head star of the Serpent Bearer and a prominent marker of Ophiuchus.',
     emoji: '★',
     meta: {
         color: '#edf2ff',

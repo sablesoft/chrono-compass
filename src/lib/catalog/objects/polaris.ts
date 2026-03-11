@@ -8,11 +8,8 @@ const DEC_POLARIS_DEG = dmsToDeg(1, 89, 15, 51);
 export const Polaris = {
     id: 'ref:polaris',
     kind: 'reference',
-    name: { en: 'Polaris', ru: 'Полярная звезда' },
-    description: {
-        en: 'Polaris (ICRF/J2000), the North Star in Ursa Minor, located close to the north celestial pole and used for navigation.',
-        ru: 'Полярная звезда (ICRF/J2000) в созвездии Малой Медведицы близка к северному полюсу мира и традиционно используемую для навигации.'
-    },
+    name: 'Polaris',
+    description: 'Polaris (ICRF/J2000), the North Star in Ursa Minor, located close to the north celestial pole and used for navigation.',
     emoji: '★',
     meta: {
         color: '#f8f7ff',

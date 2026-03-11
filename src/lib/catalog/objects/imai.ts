@@ -8,11 +8,8 @@ const DEC_IMAI_DEG = dmsToDeg(-1, 58, 44, 56.1369);
 export const Imai = {
     id: 'ref:imai',
     kind: 'reference',
-    name: { en: 'Imai', ru: 'Имай' },
-    description: {
-        en: 'Imai (ICRF/J2000) — the bright Delta Crucis star in the Southern Cross (Crux), a B-type star.',
-        ru: 'Имай (ICRF/J2000) — яркая звезда Дельта Южного Креста (Crux), звезда B-типа.'
-    },
+    name: 'Imai',
+    description: 'Imai (ICRF/J2000) — the bright Delta Crucis star in the Southern Cross (Crux), a B-type star.',
     emoji: '★',
     meta: {
         color: '#aabfff',

@@ -7,11 +7,8 @@ const DEC_AVIOR_DEG = dmsToDeg(-1, 59, 30, 35.0);
 export const Avior = {
     id: 'ref:avior',
     kind: 'reference',
-    name: { en: 'Avior', ru: 'Авиор' },
-    description: {
-        en: 'Avior (ICRF/J2000) — a bright southern star in Carina, widely recognized in navigational traditions.',
-        ru: 'Авиор (ICRF/J2000) — яркая южная звезда в Киле, хорошо известная в навигационных традициях.'
-    },
+    name: 'Avior',
+    description: 'Avior (ICRF/J2000) — a bright southern star in Carina, widely recognized in navigational traditions.',
     emoji: '★',
     meta: {
         color: '#ffe0b5',

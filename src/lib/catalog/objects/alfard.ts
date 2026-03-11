@@ -7,11 +7,8 @@ const DEC_ALFARD_DEG = dmsToDeg(-1, 8, 39, 31.0);
 export const Alfard = {
     id: 'ref:alfard',
     kind: 'reference',
-    name: { en: 'Alfard', ru: 'Альфард' },
-    description: {
-        en: 'Alfard (ICRF/J2000) — Alpha Hydrae, the solitary bright star of Hydra and a well-known marker of the Water Serpent.',
-        ru: 'Альфард (ICRF/J2000) — Альфа Гидры, одинокая яркая звезда Гидры и заметный маркер Водяной Змеи.'
-    },
+    name: 'Alfard',
+    description: 'Alfard (ICRF/J2000) — Alpha Hydrae, the solitary bright star of Hydra and a well-known marker of the Water Serpent.',
     emoji: '★',
     meta: {
         color: '#f0d6b5',

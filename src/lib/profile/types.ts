@@ -27,9 +27,20 @@ export type SavedWheel = {
     createdAt: number;
 };
 
+export type BodyUserInfoItem = {
+    id: string;
+    label: string;
+    value?: string;
+    modal?: string;
+};
+
 export type BodyUserOverride = {
     name?: { en?: string };
     emoji?: string;
+    description?: { en?: string };
+    descriptionLabel?: string;
+    distanceLyLabel?: string;
+    infoItems?: BodyUserInfoItem[];
 };
 
 export type ProfileData = {

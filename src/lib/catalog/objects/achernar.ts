@@ -7,11 +7,8 @@ const DEC_ACHERNAR_DEG = dmsToDeg(-1, 57, 14, 12.0);
 export const Achernar = {
     id: 'ref:achernar',
     kind: 'reference',
-    name: { en: 'Achernar', ru: 'Ахернар' },
-    description: {
-        en: 'Achernar (ICRF/J2000) — the bright end star of Eridanus and one of the most luminous southern navigational stars.',
-        ru: 'Ахернар (ICRF/J2000) — яркая конечная звезда Эридана и одна из самых заметных южных навигационных звёзд.'
-    },
+    name: 'Achernar',
+    description: 'Achernar (ICRF/J2000) — the bright end star of Eridanus and one of the most luminous southern navigational stars.',
     emoji: '★',
     meta: {
         color: '#cfe0ff',

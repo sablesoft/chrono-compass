@@ -7,11 +7,8 @@ const DEC_DUBHE_DEG = dmsToDeg(1, 61, 45, 3.7);
 export const Dubhe = {
     id: 'ref:dubhe',
     kind: 'reference',
-    name: { en: 'Dubhe', ru: 'Дубхе' },
-    description: {
-        en: 'Dubhe (ICRF/J2000) — one of the pointer stars of Ursa Major and a familiar guide toward the north.',
-        ru: 'Дубхе (ICRF/J2000) — одна из указательных звёзд Большой Медведицы и известный ориентир на север.'
-    },
+    name: 'Dubhe',
+    description: 'Dubhe (ICRF/J2000) — one of the pointer stars of Ursa Major and a familiar guide toward the north.',
     emoji: '★',
     meta: {
         color: '#ffd7ab',

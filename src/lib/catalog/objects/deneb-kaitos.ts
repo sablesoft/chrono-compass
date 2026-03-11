@@ -7,11 +7,8 @@ const DEC_DENEB_KAITOS_DEG = dmsToDeg(-1, 17, 59, 12.0);
 export const DenebKaitos = {
     id: 'ref:deneb-kaitos',
     kind: 'reference',
-    name: { en: 'Deneb Kaitos', ru: 'Денеб Кайтос' },
-    description: {
-        en: 'Deneb Kaitos (ICRF/J2000) — the bright tail star of Cetus, also known as Diphda in many catalogs.',
-        ru: 'Денеб Кайтос (ICRF/J2000) — яркая хвостовая звезда Кита, также известная во многих каталогах как Дифда.'
-    },
+    name: 'Deneb Kaitos',
+    description: 'Deneb Kaitos (ICRF/J2000) — the bright tail star of Cetus, also known as Diphda in many catalogs.',
     emoji: '★',
     meta: {
         color: '#ffd0a6',

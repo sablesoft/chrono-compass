@@ -8,11 +8,8 @@ const DEC_ACRUX_DEG = dmsToDeg(-1, 63, 5, 56.7343);
 export const Acrux = {
     id: 'ref:acrux',
     kind: 'reference',
-    name: { en: 'Acrux', ru: 'Акрукс' },
-    description: {
-        en: 'Acrux (ICRF/J2000) — the brightest star of the Southern Cross (Crux), a blue B-type system.',
-        ru: 'Акрукс (ICRF/J2000) — самая яркая звезда Южного Креста (Crux), голубая звезда B-типа.'
-    },
+    name: 'Acrux',
+    description: 'Acrux (ICRF/J2000) — the brightest star of the Southern Cross (Crux), a blue B-type system.',
     emoji: '★',
     meta: {
         color: '#aabfff',

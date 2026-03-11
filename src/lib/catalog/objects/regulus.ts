@@ -7,11 +7,8 @@ const DEC_REGULUS_DEG = dmsToDeg(1, 11, 58, 2.0);
 export const Regulus = {
     id: 'ref:regulus',
     kind: 'reference',
-    name: { en: 'Regulus', ru: 'Регул' },
-    description: {
-        en: 'Regulus (ICRF/J2000) — the heart of Leo and one of the most famous royal stars in historical traditions.',
-        ru: 'Регул (ICRF/J2000) — сердце Льва и одна из самых известных царских звёзд в исторических традициях.'
-    },
+    name: 'Regulus',
+    description: 'Regulus (ICRF/J2000) — the heart of Leo and one of the most famous royal stars in historical traditions.',
     emoji: '★',
     meta: {
         color: '#d6deff',

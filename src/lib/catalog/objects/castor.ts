@@ -7,11 +7,8 @@ const DEC_CASTOR_DEG = dmsToDeg(1, 31, 53, 18.0);
 export const Castor = {
     id: 'ref:castor',
     kind: 'reference',
-    name: { en: 'Castor', ru: 'Кастор' },
-    description: {
-        en: 'Castor (ICRF/J2000) — the second bright twin of Gemini and a famous naked-eye multiple-star system.',
-        ru: 'Кастор (ICRF/J2000) — вторая яркая звезда Близнецов и известная кратная звёздная система, видимая невооружённым глазом.'
-    },
+    name: 'Castor',
+    description: 'Castor (ICRF/J2000) — the second bright twin of Gemini and a famous naked-eye multiple-star system.',
     emoji: '★',
     meta: {
         color: '#e8ebff',

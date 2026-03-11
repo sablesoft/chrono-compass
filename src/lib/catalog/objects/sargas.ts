@@ -7,11 +7,8 @@ const DEC_SARGAS_DEG = dmsToDeg(-1, 42, 59, 52.0);
 export const Sargas = {
     id: 'ref:sargas',
     kind: 'reference',
-    name: { en: 'Sargas', ru: 'Саргас' },
-    description: {
-        en: 'Sargas (ICRF/J2000) — Theta Scorpii, a bright southern star in the Scorpion often used as a marker of its curving tail region.',
-        ru: 'Саргас (ICRF/J2000) — Тета Скорпиона, яркая южная звезда Скорпиона, часто служащая маркером его изогнутой хвостовой области.'
-    },
+    name: 'Sargas',
+    description: 'Sargas (ICRF/J2000) — Theta Scorpii, a bright southern star in the Scorpion often used as a marker of its curving tail region.',
     emoji: '★',
     meta: {
         color: '#ffe1b8',

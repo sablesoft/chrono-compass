@@ -7,11 +7,8 @@ const DEC_ALDEBARAN_DEG = dmsToDeg(1, 16, 30, 33.5);
 export const Aldebaran = {
     id: 'ref:aldebaran',
     kind: 'reference',
-    name: { en: 'Aldebaran', ru: 'Альдебаран' },
-    description: {
-        en: 'Aldebaran (ICRF/J2000) — the orange eye of Taurus and one of the best-known bright stars of the zodiac.',
-        ru: 'Альдебаран (ICRF/J2000) — оранжевый глаз Тельца и одна из самых известных ярких звёзд зодиака.'
-    },
+    name: 'Aldebaran',
+    description: 'Aldebaran (ICRF/J2000) — the orange eye of Taurus and one of the best-known bright stars of the zodiac.',
     emoji: '★',
     meta: {
         color: '#ffb46d',

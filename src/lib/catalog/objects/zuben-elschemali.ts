@@ -7,11 +7,8 @@ const DEC_ZUBEN_ELSCHEMALI_DEG = dmsToDeg(-1, 9, 22, 58.0);
 export const ZubenElschemali = {
     id: 'ref:zuben-elschemali',
     kind: 'reference',
-    name: { en: 'Zuben Elschemali', ru: 'Зубен Эльшемали' },
-    description: {
-        en: 'Zuben Elschemali (ICRF/J2000) — Beta Librae, the brighter traditional scale star of Libra with a strong place in classical star lore.',
-        ru: 'Зубен Эльшемали (ICRF/J2000) — Бета Весов, более яркая традиционная звезда чаш Весов с заметным местом в классической звёздной традиции.'
-    },
+    name: 'Zuben Elschemali',
+    description: 'Zuben Elschemali (ICRF/J2000) — Beta Librae, the brighter traditional scale star of Libra with a strong place in classical star lore.',
     emoji: '★',
     meta: {
         color: '#b6ddff',

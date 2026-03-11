@@ -6,7 +6,7 @@ import { type MarkerItem, SPOKES_ORDER, type SpokeKey } from '../wheel/types';
 import type { WheelInput, CompassSolveResult, CycleSpoke } from '../board/runtime';
 import { resolveWheel } from '../board/dispatcher';
 import { resolveWheelMeta } from '../board/registry';
-import { AU_KM, clamp, currentHouseAtTs, norm360, trackInMainCycleWindow } from './helpers';
+import { AU_KM, AU_PER_LY, clamp, currentHouseAtTs, norm360, trackInMainCycleWindow } from './helpers';
 import { solveSynodWheel, synodInstantAt, synodPhaseToWheelAngleDeg, synodProjectedPhaseAt, type SynodMeta } from './synod';
 import { solveBindWheel } from './bind';
 import type { BindMeta } from './bind';
@@ -109,8 +109,8 @@ function bodyEmoji(id: ObjId): string {
 }
 
 function bodyNameEn(id: ObjId): string {
-    const b = (objects as any)[id] as { name?: { en?: string } } | undefined;
-    return b?.name?.en ?? String(id);
+    const b = (objects as any)[id] as { name?: string } | undefined;
+    return b?.name ?? String(id);
 }
 
 function bodyKind(id: ObjId): 'engine_body' | 'reference' | null {
@@ -163,6 +163,14 @@ function referenceDirectionVec(id: ObjId): { x: number; y: number; z: number } |
     const unit = b?.meta ? refUnit(b.meta) : null;
     if (!unit) return null;
     return { x: unit[0], y: unit[1], z: unit[2] };
+}
+
+function referenceDistanceAu(id: ObjId): number {
+    const b = (objects as any)[id] as { meta?: ReferenceMeta } | undefined;
+    const distanceLy = Number(b?.meta?.distanceLy);
+    return Number.isFinite(distanceLy) && distanceLy > 0
+        ? distanceLy * AU_PER_LY
+        : NaN;
 }
 
 function normalizeVec(v: Vec3d): Vec3d | null {
@@ -1120,12 +1128,13 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         if (kind === 'reference') {
             const inst = referenceTargetInstant(looker, focus, id, ts);
             if (!inst) return null;
+            const distanceAu = referenceDistanceAu(id);
             return {
                 id,
                 kind,
                 angleDeg: inst.angleDeg,
                 phaseDeg: inst.phaseDeg,
-                distanceAu: NaN,
+                distanceAu,
                 focusDistAu: inst.focusDistAu,
                 currentHouses: {
                     synod: synodHouseFromPhaseDeg(inst.phaseDeg)
@@ -1199,10 +1208,10 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             ? SYSTEM_REFERENCE_RING_ORBIT
             : normalizeOrbit(r.distanceAu, maxAu);
         const eclLat = eclipticLatitudeDegAt(focus, r.id, ts);
-        const planeDistanceAu = r.kind === 'engine_body' && Number.isFinite(eclLat)
+        const planeDistanceAu = Number.isFinite(eclLat) && Number.isFinite(r.distanceAu)
             ? (r.distanceAu * Math.sin((eclLat * Math.PI) / 180))
             : NaN;
-        const planeDistanceRatio = r.kind === 'engine_body' && Number.isFinite(planeDistanceAu)
+        const planeDistanceRatio = Number.isFinite(planeDistanceAu)
             ? (planeDistanceAu / maxAu)
             : NaN;
 
@@ -1232,7 +1241,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             focusDistAu: r.focusDistAu,
             planeDistanceAu,
             planeDistanceRatio,
-            distanceLabel: r.kind === 'reference' ? '' : `Dist to ${bodyNameEn(focus)}`,
+            distanceLabel: Number.isFinite(r.distanceAu) ? `Dist to ${bodyNameEn(focus)}` : '',
             currentHouses: r.currentHouses,
             infoMeta: {
                 synod: {
@@ -1242,11 +1251,11 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
                     focusDistAu: r.focusDistAu,
                     eclipticLatDeg: eclLat
                 },
-                bind: r.kind === 'engine_body' ? {
+                bind: Number.isFinite(r.distanceAu) ? {
                     distanceAu: r.distanceAu,
                     distanceKm: r.distanceAu * AU_KM
                 } : undefined,
-                nodal: r.kind === 'engine_body' ? {
+                nodal: Number.isFinite(r.distanceAu) ? {
                     nodalLatitudeDeg: eclLat,
                     distanceAu: r.distanceAu,
                     distanceKm: r.distanceAu * AU_KM,

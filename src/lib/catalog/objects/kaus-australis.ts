@@ -7,11 +7,8 @@ const DEC_KAUS_AUSTRALIS_DEG = dmsToDeg(-1, 34, 23, 4.6);
 export const KausAustralis = {
     id: 'ref:kaus-australis',
     kind: 'reference',
-    name: { en: 'Kaus Australis', ru: 'Каус Аустралис' },
-    description: {
-        en: 'Kaus Australis (ICRF/J2000) — the brightest star in Sagittarius and a well-known arrow-marking star of the Archer.',
-        ru: 'Каус Аустралис (ICRF/J2000) — самая яркая звезда Стрельца и известная звезда, отмечающая лук Стрельца.'
-    },
+    name: 'Kaus Australis',
+    description: 'Kaus Australis (ICRF/J2000) — the brightest star in Sagittarius and a well-known arrow-marking star of the Archer.',
     emoji: '★',
     meta: {
         color: '#e2ddff',

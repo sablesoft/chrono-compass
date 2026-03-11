@@ -7,11 +7,8 @@ const DEC_SPICA_DEG = dmsToDeg(-1, 11, 9, 40.7);
 export const Spica = {
     id: 'ref:spica',
     kind: 'reference',
-    name: { en: 'Spica', ru: 'Спика' },
-    description: {
-        en: 'Spica (ICRF/J2000) — the brightest star in Virgo and one of the classical zodiacal stars.',
-        ru: 'Спика (ICRF/J2000) — самая яркая звезда Девы и одна из классических звёзд зодиака.'
-    },
+    name: 'Spica',
+    description: 'Spica (ICRF/J2000) — the brightest star in Virgo and one of the classical zodiacal stars.',
     emoji: '★',
     meta: {
         color: '#cbd9ff',

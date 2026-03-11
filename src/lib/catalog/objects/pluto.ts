@@ -4,11 +4,8 @@ import type { Obj } from '../types';
 export const Pluto: Obj = {
     id: 'Pluto',
     kind: 'engine_body',
-    name: { en: 'Pluto' },
-    description: {
-        en: 'A dwarf planet in the Kuiper belt with a highly eccentric and inclined orbit.',
-        ru: 'Карликовая планета пояса Койпера с сильно вытянутой и наклоненной орбитой.'
-    },
+    name: 'Pluto',
+    description: 'A dwarf planet in the Kuiper belt with a highly eccentric and inclined orbit.',
     meta: {
         color: '#b3b3b3'
     },

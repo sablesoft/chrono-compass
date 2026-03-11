@@ -7,11 +7,8 @@ const DEC_MINTAKA_DEG = dmsToDeg(-1, 0, 17, 56.0);
 export const Mintaka = {
     id: 'ref:mintaka',
     kind: 'reference',
-    name: { en: 'Mintaka', ru: 'Минтака' },
-    description: {
-        en: 'Mintaka (ICRF/J2000) — the western belt star of Orion, lying very close to the celestial equator.',
-        ru: 'Минтака (ICRF/J2000) — западная звезда Пояса Ориона, лежащая очень близко к небесному экватору.'
-    },
+    name: 'Mintaka',
+    description: 'Mintaka (ICRF/J2000) — the western belt star of Orion, lying very close to the celestial equator.',
     emoji: '★',
     meta: {
         color: '#dfe8ff',

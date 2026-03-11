@@ -7,11 +7,8 @@ const DEC_VEGA_DEG = dmsToDeg(1, 38, 47, 1.28);
 export const Vega = {
     id: 'ref:vega',
     kind: 'reference',
-    name: { en: 'Vega', ru: 'Вега' },
-    description: {
-        en: 'Vega (ICRF/J2000) — the brightest star in Lyra and a prominent vertex of the Summer Triangle.',
-        ru: 'Вега (ICRF/J2000) — самая яркая звезда Лиры и заметная вершина Летнего треугольника.'
-    },
+    name: 'Vega',
+    description: 'Vega (ICRF/J2000) — the brightest star in Lyra and a prominent vertex of the Summer Triangle.',
     emoji: '★',
     meta: {
         color: '#d8e4ff',

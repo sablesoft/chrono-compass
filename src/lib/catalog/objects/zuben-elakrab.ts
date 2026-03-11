@@ -7,11 +7,8 @@ const DEC_ZUBEN_ELAKRAB_DEG = dmsToDeg(-1, 16, 1, 30.0);
 export const ZubenElakrab = {
     id: 'ref:zuben-elakrab',
     kind: 'reference',
-    name: { en: 'Zuben Elakrab', ru: 'Зубен Элакраб' },
-    description: {
-        en: 'Zuben Elakrab (ICRF/J2000) — Gamma Librae, a traditional southern scale star linked with the extended claws and balances of Libra.',
-        ru: 'Зубен Элакраб (ICRF/J2000) — Гамма Весов, традиционная южная звезда чаши, связанная с расширенными клешнями и весами в старых традициях.'
-    },
+    name: 'Zuben Elakrab',
+    description: 'Zuben Elakrab (ICRF/J2000) — Gamma Librae, a traditional southern scale star linked with the extended claws and balances of Libra.',
     emoji: '★',
     meta: {
         color: '#c9dfff',

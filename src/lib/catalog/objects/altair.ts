@@ -8,11 +8,8 @@ const DEC_ALTAIR_DEG = dmsToDeg(1, 8, 52, 5);
 export const Altair = {
     id: 'ref:altair',
     kind: 'reference',
-    name: { en: 'Altair', ru: 'Альтаир' },
-    description: {
-        en: 'Altair (ICRF/J2000) — the brightest star in Aquila and a vertex of the Summer Triangle.',
-        ru: 'Альтаир (ICRF/J2000) — самая яркая звезда Орла и вершина Летнего треугольника.'
-    },
+    name: 'Altair',
+    description: 'Altair (ICRF/J2000) — the brightest star in Aquila and a vertex of the Summer Triangle.',
     emoji: '★',
     meta: {
         color: '#cad7ff',

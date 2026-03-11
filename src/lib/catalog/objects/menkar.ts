@@ -7,11 +7,8 @@ const DEC_MENKAR_DEG = dmsToDeg(1, 4, 5, 23.0);
 export const Menkar = {
     id: 'ref:menkar',
     kind: 'reference',
-    name: { en: 'Menkar', ru: 'Менкар' },
-    description: {
-        en: 'Menkar (ICRF/J2000) — a red giant in Cetus traditionally associated with the sea monster’s head.',
-        ru: 'Менкар (ICRF/J2000) — красный гигант в Ките, традиционно связанный с головой морского чудовища.'
-    },
+    name: 'Menkar',
+    description: 'Menkar (ICRF/J2000) — a red giant in Cetus traditionally associated with the sea monster’s head.',
     emoji: '★',
     meta: {
         color: '#ffb27c',

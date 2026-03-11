@@ -60,8 +60,8 @@ function bodyColor(id: ObjId): string | undefined {
 }
 
 function bodyNameEn(id: ObjId): string {
-    const b = (objects as any)[id] as { name?: { en?: string } } | undefined;
-    return b?.name?.en ?? String(id);
+    const b = (objects as any)[id] as { name?: string } | undefined;
+    return b?.name ?? String(id);
 }
 
 function uniqueTags(tags: Array<string | null | undefined>): string[] {

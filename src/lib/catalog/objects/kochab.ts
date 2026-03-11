@@ -7,11 +7,8 @@ const DEC_KOCHAB_DEG = dmsToDeg(1, 74, 9, 20.0);
 export const Kochab = {
     id: 'ref:kochab',
     kind: 'reference',
-    name: { en: 'Kochab', ru: 'Кохаб' },
-    description: {
-        en: 'Kochab (ICRF/J2000) — Beta Ursae Minoris, a bright northern star in the Little Dipper and a notable pre-Polaris pole star.',
-        ru: 'Кохаб (ICRF/J2000) — Бета Малой Медведицы, яркая северная звезда Малого Ковша и заметная дополярная полярная звезда прошлых эпох.'
-    },
+    name: 'Kochab',
+    description: 'Kochab (ICRF/J2000) — Beta Ursae Minoris, a bright northern star in the Little Dipper and a notable pre-Polaris pole star.',
     emoji: '★',
     meta: {
         color: '#efe6c8',

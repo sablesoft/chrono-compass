@@ -8,11 +8,8 @@ const DEC_NUNKI_DEG = dmsToDeg(-1, 26, 17, 48);
 export const Nunki = {
     id: 'ref:nunki',
     kind: 'reference',
-    name: { en: 'Nunki', ru: 'Нунки' },
-    description: {
-        en: 'Nunki (ICRF/J2000) — the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way.',
-        ru: 'Нунки (ICRF/J2000) — официальное имя Сигмы Стрельца, одной из самых ярких звёзд в созвездии Стрельца у полосы Млечного Пути.'
-    },
+    name: 'Nunki',
+    description: 'Nunki (ICRF/J2000) — the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way.',
     emoji: '★',
     meta: {
         color: '#aabfff',

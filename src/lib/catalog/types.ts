@@ -26,11 +26,6 @@ export type ObjId = EngineBodyId | `ref:${string}`;
    Localization + Kind
    ============================================================================= */
 
-export type LocalizedString = {
-    en: string;
-    ru?: string;
-};
-
 export type ObjKind =
     | 'engine_body'     // exists in astronomy-engine (must use EngineBodyId)
     | 'reference';      // everything else (must use ref:*)
@@ -63,6 +58,9 @@ export type ReferenceDirection =
 
 export type ReferenceMeta = {
     direction: ReferenceDirection;
+    // Heliocentric distance in light-years for physical references (stars, galactic center).
+    // Leave undefined for abstract directions/axes.
+    distanceLy?: number;
 };
 
 export type ObjMeta =
@@ -74,8 +72,8 @@ export type ObjMeta =
    ============================================================================= */
 
 type ObjBase = {
-    name: LocalizedString;
-    description?: LocalizedString;
+    name: string;
+    description?: string;
     emoji: string;
     meta?: (ObjMeta & { color?: string }) | { color?: string };
 };
@@ -319,7 +317,7 @@ export function dmsToDeg(sign: 1 | -1, d: number, m: number, s: number): number 
 
 export function objectLabel(id: ObjId): string {
     const b = (objects as any)[id];
-    return b?.name?.en ?? String(id);
+    return b?.name ?? String(id);
 }
 
 export function formatRoleValue(v: ObjId | null | ObjId[] | undefined): string {

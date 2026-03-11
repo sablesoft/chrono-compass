@@ -7,11 +7,8 @@ const DEC_MIRFAK_DEG = dmsToDeg(1, 49, 51, 40.3);
 export const Mirfak = {
     id: 'ref:mirfak',
     kind: 'reference',
-    name: { en: 'Mirfak', ru: 'Мирфак' },
-    description: {
-        en: 'Mirfak (ICRF/J2000) — the brightest star in Perseus and the central beacon of the Alpha Persei association.',
-        ru: 'Мирфак (ICRF/J2000) — самая яркая звезда Персея и центральный маяк ассоциации Альфа Персея.'
-    },
+    name: 'Mirfak',
+    description: 'Mirfak (ICRF/J2000) — the brightest star in Perseus and the central beacon of the Alpha Persei association.',
     emoji: '★',
     meta: {
         color: '#fff0c8',

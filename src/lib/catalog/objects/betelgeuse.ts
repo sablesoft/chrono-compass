@@ -8,11 +8,8 @@ const DEC_BETELGEUSE_DEG = dmsToDeg(1, 7, 24, 25.426);
 export const Betelgeuse = {
     id: 'ref:betelgeuse',
     kind: 'reference',
-    name: { en: 'Betelgeuse', ru: 'Бетельгейзе' },
-    description: {
-        en: 'Betelgeuse (ICRF/J2000) — a bright red supergiant in Orion that is famously variable in brightness.',
-        ru: 'Бетельгейзе (ICRF/J2000) — яркий красный сверхгигант в Орионе, известный заметной переменностью блеска.'
-    },
+    name: 'Betelgeuse',
+    description: 'Betelgeuse (ICRF/J2000) — a bright red supergiant in Orion that is famously variable in brightness.',
     emoji: '★',
     meta: {
         color: '#ffcc6f',

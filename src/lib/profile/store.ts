@@ -5,7 +5,7 @@ import { debug } from '../debug';
 import type { ObjId, WheelType } from '../catalog';
 import type { WheelRolesState } from '../wheel/control';
 
-import type { Profile, ProfileData, ProfileId, ProfilesState, SavedWheel } from './types';
+import type { BodyUserInfoItem, BodyUserOverride, Profile, ProfileData, ProfileId, ProfilesState, SavedWheel } from './types';
 import { boardApi, boardState } from '../board/store';
 
 import { makeDedupKey as makeDedupKeyImpl, normalizeRoleValue } from './dedup';
@@ -53,7 +53,7 @@ function emptyProfileData() {
     return {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
-        bodies: {} as Partial<Record<ObjId, { name?: { en?: string }; emoji?: string }>>,
+        bodies: {} as Partial<Record<ObjId, BodyUserOverride>>,
         wheelsOnScreen: [] as BoardWheel[]
     };
 }
@@ -160,7 +160,8 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
                 locked,
                 data: {
                     ...emptyProfileData(),
-                    ...(p?.data ?? {})
+                    ...(p?.data ?? {}),
+                    bodies: normalizeBodies(p?.data?.bodies)
                 }
             };
         });
@@ -359,18 +360,54 @@ function cloneBoardWheelSnapshot(w: BoardWheel, order: number): BoardWheel {
     };
 }
 
-function normalizeBodies(input: any): Partial<Record<ObjId, { name?: { en?: string }; emoji?: string }>> {
+function normalizeBodyInfoItems(input: unknown): BodyUserInfoItem[] | undefined {
+    if (!Array.isArray(input)) return undefined;
+    const out: BodyUserInfoItem[] = [];
+    for (const raw of input) {
+        const id = typeof raw?.id === 'string' ? raw.id.trim() : '';
+        const label = typeof raw?.label === 'string' ? raw.label.trim() : '';
+        const value = typeof raw?.value === 'string' ? raw.value.trim() : '';
+        const modal = typeof raw?.modal === 'string' ? raw.modal.trim() : '';
+        if (!id || !label) continue;
+        if (!value && !modal) continue;
+        out.push({
+            id,
+            label,
+            value: value || undefined,
+            modal: modal || undefined
+        });
+    }
+    return out.length ? out : undefined;
+}
+
+function normalizeBodyOverride(input: any): BodyUserOverride | null {
+    if (!input || typeof input !== 'object') return null;
+    const nameEn = typeof input?.name?.en === 'string' ? input.name.en.trim() : '';
+    const emoji = typeof input?.emoji === 'string' ? input.emoji.trim() : '';
+    const descriptionEn = typeof input?.description?.en === 'string' ? input.description.en.trim() : '';
+    const descriptionLabel = typeof input?.descriptionLabel === 'string' ? input.descriptionLabel.trim() : '';
+    const distanceLyLabel = typeof input?.distanceLyLabel === 'string' ? input.distanceLyLabel.trim() : '';
+    const infoItems = normalizeBodyInfoItems(input?.infoItems);
+
+    const next: BodyUserOverride = {};
+    if (nameEn) next.name = { en: nameEn };
+    if (emoji) next.emoji = emoji;
+    if (descriptionEn) next.description = { en: descriptionEn };
+    if (descriptionLabel) next.descriptionLabel = descriptionLabel;
+    if (distanceLyLabel) next.distanceLyLabel = distanceLyLabel;
+    if (infoItems?.length) next.infoItems = infoItems;
+
+    return Object.keys(next).length ? next : null;
+}
+
+function normalizeBodies(input: any): Partial<Record<ObjId, BodyUserOverride>> {
     if (!input || typeof input !== 'object') return {};
-    const out: Partial<Record<ObjId, { name?: { en?: string }; emoji?: string }>> = {};
+    const out: Partial<Record<ObjId, BodyUserOverride>> = {};
     for (const [k, v] of Object.entries(input as Record<string, any>)) {
         const id = String(k || '').trim() as ObjId;
-        if (!id || !v || typeof v !== 'object') continue;
-        const next: { name?: { en?: string }; emoji?: string } = {};
-        const nameEn = typeof (v as any)?.name?.en === 'string' ? (v as any).name.en.trim() : '';
-        const emoji = typeof (v as any)?.emoji === 'string' ? (v as any).emoji.trim() : '';
-        if (nameEn) next.name = { en: nameEn };
-        if (emoji) next.emoji = emoji;
-        if (next.name || next.emoji) out[id] = next;
+        if (!id) continue;
+        const next = normalizeBodyOverride(v);
+        if (next) out[id] = next;
     }
     return out;
 }
@@ -941,7 +978,7 @@ export const profilesApi = {
     },
 
     // objects overrides
-    setBodyOverride(bodyId: ObjId, patch: { name?: { en?: string }; emoji?: string }) {
+    setBodyOverride(bodyId: ObjId, patch: Partial<BodyUserOverride>) {
         dbg.group('api.setBodyOverride', () => {
             const ap = get(activeProfile);
             if (ap.system) {
@@ -955,7 +992,9 @@ export const profilesApi = {
             updateProfile(ap.id, (p) => {
                 const bodies = { ...p.data.bodies };
                 const prev = bodies[bodyId] ?? {};
-                bodies[bodyId] = { ...prev, ...patch };
+                const merged = normalizeBodyOverride({ ...prev, ...patch });
+                if (merged) bodies[bodyId] = merged;
+                else delete bodies[bodyId];
                 return { ...p, updatedAt: t, data: { ...p.data, bodies } };
             });
         });

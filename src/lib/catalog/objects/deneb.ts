@@ -8,11 +8,8 @@ const DEC_DENEB_DEG = dmsToDeg(1, 45, 16, 49.22);
 export const Deneb = {
     id: 'ref:deneb',
     kind: 'reference',
-    name: { en: 'Deneb', ru: 'Денеб' },
-    description: {
-        en: 'Deneb (ICRF/J2000) — a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle.',
-        ru: 'Денеб (ICRF/J2000) — яркий голубой сверхгигант в созвездии Лебедя и одна из вершин Летнего треугольника.'
-    },
+    name: 'Deneb',
+    description: 'Deneb (ICRF/J2000) — a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle.',
     emoji: '★',
     meta: {
         color: '#cad7ff',

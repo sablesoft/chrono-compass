@@ -3,6 +3,7 @@
 export const DAY_MS = 86_400_000;
 
 export const AU_KM = 149_597_870.7;
+export const AU_PER_LY = 63_241.077;
 
 export function isFiniteNumber(n: unknown): n is number {
     return typeof n === 'number' && Number.isFinite(n);

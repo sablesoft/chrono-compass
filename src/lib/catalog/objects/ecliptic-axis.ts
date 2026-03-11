@@ -8,11 +8,8 @@ const DEC_ECL_NORTH_DEG = dmsToDeg(1, 66, 33, 38.6);
 export const EclipticAxis = {
     id: 'ref:ecliptic-axis',
     kind: 'reference',
-    name: { en: 'Ecliptic Axis', ru: 'Ось Эклиптики' },
-    description: {
-        en: 'Reference direction of the north ecliptic pole in ICRF/J2000. This defines the ecliptic-plane normal as a fixed axis, not a physical body.',
-        ru: 'Опорное направление северного полюса эклиптики в системе ICRF/J2000. Задает нормаль к плоскости эклиптики как фиксированную ось, а не физическое тело.',
-    },
+    name: 'Ecliptic Axis',
+    description: 'Reference direction of the north ecliptic pole in ICRF/J2000. This defines the ecliptic-plane normal as a fixed axis, not a physical body.',
     emoji: '🧭',
     meta: {
         color: '#9aa3ad',

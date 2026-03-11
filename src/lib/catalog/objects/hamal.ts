@@ -7,11 +7,8 @@ const DEC_HAMAL_DEG = dmsToDeg(1, 23, 27, 44.7);
 export const Hamal = {
     id: 'ref:hamal',
     kind: 'reference',
-    name: { en: 'Hamal', ru: 'Хамаль' },
-    description: {
-        en: 'Hamal (ICRF/J2000) — the brightest star in Aries and a traditional marker of the Ram.',
-        ru: 'Хамаль (ICRF/J2000) — самая яркая звезда Овна и традиционный маркер созвездия Барана.'
-    },
+    name: 'Hamal',
+    description: 'Hamal (ICRF/J2000) — the brightest star in Aries and a traditional marker of the Ram.',
     emoji: '★',
     meta: {
         color: '#ffcb8a',

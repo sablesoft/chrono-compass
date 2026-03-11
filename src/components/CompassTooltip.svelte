@@ -3,8 +3,7 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import type { MarkerCluster, MomentTip, MarkerItem } from '../lib/wheel/types';
-    import { objects, type ObjId } from '../lib/catalog';
-    import { getPreferredLang2 } from '../lib/docs';
+    import type { ObjId } from '../lib/catalog';
     import type { SavedWheel } from '../lib/profile/types';
     import { formatDateTime } from '../lib/format';
     import { formatInfoValue } from '../lib/wheel/infoFormat';
@@ -34,6 +33,7 @@
         house: string;        // E/ENE/...
         visible: boolean;
         activeNode?: MomentTip | null;
+        bodyInfoItems?: Array<{ id: string; label: string; value?: string; modal?: string }>;
     }[] = [];
     export let dynamicRows: Array<{
         id: ObjId;
@@ -42,7 +42,6 @@
     export let dynamicDisabledIds: Set<string> = new Set();
 
     export let pinnedBodyId: ObjId | null = null;
-    export let descriptionLabel = '';
     export let separatorLabel = 'HORIZON';
     export let onTogglePin: (bodyId: ObjId) => void = () => {};
 
@@ -201,19 +200,6 @@
         return items.filter((item) => !excluded.has(normalizeLabelKey(item.label)));
     }
 
-    function descriptionInfoItem(id: ObjId): { id: string; label: string; modal: string } | null {
-        const obj = (objects as any)[id] as { description?: { en: string; ru?: string } } | undefined;
-        const desc = obj?.description;
-        if (!desc) return null;
-        const lang = getPreferredLang2();
-        const text = (desc as any)[lang] || desc.en;
-        if (typeof text !== 'string' || !text.trim()) return null;
-        const label = descriptionLabel && descriptionLabel.trim().length > 0
-            ? descriptionLabel.trim()
-            : (lang === 'ru' ? 'Описание' : 'Description');
-        return { id: 'system:description', label, modal: text.trim() };
-    }
-
     function filteredRowInfoItems(row: BodyRow) {
         return uniqueBodyInfoItems(row.infoItems ?? [], momentInfoLabelSet);
     }
@@ -235,7 +221,7 @@
             id,
             emoji: it.emoji ?? '•',
             name: it.title ?? String(id),
-            color: typeof (objects as any)?.[id]?.meta?.color === 'string' ? (objects as any)[id].meta.color : undefined,
+            color: undefined,
             distanceAu: NaN,
             distanceLabel: 'Dist',
             primaryDeg: az,
@@ -370,7 +356,7 @@
                 belowLabel: found.belowLabel,
                 visible: found.visible,
                 infoItems: [
-                    ...(descriptionInfoItem(r.id) ? [descriptionInfoItem(r.id)!] : []),
+                    ...(found.bodyInfoItems ?? []),
                     ...(dynamic?.items ?? [])
                 ]
             }
@@ -396,7 +382,7 @@
             visible: b.visible,
             opacity: undefined,
             infoItems: [
-                ...(descriptionInfoItem(b.id) ? [descriptionInfoItem(b.id)!] : []),
+                ...(b.bodyInfoItems ?? []),
                 ...(dynamicRows.find((x) => x.id === b.id)?.items ?? [])
             ]
         })) as BodyRow[])

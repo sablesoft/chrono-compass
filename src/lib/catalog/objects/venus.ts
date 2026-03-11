@@ -4,11 +4,8 @@ import type { Obj } from '../types';
 export const Venus: Obj = {
     id: 'Venus',
     kind: 'engine_body',
-    name: { en: 'Venus' },
-    description: {
-        en: 'The brightest planet, often seen as the Morning or Evening Star.',
-        ru: 'Самая яркая планета, часто видимая как Утренняя или Вечерняя звезда.'
-    },
+    name: 'Venus',
+    description: 'The brightest planet, often seen as the Morning or Evening Star.',
     meta: {
         color: '#e9d8a6'
     },

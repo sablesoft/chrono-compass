@@ -7,11 +7,8 @@ const DEC_GRAFFIAS_DEG = dmsToDeg(-1, 19, 48, 20.0);
 export const Graffias = {
     id: 'ref:graffias',
     kind: 'reference',
-    name: { en: 'Graffias', ru: 'Граффиас' },
-    description: {
-        en: 'Graffias (ICRF/J2000) — Beta Scorpii, the bright multiple star long associated with the Scorpion’s claws in traditional star lore.',
-        ru: 'Граффиас (ICRF/J2000) — Бета Скорпиона, яркая кратная звезда, давно связанная в традиционной звёздной символике с клешнями Скорпиона.'
-    },
+    name: 'Graffias',
+    description: 'Graffias (ICRF/J2000) — Beta Scorpii, the bright multiple star long associated with the Scorpion’s claws in traditional star lore.',
     emoji: '★',
     meta: {
         color: '#d7e1ff',

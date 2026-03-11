@@ -7,11 +7,8 @@ const DEC_DSCHUBBA_DEG = dmsToDeg(-1, 22, 37, 18.0);
 export const Dschubba = {
     id: 'ref:dschubba',
     kind: 'reference',
-    name: { en: 'Dschubba', ru: 'Дшубба' },
-    description: {
-        en: 'Dschubba (ICRF/J2000) — Delta Scorpii, a prominent star in the Scorpion’s forehead and one of the best-known stars of upper Scorpius.',
-        ru: 'Дшубба (ICRF/J2000) — Дельта Скорпиона, заметная звезда во лбу Скорпиона и одна из самых известных звёзд верхней части созвездия.'
-    },
+    name: 'Dschubba',
+    description: 'Dschubba (ICRF/J2000) — Delta Scorpii, a prominent star in the Scorpion’s forehead and one of the best-known stars of upper Scorpius.',
     emoji: '★',
     meta: {
         color: '#d8e5ff',

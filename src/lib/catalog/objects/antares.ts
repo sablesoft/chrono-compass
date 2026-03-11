@@ -8,11 +8,8 @@ const DEC_ANTARES_DEG = dmsToDeg(-1, 26, 25, 55);
 export const Antares = {
     id: 'ref:antares',
     kind: 'reference',
-    name: { en: 'Antares', ru: 'Антарес' },
-    description: {
-        en: 'Antares (ICRF/J2000) - a red supergiant and the brightest star in Scorpius, often called the “heart of the scorpion”.',
-        ru: 'Антарес (ICRF/J2000) — красный сверхгигант и самая яркая звезда Скорпиона, часто называемая «сердцем Скорпиона».'
-    },
+    name: 'Antares',
+    description: 'Antares (ICRF/J2000) - a red supergiant and the brightest star in Scorpius, often called the “heart of the scorpion”.',
     emoji: '★',
     meta: {
         color: '#ffcc6f',

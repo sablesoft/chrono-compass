@@ -7,11 +7,8 @@ const DEC_ACAMAR_DEG = dmsToDeg(-1, 40, 18, 17.0);
 export const Acamar = {
     id: 'ref:acamar',
     kind: 'reference',
-    name: { en: 'Acamar', ru: 'Акамар' },
-    description: {
-        en: 'Acamar (ICRF/J2000) — Theta Eridani, a bright southern star in Eridanus historically linked with the end of the celestial river.',
-        ru: 'Акамар (ICRF/J2000) — Тета Эридана, яркая южная звезда в созвездии Эридана, исторически связанная с окончанием небесной реки.'
-    },
+    name: 'Acamar',
+    description: 'Acamar (ICRF/J2000) — Theta Eridani, a bright southern star in Eridanus historically linked with the end of the celestial river.',
     emoji: '★',
     meta: {
         color: '#d7e2ff',

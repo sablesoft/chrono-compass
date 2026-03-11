@@ -14,8 +14,9 @@
     import TimePicker from './TimePicker.svelte';
     import WheelHeader from './WheelHeader.svelte';
     import CompassInfoBlock from './CompassInfoBlock.svelte';
+    import BodyInfoEditor from './BodyInfoEditor.svelte';
 
-    import { getPreferredLang2, useDocs } from '../lib/docs';
+    import { useDocs } from '../lib/docs';
     import { debug } from '../lib/debug';
 
     import { objects, wheels } from '../lib/catalog';
@@ -41,7 +42,14 @@
     import { norm360 } from '../lib/math/helpers';
     import { projectSystemSideCoordinates, systemLookerSideDirection } from '../lib/math/system';
     import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
-    import { isActiveProfileLocked } from '../lib/profile/store';
+    import { activeProfile, isActiveProfileLocked } from '../lib/profile/store';
+    import {
+        resolveBodyColor,
+        resolveBodyEmoji,
+        resolveBodyInfoItems,
+        resolveBodyName
+    } from '../lib/profile/bodyInfo';
+    import type { BodyUserOverride } from '../lib/profile/types';
 
     // ------------------------------------------------------------
     // Props (Board passes wheel + resolved location)
@@ -338,13 +346,8 @@
         updateSvgPx();
     }
 
-    function localizedDescription(obj: { description?: { en: string; ru?: string } } | null | undefined): string {
-        if (!obj?.description) return '';
-        const lang = getPreferredLang2();
-        const byLang = (obj.description as any)[lang];
-        if (typeof byLang === 'string' && byLang.trim()) return byLang.trim();
-        return (obj.description.en ?? '').trim();
-    }
+    $: activeBodyOverrides = (($activeProfile?.data?.bodies ?? {}) as Partial<Record<ObjId, BodyUserOverride>>);
+
     let orbitNodesVisible: OrbitNodeUi[] = [];
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
@@ -368,9 +371,11 @@
     const NEXT_CYCLE_PICK_EPS_MS = 90_000;
 
     let pinnedBodyId: ObjId | null = null;
+    let editingBodyId: ObjId | null = null;
 
     function clearPinned() {
         pinnedBodyId = null;
+        editingBodyId = null;
     }
 
     $: {
@@ -1054,6 +1059,16 @@
 
     function togglePin(id: ObjId) {
         pinnedBodyId = (pinnedBodyId === id) ? null : id;
+        if (pinnedBodyId !== id) editingBodyId = null;
+    }
+
+    function openPinnedBodyEditor(bodyId: ObjId) {
+        if ($isActiveProfileLocked) return;
+        editingBodyId = bodyId;
+    }
+
+    function closePinnedBodyEditor() {
+        editingBodyId = null;
     }
 
     function clusterContainsPinned(c: MarkerCluster): boolean {
@@ -1736,9 +1751,8 @@
 
     $: rawOrbitNodes = lastTargets
         .flatMap((t) => {
-            const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string } } | undefined;
-            const emoji = b?.emoji ?? '•';
-            const name = b?.name?.en ?? String(t.id);
+            const emoji = resolveBodyEmoji(t.id, activeBodyOverrides);
+            const name = resolveBodyName(t.id, activeBodyOverrides);
             const isSystemWheel = wheel?.wheelType === 'system';
             const distanceLabel = typeof (t as any).distanceLabel === 'string' && (t as any).distanceLabel
                 ? (t as any).distanceLabel
@@ -1856,10 +1870,9 @@
 
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
-        const b = (objects as any)[t.id] as { emoji?: string; name?: { en?: string }; meta?: { color?: string } } | undefined;
-        const name = b?.name?.en ?? String(t.id);
-        const emoji = b?.emoji ?? '•';
-        const color = typeof b?.meta?.color === 'string' && b.meta.color.trim().length > 0 ? b.meta.color.trim() : undefined;
+        const name = resolveBodyName(t.id, activeBodyOverrides);
+        const emoji = resolveBodyEmoji(t.id, activeBodyOverrides);
+        const color = resolveBodyColor(t.id);
         const house = houseLabelForAzimuth(t.azimuthDeg);
         const isSystemWheel = wheel?.wheelType === 'system';
         const primaryDeg = isSystemWheel ? Number((t as any).phaseDeg ?? NaN) : t.azimuthDeg;
@@ -1901,6 +1914,7 @@
             visible: Number.isFinite(secondaryDeg) ? secondaryDeg >= 0 : true,
             infoMeta: normalizeBodyInfoMeta(t),
             currentHouses: normalizeBodyCurrentHouses(t),
+            bodyInfoItems: resolveBodyInfoItems(t.id, activeBodyOverrides),
             activeNode
         };
     });
@@ -1923,10 +1937,9 @@
         const t = lastTargets?.find((x) => x.id === pinnedBodyId);
         if (!t) return null;
 
-        const rawPinned = (objects as any)?.[pinnedBodyId] as { emoji?: string; name?: { en?: string }; meta?: { color?: string } } | undefined;
-        const emoji = rawPinned?.emoji ?? '•';
-        const name = rawPinned?.name?.en ?? String(pinnedBodyId);
-        const color = typeof rawPinned?.meta?.color === 'string' && rawPinned.meta.color.trim().length > 0 ? rawPinned.meta.color.trim() : undefined;
+        const emoji = resolveBodyEmoji(pinnedBodyId, activeBodyOverrides);
+        const name = resolveBodyName(pinnedBodyId, activeBodyOverrides);
+        const color = resolveBodyColor(pinnedBodyId);
 
         return {
             id: pinnedBodyId,
@@ -2159,6 +2172,7 @@
         activeNode: MomentTip | null;
         infoMeta: CompassBodyInfoMeta;
         currentHouses: CompassBodyCurrentHouses;
+        bodyInfoItems: CompassInfoChip[];
     };
 
     type CompassPinnedInfoRow = {
@@ -2167,7 +2181,7 @@
         emoji: string;
         name: string;
         color?: string;
-        description?: string;
+        items: CompassInfoChip[];
         durationItem?: {
             id: string;
             label: string;
@@ -2697,20 +2711,12 @@
     }
 
     const PINNED_DURATION_TAG_ID = 'pinned:duration';
-    const PINNED_DESCRIPTION_TAG_ID = 'pinned:description';
 
     function buildPinnedMetaDefs(): CompassTagDef[] {
         return [
             {
                 id: PINNED_DURATION_TAG_ID,
                 label: 'Duration',
-                scope: 'pinned',
-                enabledByDefault: true,
-                group: 'general'
-            },
-            {
-                id: PINNED_DESCRIPTION_TAG_ID,
-                label: 'Description',
                 scope: 'pinned',
                 enabledByDefault: true,
                 group: 'general'
@@ -2939,10 +2945,7 @@
         })();
         const pinnedTagConfigById = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
         const body = allBodies.find((b) => b.id === pinnedBodyId);
-        const rawBody = (objects as any)[pinnedBodyId] as { description?: { en: string; ru?: string } } | undefined;
-        const description = localizedDescription(rawBody);
-        const descriptionCfg = pinnedTagConfigById.get(PINNED_DESCRIPTION_TAG_ID);
-        const showDescription = descriptionCfg?.enabled !== false && !!description;
+        const bodyItems = body?.bodyInfoItems ?? [];
         const mainCycle = mainCycleSourceForActiveWheel();
         const durationItem = (() => {
             if (!mainCycle) return undefined;
@@ -2990,22 +2993,13 @@
             emoji: body?.emoji ?? '•',
             name: body?.name ?? String(pinnedBodyId),
             color: body?.color,
-            description: showDescription ? description : undefined,
+            items: bodyItems,
             durationItem,
             nodes
         });
         return out;
     })();
 
-    $: pinnedDescriptionLabel = (() => {
-        const def = compassTagDefById.get(PINNED_DESCRIPTION_TAG_ID);
-        const cfg = compassInfoConfig?.pinned?.tags?.find((t) => t.id === PINNED_DESCRIPTION_TAG_ID);
-        if (cfg?.enabled === false) return '';
-        const label = (cfg?.label && cfg.label.trim())
-            ? cfg.label.trim()
-            : (def?.label ?? 'Description');
-        return label;
-    })();
 </script>
 
 <section class="panel">
@@ -3905,7 +3899,6 @@
                         allBodies={allBodies}
                         dynamicRows={compassDynamicRows}
                         dynamicDisabledIds={compassDynamicDisabledIds}
-                        descriptionLabel={pinnedDescriptionLabel}
                         separatorLabel={tooltipSeparatorLabel}
                         pinnedBodyId={pinnedBodyId}
                         onTogglePin={togglePin}
@@ -3946,6 +3939,7 @@
                     referenceTs={localLiveNowTs}
                     onBodyPick={handleCompassBodyPick}
                     onPinnedPick={handleCompassPinnedPick}
+                    onEditPinnedBody={openPinnedBodyEditor}
                     onConfigure={applyCompassInfoConfig}
                     locked={$isActiveProfileLocked}
             />
@@ -3965,6 +3959,13 @@
         md={$docsState.loading ? '# Loading…' : $docsState.md}
         url={$docsState.url}
         onClose={docs.closeDocs}
+/>
+
+<BodyInfoEditor
+        open={!!editingBodyId}
+        bodyId={editingBodyId}
+        locked={$isActiveProfileLocked}
+        onClose={closePinnedBodyEditor}
 />
 
 <style>

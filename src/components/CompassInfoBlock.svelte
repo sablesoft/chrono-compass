@@ -33,7 +33,7 @@
         emoji: string;
         name: string;
         color?: string;
-        description?: string;
+        items: CompassInfoChip[];
         durationItem?: {
             id: string;
             label: string;
@@ -70,6 +70,7 @@
 
     export let onBodyPick: (bodyId: ObjId) => void = () => {};
     export let onPinnedPick: (ts: number, bodyId: ObjId, code?: string, sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal') => void = () => {};
+    export let onEditPinnedBody: (bodyId: ObjId) => void = () => {};
     export let onConfigure: (next: CompassInfoConfig) => void = () => {};
     export let locked = false;
 
@@ -586,12 +587,23 @@
             <div class="rowList">
                 {#each pinnedRows as row (row.id)}
                     <div class="rowItem">
-                        <button
-                            type="button"
-                            class="rowNameBtn pinnedNameBtn"
-                            title="Pinned body"
-                            on:click={() => onBodyPick(row.bodyId)}
-                        ><span class="rowEmoji useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.emoji}</span> <span class="rowName useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.name}</span></button>
+                        <div class="pinnedNameWrap">
+                            <button
+                                type="button"
+                                class="rowNameBtn pinnedNameBtn"
+                                title="Pinned body"
+                                on:click={() => onBodyPick(row.bodyId)}
+                            ><span class="rowEmoji useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.emoji}</span> <span class="rowName useObjectColor" style={`color:${row.color ?? 'inherit'}`}>{row.name}</span></button>
+                            {#if !locked}
+                                <button
+                                    type="button"
+                                    class="miniBtn bodyEditBtn"
+                                    title="Edit body info"
+                                    aria-label="Edit body info"
+                                    on:click={() => onEditPinnedBody(row.bodyId)}
+                                >✎</button>
+                            {/if}
+                        </div>
                         {#if row.nodes.length !== 0}
                         <div class="chipGrid">
                             {#each row.nodes as node (`${row.id}:${node.id}:${node.ts}`)}
@@ -638,8 +650,39 @@
                                 {/if}
                             </div>
                         {/if}
-                        {#if row.description}
-                            <div class="pinnedDescription">{row.description}</div>
+                        {#if row.items.length > 0}
+                            <div class="chipGrid">
+                                {#each row.items as item (`${row.id}:${item.id}`)}
+                                    {#if item.modal}
+                                        <button
+                                            type="button"
+                                            class="ui-tag chipButton"
+                                            on:click={() => {
+                                                modalTitle = item.label;
+                                                modalText = item.modal ?? null;
+                                            }}
+                                        >
+                                            <span class="chipLine">
+                                                <span class="chipLabel">{item.label}</span>
+                                                {#if item.value}
+                                                    <span class="chipDivider" aria-hidden="true"></span>
+                                                    <span class="chipValue">{item.value}</span>
+                                                {/if}
+                                            </span>
+                                        </button>
+                                    {:else}
+                                        <span class="ui-tag chipStatic">
+                                            <span class="chipLine">
+                                                <span class="chipLabel">{item.label}</span>
+                                                {#if item.value}
+                                                    <span class="chipDivider" aria-hidden="true"></span>
+                                                    <span class="chipValue">{item.value}</span>
+                                                {/if}
+                                            </span>
+                                        </span>
+                                    {/if}
+                                {/each}
+                            </div>
                         {/if}
                     </div>
                 {/each}
@@ -1049,6 +1092,19 @@
         background: color-mix(in oklab, var(--accent-live), transparent 90%);
     }
 
+    .pinnedNameWrap {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 6px;
+        align-items: start;
+    }
+
+    .bodyEditBtn {
+        min-width: 30px;
+        height: 30px;
+        padding: 0 8px;
+    }
+
     .pinnedChipButton {
         border-color: color-mix(in oklab, var(--accent-live), transparent 70%);
         background: color-mix(in oklab, var(--accent-live), transparent 92%);
@@ -1080,13 +1136,6 @@
         opacity: 1;
         cursor: not-allowed;
         filter: saturate(1.06) brightness(1.03);
-    }
-
-    .pinnedDescription {
-        font-size: 14px;
-        line-height: 1.35;
-        color: color-mix(in oklab, var(--fg), transparent 25%);
-        padding: 2px 4px 0;
     }
 
     :global([data-theme="light"]) .useObjectColor {

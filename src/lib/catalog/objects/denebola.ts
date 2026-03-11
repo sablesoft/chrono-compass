@@ -7,11 +7,8 @@ const DEC_DENEBOLA_DEG = dmsToDeg(1, 14, 34, 19.0);
 export const Denebola = {
     id: 'ref:denebola',
     kind: 'reference',
-    name: { en: 'Denebola', ru: 'Денебола' },
-    description: {
-        en: 'Denebola (ICRF/J2000) — the tail star of Leo and a well-known bright marker near the ecliptic.',
-        ru: 'Денебола (ICRF/J2000) — хвостовая звезда Льва и известный яркий ориентир рядом с эклиптикой.'
-    },
+    name: 'Denebola',
+    description: 'Denebola (ICRF/J2000) — the tail star of Leo and a well-known bright marker near the ecliptic.',
     emoji: '★',
     meta: {
         color: '#f2f3ff',

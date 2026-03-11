@@ -8,11 +8,8 @@ const DEC_GACRUX_DEG = dmsToDeg(-1, 57, 6, 47.5684);
 export const Gacrux = {
     id: 'ref:gacrux',
     kind: 'reference',
-    name: { en: 'Gacrux', ru: 'Гакрукс' },
-    description: {
-        en: 'Gacrux (ICRF/J2000), the red giant at the top of the Southern Cross (Crux), a cool M-type star.',
-        ru: 'Гакрукс (ICRF/J2000) — красный гигант на вершине Южного Креста (Crux), звезда M-типа.'
-    },
+    name: 'Gacrux',
+    description: 'Gacrux (ICRF/J2000), the red giant at the top of the Southern Cross (Crux), a cool M-type star.',
     emoji: '★',
     meta: {
         color: '#ffcc6f',
