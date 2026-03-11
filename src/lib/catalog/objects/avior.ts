@@ -13,6 +13,7 @@ export const Avior = {
     meta: {
         color: '#ffe0b5',
         distancePc: 185.5287,
+        apparentMagnitude: 1.86,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

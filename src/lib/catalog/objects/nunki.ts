@@ -14,6 +14,7 @@ export const Nunki = {
     meta: {
         color: '#aabfff',
         distancePc: 69.8325,
+        apparentMagnitude: 2.05,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

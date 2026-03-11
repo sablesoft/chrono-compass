@@ -14,6 +14,7 @@ export const Acrux = {
     meta: {
         color: '#aabfff',
         distancePc: 98.7166,
+        apparentMagnitude: 0.77,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

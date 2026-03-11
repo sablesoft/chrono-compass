@@ -3,6 +3,8 @@
     import { activeProfile, profilesApi } from '../lib/profile/store';
     import type { BodyUserInfoItem } from '../lib/profile/types';
     import {
+        isSystemBodyInfoItemId,
+        resolveBodyStarInfoItems,
         resolveBodyDescription,
         resolveBodyDescriptionLabel,
         resolveBodyDistanceLy,
@@ -19,6 +21,15 @@
         modal: string;
     };
 
+    type DraftSystemInfoItem = {
+        id: string;
+        defaultLabel: string;
+        defaultModal: string;
+        label: string;
+        value: string;
+        modal: string;
+    };
+
     export let open = false;
     export let bodyId: ObjId | null = null;
     export let locked = false;
@@ -29,6 +40,7 @@
     let descriptionLabelDraft = '';
     let descriptionDraft = '';
     let distanceLyLabelDraft = '';
+    let systemItemsDraft: DraftSystemInfoItem[] = [];
     let customItemsDraft: DraftInfoItem[] = [];
     let modalRowsOpen = new Set<string>();
 
@@ -47,18 +59,30 @@
     function resetDraft() {
         if (!bodyId) return;
         const overrides = $activeProfile?.data?.bodies ?? {};
+        const sharedStarInfoItems = $activeProfile?.data?.starInfoItems ?? [];
         const existing = overrides[bodyId];
         labelDraft = resolveBodyName(bodyId, overrides);
         descriptionLabelDraft = resolveBodyDescriptionLabel(bodyId, overrides);
         descriptionDraft = resolveBodyDescription(bodyId, overrides);
         distanceLyLabelDraft = resolveBodyDistanceLyLabel(bodyId, overrides);
+        systemItemsDraft = resolveBodyStarInfoItems(bodyId, overrides, sharedStarInfoItems, { includeEmpty: true }).map((item) => {
+            const base = resolveBodyStarInfoItems(bodyId, null, undefined, { includeEmpty: true }).find((x) => x.id === item.id);
+            return {
+                id: item.id,
+                defaultLabel: trimText(base?.label) || trimText(item.label),
+                defaultModal: trimText(base?.modal),
+                label: trimText(item.label),
+                value: trimText(item.value),
+                modal: trimText(item.modal)
+            };
+        });
         customItemsDraft = Array.isArray(existing?.infoItems)
             ? existing.infoItems.map((item) => ({
                 id: trimText(item.id) || makeCustomItemId(),
                 label: trimText(item.label),
                 value: trimText(item.value),
                 modal: trimText(item.modal)
-            }))
+            })).filter((item) => !isSystemBodyInfoItemId(item.id))
             : [];
         modalRowsOpen = new Set();
     }
@@ -94,6 +118,10 @@
 
     function updateCustomItem(id: string, patch: Partial<DraftInfoItem>) {
         customItemsDraft = customItemsDraft.map((item) => item.id === id ? { ...item, ...patch } : item);
+    }
+
+    function updateSystemItem(id: string, patch: Partial<DraftSystemInfoItem>) {
+        systemItemsDraft = systemItemsDraft.map((item) => item.id === id ? { ...item, ...patch } : item);
     }
 
     function addCustomItem() {
@@ -134,6 +162,25 @@
         return out.length ? out : undefined;
     }
 
+    function sanitizeSystemItems(items: DraftSystemInfoItem[]): BodyUserInfoItem[] | undefined {
+        const out = items.reduce<BodyUserInfoItem[]>((acc, item) => {
+                const id = trimText(item.id);
+                const label = trimText(item.label);
+                const modal = trimText(item.modal);
+                const defaultLabel = trimText(item.defaultLabel);
+                const defaultModal = trimText(item.defaultModal);
+                if (!id || !label) return acc;
+                if (label === defaultLabel && modal === defaultModal) return acc;
+                acc.push({
+                    id,
+                    label,
+                    modal: modal || undefined
+                } satisfies BodyUserInfoItem);
+                return acc;
+            }, []);
+        return out.length ? out : undefined;
+    }
+
     function applyEditor() {
         if (locked || !bodyId) return;
         const defaultName = resolveBodyName(bodyId, null);
@@ -141,21 +188,29 @@
         const defaultDescriptionLabel = resolveBodyDescriptionLabel(bodyId, null);
         const defaultDistanceLyLabel = resolveBodyDistanceLyLabel(bodyId, null);
 
-        const nameEn = trimText(labelDraft);
-        const descriptionEn = trimText(descriptionDraft);
+        const name = trimText(labelDraft);
+        const description = trimText(descriptionDraft);
         const descriptionLabel = trimText(descriptionLabelDraft);
         const distanceLyLabel = trimText(distanceLyLabelDraft);
-        const infoItems = sanitizeCustomItems(customItemsDraft);
+        const systemInfoItems = sanitizeSystemItems(systemItemsDraft) ?? [];
+        const customInfoItems = sanitizeCustomItems(customItemsDraft) ?? [];
+        const currentSharedSystemItems = (($activeProfile?.data?.starInfoItems ?? []) as BodyUserInfoItem[])
+            .filter((item) => isSystemBodyInfoItemId(item.id));
+        const nextSharedSignature = JSON.stringify(systemInfoItems);
+        const currentSharedSignature = JSON.stringify(currentSharedSystemItems);
 
         const patch = {
-            name: nameEn && nameEn !== defaultName ? { en: nameEn } : undefined,
-            description: descriptionEn && descriptionEn !== defaultDescription ? { en: descriptionEn } : undefined,
+            name: name && name !== defaultName ? name : undefined,
+            description: description && description !== defaultDescription ? description : undefined,
             descriptionLabel: descriptionLabel && descriptionLabel !== defaultDescriptionLabel ? descriptionLabel : undefined,
             distanceLyLabel: distanceLyLabel && distanceLyLabel !== defaultDistanceLyLabel ? distanceLyLabel : undefined,
-            infoItems
+            infoItems: customInfoItems.length ? customInfoItems : undefined
         };
 
         const hasPatch = !!(patch.name || patch.description || patch.descriptionLabel || patch.distanceLyLabel || patch.infoItems?.length);
+        if (nextSharedSignature !== currentSharedSignature) {
+            profilesApi.setStarInfoOverrides(systemInfoItems.length ? systemInfoItems : undefined);
+        }
         if (hasPatch) profilesApi.setBodyOverride(bodyId, patch);
         else profilesApi.clearBodyOverride(bodyId);
         closeEditor();
@@ -163,6 +218,9 @@
 
     function resetOverrides() {
         if (!bodyId || locked) return;
+        if (systemItemsDraft.length > 0) {
+            profilesApi.setStarInfoOverrides(undefined);
+        }
         profilesApi.clearBodyOverride(bodyId);
         closeEditor();
     }
@@ -223,6 +281,28 @@
                     <input class="col user" type="text" value={distanceLyLabelDraft} placeholder="Distance label" on:input={(e) => { distanceLyLabelDraft = readValue(e); }} />
                     <div class="col val readonlyValue">{distanceLyValue}</div>
                 </div>
+
+                {#if systemItemsDraft.length > 0}
+                    <div class="editorItems">
+                        {#each systemItemsDraft as item (item.id)}
+                            <div class="editorRowWrap">
+                                <div class="editorRow customRow">
+                                    <div class="col sys">{item.defaultLabel}</div>
+                                    <input class="col user" type="text" value={item.label} placeholder="Label" on:input={(e) => updateSystemItem(item.id, { label: readValue(e) })} />
+                                    <div class="col val readonlyValue" title={item.value}>{item.value || '—'}</div>
+                                    <div class="rowActions">
+                                        <button type="button" class="miniBtn modalBtn" aria-expanded={modalRowsOpen.has(item.id)} title="Modal text" on:click|stopPropagation={() => toggleModalRow(item.id)}>T</button>
+                                    </div>
+                                </div>
+                                {#if modalRowsOpen.has(item.id)}
+                                    <div class="modalAccordion">
+                                        <textarea class="modalInput" placeholder="Modal text" value={item.modal} on:input={(e) => updateSystemItem(item.id, { modal: readValue(e) })}></textarea>
+                                    </div>
+                                {/if}
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
 
                 <div class="editorSectionActions">
                     <button type="button" class="toggleBtn" on:click={addCustomItem}>+ Item</button>

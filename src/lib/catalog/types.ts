@@ -63,6 +63,7 @@ export type ReferenceMeta = {
     distancePc?: number;
     // Legacy distance unit kept only for migration compatibility.
     distanceLy?: number;
+    apparentMagnitude?: number; // visible magnitude from Earth; smaller is brighter
 };
 
 export type ObjMeta =

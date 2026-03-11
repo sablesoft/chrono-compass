@@ -14,6 +14,7 @@ export const Mimosa = {
     meta: {
         color: '#aabfff',
         distancePc: 85.3972,
+        apparentMagnitude: 1.25,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -1,15 +1,362 @@
 {
   "schema": "chrono-compass.profile-export.v1",
-  "exportedAt": "2026-03-08T17:01:53.196Z",
+  "exportedAt": "2026-03-08T18:03:24.313Z",
   "profile": {
     "id": "profile_kbr2yydke8_kz3vq60vds",
     "title": "Солнечная Система",
     "system": false,
     "locked": false,
     "createdAt": 1772977755921,
-    "updatedAt": 1772989313196,
+    "updatedAt": 1772993004313,
     "data": {
       "wheels": [
+        {
+          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1KdXBpdGVyLE1hcnMsTWVyY3VyeSxNb29uLE5lcHR1bmUsUGx1dG8sU2F0dXJuLFN1bixVcmFudXMsVmVudXM6OmxvY2s9MDo6bG9jaz0w",
+          "type": "compass",
+          "title": "Видимое Небо",
+          "roles": {
+            "looker": "Earth",
+            "focus": null,
+            "target": [
+              "Sun",
+              "Moon",
+              "Mercury",
+              "Venus",
+              "Mars",
+              "Jupiter",
+              "Neptune",
+              "Pluto",
+              "Saturn",
+              "Uranus",
+              "ref:galactic-center"
+            ]
+          },
+          "observer": {
+            "locationId": "loc:system",
+            "locked": false
+          },
+          "time": {
+            "live": true,
+            "locked": false
+          },
+          "view": {
+            "showVisual": true,
+            "showInfo": true,
+            "showPickers": false,
+            "infoChipOrder": [],
+            "infoChipSelected": [
+              "pinned"
+            ],
+            "infoChipLabels": {},
+            "compassInfoConfig": {
+              "general": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "custom:mmhwv9e0:s0g5",
+                    "enabled": true,
+                    "label": "Описание",
+                    "value": "",
+                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода.",
+                    "isCustom": true
+                  },
+                  {
+                    "id": "custom:mmhzvg01:guide",
+                    "enabled": true,
+                    "label": "Гайд",
+                    "value": "",
+                    "modal": "Начните с закрепления любого интересующего вас тела, затем используйте фильтры узлов horizon/compass/regular, чтобы упростить трек. Сдвигайте глобальное время для сравнения наблюдательных окон и используйте список закрепленных узлов под колесом для быстрых переходов к восходам, заходам, экстремумам высоты или другим интересующим вас узлам.",
+                    "isCustom": true
+                  }
+                ]
+              },
+              "dynamic": {
+                "enabled": true,
+                "tags": [
+                  {
+                    "id": "dynamic:altitude",
+                    "enabled": true,
+                    "modal": "Высота (Altitude) — это положение цели относительно локального горизонта. Положительные значения означают, что тело над горизонтом, отрицательные — что под горизонтом.",
+                    "label": "Высота"
+                  },
+                  {
+                    "id": "dynamic:azimuth",
+                    "enabled": false,
+                    "modal": "Азимут (Azimuth) — это горизонтальное направление вдоль линии горизонта, измеряемое по часовой стрелке от истинного севера: N=0°, E=90°, S=180°, W=270°.",
+                    "label": "Азимут"
+                  },
+                  {
+                    "id": "dynamic:ra-hours",
+                    "enabled": false,
+                    "modal": "Прямое восхождение (Right ascension) — экваториальная небесная координата, аналог небесной долготы. Обычно выражается в часах вдоль небесного экватора.",
+                    "label": "Прямое Восхождение"
+                  },
+                  {
+                    "id": "dynamic:declination",
+                    "enabled": false,
+                    "modal": "Склонение (Declination) — экваториальная небесная координата, аналог небесной широты. Положительные значения — к северу от небесного экватора, отрицательные — к югу.",
+                    "label": "Склонение"
+                  },
+                  {
+                    "id": "dynamic:dist-au",
+                    "enabled": false,
+                    "modal": "Расстояние в астрономических единицах (AU). 1 AU — это среднее расстояние от Земли до Солнца, удобное для сравнения орбитальных масштабов.",
+                    "label": "Расстояние (AU)"
+                  },
+                  {
+                    "id": "dynamic:dist-km",
+                    "enabled": false,
+                    "modal": "Расстояние в километрах для более точного отслеживания дистанции в выбранный момент горизонта.",
+                    "label": "Расстояние"
+                  },
+                  {
+                    "id": "dynamic:rising-horizon",
+                    "enabled": true,
+                    "modal": "Восходящий горизонт отмечает пересечение высоты 0° снизу вверх. Эти моменты определяют, когда цель появляется над линией горизонта.",
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "dynamic:setting-horizon",
+                    "enabled": true,
+                    "modal": "Заходящий горизонт отмечает пересечение высоты 0° сверху вниз, когда цель уходит под линию горизонта.",
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "dynamic:max-altitude",
+                    "enabled": true,
+                    "modal": "Максимальная высота — это наивысшая точка цели над горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Макс. Высота"
+                  },
+                  {
+                    "id": "dynamic:min-altitude",
+                    "enabled": true,
+                    "modal": "Минимальная высота — это наинизшая точка цели под горизонтом в пределах текущего горизонтового цикла.",
+                    "label": "Мин. Высота"
+                  },
+                  {
+                    "id": "dynamic:zenith",
+                    "enabled": true,
+                    "modal": "Сектор зенита отмечает верхнюю локальную дугу цикла, где высота достигает максимального значения.",
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "dynamic:nadir",
+                    "enabled": true,
+                    "modal": "Сектор надира отмечает нижнюю локальную дугу цикла, где высота достигает минимального значения.",
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "dynamic:above-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается над локальным горизонтом.",
+                    "label": "Над Горизонтом"
+                  },
+                  {
+                    "id": "dynamic:below-horizon",
+                    "enabled": true,
+                    "modal": "Этот момент относится к интервалу, в котором цель остается под локальным горизонтом.",
+                    "label": "Под Горизонтом"
+                  }
+                ]
+              },
+              "houses": {
+                "tags": [
+                  {
+                    "id": "house:E",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "house:ENE",
+                    "enabled": true,
+                    "label": "ENE"
+                  },
+                  {
+                    "id": "house:NE",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "house:NNE",
+                    "enabled": true,
+                    "label": "NNE"
+                  },
+                  {
+                    "id": "house:N",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "house:NNW",
+                    "enabled": true,
+                    "label": "NNW"
+                  },
+                  {
+                    "id": "house:NW",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "house:WNW",
+                    "enabled": true,
+                    "label": "WNW"
+                  },
+                  {
+                    "id": "house:W",
+                    "enabled": true,
+                    "label": "Широта"
+                  },
+                  {
+                    "id": "house:WSW",
+                    "enabled": true,
+                    "label": "WSW"
+                  },
+                  {
+                    "id": "house:SW",
+                    "enabled": true,
+                    "label": "Юго-Запад"
+                  },
+                  {
+                    "id": "house:SSW",
+                    "enabled": true,
+                    "label": "SSW"
+                  },
+                  {
+                    "id": "house:S",
+                    "enabled": true,
+                    "label": "Юг"
+                  },
+                  {
+                    "id": "house:SSE",
+                    "enabled": true,
+                    "label": "SSE"
+                  },
+                  {
+                    "id": "house:SE",
+                    "enabled": true,
+                    "label": "Юго-Восток"
+                  },
+                  {
+                    "id": "house:ESE",
+                    "enabled": true,
+                    "label": "ESE"
+                  },
+                  {
+                    "id": "house:E_next",
+                    "enabled": true,
+                    "label": "Восток"
+                  }
+                ]
+              },
+              "pinned": {
+                "enabled": true,
+                "groups": {
+                  "regular": true,
+                  "compass": true,
+                  "horizon": true,
+                  "nodal": true,
+                  "synod": true,
+                  "bind": true
+                },
+                "tags": [
+                  {
+                    "id": "pinned:duration",
+                    "enabled": true,
+                    "label": "Цикл"
+                  },
+                  {
+                    "id": "pinned-node:e-horizon",
+                    "enabled": true,
+                    "label": "Восход"
+                  },
+                  {
+                    "id": "pinned-node:n-horizon",
+                    "enabled": true,
+                    "label": "Зенит"
+                  },
+                  {
+                    "id": "pinned-node:w-horizon",
+                    "enabled": true,
+                    "label": "Заход"
+                  },
+                  {
+                    "id": "pinned-node:s-horizon",
+                    "enabled": true,
+                    "label": "Надир"
+                  },
+                  {
+                    "id": "pinned-node:e-plus-horizon",
+                    "enabled": true,
+                    "label": "След. Восход"
+                  },
+                  {
+                    "id": "pinned-node:ne-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:nw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Над"
+                  },
+                  {
+                    "id": "pinned-node:sw-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:se-horizon",
+                    "enabled": true,
+                    "label": "Средняя Высота Под"
+                  },
+                  {
+                    "id": "pinned-node:e-compass",
+                    "enabled": true,
+                    "label": "Восток"
+                  },
+                  {
+                    "id": "pinned-node:ne-compass",
+                    "enabled": true,
+                    "label": "Северо-Восток"
+                  },
+                  {
+                    "id": "pinned-node:n-compass",
+                    "enabled": true,
+                    "label": "Север"
+                  },
+                  {
+                    "id": "pinned-node:nw-compass",
+                    "enabled": true,
+                    "label": "Северо-Запад"
+                  },
+                  {
+                    "id": "pinned-node:w-compass",
+                    "enabled": true,
+                    "label": "Запад"
+                  },
+                  {
+                    "id": "pinned-node:sw-compass",
+                    "enabled": true,
+                    "label": "Юго-Запад"
+                  },
+                  {
+                    "id": "pinned-node:s-compass",
+                    "enabled": true,
+                    "label": "Юг"
+                  },
+                  {
+                    "id": "pinned-node:se-compass",
+                    "enabled": true,
+                    "label": "Юго-Восток"
+                  }
+                ]
+              }
+            }
+          },
+          "favorite": false,
+          "createdAt": 1772987929334,
+          "updatedAt": 1772992998100
+        },
         {
           "dedupKey": "wheel:system:c3lzdGVtOjpmb2N1cz1TdW4mbG9va2VyPXJlZjpnYWxhY3RpYy1jZW50ZXImdGFyZ2V0PUp1cGl0ZXIsTmVwdHVuZSxQbHV0byxTYXR1cm4sVXJhbnVzOjpsb2NrPTA6OmxvY2s9MA",
           "type": "system",
@@ -22,7 +369,39 @@
               "Saturn",
               "Uranus",
               "Neptune",
-              "Pluto"
+              "Pluto",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -68,6 +447,18 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Синодическая фаза — это ориентированный угол в плоскости эклиптики между проекциями лучей focus -> looker и focus -> target. Она определяет положение target на синодическом колесе.",
+                    "label": "Фаза"
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Эклиптическая широта — это угловое отклонение target от плоскости эклиптики. Положительные значения находятся к северу от плоскости, отрицательные — к югу.",
+                    "label": "Экл. широта"
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -414,7 +805,39 @@
               "Mercury",
               "Venus",
               "Earth",
-              "Mars"
+              "Mars",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -460,6 +883,18 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Синодическая фаза — это ориентированный угол в плоскости эклиптики между проекциями лучей focus -> looker и focus -> target. Она определяет положение target на синодическом колесе.",
+                    "label": "Фаза"
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Эклиптическая широта — это угловое отклонение target от плоскости эклиптики. Положительные значения находятся к северу от плоскости, отрицательные — к югу.",
+                    "label": "Экл. широта"
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -799,364 +1234,231 @@
           "favorite": false,
           "createdAt": 1772987946879,
           "updatedAt": 1772987946879
-        },
-        {
-          "dedupKey": "wheel:compass:Y29tcGFzczo6bG9va2VyPUVhcnRoJnRhcmdldD1KdXBpdGVyLE1hcnMsTWVyY3VyeSxNb29uLE5lcHR1bmUsUGx1dG8sU2F0dXJuLFN1bixVcmFudXMsVmVudXM6OmxvY2s9MDo6bG9jaz0w",
-          "type": "compass",
-          "title": "Видимое Небо",
-          "roles": {
-            "looker": "Earth",
-            "focus": null,
-            "target": [
-              "Sun",
-              "Moon",
-              "Mercury",
-              "Venus",
-              "Mars",
-              "Jupiter",
-              "Neptune",
-              "Pluto",
-              "Saturn",
-              "Uranus"
-            ]
-          },
-          "observer": {
-            "locationId": "loc:system",
-            "locked": false
-          },
-          "time": {
-            "live": false,
-            "ts": 1775265730000,
-            "locked": false
-          },
-          "view": {
-            "showVisual": true,
-            "showInfo": true,
-            "showPickers": false,
-            "infoChipOrder": [],
-            "infoChipSelected": [
-              "pinned"
-            ],
-            "infoChipLabels": {},
-            "compassInfoConfig": {
-              "general": {
-                "enabled": true,
-                "tags": [
-                  {
-                    "id": "custom:mmhwv9e0:s0g5",
-                    "label": "Описание",
-                    "value": "",
-                    "enabled": true,
-                    "isCustom": true,
-                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода."
-                  },
-                  {
-                    "id": "custom:mmhzvg01:guide",
-                    "enabled": true,
-                    "label": "Гайд",
-                    "value": "",
-                    "modal": "Начните с закрепления любого интересующего вас тела, затем используйте фильтры узлов horizon/compass/regular, чтобы упростить трек. Сдвигайте глобальное время для сравнения наблюдательных окон и используйте список закрепленных узлов под колесом для быстрых переходов к восходам, заходам, экстремумам высоты или другим интересующим вас узлам.",
-                    "isCustom": true
-                  }
-                ]
-              },
-              "dynamic": {
-                "enabled": true,
-                "tags": [
-                  {
-                    "id": "dynamic:altitude",
-                    "enabled": true,
-                    "modal": "Высота (Altitude) — это положение цели относительно локального горизонта. Положительные значения означают, что тело над горизонтом, отрицательные — что под горизонтом.",
-                    "label": "Высота"
-                  },
-                  {
-                    "id": "dynamic:azimuth",
-                    "enabled": false,
-                    "modal": "Азимут (Azimuth) — это горизонтальное направление вдоль линии горизонта, измеряемое по часовой стрелке от истинного севера: N=0°, E=90°, S=180°, W=270°.",
-                    "label": "Азимут"
-                  },
-                  {
-                    "id": "dynamic:ra-hours",
-                    "enabled": false,
-                    "modal": "Прямое восхождение (Right ascension) — экваториальная небесная координата, аналог небесной долготы. Обычно выражается в часах вдоль небесного экватора.",
-                    "label": "Прямое Восхождение"
-                  },
-                  {
-                    "id": "dynamic:declination",
-                    "enabled": false,
-                    "modal": "Склонение (Declination) — экваториальная небесная координата, аналог небесной широты. Положительные значения — к северу от небесного экватора, отрицательные — к югу.",
-                    "label": "Склонение"
-                  },
-                  {
-                    "id": "dynamic:dist-au",
-                    "enabled": false,
-                    "modal": "Расстояние в астрономических единицах (AU). 1 AU — это среднее расстояние от Земли до Солнца, удобное для сравнения орбитальных масштабов.",
-                    "label": "Расстояние (AU)"
-                  },
-                  {
-                    "id": "dynamic:dist-km",
-                    "enabled": false,
-                    "modal": "Расстояние в километрах для более точного отслеживания дистанции в выбранный момент горизонта.",
-                    "label": "Расстояние"
-                  },
-                  {
-                    "id": "dynamic:rising-horizon",
-                    "enabled": true,
-                    "modal": "Восходящий горизонт отмечает пересечение высоты 0° снизу вверх. Эти моменты определяют, когда цель появляется над линией горизонта.",
-                    "label": "Восход"
-                  },
-                  {
-                    "id": "dynamic:setting-horizon",
-                    "enabled": true,
-                    "modal": "Заходящий горизонт отмечает пересечение высоты 0° сверху вниз, когда цель уходит под линию горизонта.",
-                    "label": "Заход"
-                  },
-                  {
-                    "id": "dynamic:max-altitude",
-                    "enabled": true,
-                    "modal": "Максимальная высота — это наивысшая точка цели над горизонтом в пределах текущего горизонтового цикла.",
-                    "label": "Макс. Высота"
-                  },
-                  {
-                    "id": "dynamic:min-altitude",
-                    "enabled": true,
-                    "modal": "Минимальная высота — это наинизшая точка цели под горизонтом в пределах текущего горизонтового цикла.",
-                    "label": "Мин. Высота"
-                  },
-                  {
-                    "id": "dynamic:zenith",
-                    "enabled": true,
-                    "modal": "Сектор зенита отмечает верхнюю локальную дугу цикла, где высота достигает максимального значения.",
-                    "label": "Зенит"
-                  },
-                  {
-                    "id": "dynamic:nadir",
-                    "enabled": true,
-                    "modal": "Сектор надира отмечает нижнюю локальную дугу цикла, где высота достигает минимального значения.",
-                    "label": "Надир"
-                  },
-                  {
-                    "id": "dynamic:above-horizon",
-                    "enabled": true,
-                    "modal": "Этот момент относится к интервалу, в котором цель остается над локальным горизонтом.",
-                    "label": "Над Горизонтом"
-                  },
-                  {
-                    "id": "dynamic:below-horizon",
-                    "enabled": true,
-                    "modal": "Этот момент относится к интервалу, в котором цель остается под локальным горизонтом.",
-                    "label": "Под Горизонтом"
-                  }
-                ]
-              },
-              "houses": {
-                "tags": [
-                  {
-                    "id": "house:E",
-                    "enabled": true,
-                    "label": "Восток"
-                  },
-                  {
-                    "id": "house:ENE",
-                    "enabled": true,
-                    "label": "ENE"
-                  },
-                  {
-                    "id": "house:NE",
-                    "enabled": true,
-                    "label": "Северо-Восток"
-                  },
-                  {
-                    "id": "house:NNE",
-                    "enabled": true,
-                    "label": "NNE"
-                  },
-                  {
-                    "id": "house:N",
-                    "enabled": true,
-                    "label": "Север"
-                  },
-                  {
-                    "id": "house:NNW",
-                    "enabled": true,
-                    "label": "NNW"
-                  },
-                  {
-                    "id": "house:NW",
-                    "enabled": true,
-                    "label": "Северо-Запад"
-                  },
-                  {
-                    "id": "house:WNW",
-                    "enabled": true,
-                    "label": "WNW"
-                  },
-                  {
-                    "id": "house:W",
-                    "enabled": true,
-                    "label": "Широта"
-                  },
-                  {
-                    "id": "house:WSW",
-                    "enabled": true,
-                    "label": "WSW"
-                  },
-                  {
-                    "id": "house:SW",
-                    "enabled": true,
-                    "label": "Юго-Запад"
-                  },
-                  {
-                    "id": "house:SSW",
-                    "enabled": true,
-                    "label": "SSW"
-                  },
-                  {
-                    "id": "house:S",
-                    "enabled": true,
-                    "label": "Юг"
-                  },
-                  {
-                    "id": "house:SSE",
-                    "enabled": true,
-                    "label": "SSE"
-                  },
-                  {
-                    "id": "house:SE",
-                    "enabled": true,
-                    "label": "Юго-Восток"
-                  },
-                  {
-                    "id": "house:ESE",
-                    "enabled": true,
-                    "label": "ESE"
-                  },
-                  {
-                    "id": "house:E_next",
-                    "enabled": true,
-                    "label": "Восток"
-                  }
-                ]
-              },
-              "pinned": {
-                "enabled": true,
-                "groups": {
-                  "regular": true,
-                  "compass": true,
-                  "horizon": true,
-                  "nodal": true,
-                  "synod": true,
-                  "bind": true
-                },
-                "tags": [
-                  {
-                    "id": "pinned:duration",
-                    "enabled": true,
-                    "label": "Цикл"
-                  },
-                  {
-                    "id": "pinned-node:e-horizon",
-                    "enabled": true,
-                    "label": "Восход"
-                  },
-                  {
-                    "id": "pinned-node:n-horizon",
-                    "enabled": true,
-                    "label": "Зенит"
-                  },
-                  {
-                    "id": "pinned-node:w-horizon",
-                    "enabled": true,
-                    "label": "Заход"
-                  },
-                  {
-                    "id": "pinned-node:s-horizon",
-                    "enabled": true,
-                    "label": "Надир"
-                  },
-                  {
-                    "id": "pinned-node:e-plus-horizon",
-                    "enabled": true,
-                    "label": "След. Восход"
-                  },
-                  {
-                    "id": "pinned-node:ne-horizon",
-                    "enabled": true,
-                    "label": "Средняя Высота Над"
-                  },
-                  {
-                    "id": "pinned-node:nw-horizon",
-                    "enabled": true,
-                    "label": "Средняя Высота Над"
-                  },
-                  {
-                    "id": "pinned-node:sw-horizon",
-                    "enabled": true,
-                    "label": "Средняя Высота Под"
-                  },
-                  {
-                    "id": "pinned-node:se-horizon",
-                    "enabled": true,
-                    "label": "Средняя Высота Под"
-                  },
-                  {
-                    "id": "pinned-node:e-compass",
-                    "enabled": true,
-                    "label": "Восток"
-                  },
-                  {
-                    "id": "pinned-node:ne-compass",
-                    "enabled": true,
-                    "label": "Северо-Восток"
-                  },
-                  {
-                    "id": "pinned-node:n-compass",
-                    "enabled": true,
-                    "label": "Север"
-                  },
-                  {
-                    "id": "pinned-node:nw-compass",
-                    "enabled": true,
-                    "label": "Северо-Запад"
-                  },
-                  {
-                    "id": "pinned-node:w-compass",
-                    "enabled": true,
-                    "label": "Запад"
-                  },
-                  {
-                    "id": "pinned-node:sw-compass",
-                    "enabled": true,
-                    "label": "Юго-Запад"
-                  },
-                  {
-                    "id": "pinned-node:s-compass",
-                    "enabled": true,
-                    "label": "Юг"
-                  },
-                  {
-                    "id": "pinned-node:se-compass",
-                    "enabled": true,
-                    "label": "Юго-Восток"
-                  }
-                ]
-              }
-            }
-          },
-          "favorite": false,
-          "createdAt": 1772987929334,
-          "updatedAt": 1772987929334
         }
       ],
       "favorites": [],
-      "bodies": {},
+      "starInfoItems": [
+        {
+          "id": "system:vis-mag",
+          "label": "Видимая величина",
+          "modal": "Видимая звёздная величина — это наблюдаемая с Земли яркость звезды. Чем меньше число, тем ярче звезда; отрицательные значения соответствуют особенно ярким объектам."
+        },
+        {
+          "id": "system:dist-ps",
+          "label": "Парсеки",
+          "modal": "Расстояние в парсеках (pc). Парсек — стандартная астрономическая единица расстояния для звёздных каталогов и измерений на основе параллакса."
+        },
+        {
+          "id": "system:dist-ly",
+          "label": "Световые годы",
+          "modal": "Расстояние в световых годах (ly). Один световой год — это расстояние, которое свет проходит в вакууме за один год."
+        }
+      ],
+      "bodies": {
+        "ref:galactic-center": {
+          "name": "Галактический Центр",
+          "description": "Галактический Центр (ICRF/J2000) — опорное направление на центр Млечного Пути, используемое как фиксированный референс в галактической геометрии и циклических моделях."
+        },
+        "ref:acamar": {
+          "name": "Акамар",
+          "description": "Акамар (ICRF/J2000) — Тета Эридана, яркая южная звезда в созвездии Эридана, исторически связанная с концом небесной реки."
+        },
+        "ref:achernar": {
+          "name": "Ахернар",
+          "description": "Ахернар (ICRF/J2000) — яркая конечная звезда Эридана и одна из самых заметных южных навигационных звёзд."
+        },
+        "ref:acrux": {
+          "name": "Акрукс",
+          "description": "Акрукс (ICRF/J2000) — самая яркая звезда Южного Креста (Crux), голубая система спектрального класса B."
+        },
+        "ref:acubens": {
+          "name": "Акубенс",
+          "description": "Акубенс (ICRF/J2000) — Альфа Рака, традиционная звезда созвездия Рака, связанная с южной клешнёй в классической звёздной традиции."
+        },
+        "ref:adhara": {
+          "name": "Адхара",
+          "description": "Адхара (ICRF/J2000) — Эпсилон Большого Пса, одна из самых ярких звёзд ночного неба и важная звезда созвездия Canis Major."
+        },
+        "ref:aldebaran": {
+          "name": "Альдебаран",
+          "description": "Альдебаран (ICRF/J2000) — оранжевый глаз Тельца и одна из самых известных ярких звёзд зодиака."
+        },
+        "ref:alfard": {
+          "name": "Альфард",
+          "description": "Альфард (ICRF/J2000) — Альфа Гидры, одинокая яркая звезда созвездия Гидры и известный ориентир Водяного Змея."
+        },
+        "ref:alnair": {
+          "name": "Алнаир",
+          "description": "Алнаир (ICRF/J2000) — самая яркая звезда в созвездии Журавля (Grus), заметная южная звезда недалеко от южной небесной области."
+        },
+        "ref:alpheratz": {
+          "name": "Альферац",
+          "description": "Альферац (ICRF/J2000) — яркая угловая звезда, общая для Андромеды и Пегаса, часто отмечающая Большой Квадрат."
+        },
+        "ref:altair": {
+          "name": "Альтаир",
+          "description": "Альтаир (ICRF/J2000) — самая яркая звезда Орла (Aquila) и одна из вершин Летнего Треугольника."
+        },
+        "ref:antares": {
+          "name": "Антарес",
+          "description": "Антарес (ICRF/J2000) — красный сверхгигант и самая яркая звезда Скорпиона, часто называемая «сердцем скорпиона»."
+        },
+        "ref:arcturus": {
+          "name": "Арктур",
+          "description": "Арктур (ICRF/J2000) — самая яркая звезда Волопаса (Bootes) и одна из самых заметных оранжевых звёзд на небе."
+        },
+        "ref:avior": {
+          "name": "Авиор",
+          "description": "Авиор (ICRF/J2000) — яркая южная звезда в созвездии Киля (Carina), широко известная в навигационных традициях."
+        },
+        "ref:betelgeuse": {
+          "name": "Бетельгейзе",
+          "description": "Бетельгейзе (ICRF/J2000) — яркий красный сверхгигант в Орионе, известный своей переменной яркостью."
+        },
+        "ref:capella": {
+          "name": "Капелла",
+          "description": "Капелла (ICRF/J2000) — самая яркая звезда Возничего (Auriga) и одна из самых заметных золотистых звёзд северного неба."
+        },
+        "ref:castor": {
+          "name": "Кастор",
+          "description": "Кастор (ICRF/J2000) — второй яркий близнец созвездия Близнецов и знаменитая кратная звёздная система, видимая невооружённым глазом."
+        },
+        "ref:deneb": {
+          "name": "Денеб",
+          "description": "Денеб (ICRF/J2000) — яркий голубой сверхгигант в Лебеде (Cygnus) и одна из вершин Летнего Треугольника."
+        },
+        "ref:deneb-kaitos": {
+          "name": "Денеб Кайтос",
+          "description": "Денеб Кайтос (ICRF/J2000) — яркая хвостовая звезда Кита (Cetus), также известная во многих каталогах как Дифда."
+        },
+        "ref:denebola": {
+          "name": "Денебола",
+          "description": "Денебола (ICRF/J2000) — хвостовая звезда Льва и хорошо известный яркий ориентир возле эклиптики."
+        },
+        "ref:dschubba": {
+          "name": "Дшубба",
+          "description": "Дшубба (ICRF/J2000) — Дельта Скорпиона, заметная звезда на лбу Скорпиона и одна из самых известных звёзд верхней части созвездия."
+        },
+        "ref:dubhe": {
+          "name": "Дубхе",
+          "description": "Дубхе (ICRF/J2000) — одна из указательных звёзд Большой Медведицы и привычный ориентир на север."
+        },
+        "ref:fomalhaut": {
+          "name": "Фомальгаут",
+          "description": "Фомальгаут (ICRF/J2000) — Альфа Южной Рыбы, одна из самых ярких одиночных звёзд и одна из царских звёзд во многих традициях."
+        },
+        "ref:gacrux": {
+          "name": "Гакрукс",
+          "description": "Гакрукс (ICRF/J2000) — красный гигант в верхней части Южного Креста (Crux), холодная звезда спектрального класса M."
+        },
+        "ref:graffias": {
+          "name": "Граффиас",
+          "description": "Граффиас (ICRF/J2000) — Бета Скорпиона, яркая кратная звезда, традиционно связанная с клешнями Скорпиона."
+        },
+        "ref:hadar": {
+          "name": "Хадар",
+          "description": "Хадар (ICRF/J2000) — Бета Центавра, одна из самых ярких южных звёзд и важная навигационная пара Южного Креста."
+        },
+        "ref:hamal": {
+          "name": "Хамаль",
+          "description": "Хамаль (ICRF/J2000) — самая яркая звезда Овна и традиционный ориентир созвездия Барана."
+        },
+        "ref:imai": {
+          "name": "Имай",
+          "description": "Имай (ICRF/J2000) — яркая звезда Дельта Креста в Южном Кресте (Crux), звезда спектрального класса B."
+        },
+        "ref:kaus-australis": {
+          "name": "Каус Аустралис",
+          "description": "Каус Аустралис (ICRF/J2000) — самая яркая звезда Стрельца и известная звезда-ориентир лука Стрельца."
+        },
+        "ref:kochab": {
+          "name": "Кохаб",
+          "description": "Кохаб (ICRF/J2000) — Бета Малой Медведицы, яркая северная звезда Малого Ковша и заметная полярная звезда дополярной эпохи."
+        },
+        "ref:markab": {
+          "name": "Маркаб",
+          "description": "Маркаб (ICRF/J2000) — одна из определяющих звёзд Большого Квадрата Пегаса."
+        },
+        "ref:menkar": {
+          "name": "Менкар",
+          "description": "Менкар (ICRF/J2000) — красный гигант в созвездии Кита, традиционно связанный с головой морского чудовища."
+        },
+        "ref:mimosa": {
+          "name": "Мимоза",
+          "description": "Мимоза (ICRF/J2000) — вторая по яркости звезда Южного Креста (Crux), горячая звезда спектрального класса B."
+        },
+        "ref:mintaka": {
+          "name": "Минтака",
+          "description": "Минтака (ICRF/J2000) — западная звезда пояса Ориона, лежащая очень близко к небесному экватору."
+        },
+        "ref:mirfak": {
+          "name": "Мирфак",
+          "description": "Мирфак (ICRF/J2000) — самая яркая звезда Персея и центральный маяк ассоциации Альфа Персея."
+        },
+        "ref:nunki": {
+          "name": "Нунки",
+          "description": "Нунки (ICRF/J2000) — официальное имя Сигмы Стрельца и одна из самых ярких звёзд Стрельца рядом с Млечным Путём."
+        },
+        "ref:polaris": {
+          "name": "Полярная",
+          "description": "Полярная (ICRF/J2000) — Северная звезда в Малой Медведице, расположенная близко к северному небесному полюсу и используемая для навигации."
+        },
+        "ref:polis": {
+          "name": "Полис",
+          "description": "Полис (ICRF/J2000) — Мю Стрельца, заметная звезда возле головы Стрельца и часть широкой области неба, связанной с направлением на галактический центр."
+        },
+        "ref:pollux": {
+          "name": "Поллукс",
+          "description": "Поллукс (ICRF/J2000) — самая яркая звезда Близнецов и одна из классических звёзд-близнецов."
+        },
+        "ref:rasalhague": {
+          "name": "Расальгаге",
+          "description": "Расальгаге (ICRF/J2000) — Альфа Змееносца, яркая головная звезда Носителя Змеи и заметный ориентир созвездия Ophiuchus."
+        },
+        "ref:regulus": {
+          "name": "Регул",
+          "description": "Регул (ICRF/J2000) — сердце Льва и одна из самых известных царских звёзд исторической традиции."
+        },
+        "ref:sabik": {
+          "name": "Сабик",
+          "description": "Сабик (ICRF/J2000) — Эта Змееносца, яркая звезда созвездия Ophiuchus, традиционно связанная с нижней фигурой Носителя Змеи."
+        },
+        "ref:sargas": {
+          "name": "Саргас",
+          "description": "Саргас (ICRF/J2000) — Тета Скорпиона, яркая южная звезда в изогнутой хвостовой области Скорпиона."
+        },
+        "ref:shaula": {
+          "name": "Шаула",
+          "description": "Шаула (ICRF/J2000) — одна из ярких хвостовых звёзд Скорпиона и выразительная голубая звезда южного неба."
+        },
+        "ref:sirius": {
+          "name": "Сириус",
+          "description": "Сириус (ICRF/J2000) — самая яркая звезда ночного неба, «Песья звезда» созвездия Большого Пса."
+        },
+        "ref:spica": {
+          "name": "Спика",
+          "description": "Спика (ICRF/J2000) — самая яркая звезда Девы и одна из классических звёзд зодиака."
+        },
+        "ref:vega": {
+          "name": "Вега",
+          "description": "Вега (ICRF/J2000) — самая яркая звезда Лиры и заметная вершина Летнего Треугольника."
+        },
+        "ref:zuben-elakrab": {
+          "name": "Зубен эль-Акраб",
+          "description": "Зубен эль-Акраб (ICRF/J2000) — Гамма Весов, традиционная южная звезда чаши Весов, связанная с расширенным образом клешней и весов."
+        },
+        "ref:zuben-elschemali": {
+          "name": "Зубен эль-Шемали",
+          "description": "Зубен эль-Шемали (ICRF/J2000) — Бета Весов, более яркая традиционная звезда Весов с заметным местом в классической звёздной традиции."
+        }
+      },
       "locations": {
         "currentId": "",
         "saved": []
       },
       "wheelsOnScreen": [
         {
-          "id": "BvGFyXHiSna-W_FtX2UcU",
+          "id": "3gw2RniHuDdmoHqLjuuEh",
           "wheelType": "system",
           "title": "Внутренние Планеты",
           "roles": {
@@ -1166,7 +1468,39 @@
               "Mercury",
               "Venus",
               "Earth",
-              "Mars"
+              "Mars",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -1219,6 +1553,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -1557,7 +1901,7 @@
           }
         },
         {
-          "id": "2fiB8nlVvjlu5_nwWiiNB",
+          "id": "cSsZBT0VOoAmJhSguotjZ",
           "wheelType": "system",
           "title": "Внешние Планеты",
           "roles": {
@@ -1568,7 +1912,39 @@
               "Saturn",
               "Uranus",
               "Neptune",
-              "Pluto"
+              "Pluto",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -1621,6 +1997,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -1959,7 +2345,7 @@
           }
         },
         {
-          "id": "krOcRVTF_iZLfantWLWzE",
+          "id": "cdBjXjhbu4VpbW6hST6lg",
           "wheelType": "compass",
           "title": "Видимое Небо",
           "roles": {
@@ -1975,7 +2361,8 @@
               "Neptune",
               "Pluto",
               "Saturn",
-              "Uranus"
+              "Uranus",
+              "ref:galactic-center"
             ]
           },
           "observer": {
@@ -1992,7 +2379,7 @@
             "x": 0,
             "y": 0,
             "w": 8,
-            "h": 86
+            "h": 92
           },
           "view": {
             "showVisual": true,
@@ -2009,11 +2396,11 @@
                 "tags": [
                   {
                     "id": "custom:mmhwv9e0:s0g5",
+                    "enabled": true,
                     "label": "Описание",
                     "value": "",
-                    "enabled": true,
-                    "isCustom": true,
-                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода."
+                    "modal": "Это компас-колесо показывает, какие основные тела Солнечной системы находятся выше или ниже вашего локального горизонта в выбранный момент. \r\n\r\nЭто наблюдательный слой: используйте его, чтобы связать контекст орбитальных циклов с реальной видимостью на небе, пиками высоты и окнами восхода/захода.",
+                    "isCustom": true
                   },
                   {
                     "id": "custom:mmhzvg01:guide",

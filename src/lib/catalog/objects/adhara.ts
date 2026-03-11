@@ -13,6 +13,7 @@ export const Adhara = {
     meta: {
         color: '#dce7ff',
         distancePc: 124.2237,
+        apparentMagnitude: 1.5,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

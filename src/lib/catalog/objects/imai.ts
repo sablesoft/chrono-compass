@@ -14,6 +14,7 @@ export const Imai = {
     meta: {
         color: '#aabfff',
         distancePc: 105.8202,
+        apparentMagnitude: 2.79,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

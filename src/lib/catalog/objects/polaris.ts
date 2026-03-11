@@ -14,6 +14,7 @@ export const Polaris = {
     meta: {
         color: '#f8f7ff',
         distancePc: 132.6261,
+        apparentMagnitude: 1.97,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -13,6 +13,7 @@ export const Castor = {
     meta: {
         color: '#e8ebff',
         distancePc: 15.5959,
+        apparentMagnitude: 1.58,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

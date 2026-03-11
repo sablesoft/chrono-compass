@@ -13,6 +13,7 @@ export const Acubens = {
     meta: {
         color: '#d9e6ff',
         distancePc: 57.7368,
+        apparentMagnitude: 4.26,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

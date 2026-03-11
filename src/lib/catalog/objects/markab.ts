@@ -13,6 +13,7 @@ export const Markab = {
     meta: {
         color: '#dde5ff',
         distancePc: 40.8832,
+        apparentMagnitude: 2.49,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

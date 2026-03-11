@@ -13,6 +13,7 @@ export const Vega = {
     meta: {
         color: '#d8e4ff',
         distancePc: 7.6788,
+        apparentMagnitude: 0.03,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

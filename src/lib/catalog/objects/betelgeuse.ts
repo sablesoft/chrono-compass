@@ -14,6 +14,7 @@ export const Betelgeuse = {
     meta: {
         color: '#ffcc6f',
         distancePc: 152.6717,
+        apparentMagnitude: 0.45,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

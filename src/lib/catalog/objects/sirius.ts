@@ -14,6 +14,7 @@ export const Sirius = {
     meta: {
         color: '#cad7ff',
         distancePc: 2.6371,
+        apparentMagnitude: -1.44,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

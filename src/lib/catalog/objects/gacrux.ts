@@ -14,6 +14,7 @@ export const Gacrux = {
     meta: {
         color: '#ffcc6f',
         distancePc: 27.1517,
+        apparentMagnitude: 1.59,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

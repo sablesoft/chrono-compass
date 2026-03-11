@@ -13,6 +13,7 @@ export const Mirfak = {
     meta: {
         color: '#fff0c8',
         distancePc: 155.2794,
+        apparentMagnitude: 1.79,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

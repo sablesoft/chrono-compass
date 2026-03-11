@@ -11,6 +11,10 @@ export type BodyInfoChip = {
     modal?: string;
 };
 
+type ResolveBodyStarInfoItemsOptions = {
+    includeEmpty?: boolean;
+};
+
 type BodyOverrideMap = Partial<Record<ObjId, BodyUserOverride>>;
 
 function catalogBody(id: ObjId): {
@@ -31,7 +35,11 @@ function trimText(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function itemIdFromLabel(label: string): string {
+function starInfoItemKey(input: { description?: string; defaultLabel?: string; label?: string }): string {
+    return trimText(input.description) || trimText(input.defaultLabel) || trimText(input.label);
+}
+
+export function bodyInfoItemIdFromLabel(label: string): string {
     const key = String(label ?? '')
         .trim()
         .toLowerCase()
@@ -40,13 +48,19 @@ function itemIdFromLabel(label: string): string {
     return `system:${key || 'item'}`;
 }
 
+export function isSystemBodyInfoItemId(id: string): boolean {
+    return String(id ?? '').trim().startsWith('system:');
+}
+
 export function bodyOverrideRecord(overrides: BodyOverrideMap | null | undefined, id: ObjId): BodyUserOverride | null {
     const entry = overrides?.[id];
     return entry && typeof entry === 'object' ? entry : null;
 }
 
 export function resolveBodyName(id: ObjId, overrides: BodyOverrideMap | null | undefined): string {
-    const custom = trimText(bodyOverrideRecord(overrides, id)?.name?.en);
+    const record = bodyOverrideRecord(overrides, id);
+    // TODO - remove legacy profile fallback after demo data update.
+    const custom = trimText(record?.name) || trimText((record as { name?: { en?: string } } | null)?.name?.en);
     if (custom) return custom;
     const body = catalogBody(id);
     return trimText(body?.name) || String(id);
@@ -59,7 +73,9 @@ export function resolveBodyEmoji(id: ObjId, overrides: BodyOverrideMap | null | 
 }
 
 export function resolveBodyDescription(id: ObjId, overrides: BodyOverrideMap | null | undefined): string {
-    const custom = trimText(bodyOverrideRecord(overrides, id)?.description?.en);
+    const record = bodyOverrideRecord(overrides, id);
+    // TODO - remove legacy profile fallback after demo data update.
+    const custom = trimText(record?.description) || trimText((record as { description?: { en?: string } } | null)?.description?.en);
     if (custom) return custom;
     return trimText(catalogBody(id)?.description);
 }
@@ -89,11 +105,80 @@ export function resolveBodyDistanceLyLabel(id: ObjId, overrides: BodyOverrideMap
     return lang === 'ru' ? 'Расстояние' : 'Distance';
 }
 
+function bodyInfoOverrideItems(overrides: BodyOverrideMap | null | undefined, id: ObjId): Map<string, BodyUserInfoItem> {
+    const raw = bodyOverrideRecord(overrides, id)?.infoItems;
+    if (!Array.isArray(raw)) return new Map();
+    return raw.reduce<Map<string, BodyUserInfoItem>>((map, item) => {
+        const itemId = trimText(item?.id);
+        if (!itemId) return map;
+        map.set(itemId, item);
+        return map;
+    }, new Map());
+}
+
+function sharedStarInfoOverrideItems(sharedInfoItems: BodyUserInfoItem[] | null | undefined): Map<string, BodyUserInfoItem> {
+    if (!Array.isArray(sharedInfoItems)) return new Map();
+    return sharedInfoItems.reduce<Map<string, BodyUserInfoItem>>((map, item) => {
+        const itemId = trimText(item?.id);
+        if (!itemId || !isSystemBodyInfoItemId(itemId)) return map;
+        map.set(itemId, item);
+        return map;
+    }, new Map());
+}
+
+function starMetaRecord(id: ObjId): Record<string, number> | null {
+    const distancePc = resolveBodyDistancePc(id);
+    if (!Number.isFinite(distancePc)) return null;
+    const apparentMagnitude = Number((catalogBody(id)?.meta as Partial<ReferenceMeta> | undefined)?.apparentMagnitude);
+    const distanceAu = distancePc * 3.26156 * AU_PER_LY;
+    const starMeta: Record<string, number> = { distanceAu };
+    if (Number.isFinite(apparentMagnitude)) {
+        starMeta.apparentMagnitude = apparentMagnitude;
+    }
+    return starMeta;
+}
+
+export function resolveBodyStarInfoItems(
+    id: ObjId,
+    overrides: BodyOverrideMap | null | undefined,
+    sharedInfoItems?: BodyUserInfoItem[] | null,
+    opts?: ResolveBodyStarInfoItemsOptions
+): BodyInfoChip[] {
+    const starMeta = starMetaRecord(id);
+    const includeEmpty = !!opts?.includeEmpty;
+    if (!starMeta && !includeEmpty) return [];
+    const sharedOverrideItems = sharedStarInfoOverrideItems(sharedInfoItems);
+    const legacyBodyOverrideItems = bodyInfoOverrideItems(overrides, id);
+    const overrideItems = sharedOverrideItems.size > 0 ? sharedOverrideItems : legacyBodyOverrideItems;
+
+    // STAR_INFO_ITEMS defines only catalog defaults; editor/runtime need merged rows with profile overrides.
+    return STAR_INFO_ITEMS.reduce<BodyInfoChip[]>((items, def) => {
+        const defaultLabel = trimText(def.defaultLabel ?? def.label);
+        const key = starInfoItemKey(def);
+        if (!defaultLabel || !key || !def.metaField) return items;
+        const raw = starMeta?.[def.metaField];
+        const value = formatInfoValue(def.format, raw);
+        if ((!value || value === '—') && !includeEmpty) return items;
+        const itemId = bodyInfoItemIdFromLabel(key);
+        const override = overrideItems.get(itemId);
+        const label = trimText(override?.label) || defaultLabel;
+        const modal = trimText(override?.modal) || trimText(def.modal);
+        items.push({
+            id: itemId,
+            label,
+            value: value && value !== '—' ? value : undefined,
+            modal: modal || undefined
+        });
+        return items;
+    }, []);
+}
+
 export function resolveBodyCustomInfoItems(id: ObjId, overrides: BodyOverrideMap | null | undefined): BodyInfoChip[] {
     const raw = bodyOverrideRecord(overrides, id)?.infoItems;
     if (!Array.isArray(raw)) return [];
     return raw.reduce<BodyInfoChip[]>((items, item: BodyUserInfoItem, index: number) => {
             const itemId = trimText(item?.id) || `custom:${index}`;
+            if (isSystemBodyInfoItemId(itemId)) return items;
             const label = trimText(item?.label);
             const value = trimText(item?.value);
             const modal = trimText(item?.modal);
@@ -109,7 +194,12 @@ export function resolveBodyCustomInfoItems(id: ObjId, overrides: BodyOverrideMap
         }, []);
 }
 
-export function resolveBodyInfoItems(id: ObjId, overrides: BodyOverrideMap | null | undefined, lang = 'en'): BodyInfoChip[] {
+export function resolveBodyInfoItems(
+    id: ObjId,
+    overrides: BodyOverrideMap | null | undefined,
+    lang = 'en',
+    sharedInfoItems?: BodyUserInfoItem[] | null
+): BodyInfoChip[] {
     const items: BodyInfoChip[] = [];
     const description = resolveBodyDescription(id, overrides);
     if (description) {
@@ -120,25 +210,7 @@ export function resolveBodyInfoItems(id: ObjId, overrides: BodyOverrideMap | nul
         });
     }
 
-    const distancePc = resolveBodyDistancePc(id);
-    if (Number.isFinite(distancePc)) {
-        const distanceAu = distancePc * 3.26156 * AU_PER_LY;
-        const starMeta: Record<string, number> = { distanceAu };
-        for (const def of STAR_INFO_ITEMS) {
-            const label = trimText(def.defaultLabel ?? def.label);
-            if (!label || !def.metaField) continue;
-            const raw = starMeta[def.metaField];
-            const value = formatInfoValue(def.format, raw);
-            if (!value || value === '—') continue;
-            items.push({
-                id: itemIdFromLabel(label),
-                label,
-                value,
-                modal: typeof def.modal === 'string' ? def.modal : undefined
-            });
-        }
-    }
-
+    items.push(...resolveBodyStarInfoItems(id, overrides, sharedInfoItems));
     items.push(...resolveBodyCustomInfoItems(id, overrides));
     return items;
 }

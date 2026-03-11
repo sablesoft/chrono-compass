@@ -14,6 +14,7 @@ export const Antares = {
     meta: {
         color: '#ffcc6f',
         distancePc: 169.7792,
+        apparentMagnitude: 1.06,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

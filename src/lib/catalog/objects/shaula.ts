@@ -13,6 +13,7 @@ export const Shaula = {
     meta: {
         color: '#cfe0ff',
         distancePc: 175.1312,
+        apparentMagnitude: 1.62,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -13,6 +13,7 @@ export const Capella = {
     meta: {
         color: '#ffd68e',
         distancePc: 13.1235,
+        apparentMagnitude: 0.08,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

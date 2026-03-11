@@ -13,6 +13,7 @@ export const DenebKaitos = {
     meta: {
         color: '#ffd0a6',
         distancePc: 29.5334,
+        apparentMagnitude: 2.04,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

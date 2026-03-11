@@ -13,6 +13,7 @@ export const Alpheratz = {
     meta: {
         color: '#dce5ff',
         distancePc: 29.744,
+        apparentMagnitude: 2.07,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

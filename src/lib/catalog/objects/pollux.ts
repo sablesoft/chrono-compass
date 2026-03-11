@@ -13,6 +13,7 @@ export const Pollux = {
     meta: {
         color: '#ffd79d',
         distancePc: 10.3585,
+        apparentMagnitude: 1.16,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

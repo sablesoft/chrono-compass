@@ -13,6 +13,7 @@ export const Fomalhaut = {
     meta: {
         color: '#dff5ff',
         distancePc: 7.7037,
+        apparentMagnitude: 1.17,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

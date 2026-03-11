@@ -16,6 +16,7 @@ export type SpokeKey =
     | 'E_next';
 
 export type InfoItem = {
+    description?: string;
     defaultLabel?: string;
     label?: string;
     value?: string;
@@ -95,6 +96,7 @@ export type InfoValueFormat =
     | 'time'
     | 'deg'
     | 'deg2'
+    | 'mag'
     | 'au'
     | 'pc'
     | 'ly'

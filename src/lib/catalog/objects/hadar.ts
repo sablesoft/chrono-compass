@@ -13,6 +13,7 @@ export const Hadar = {
     meta: {
         color: '#cfe0ff',
         distancePc: 120.1922,
+        apparentMagnitude: 0.61,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

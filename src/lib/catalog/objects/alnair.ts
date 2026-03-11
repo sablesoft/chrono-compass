@@ -13,6 +13,7 @@ export const Alnair = {
     meta: {
         color: '#d6e2ff',
         distancePc: 30.9692,
+        apparentMagnitude: 1.73,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

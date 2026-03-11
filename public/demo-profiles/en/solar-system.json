@@ -27,7 +27,8 @@
               "Neptune",
               "Pluto",
               "Saturn",
-              "Uranus"
+              "Uranus",
+              "ref:galactic-center"
             ]
           },
           "observer": {
@@ -354,7 +355,39 @@
               "Saturn",
               "Uranus",
               "Neptune",
-              "Pluto"
+              "Pluto",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -400,6 +433,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -719,7 +762,39 @@
               "Mercury",
               "Venus",
               "Earth",
-              "Mars"
+              "Mars",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -765,6 +840,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -1080,7 +1165,28 @@
         }
       ],
       "favorites": [],
-      "bodies": {},
+      "starInfoItems": [
+        {
+          "id": "system:vis-mag",
+          "label": "Vis Mag",
+          "modal": "Apparent magnitude is the observed brightness of a star from Earth. Smaller numbers mean brighter stars; negative values are especially bright."
+        },
+        {
+          "id": "system:dist-ps",
+          "label": "Dist Ps",
+          "modal": "Distance in parsecs (pc). Parsec is the standard astronomical unit for stellar catalogs and parallax-based distances."
+        },
+        {
+          "id": "system:dist-ly",
+          "label": "Dist Ly",
+          "modal": "Distance in light-years (ly). One light-year is the distance light travels in vacuum in one year."
+        }
+      ],
+      "bodies": {
+        "ref:galactic-center": {
+          "name": "Galactic Center"
+        }
+      },
       "locations": {
         "currentId": "",
         "saved": []
@@ -1097,7 +1203,39 @@
               "Mercury",
               "Venus",
               "Earth",
-              "Mars"
+              "Mars",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -1150,6 +1288,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -1472,7 +1620,39 @@
               "Saturn",
               "Uranus",
               "Neptune",
-              "Pluto"
+              "Pluto",
+              "ref:zuben-elschemali",
+              "ref:sirius",
+              "ref:spica",
+              "ref:sargas",
+              "ref:regulus",
+              "ref:polis",
+              "ref:pollux",
+              "ref:rasalhague",
+              "ref:polaris",
+              "ref:nunki",
+              "ref:mirfak",
+              "ref:menkar",
+              "ref:markab",
+              "ref:graffias",
+              "ref:hamal",
+              "ref:fomalhaut",
+              "ref:denebola",
+              "ref:dubhe",
+              "ref:deneb",
+              "ref:deneb-kaitos",
+              "ref:betelgeuse",
+              "ref:avior",
+              "ref:altair",
+              "ref:antares",
+              "ref:arcturus",
+              "ref:alfard",
+              "ref:alpheratz",
+              "ref:aldebaran",
+              "ref:alnair",
+              "ref:acamar",
+              "ref:acubens",
+              "ref:acrux"
             ]
           },
           "observer": {
@@ -1525,6 +1705,16 @@
               "dynamic": {
                 "enabled": true,
                 "tags": [
+                  {
+                    "id": "dynamic:phase",
+                    "enabled": true,
+                    "modal": "Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel."
+                  },
+                  {
+                    "id": "dynamic:ecl",
+                    "enabled": true,
+                    "modal": "Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south."
+                  },
                   {
                     "id": "dynamic:dist-au",
                     "enabled": true,
@@ -1851,7 +2041,8 @@
               "Neptune",
               "Pluto",
               "Saturn",
-              "Uranus"
+              "Uranus",
+              "ref:galactic-center"
             ]
           },
           "observer": {

@@ -13,6 +13,7 @@ export const Kochab = {
     meta: {
         color: '#efe6c8',
         distancePc: 40.1446,
+        apparentMagnitude: 2.07,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

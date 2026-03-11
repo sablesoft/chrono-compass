@@ -13,6 +13,7 @@ export const Mintaka = {
     meta: {
         color: '#dfe8ff',
         distancePc: 212.3144,
+        apparentMagnitude: 2.25,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

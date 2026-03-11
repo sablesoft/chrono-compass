@@ -13,6 +13,7 @@ export const Aldebaran = {
     meta: {
         color: '#ffb46d',
         distancePc: 20.4332,
+        apparentMagnitude: 0.87,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

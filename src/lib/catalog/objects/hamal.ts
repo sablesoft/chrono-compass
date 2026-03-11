@@ -13,6 +13,7 @@ export const Hamal = {
     meta: {
         color: '#ffcb8a',
         distancePc: 20.1775,
+        apparentMagnitude: 2.01,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -82,6 +82,8 @@ export function formatInfoValue(format: string | undefined, raw: FormatInput): s
             return formatNum(n, 1);
         case 'deg2':
             return formatNum(n, 2);
+        case 'mag':
+            return formatNum(n, 2);
         case 'au':
             return formatNum(n, 6);
         case 'pc':

@@ -13,6 +13,7 @@ export const KausAustralis = {
     meta: {
         color: '#e2ddff',
         distancePc: 43.9366,
+        apparentMagnitude: 1.79,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

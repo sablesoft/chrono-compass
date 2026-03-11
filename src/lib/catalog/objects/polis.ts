@@ -13,6 +13,7 @@ export const Polis = {
     meta: {
         color: '#ffe0ba',
         distancePc: 79.6177,
+        apparentMagnitude: 3.84,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

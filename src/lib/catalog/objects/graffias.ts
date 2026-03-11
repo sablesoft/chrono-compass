@@ -13,6 +13,7 @@ export const Graffias = {
     meta: {
         color: '#d7e1ff',
         distancePc: 123.9155,
+        apparentMagnitude: 4.84,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

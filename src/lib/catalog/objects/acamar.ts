@@ -13,6 +13,7 @@ export const Acamar = {
     meta: {
         color: '#d7e2ff',
         distancePc: 49.4316,
+        apparentMagnitude: 2.88,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

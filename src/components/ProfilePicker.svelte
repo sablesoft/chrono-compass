@@ -299,6 +299,7 @@
                 data: {
                     wheels: normalizedWheels,
                     favorites,
+                    starInfoItems: selectedProfile.data?.starInfoItems ?? [],
                     bodies: selectedProfile.data?.bodies ?? {},
                     locations: {
                         currentId: exportedCurrentId,

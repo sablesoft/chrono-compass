@@ -13,6 +13,7 @@ export const Dschubba = {
     meta: {
         color: '#d8e5ff',
         distancePc: 150.6025,
+        apparentMagnitude: 2.29,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

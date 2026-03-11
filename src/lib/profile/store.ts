@@ -7,6 +7,7 @@ import type { WheelRolesState } from '../wheel/control';
 
 import type { BodyUserInfoItem, BodyUserOverride, Profile, ProfileData, ProfileId, ProfilesState, SavedWheel } from './types';
 import { boardApi, boardState } from '../board/store';
+import { isSystemBodyInfoItemId } from './bodyInfo';
 
 import { makeDedupKey as makeDedupKeyImpl, normalizeRoleValue } from './dedup';
 import type { WheelObserverState, WheelTimeState } from '../wheel/types';
@@ -53,6 +54,7 @@ function emptyProfileData() {
     return {
         wheels: [] as SavedWheel[],
         favorites: [] as string[],
+        starInfoItems: undefined as BodyUserInfoItem[] | undefined,
         bodies: {} as Partial<Record<ObjId, BodyUserOverride>>,
         wheelsOnScreen: [] as BoardWheel[]
     };
@@ -161,6 +163,7 @@ function normalizeState(s: ProfilesState | null): ProfilesState {
                 data: {
                     ...emptyProfileData(),
                     ...(p?.data ?? {}),
+                    starInfoItems: normalizeStarInfoItems(p?.data?.starInfoItems),
                     bodies: normalizeBodies(p?.data?.bodies)
                 }
             };
@@ -369,7 +372,7 @@ function normalizeBodyInfoItems(input: unknown): BodyUserInfoItem[] | undefined 
         const value = typeof raw?.value === 'string' ? raw.value.trim() : '';
         const modal = typeof raw?.modal === 'string' ? raw.modal.trim() : '';
         if (!id || !label) continue;
-        if (!value && !modal) continue;
+        if (!value && !modal && !isSystemBodyInfoItemId(id)) continue;
         out.push({
             id,
             label,
@@ -380,19 +383,29 @@ function normalizeBodyInfoItems(input: unknown): BodyUserInfoItem[] | undefined 
     return out.length ? out : undefined;
 }
 
+function normalizeStarInfoItems(input: unknown): BodyUserInfoItem[] | undefined {
+    const items = normalizeBodyInfoItems(input);
+    const shared = items?.filter((item) => isSystemBodyInfoItemId(item.id));
+    return shared?.length ? shared : undefined;
+}
+
 function normalizeBodyOverride(input: any): BodyUserOverride | null {
     if (!input || typeof input !== 'object') return null;
-    const nameEn = typeof input?.name?.en === 'string' ? input.name.en.trim() : '';
+    const name = typeof input?.name === 'string' ? input.name.trim() : '';
+    // TODO - remove legacy profile fallback after demo data update.
+    const legacyNameEn = typeof input?.name?.en === 'string' ? input.name.en.trim() : '';
     const emoji = typeof input?.emoji === 'string' ? input.emoji.trim() : '';
-    const descriptionEn = typeof input?.description?.en === 'string' ? input.description.en.trim() : '';
+    const description = typeof input?.description === 'string' ? input.description.trim() : '';
+    // TODO - remove legacy profile fallback after demo data update.
+    const legacyDescriptionEn = typeof input?.description?.en === 'string' ? input.description.en.trim() : '';
     const descriptionLabel = typeof input?.descriptionLabel === 'string' ? input.descriptionLabel.trim() : '';
     const distanceLyLabel = typeof input?.distanceLyLabel === 'string' ? input.distanceLyLabel.trim() : '';
     const infoItems = normalizeBodyInfoItems(input?.infoItems);
 
     const next: BodyUserOverride = {};
-    if (nameEn) next.name = { en: nameEn };
+    if (name || legacyNameEn) next.name = name || legacyNameEn;
     if (emoji) next.emoji = emoji;
-    if (descriptionEn) next.description = { en: descriptionEn };
+    if (description || legacyDescriptionEn) next.description = description || legacyDescriptionEn;
     if (descriptionLabel) next.descriptionLabel = descriptionLabel;
     if (distanceLyLabel) next.distanceLyLabel = distanceLyLabel;
     if (infoItems?.length) next.infoItems = infoItems;
@@ -703,6 +716,7 @@ export const profilesApi = {
             const wheels = normalizeImportedWheels(src?.data?.wheels);
             const board = normalizeImportedBoard(src?.data?.wheelsOnScreen);
             const locations = normalizeLocationsData(src?.data?.locations);
+            const starInfoItems = normalizeStarInfoItems(src?.data?.starInfoItems);
             const bodies = normalizeBodies(src?.data?.bodies);
             const favorites = normalizeFavorites(
                 Array.isArray(src?.data?.favorites) ? src.data.favorites.filter((x: any) => typeof x === 'string') : [],
@@ -721,6 +735,7 @@ export const profilesApi = {
                     ...emptyProfileData(),
                     wheels,
                     favorites,
+                    starInfoItems,
                     bodies,
                     wheelsOnScreen: board
                 }
@@ -978,6 +993,35 @@ export const profilesApi = {
     },
 
     // objects overrides
+    setStarInfoOverrides(items: BodyUserInfoItem[] | undefined) {
+        dbg.group('api.setStarInfoOverrides', () => {
+            const ap = get(activeProfile);
+            if (ap.system) {
+                dbg.warn('api.setStarInfoOverrides.skip system', { profileId: ap.id });
+                return;
+            }
+            const t = now();
+            const nextShared = normalizeStarInfoItems(items);
+
+            updateProfile(ap.id, (p) => {
+                const bodies: Partial<Record<ObjId, BodyUserOverride>> = {};
+                for (const [bodyId, body] of Object.entries(p.data.bodies) as Array<[ObjId, BodyUserOverride]>) {
+                    const filteredItems = (body.infoItems ?? []).filter((item) => !isSystemBodyInfoItemId(item.id));
+                    const merged = normalizeBodyOverride({
+                        ...body,
+                        infoItems: filteredItems.length ? filteredItems : undefined
+                    });
+                    if (merged) bodies[bodyId] = merged;
+                }
+                return {
+                    ...p,
+                    updatedAt: t,
+                    data: { ...p.data, starInfoItems: nextShared, bodies }
+                };
+            });
+        });
+    },
+
     setBodyOverride(bodyId: ObjId, patch: Partial<BodyUserOverride>) {
         dbg.group('api.setBodyOverride', () => {
             const ap = get(activeProfile);

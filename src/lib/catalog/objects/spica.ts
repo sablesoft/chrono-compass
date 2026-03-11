@@ -13,6 +13,7 @@ export const Spica = {
     meta: {
         color: '#cbd9ff',
         distancePc: 76.5698,
+        apparentMagnitude: 0.98,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

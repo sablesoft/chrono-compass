@@ -35,9 +35,9 @@ export type BodyUserInfoItem = {
 };
 
 export type BodyUserOverride = {
-    name?: { en?: string };
+    name?: string;
     emoji?: string;
-    description?: { en?: string };
+    description?: string;
     descriptionLabel?: string;
     distanceLyLabel?: string;
     infoItems?: BodyUserInfoItem[];
@@ -46,6 +46,7 @@ export type BodyUserOverride = {
 export type ProfileData = {
     wheels: SavedWheel[];
     favorites: string[]; // stores dedupKey values
+    starInfoItems?: BodyUserInfoItem[];
     bodies: Partial<Record<ObjId, BodyUserOverride>>;
 
     /** Сохранённая доска в профиле (снапшот) */

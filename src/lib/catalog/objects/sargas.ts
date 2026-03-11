@@ -13,6 +13,7 @@ export const Sargas = {
     meta: {
         color: '#ffe1b8',
         distancePc: 92.0811,
+        apparentMagnitude: 1.86,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

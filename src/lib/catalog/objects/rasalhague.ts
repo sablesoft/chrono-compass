@@ -13,6 +13,7 @@ export const Rasalhague = {
     meta: {
         color: '#edf2ff',
         distancePc: 14.8966,
+        apparentMagnitude: 2.08,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

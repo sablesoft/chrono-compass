@@ -14,6 +14,7 @@ export const Altair = {
     meta: {
         color: '#cad7ff',
         distancePc: 5.1294,
+        apparentMagnitude: 0.76,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -13,6 +13,7 @@ export const Dubhe = {
     meta: {
         color: '#ffd7ab',
         distancePc: 37.6789,
+        apparentMagnitude: 1.81,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

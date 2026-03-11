@@ -13,6 +13,7 @@ export const Sabik = {
     meta: {
         color: '#e6edff',
         distancePc: 27.0929,
+        apparentMagnitude: 2.43,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

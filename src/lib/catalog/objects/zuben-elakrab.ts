@@ -13,6 +13,7 @@ export const ZubenElakrab = {
     meta: {
         color: '#c9dfff',
         distancePc: 263.8523,
+        apparentMagnitude: 3.91,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

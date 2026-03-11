@@ -13,6 +13,7 @@ export const Achernar = {
     meta: {
         color: '#cfe0ff',
         distancePc: 42.7532,
+        apparentMagnitude: 0.45,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

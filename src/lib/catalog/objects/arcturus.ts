@@ -13,6 +13,7 @@ export const Arcturus = {
     meta: {
         color: '#ffb47e',
         distancePc: 11.2575,
+        apparentMagnitude: -0.05,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

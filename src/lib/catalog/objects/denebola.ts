@@ -13,6 +13,7 @@ export const Denebola = {
     meta: {
         color: '#f2f3ff',
         distancePc: 11,
+        apparentMagnitude: 2.14,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

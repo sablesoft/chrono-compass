@@ -13,6 +13,7 @@ export const Regulus = {
     meta: {
         color: '#d6deff',
         distancePc: 24.3132,
+        apparentMagnitude: 1.36,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

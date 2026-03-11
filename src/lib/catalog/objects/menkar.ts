@@ -13,6 +13,7 @@ export const Menkar = {
     meta: {
         color: '#ffb27c',
         distancePc: 76.3941,
+        apparentMagnitude: 2.54,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

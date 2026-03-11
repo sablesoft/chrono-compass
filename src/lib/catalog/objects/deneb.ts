@@ -14,6 +14,7 @@ export const Deneb = {
     meta: {
         color: '#cad7ff',
         distancePc: 432.9005,
+        apparentMagnitude: 1.25,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

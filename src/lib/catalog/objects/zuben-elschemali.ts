@@ -13,6 +13,7 @@ export const ZubenElschemali = {
     meta: {
         color: '#b6ddff',
         distancePc: 56.7538,
+        apparentMagnitude: 2.61,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

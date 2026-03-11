@@ -349,6 +349,7 @@
     }
 
     $: activeBodyOverrides = (($activeProfile?.data?.bodies ?? {}) as Partial<Record<ObjId, BodyUserOverride>>);
+    $: activeStarInfoItems = $activeProfile?.data?.starInfoItems ?? [];
 
     let orbitNodesVisible: OrbitNodeUi[] = [];
     let hasPinnedNodalNodes = false;
@@ -1425,6 +1426,15 @@
         return items.filter((item) => item.id === 'system:dist-ps' || item.id === 'system:dist-ly' || !item.id.startsWith('system:dist-'));
     }
 
+    function starInfoDefsForMetaField(metaField: string | undefined): InfoItem[] {
+        if (!metaField) return [];
+        return STAR_INFO_ITEMS.filter((row) => row.metaField === metaField);
+    }
+
+    function starInfoTagKey(def: InfoItem): string {
+        return String(def.description ?? def.defaultLabel ?? def.label ?? '').trim();
+    }
+
     function nodeInfoItemsFromSpec(
         source: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal' | undefined,
         code: string,
@@ -1454,17 +1464,18 @@
                 const formatInput = (typeof rawValue === 'number' || typeof rawValue === 'string' || rawValue == null)
                     ? rawValue
                     : String(rawValue);
-                const labelKey = tagIdFromLabel(defaultLabel);
-                const isDistAu = def.metaField === 'distanceAu' && labelKey === 'dist-au';
                 const isStar = !!(bodyId && isReferenceStarDistance(bodyId));
-                if (isDistAu && isStar) {
-                    for (const starDef of STAR_INFO_ITEMS) {
+                const starDefs = isStar ? starInfoDefsForMetaField(def.metaField) : [];
+                if (starDefs.length > 0) {
+                    for (const starDef of starDefs) {
                         const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
-                        if (!starLabel) continue;
-                        const starValue = formatInfoValue(starDef.format, rawNumber);
+                        const starKey = starInfoTagKey(starDef);
+                        if (!starLabel || !starKey) continue;
+                        const starFormatInput = starDef.metaField === def.metaField ? formatInput : rawNumber;
+                        const starValue = formatInfoValue(starDef.format, starFormatInput);
                         if (!starValue || starValue === '—') continue;
                         out.push({
-                            id: `dynamic:${tagIdFromLabel(starLabel)}`,
+                            id: `dynamic:${tagIdFromLabel(starKey)}`,
                             label: uiLabel(starLabel),
                             value: starValue,
                             modal: typeof starDef.modal === 'string' ? starDef.modal : resolvedModal
@@ -1473,7 +1484,7 @@
                     continue;
                 }
 
-                const value = isDistAu
+                const value = def.metaField === 'distanceAu'
                     ? (formatDistAuValue3(rawNumber) ?? '—')
                     : (def.format ? formatInfoValue(def.format, formatInput) : String(formatInput));
                 out.push({
@@ -1968,7 +1979,7 @@
             currentHouses: normalizeBodyCurrentHouses(t),
             bodyInfoItems: normalizeCompassBodyInfoItems(
                 t.id,
-                resolveBodyInfoItems(t.id, activeBodyOverrides)
+                resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems)
             ),
             activeNode
         };
@@ -2465,12 +2476,13 @@
                 spokes: row.spokes
             });
 
-            const labelKey = tagIdFromLabel(defaultLabel);
-            if (row.metaField === 'distanceAu' && labelKey === 'dist-au') {
-                for (const starDef of STAR_INFO_ITEMS) {
+            const starDefs = starInfoDefsForMetaField(typeof row.metaField === 'string' ? row.metaField : undefined);
+            if (starDefs.length > 0) {
+                for (const starDef of starDefs) {
                     const starLabel = String(starDef.defaultLabel ?? starDef.label ?? '').trim();
-                    if (!starLabel) continue;
-                    const starId = `${scope}:${source}:${tagIdFromLabel(starLabel)}`;
+                    const starKey = starInfoTagKey(starDef);
+                    if (!starLabel || !starKey) continue;
+                    const starId = `${scope}:${source}:${tagIdFromLabel(starKey)}`;
                     if (seen.has(starId)) continue;
                     seen.add(starId);
                     out.push({
@@ -2480,7 +2492,7 @@
                         enabledByDefault,
                         modal: typeof starDef.modal === 'string' ? starDef.modal : undefined,
                         source,
-                        metaField: 'distanceAu',
+                        metaField: typeof starDef.metaField === 'string' ? starDef.metaField : undefined,
                         format: starDef.format,
                         spokes: row.spokes
                     });
@@ -2797,6 +2809,29 @@
         return typeof value === 'string' && value.trim().length > 0;
     }
 
+    function mergePinnedBodyItems(dynamicItems: CompassInfoChip[], bodyItems: CompassInfoChip[]): CompassInfoChip[] {
+        const out: CompassInfoChip[] = [];
+        const seen = new Map<string, number>();
+
+        const pushChip = (chip: CompassInfoChip) => {
+            const key = chipLabelKey(chip.label);
+            const hitIdx = seen.get(key);
+            if (hitIdx == null) {
+                seen.set(key, out.length);
+                out.push(chip);
+                return;
+            }
+            const prev = out[hitIdx];
+            if (!chipHasValue(prev.value) && chipHasValue(chip.value)) {
+                out[hitIdx] = chip;
+            }
+        };
+
+        for (const chip of dynamicItems) pushChip(chip);
+        for (const chip of bodyItems) pushChip(chip);
+        return out;
+    }
+
     function groupEnabledByNodeToggles(group: OrbitNodeGroup): boolean {
         return showOrbitNodesAny && isOrbitNodeGroupVisible(group);
     }
@@ -3037,6 +3072,8 @@
         const pinnedTagConfigById = new Map(compassInfoConfig.pinned.tags.map((t) => [t.id, t]));
         const body = allBodies.find((b) => b.id === pinnedBodyId);
         const bodyItems = body?.bodyInfoItems ?? [];
+        const dynamicItems = compassDynamicRows.find((row) => row.id === pinnedBodyId)?.items ?? [];
+        const pinnedItems = mergePinnedBodyItems(dynamicItems, bodyItems);
         const mainCycle = mainCycleSourceForActiveWheel();
         const durationItem = (() => {
             if (!mainCycle) return undefined;
@@ -3084,7 +3121,7 @@
             emoji: body?.emoji ?? '•',
             name: body?.name ?? String(pinnedBodyId),
             color: body?.color,
-            items: bodyItems,
+            items: pinnedItems,
             durationItem,
             nodes
         });

@@ -13,6 +13,7 @@ export const Alfard = {
     meta: {
         color: '#f0d6b5',
         distancePc: 55.2791,
+        apparentMagnitude: 1.99,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {
