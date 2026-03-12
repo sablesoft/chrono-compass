@@ -1,8 +1,8 @@
-import { BOARD_GRID_COLUMNS } from '../../board/layoutEngine';
+import { BOARD_DEFAULT_W, BOARD_GRID_COLUMNS } from '../../board/layoutEngine';
 
 export type InfoPosition = 'bottom' | 'left' | 'right';
 
-export const CARD_VISUAL_COLS_DEFAULT = 12;
+export const CARD_VISUAL_COLS_DEFAULT = BOARD_DEFAULT_W;
 export const CARD_VISUAL_COLS_MIN = 6;
 export const CARD_VISUAL_COLS_MAX = BOARD_GRID_COLUMNS;
 export const CARD_INFO_SIDE_COLS_DEFAULT = 10;

@@ -375,52 +375,6 @@
         resetAll();
     }
 
-    function isTypingInControl(e: KeyboardEvent): boolean {
-        const path = (typeof e.composedPath === 'function' ? e.composedPath() : []) as unknown[];
-
-        const isControlEl = (x: unknown) =>
-            x instanceof HTMLInputElement ||
-            x instanceof HTMLTextAreaElement ||
-            x instanceof HTMLSelectElement ||
-            x instanceof HTMLButtonElement ||
-            (x instanceof HTMLElement && x.isContentEditable);
-
-        if (isControlEl(e.target)) return true;
-
-        for (const node of path) {
-            if (isControlEl(node)) return true;
-        }
-
-        return false;
-    }
-
-    function handlePanelKeydown(e: KeyboardEvent) {
-        if (isTypingInControl(e)) return;
-
-        if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            if (!open) openForm();
-            return;
-        }
-
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            if (open) closeForm();
-        }
-    }
-
-    function handlePanelClick(e: MouseEvent) {
-        if (open) return;
-        const target = e.target;
-        if (!(target instanceof Element)) {
-            openForm();
-            return;
-        }
-        if (target === e.currentTarget || !!target.closest('.plusWrap')) {
-            openForm();
-        }
-    }
-
     $: hasAll =
         required.every((r) => r === 'target'
             ? values.target.length > 0
@@ -514,30 +468,19 @@
 </script>
 
 <div class="panel addWheel"
-     class:open={open}
-     role="button"
-     tabindex="0"
-     aria-label="Add wheel"
-     on:click={handlePanelClick}
-     on:keydown={handlePanelKeydown}>
-    {#if !open}
-        <div class="plusWrap" aria-hidden="true">
-            <div class="plusCircle">
-                <span class="plus">+</span>
-            </div>
-        </div>
-    {:else}
+     class:open={open}>
+    <div class="pickerContent" class:hidden={!open} aria-hidden={!open}>
         <header class="top">
             <div class="left">
                 <div class="title">Add Wheel</div>
-                <div class="sub">Build a wheel and drop it onto the board</div>
             </div>
 
-            <div class="right">
+            <div class="btnRail">
                 <button type="button" class="navBtn" title="Docs" on:click={() => docs.openDocs()}>i</button>
                 <button type="button" class="navBtn danger" title="Close" on:click|stopPropagation={closeForm}>×</button>
             </div>
         </header>
+        <div class="sectionSep headerSep" aria-hidden="true"></div>
 
         <div class="form">
             <!-- Saved selector -->
@@ -709,6 +652,28 @@
                 </footer>
             {/if}
         </div>
+    </div>
+
+    {#if !open}
+        <div
+            class="plusOverlay"
+            role="button"
+            tabindex="0"
+            aria-label="Add wheel"
+            on:click={openForm}
+            on:keydown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openForm();
+                }
+            }}
+        >
+            <div class="plusWrap" aria-hidden="true">
+                <div class="plusCircle">
+                    <span class="plus">+</span>
+                </div>
+            </div>
+        </div>
     {/if}
 </div>
 
@@ -727,20 +692,28 @@
         border-radius: 18px;
         padding: 14px;
         overflow: hidden;
+        position: relative;
         min-height: 220px;
         cursor: pointer;
         transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
     }
 
-    .panel:not(.open) {
-        min-height: clamp(480px, 40vw, 620px);
-        display: grid;
-        place-items: center;
-    }
-
     .panel.open {
         display: block;
         cursor: default;
+    }
+
+    .pickerContent.hidden {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .plusOverlay {
+        position: absolute;
+        inset: 14px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
     }
 
     .plusWrap {
@@ -788,34 +761,80 @@
 
     .top {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         justify-content: space-between;
         gap: 12px;
-        margin-bottom: 12px;
+        padding-bottom: 8px;
         cursor: default;
     }
 
-    .left { min-width: 0; }
+    .left {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+    }
     .title {
-        font-size: 24px;
+        font-size: 20px;
+        line-height: 1.15;
         font-weight: 650;
         opacity: 0.95;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    .sub {
-        margin-top: 6px;
-        font-size: 14px;
-        opacity: 0.65;
-        font-weight: 650;
+
+    .btnRail {
+        --seg-size: 32px;
+        flex: 0 0 auto;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: var(--seg-size);
+        border: 1px solid var(--btn-border);
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--btn-bg);
     }
 
-    .right { display: flex; gap: 10px; align-items: center; }
+    .btnRail :global(.navBtn) {
+        width: 100%;
+        height: var(--seg-size);
+        min-width: 0;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        border-right: 1px solid var(--btn-border);
+        border-radius: 0;
+        background: transparent;
+        display: inline-grid;
+        place-items: center;
+        line-height: 1;
+    }
+
+    .btnRail :global(.navBtn:hover:not(:disabled)) {
+        transform: none;
+        background: color-mix(in oklab, var(--btn-bg), var(--fg) 8%);
+    }
+
+    .btnRail :global(.navBtn:last-child) {
+        border-right: 0;
+    }
+
+    .sectionSep {
+        height: 1px;
+        margin: 4px 0 8px;
+        background: color-mix(in oklab, var(--fg), transparent 84%);
+    }
     .form {
         display: grid;
         gap: 10px;
         cursor: default;
+        width: 100%;
+        box-sizing: border-box;
+        aspect-ratio: 1 / 1.02;
+        min-height: max-content;
+        align-content: start;
+        overflow-x: hidden;
+        padding-block: 6px;
     }
 
     .row {
@@ -874,8 +893,8 @@
     }
 
     .checksScrollable {
-        max-height: 120px;
-        overflow-y: auto;
+        max-height: none;
+        overflow-y: visible;
         align-content: start;
     }
     .checkItem {

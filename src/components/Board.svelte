@@ -121,8 +121,12 @@
 
         if (pickerEl) {
             const content = pickerEl.firstElementChild as HTMLElement | null;
-            pickerContentHeight = content?.offsetHeight ?? pickerEl.offsetHeight;
+            const measured = content
+                ? Math.max(content.offsetHeight, content.scrollHeight)
+                : pickerEl.offsetHeight;
+            pickerContentHeight = Math.max(measured, pickerEl.offsetHeight);
         }
+
     }
 
     function bindCellEl(id: string, el: HTMLElement | null) {
@@ -178,6 +182,7 @@
         ? (packedWidth - GRID_COL_GAP * (BOARD_GRID_COLUMNS - 1)) / BOARD_GRID_COLUMNS
         : 24;
     $: unitPx = Math.max(12, unitPxRaw);
+    $: boardGridTemplateColumns = `repeat(${BOARD_GRID_COLUMNS}, minmax(0, 1fr))`;
     $: pickerRows = rowsFromHeight(pickerContentHeight);
 
     function itemRect(w: BoardWheel) {
@@ -339,7 +344,7 @@
             class="packedGrid"
             bind:this={packedEl}
             role="presentation"
-            style={`--col-gap:${GRID_COL_GAP}px; --row-gap:${GRID_ROW_GAP}px; --col-unit:${unitPx}px; --row-unit:${GRID_ROW_UNIT}px;`}
+            style={`--col-gap:${GRID_COL_GAP}px; --row-gap:${GRID_ROW_GAP}px; --col-unit:${unitPx}px; --row-unit:${GRID_ROW_UNIT}px; grid-template-columns:${boardGridTemplateColumns};`}
             on:dragover|preventDefault
             on:drop={dropToGrid}
     >
@@ -415,7 +420,6 @@
         padding-top: 12px;
         column-gap: var(--col-gap);
         row-gap: var(--row-gap);
-        grid-template-columns: repeat(36, minmax(0, 1fr));
         grid-auto-rows: var(--row-unit);
         align-items: start;
     }
@@ -452,6 +456,10 @@
     }
     .pickerCell {
         min-width: 0;
+    }
+    .pickerCell > :global(*) {
+        width: 100%;
+        box-sizing: border-box;
     }
     .grid {
         display: grid;
