@@ -222,6 +222,8 @@
     const ORBIT_NODE_MERGE_RADIUS_VB = VB * 0.012;
     let markerClusters: MarkerCluster[] = [];
     let sideMarkerClusters: VisualMarkerCluster[] = [];
+    let hideZenithTop = false;
+    let hideZenithSide = false;
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
     let allBodies: CompassBodyRow[] = [];
@@ -353,6 +355,10 @@
         regular: pxToVb(NODE_STYLE.regularPx * markerScaleBias),
         special: pxToVb(NODE_STYLE.specialPx * markerScaleBias)
     };
+
+    function overlapsWheelCenter(x: number, y: number): boolean {
+        return Math.hypot(x - cx, y - cy) <= markerSizes.hit;
+    }
 
     function orbitNodeRadiusVB(node: { tip?: MomentTip }): number {
         const g = orbitNodeGroup(node);
@@ -1679,6 +1685,15 @@
     $: {
         centerEmoji = emojiAtCenter();
     }
+    $: hideZenithTop = !!centerEmoji || markerClusters.some((c) => {
+        if ((c.opacity ?? 1) <= 0.05) return false;
+        const p = polarToXY(orbitToRadiusVB(c.orbit), c.angleDeg);
+        return overlapsWheelCenter(p.x, p.y);
+    });
+    $: hideZenithSide = !!centerEmoji || sideMarkerClusters.some((c) => {
+        if ((c.opacity ?? 1) <= 0.05) return false;
+        return overlapsWheelCenter(c.x, c.y);
+    });
 
     // ------------------------------------------------------------
     // Solve via unified dispatcher (async, race-safe)
@@ -3739,7 +3754,9 @@
                             {centerEmoji}
                         </text>
                     {/if}
-                    <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
+                    {#if !hideZenithTop}
+                        <circle cx={cx} cy={cy} r={VB * 0.003} class="zenith" />
+                    {/if}
                 </svg>
 
                 {#if controlsPaneMode === 'top'}
@@ -4139,7 +4156,9 @@
                                 {centerEmoji}
                             </text>
                         {/if}
-                        <circle cx={cx} cy={cy} r={VB * 0.006} class="zenith" />
+                        {#if !hideZenithSide}
+                            <circle cx={cx} cy={cy} r={VB * 0.003} class="zenith" />
+                        {/if}
                     </svg>
 
                     {#if controlsPaneMode === 'side'}
