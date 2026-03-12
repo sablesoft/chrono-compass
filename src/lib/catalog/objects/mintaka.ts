@@ -9,7 +9,7 @@ export const Mintaka = {
     kind: 'reference',
     name: 'Mintaka',
     description: 'Mintaka (ICRF/J2000) — the western belt star of Orion, lying very close to the celestial equator.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#dfe8ff',
         distancePc: 212.3144,

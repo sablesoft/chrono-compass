@@ -9,7 +9,7 @@ export const Arcturus = {
     kind: 'reference',
     name: 'Arcturus',
     description: 'Arcturus (ICRF/J2000) — the brightest star in Bootes and one of the most prominent orange stars in the sky.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#ffb47e',
         distancePc: 11.2575,

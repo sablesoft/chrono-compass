@@ -9,7 +9,7 @@ export const Rasalhague = {
     kind: 'reference',
     name: 'Rasalhague',
     description: 'Rasalhague (ICRF/J2000) — Alpha Ophiuchi, the bright head star of the Serpent Bearer and a prominent marker of Ophiuchus.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#edf2ff',
         distancePc: 14.8966,

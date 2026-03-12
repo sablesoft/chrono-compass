@@ -10,7 +10,7 @@ export const Gacrux = {
     kind: 'reference',
     name: 'Gacrux',
     description: 'Gacrux (ICRF/J2000), the red giant at the top of the Southern Cross (Crux), a cool M-type star.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffcc6f',
         distancePc: 27.1517,

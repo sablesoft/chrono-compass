@@ -9,7 +9,7 @@ export const Regulus = {
     kind: 'reference',
     name: 'Regulus',
     description: 'Regulus (ICRF/J2000) — the heart of Leo and one of the most famous royal stars in historical traditions.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d6deff',
         distancePc: 24.3132,

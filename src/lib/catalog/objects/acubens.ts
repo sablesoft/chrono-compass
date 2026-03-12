@@ -9,7 +9,7 @@ export const Acubens = {
     kind: 'reference',
     name: 'Acubens',
     description: 'Acubens (ICRF/J2000) — Alpha Cancri, a traditional star of Cancer associated with the Crab’s southern claw in classical star lore.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d9e6ff',
         distancePc: 57.7368,

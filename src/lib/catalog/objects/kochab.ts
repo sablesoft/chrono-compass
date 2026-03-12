@@ -9,7 +9,7 @@ export const Kochab = {
     kind: 'reference',
     name: 'Kochab',
     description: 'Kochab (ICRF/J2000) — Beta Ursae Minoris, a bright northern star in the Little Dipper and a notable pre-Polaris pole star.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#efe6c8',
         distancePc: 40.1446,

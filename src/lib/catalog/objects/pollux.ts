@@ -9,7 +9,7 @@ export const Pollux = {
     kind: 'reference',
     name: 'Pollux',
     description: 'Pollux (ICRF/J2000) — the brightest star in Gemini and one of the classical twin stars.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffd79d',
         distancePc: 10.3585,

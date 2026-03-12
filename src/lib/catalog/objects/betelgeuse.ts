@@ -10,7 +10,7 @@ export const Betelgeuse = {
     kind: 'reference',
     name: 'Betelgeuse',
     description: 'Betelgeuse (ICRF/J2000) — a bright red supergiant in Orion that is famously variable in brightness.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#ffcc6f',
         distancePc: 152.6717,

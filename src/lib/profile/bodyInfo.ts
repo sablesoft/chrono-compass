@@ -18,12 +18,14 @@ type ResolveBodyStarInfoItemsOptions = {
 type BodyOverrideMap = Partial<Record<ObjId, BodyUserOverride>>;
 
 function catalogBody(id: ObjId): {
+    kind?: 'engine_body' | 'reference';
     name?: string;
     description?: string;
     emoji?: string;
     meta?: { color?: string } & Partial<ReferenceMeta>;
 } | null {
     return ((objects as any)?.[id] ?? null) as {
+        kind?: 'engine_body' | 'reference';
         name?: string;
         description?: string;
         emoji?: string;

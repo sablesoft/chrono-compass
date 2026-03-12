@@ -10,7 +10,7 @@ export const Deneb = {
     kind: 'reference',
     name: 'Deneb',
     description: 'Deneb (ICRF/J2000) — a luminous blue supergiant in Cygnus and one of the vertices of the Summer Triangle.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#cad7ff',
         distancePc: 432.9005,

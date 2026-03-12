@@ -10,7 +10,7 @@ export const Mimosa = {
     kind: 'reference',
     name: 'Mimosa',
     description: 'Mimosa (ICRF/J2000) — the second-brightest star in the Southern Cross (Crux), a hot B-type star.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#aabfff',
         distancePc: 85.3972,

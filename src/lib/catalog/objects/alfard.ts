@@ -9,7 +9,7 @@ export const Alfard = {
     kind: 'reference',
     name: 'Alfard',
     description: 'Alfard (ICRF/J2000) — Alpha Hydrae, the solitary bright star of Hydra and a well-known marker of the Water Serpent.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#f0d6b5',
         distancePc: 55.2791,

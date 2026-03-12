@@ -9,7 +9,7 @@ export const Markab = {
     kind: 'reference',
     name: 'Markab',
     description: 'Markab (ICRF/J2000) — one of the defining stars of the Great Square of Pegasus.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#dde5ff',
         distancePc: 40.8832,

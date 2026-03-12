@@ -9,7 +9,7 @@ export const Mirfak = {
     kind: 'reference',
     name: 'Mirfak',
     description: 'Mirfak (ICRF/J2000) — the brightest star in Perseus and the central beacon of the Alpha Persei association.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#fff0c8',
         distancePc: 155.2794,

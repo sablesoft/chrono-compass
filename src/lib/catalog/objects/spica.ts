@@ -9,7 +9,7 @@ export const Spica = {
     kind: 'reference',
     name: 'Spica',
     description: 'Spica (ICRF/J2000) — the brightest star in Virgo and one of the classical zodiacal stars.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#cbd9ff',
         distancePc: 76.5698,

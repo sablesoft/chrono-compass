@@ -9,7 +9,7 @@ export const Acamar = {
     kind: 'reference',
     name: 'Acamar',
     description: 'Acamar (ICRF/J2000) — Theta Eridani, a bright southern star in Eridanus historically linked with the end of the celestial river.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d7e2ff',
         distancePc: 49.4316,

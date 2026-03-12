@@ -9,7 +9,7 @@ export const Dubhe = {
     kind: 'reference',
     name: 'Dubhe',
     description: 'Dubhe (ICRF/J2000) — one of the pointer stars of Ursa Major and a familiar guide toward the north.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffd7ab',
         distancePc: 37.6789,

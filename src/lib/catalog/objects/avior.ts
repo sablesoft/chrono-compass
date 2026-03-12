@@ -9,7 +9,7 @@ export const Avior = {
     kind: 'reference',
     name: 'Avior',
     description: 'Avior (ICRF/J2000) — a bright southern star in Carina, widely recognized in navigational traditions.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffe0b5',
         distancePc: 185.5287,

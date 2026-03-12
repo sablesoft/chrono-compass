@@ -9,7 +9,7 @@ export const Shaula = {
     kind: 'reference',
     name: 'Shaula',
     description: 'Shaula (ICRF/J2000) — one of the bright tail stars of Scorpius and a striking southern blue star.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#cfe0ff',
         distancePc: 175.1312,

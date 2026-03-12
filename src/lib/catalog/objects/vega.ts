@@ -9,7 +9,7 @@ export const Vega = {
     kind: 'reference',
     name: 'Vega',
     description: 'Vega (ICRF/J2000) — the brightest star in Lyra and a prominent vertex of the Summer Triangle.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#d8e4ff',
         distancePc: 7.6788,

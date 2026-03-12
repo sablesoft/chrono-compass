@@ -9,7 +9,7 @@ export const Castor = {
     kind: 'reference',
     name: 'Castor',
     description: 'Castor (ICRF/J2000) — the second bright twin of Gemini and a famous naked-eye multiple-star system.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#e8ebff',
         distancePc: 15.5959,

@@ -10,7 +10,7 @@ export const Polaris = {
     kind: 'reference',
     name: 'Polaris',
     description: 'Polaris (ICRF/J2000), the North Star in Ursa Minor, located close to the north celestial pole and used for navigation.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#f8f7ff',
         distancePc: 132.6261,

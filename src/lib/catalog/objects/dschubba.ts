@@ -9,7 +9,7 @@ export const Dschubba = {
     kind: 'reference',
     name: 'Dschubba',
     description: 'Dschubba (ICRF/J2000) — Delta Scorpii, a prominent star in the Scorpion’s forehead and one of the best-known stars of upper Scorpius.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d8e5ff',
         distancePc: 150.6025,

@@ -9,7 +9,7 @@ export const ZubenElakrab = {
     kind: 'reference',
     name: 'Zuben Elakrab',
     description: 'Zuben Elakrab (ICRF/J2000) — Gamma Librae, a traditional southern scale star linked with the extended claws and balances of Libra.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#c9dfff',
         distancePc: 263.8523,

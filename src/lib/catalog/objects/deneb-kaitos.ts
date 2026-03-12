@@ -9,7 +9,7 @@ export const DenebKaitos = {
     kind: 'reference',
     name: 'Deneb Kaitos',
     description: 'Deneb Kaitos (ICRF/J2000) — the bright tail star of Cetus, also known as Diphda in many catalogs.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffd0a6',
         distancePc: 29.5334,

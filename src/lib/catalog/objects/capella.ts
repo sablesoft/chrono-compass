@@ -9,7 +9,7 @@ export const Capella = {
     kind: 'reference',
     name: 'Capella',
     description: 'Capella (ICRF/J2000) — the brightest star in Auriga and one of the most prominent golden stars of the northern sky.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#ffd68e',
         distancePc: 13.1235,

@@ -10,7 +10,7 @@ export const Altair = {
     kind: 'reference',
     name: 'Altair',
     description: 'Altair (ICRF/J2000) — the brightest star in Aquila and a vertex of the Summer Triangle.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#cad7ff',
         distancePc: 5.1294,

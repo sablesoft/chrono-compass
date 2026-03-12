@@ -9,7 +9,7 @@ export const Sargas = {
     kind: 'reference',
     name: 'Sargas',
     description: 'Sargas (ICRF/J2000) — Theta Scorpii, a bright southern star in the Scorpion often used as a marker of its curving tail region.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffe1b8',
         distancePc: 92.0811,

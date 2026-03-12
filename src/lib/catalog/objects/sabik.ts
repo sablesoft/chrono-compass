@@ -9,7 +9,7 @@ export const Sabik = {
     kind: 'reference',
     name: 'Sabik',
     description: 'Sabik (ICRF/J2000) — Eta Ophiuchi, a bright star in Ophiuchus traditionally associated with the Serpent Bearer’s lower figure.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#e6edff',
         distancePc: 27.0929,

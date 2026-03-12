@@ -9,7 +9,7 @@ export const Adhara = {
     kind: 'reference',
     name: 'Adhara',
     description: 'Adhara (ICRF/J2000) — Epsilon Canis Majoris, one of the brightest stars in the night sky and a major star of Canis Major.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#dce7ff',
         distancePc: 124.2237,

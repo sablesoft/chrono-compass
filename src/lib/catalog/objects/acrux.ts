@@ -10,7 +10,7 @@ export const Acrux = {
     kind: 'reference',
     name: 'Acrux',
     description: 'Acrux (ICRF/J2000) — the brightest star of the Southern Cross (Crux), a blue B-type system.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#aabfff',
         distancePc: 98.7166,

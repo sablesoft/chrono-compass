@@ -9,7 +9,7 @@ export const Alpheratz = {
     kind: 'reference',
     name: 'Alpheratz',
     description: 'Alpheratz (ICRF/J2000) — the bright corner star shared by Andromeda and Pegasus, often marking the Great Square.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#dce5ff',
         distancePc: 29.744,

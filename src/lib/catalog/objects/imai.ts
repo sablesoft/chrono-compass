@@ -10,7 +10,7 @@ export const Imai = {
     kind: 'reference',
     name: 'Imai',
     description: 'Imai (ICRF/J2000) — the bright Delta Crucis star in the Southern Cross (Crux), a B-type star.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#aabfff',
         distancePc: 105.8202,

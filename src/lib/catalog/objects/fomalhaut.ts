@@ -9,7 +9,7 @@ export const Fomalhaut = {
     kind: 'reference',
     name: 'Fomalhaut',
     description: 'Fomalhaut (ICRF/J2000) — Alpha Piscis Austrini, one of the brightest solitary stars and a major royal star in many traditions.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#dff5ff',
         distancePc: 7.7037,

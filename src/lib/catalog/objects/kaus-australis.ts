@@ -9,7 +9,7 @@ export const KausAustralis = {
     kind: 'reference',
     name: 'Kaus Australis',
     description: 'Kaus Australis (ICRF/J2000) — the brightest star in Sagittarius and a well-known arrow-marking star of the Archer.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#e2ddff',
         distancePc: 43.9366,

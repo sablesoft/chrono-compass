@@ -9,7 +9,7 @@ export const ZubenElschemali = {
     kind: 'reference',
     name: 'Zuben Elschemali',
     description: 'Zuben Elschemali (ICRF/J2000) — Beta Librae, the brighter traditional scale star of Libra with a strong place in classical star lore.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#b6ddff',
         distancePc: 56.7538,

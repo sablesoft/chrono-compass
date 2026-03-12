@@ -9,7 +9,7 @@ export const Hadar = {
     kind: 'reference',
     name: 'Hadar',
     description: 'Hadar (ICRF/J2000) — Beta Centauri, one of the brightest southern stars and a major navigational companion to the Southern Cross.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#cfe0ff',
         distancePc: 120.1922,

@@ -10,7 +10,7 @@ export const Sirius = {
     kind: 'reference',
     name: 'Sirius',
     description: 'Sirius (ICRF/J2000) — the brightest star in the night sky and the “Dog Star” of Canis Major.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#cad7ff',
         distancePc: 2.6371,

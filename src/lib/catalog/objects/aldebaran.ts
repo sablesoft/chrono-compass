@@ -9,7 +9,7 @@ export const Aldebaran = {
     kind: 'reference',
     name: 'Aldebaran',
     description: 'Aldebaran (ICRF/J2000) — the orange eye of Taurus and one of the best-known bright stars of the zodiac.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#ffb46d',
         distancePc: 20.4332,

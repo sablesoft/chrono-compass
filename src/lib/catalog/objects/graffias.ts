@@ -9,7 +9,7 @@ export const Graffias = {
     kind: 'reference',
     name: 'Graffias',
     description: 'Graffias (ICRF/J2000) — Beta Scorpii, the bright multiple star long associated with the Scorpion’s claws in traditional star lore.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d7e1ff',
         distancePc: 123.9155,

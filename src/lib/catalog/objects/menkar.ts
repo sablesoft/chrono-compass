@@ -9,7 +9,7 @@ export const Menkar = {
     kind: 'reference',
     name: 'Menkar',
     description: 'Menkar (ICRF/J2000) — a red giant in Cetus traditionally associated with the sea monster’s head.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffb27c',
         distancePc: 76.3941,

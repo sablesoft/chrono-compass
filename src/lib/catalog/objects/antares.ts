@@ -10,7 +10,7 @@ export const Antares = {
     kind: 'reference',
     name: 'Antares',
     description: 'Antares (ICRF/J2000) - a red supergiant and the brightest star in Scorpius, often called the “heart of the scorpion”.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffcc6f',
         distancePc: 169.7792,

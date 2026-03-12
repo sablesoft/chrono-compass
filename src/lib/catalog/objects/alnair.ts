@@ -9,7 +9,7 @@ export const Alnair = {
     kind: 'reference',
     name: 'Alnair',
     description: 'Alnair (ICRF/J2000) — the brightest star in Grus and a notable southern star near the celestial south.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#d6e2ff',
         distancePc: 30.9692,

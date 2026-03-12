@@ -9,7 +9,7 @@ export const Polis = {
     kind: 'reference',
     name: 'Polis',
     description: 'Polis (ICRF/J2000) — Mu Sagittarii, a notable Sagittarius star near the Archer’s head and part of the broader galactic-center region sky lore.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffe0ba',
         distancePc: 79.6177,

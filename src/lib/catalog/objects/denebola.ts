@@ -9,7 +9,7 @@ export const Denebola = {
     kind: 'reference',
     name: 'Denebola',
     description: 'Denebola (ICRF/J2000) — the tail star of Leo and a well-known bright marker near the ecliptic.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#f2f3ff',
         distancePc: 11,

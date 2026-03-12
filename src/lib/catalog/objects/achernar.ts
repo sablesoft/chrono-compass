@@ -9,7 +9,7 @@ export const Achernar = {
     kind: 'reference',
     name: 'Achernar',
     description: 'Achernar (ICRF/J2000) — the bright end star of Eridanus and one of the most luminous southern navigational stars.',
-    emoji: '★',
+    emoji: '✶',
     meta: {
         color: '#cfe0ff',
         distancePc: 42.7532,

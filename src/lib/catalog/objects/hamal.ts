@@ -9,7 +9,7 @@ export const Hamal = {
     kind: 'reference',
     name: 'Hamal',
     description: 'Hamal (ICRF/J2000) — the brightest star in Aries and a traditional marker of the Ram.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#ffcb8a',
         distancePc: 20.1775,

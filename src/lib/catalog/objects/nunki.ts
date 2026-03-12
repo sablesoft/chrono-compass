@@ -10,7 +10,7 @@ export const Nunki = {
     kind: 'reference',
     name: 'Nunki',
     description: 'Nunki (ICRF/J2000) — the formal name of Sigma Sagittarii and one of the brightest stars in Sagittarius near the Milky Way.',
-    emoji: '★',
+    emoji: '✦',
     meta: {
         color: '#aabfff',
         distancePc: 69.8325,
