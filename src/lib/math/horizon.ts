@@ -40,7 +40,7 @@ import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime'
 import { SPOKES_ORDER } from '../wheel/types';
 import {AU_KM, clamp, lerp, norm360} from './helpers';
 import type { Location } from '../location/types';
-import { normalize3, refUnit } from './vector';
+import { refUnitAtTsByKind } from './vector';
 
 const DAY_MS = 86_400_000;
 
@@ -105,28 +105,14 @@ function makeObserver(lat: number, lon: number, heightMeters = 0) {
  * Compute (alt, az, eq) for target at time ts for a topocentric observer.
  * Refraction is DISABLED (geometric horizon).
  */
-function referenceRaDecDeg(id: ObjId): { raDeg: number; decDeg: number } | null {
+function referenceRaDecDeg(id: ObjId, ts: number): { raDeg: number; decDeg: number } | null {
     const obj = (objects as any)[id] as Obj | undefined;
-    if (!obj || obj.kind !== 'reference') return null;
+    if (!obj || (obj.kind !== 'reference' && obj.kind !== 'pole')) return null;
     const meta = obj.meta as ReferenceMeta | undefined;
     const dir = meta?.direction as any;
     if (!dir || dir.frame !== 'icrf_j2000') return null;
-
-    const raDec = dir.raDecDeg as { ra: number; dec: number } | undefined;
-    if (raDec && isFiniteNumber(raDec.ra) && isFiniteNumber(raDec.dec)) {
-        return { raDeg: norm360(raDec.ra), decDeg: raDec.dec };
-    }
-
-    if (dir.unit) {
-        const u0 = normalize3(dir.unit);
-        if (!u0) return null;
-        const raDeg = norm360(Math.atan2(u0[1], u0[0]) * 180 / Math.PI);
-        const decDeg = Math.asin(u0[2]) * 180 / Math.PI;
-        if (!isFiniteNumber(raDeg) || !isFiniteNumber(decDeg)) return null;
-        return { raDeg, decDeg };
-    }
-
-    const unit = meta ? refUnit(meta) : null;
+    // For J2000 references, always apply epoch transform before deriving RA/Dec.
+    const unit = meta ? refUnitAtTsByKind(obj.kind, meta, ts) : null;
     if (!unit) return null;
     const raDeg = norm360(Math.atan2(unit[1], unit[0]) * 180 / Math.PI);
     const decDeg = Math.asin(unit[2]) * 180 / Math.PI;
@@ -145,8 +131,8 @@ function targetState(ts: number, obs: Observer, target: ObjId): {
         const time = new AstroTime(new Date(ts));
         const obj = (objects as any)[target] as Obj | undefined;
 
-        if (obj?.kind === 'reference') {
-            const ref = referenceRaDecDeg(target);
+        if (obj?.kind === 'reference' || obj?.kind === 'pole') {
+            const ref = referenceRaDecDeg(target, ts);
             if (!ref) return null;
             const raHours = ref.raDeg / 15;
             const decDeg = ref.decDeg;
@@ -200,27 +186,14 @@ function targetAltitudeDeg(ts: number, obs: Observer, target: ObjId): number {
 
 export type HorizonVisibility = 'crosses' | 'alwaysAbove' | 'alwaysBelow' | 'unknown';
 
-function referenceDeclinationDeg(id: ObjId): number | null {
+function referenceDeclinationDeg(id: ObjId, ts: number): number | null {
     const obj = (objects as any)[id] as { kind?: string; meta?: ReferenceMeta } | undefined;
-    if (!obj || obj.kind !== 'reference') return null;
+    if (!obj || (obj.kind !== 'reference' && obj.kind !== 'pole')) return null;
     const meta = obj.meta;
     const dir = meta?.direction as any;
     if (!dir || dir.frame !== 'icrf_j2000') return null;
-
-    const raDec = dir.raDecDeg as { ra: number; dec: number } | undefined;
-    if (raDec && isFiniteNumber(raDec.dec) && raDec.dec >= -90 && raDec.dec <= 90) {
-        return raDec.dec;
-    }
-
-    if (dir.unit) {
-        const u0 = normalize3(dir.unit);
-        if (!u0) return null;
-        const dec = Math.asin(u0[2]) * 180 / Math.PI;
-        if (!isFiniteNumber(dec)) return null;
-        return dec;
-    }
-
-    const unit = meta ? refUnit(meta) : null;
+    // For J2000 references, derive declination from epoch-adjusted unit vector.
+    const unit = meta ? refUnitAtTsByKind(obj.kind, meta, ts) : null;
     if (!unit) return null;
     const dec = Math.asin(unit[2]) * 180 / Math.PI;
     if (!isFiniteNumber(dec)) return null;
@@ -249,7 +222,7 @@ export function classifyHorizonVisibility(opts: {
     const lat = Number(opts.location?.lat);
     if (!isFiniteNumber(lat)) return { status: 'unknown', reason: 'invalid location' };
 
-    const dec = referenceDeclinationDeg(opts.target);
+    const dec = referenceDeclinationDeg(opts.target, opts.ts);
     if (isFiniteNumber(dec)) {
         const res = classifyByDeclination(lat, dec as number);
         return { status: res.status, minAlt: res.minAlt, maxAlt: res.maxAlt, decDeg: dec as number };

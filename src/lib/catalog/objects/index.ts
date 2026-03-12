@@ -13,6 +13,8 @@ import { Neptune } from './neptune';
 import { Pluto } from './pluto';
 import {GalacticCenter} from "./galactic-center";
 import { EclipticAxis } from './ecliptic-axis';
+import { NorthCelestialPole } from './north-celestial-pole';
+import { SouthCelestialPole } from './south-celestial-pole';
 import { Sirius } from './sirius';
 import { Polaris } from './polaris';
 import { Betelgeuse } from './betelgeuse';
@@ -76,6 +78,8 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Uranus.id]: Uranus,
     [GalacticCenter.id]: GalacticCenter,
     [EclipticAxis.id]: EclipticAxis,
+    [NorthCelestialPole.id]: NorthCelestialPole,
+    [SouthCelestialPole.id]: SouthCelestialPole,
     [Sirius.id]: Sirius,
     [Polaris.id]: Polaris,
     [Betelgeuse.id]: Betelgeuse,

@@ -860,7 +860,7 @@
 
     function projectTargetPoint(
         target: Pick<CompassTargetState, 'angleDeg' | 'orbit' | 'altitudeDeg' | 'visible'> & {
-            kind?: 'engine_body' | 'reference';
+            kind?: 'engine_body' | 'reference' | 'pole';
             planeDistanceAu?: number;
             planeDistanceRatio?: number;
         },
@@ -872,7 +872,7 @@
             return { x: xy.x, y: xy.y, visible: !!target.visible };
         }
 
-        if (target.kind === 'reference') {
+        if (target.kind === 'reference' || target.kind === 'pole') {
             const r = orbitToRadiusVB(target.orbit);
             const xy = polarToXY(r, target.angleDeg);
             return { x: xy.x, y: xy.y, visible: !!target.visible };
@@ -1023,7 +1023,17 @@
             });
         }
 
-        return out.sort((a, b) => a.y - b.y || a.x - b.x || a.ts - b.ts);
+        out.sort((a, b) => a.y - b.y || a.x - b.x || a.ts - b.ts);
+        const seen = new Map<string, number>();
+        return out.map((row) => {
+            const n = seen.get(row.id) ?? 0;
+            seen.set(row.id, n + 1);
+            if (n === 0) return row;
+            return {
+                ...row,
+                id: `${row.id}:dup${n}`
+            };
+        });
     }
 
     function sideTrackPathD(track: NonNullable<CompassTargetState['orbitTrack']>): string {
@@ -1800,7 +1810,7 @@
                 (item) => {
                     const target = targetByBaseId.get(item.baseId);
                     if (!target) return null;
-                    if (objects?.[target.id]?.kind === 'reference') {
+                    if (objects?.[target.id]?.kind === 'reference' || objects?.[target.id]?.kind === 'pole') {
                         return projectReferenceRingPoint(target.id);
                     }
                     return projectTargetPoint(target, 'side');
@@ -3681,7 +3691,7 @@
                         {@const markerKey = `marker:${c.id}`}
                         {@const isCluster = c.count > 1}
                         {@const singleId = clusterSingleBodyId(c)}
-                        {@const isReference = !!singleId && objects?.[singleId]?.kind === 'reference'}
+                        {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
                         {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                         {@const o = c.opacity ?? 1}
 
@@ -4084,7 +4094,7 @@
                             {@const markerKey = `side-marker:${c.id}`}
                             {@const isCluster = c.count > 1}
                             {@const singleId = clusterSingleBodyId(c)}
-                            {@const isReference = !!singleId && objects?.[singleId]?.kind === 'reference'}
+                            {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
                             {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                             {@const o = c.opacity ?? 1}
 

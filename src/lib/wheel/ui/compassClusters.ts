@@ -150,5 +150,14 @@ export function compassClusters(
             (a.ts - b.ts)
     );
 
-    return out;
+    const seen = new Map<string, number>();
+    return out.map((row) => {
+        const n = seen.get(row.id) ?? 0;
+        seen.set(row.id, n + 1);
+        if (n === 0) return row;
+        return {
+            ...row,
+            id: `${row.id}:dup${n}`
+        };
+    });
 }

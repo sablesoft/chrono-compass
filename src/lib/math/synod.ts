@@ -63,7 +63,7 @@ import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 
 import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp, norm360, toSigned180, fmt } from './helpers';
-import { refUnit, lonDegEcliptic, type Vec } from './vector';
+import { refUnitAtTsByKind, lonDegEcliptic, type Vec } from './vector';
 
 export type SynodMeta = {
     // distances (AU) from focus -> target / focus -> looker (lookerDistAu = NaN for reference looker)
@@ -178,12 +178,13 @@ function dirFromOriginToEngine(origin: ObjId, obj: ObjId, ts: number): { u: Vec;
 
 // For far references we treat direction as fixed inertial unit vector.
 // This ignores parallax from different origins, which is fine at this scale.
-function dirFromOriginToReference(objId: ObjId): { u: Vec; distAu: number } | null {
+function dirFromOriginToReference(objId: ObjId, ts: number): { u: Vec; distAu: number } | null {
     const o = getObj(objId);
+    if (!o || o.kind !== 'reference') return null;
     const meta = o?.meta as ReferenceMeta | undefined;
     if (!meta) return null;
 
-    const u3 = refUnit(meta);
+    const u3 = refUnitAtTsByKind(o.kind, meta, ts);
     if (!u3) return null;
 
     return { u: { x: u3[0], y: u3[1], z: u3[2] }, distAu: NaN };
@@ -196,7 +197,7 @@ function dirFromOrigin(origin: ObjId, obj: ObjId, ts: number): { u: Vec; distAu:
     if (orec?.kind === 'reference') return null;
 
     const rec = getObj(obj);
-    if (rec?.kind === 'reference') return dirFromOriginToReference(obj);
+    if (rec?.kind === 'reference') return dirFromOriginToReference(obj, ts);
     return dirFromOriginToEngine(origin, obj, ts);
 }
 

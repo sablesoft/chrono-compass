@@ -28,7 +28,8 @@ export type ObjId = EngineBodyId | `ref:${string}`;
 
 export type ObjKind =
     | 'engine_body'     // exists in astronomy-engine (must use EngineBodyId)
-    | 'reference';      // everything else (must use ref:*)
+    | 'reference'       // generic inertial/static references (must use ref:*)
+    | 'pole';           // celestial poles (must use ref:*)
 
 /* =============================================================================
    Meta for objects (references, constants, directions)
@@ -91,7 +92,12 @@ export type ReferenceObj = ObjBase & {
     id: `ref:${string}`;  // ✅ cannot be EngineBodyId
 };
 
-export type Obj = EngineBodyObj | ReferenceObj;
+export type PoleObj = ObjBase & {
+    kind: 'pole';
+    id: `ref:${string}`;
+};
+
+export type Obj = EngineBodyObj | ReferenceObj | PoleObj;
 
 /* =============================================================================
    Wheel types + per-type meta
@@ -139,6 +145,13 @@ type RoleCombo<RS, TType extends WheelType> = RS & {
 export type RoleName = 'looker' | 'focus' | 'target';
 
 export const ROLE_NAMES: RoleName[] = ['looker', 'focus', 'target'];
+
+export type PoleRefId = 'ref:north-celestial-pole' | 'ref:south-celestial-pole';
+
+export const POLES: PoleRefId[] = [
+    'ref:north-celestial-pole',
+    'ref:south-celestial-pole',
+];
 
 export const REFERENCES: ObjId[] = [
     'ref:galactic-center',
@@ -192,6 +205,8 @@ export const REFERENCES: ObjId[] = [
     'ref:zuben-elakrab',
     'ref:zuben-elschemali',
 ];
+
+export const COMPASS_REFERENCES: ObjId[] = [...REFERENCES, ...POLES];
 
 /**
  * REQUIRED ROLES (new model):

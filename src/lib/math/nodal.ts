@@ -6,7 +6,7 @@ import { cycleSpokeTags } from '../catalog/tags';
 import type { ObjId, ObjKind, ReferenceMeta } from '../catalog';
 import { SPOKES_ORDER } from '../wheel/types';
 import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp } from './helpers';
-import { refUnit } from './vector';
+import { refUnitAtTsByKind } from './vector';
 
 type Vec = { x: number; y: number; z: number };
 type ObjRec = { id: ObjId; kind: ObjKind; meta?: any } | null;
@@ -155,18 +155,18 @@ function resolveNodalModel(looker: ObjId, focus: ObjId): NodalModel | null {
     return { mode: 'pair', looker, focus, originBody: focus };
 }
 
-function axisNormalFromReference(axisRef: ObjId): Vec | null {
+function axisNormalFromReference(axisRef: ObjId, ts: number): Vec | null {
     const rec = getObj(axisRef);
     if (!rec || rec.kind !== 'reference') return null;
     const meta = rec.meta as ReferenceMeta | undefined;
     if (!meta) return null;
-    const u3 = refUnit(meta);
+    const u3 = refUnitAtTsByKind(rec.kind, meta, ts);
     if (!u3) return null;
     return { x: u3[0], y: u3[1], z: u3[2] };
 }
 
 function referencePlaneNormal(model: NodalModel, ts: number): Vec | null {
-    if (model.mode === 'axis') return axisNormalFromReference(model.axisRef);
+    if (model.mode === 'axis') return axisNormalFromReference(model.axisRef, ts);
     return referencePlaneNormalFromPair(model.looker, model.focus, ts);
 }
 

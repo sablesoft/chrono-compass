@@ -1,4 +1,4 @@
-import {REFERENCES, type WheelSpec} from '../types';
+import {COMPASS_REFERENCES, type WheelSpec} from '../types';
 
 export const compass = {
     type: 'compass',
@@ -12,7 +12,7 @@ export const compass = {
     },
     requiredRoles: {
         'looker' : ['engine_body'],
-        'target' : ['engine_body', 'reference']
+        'target' : ['engine_body', 'reference', 'pole']
     },
     roles: [
         // Earth Compass: Sky (targets are selectable)
@@ -29,7 +29,7 @@ export const compass = {
                 'Pluto',
                 'Saturn',
                 'Uranus',
-                ...REFERENCES,
+                ...COMPASS_REFERENCES,
             ]
         }
     ]

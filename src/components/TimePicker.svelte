@@ -56,7 +56,62 @@
         return `${y}-${m}-${day}T${hh}:${mm}`;
     }
 
+    function toNativeLocalInputValue(ts: number): string {
+        const d = new Date(ts);
+        const y = d.getFullYear();
+        if (!Number.isFinite(y) || y < 0 || y > 9999) return '';
+        return toLocalInputValue(ts);
+    }
+
+    function toExtendedLocalInputValue(ts: number): string {
+        const d = new Date(ts);
+        const pad2 = (n: number) => String(n).padStart(2, '0');
+        const y = d.getFullYear();
+        const year = y < 0 ? `-${String(Math.abs(y)).padStart(4, '0')}` : String(y).padStart(4, '0');
+        const m = pad2(d.getMonth() + 1);
+        const day = pad2(d.getDate());
+        const hh = pad2(d.getHours());
+        const mm = pad2(d.getMinutes());
+        return `${year}-${m}-${day}T${hh}:${mm}`;
+    }
+
+    function parseExtendedLocalInputValue(v: string): number {
+        const re = /^([+-]?\d{4,})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?$/;
+        const m = re.exec(String(v).trim());
+        if (!m) return NaN;
+        const year = Number(m[1]);
+        const month = Number(m[2]);
+        const day = Number(m[3]);
+        const hour = Number(m[4]);
+        const minute = Number(m[5]);
+        const second = m[6] ? Number(m[6]) : 0;
+        const millis = m[7] ? Number(m[7].padEnd(3, '0')) : 0;
+        if (![year, month, day, hour, minute, second, millis].every(Number.isFinite)) return NaN;
+        if (month < 1 || month > 12) return NaN;
+        if (day < 1 || day > 31) return NaN;
+        if (hour < 0 || hour > 23) return NaN;
+        if (minute < 0 || minute > 59) return NaN;
+        if (second < 0 || second > 59) return NaN;
+        if (millis < 0 || millis > 999) return NaN;
+
+        const d = new Date(0);
+        d.setFullYear(year, month - 1, day);
+        d.setHours(hour, minute, second, millis);
+        if (
+            d.getFullYear() !== year ||
+            d.getMonth() !== (month - 1) ||
+            d.getDate() !== day ||
+            d.getHours() !== hour ||
+            d.getMinutes() !== minute ||
+            d.getSeconds() !== second ||
+            d.getMilliseconds() !== millis
+        ) return NaN;
+        return ms(d.getTime());
+    }
+
     function fromLocalInputValue(v: string) {
+        const ext = parseExtendedLocalInputValue(v);
+        if (Number.isFinite(ext)) return ext;
         return ms(new Date(v).getTime());
     }
 
@@ -116,9 +171,19 @@
 
     function openPicker() {
         if (!pickerEl) return;
-        pickerEl.value = toLocalInputValue(currentTs);
+        pickerEl.value = toNativeLocalInputValue(currentTs);
         if (typeof (pickerEl as any).showPicker === 'function') (pickerEl as any).showPicker();
         else pickerEl.click();
+        showActions = false;
+    }
+
+    function openExtendedPicker() {
+        const preset = toExtendedLocalInputValue(currentTs);
+        const raw = window.prompt('Enter date-time (extended ISO local): YYYY-MM-DDTHH:mm or -YYYYY-MM-DDTHH:mm', preset);
+        if (raw == null) return;
+        const t = parseExtendedLocalInputValue(raw);
+        if (!Number.isFinite(t)) return;
+        emitChange({ ts: t, live: false });
         showActions = false;
     }
 
@@ -199,6 +264,9 @@
             <button class="seg iconBtn" type="button" title="Pick date & time" on:click={openPicker}>
                 🗓️
             </button>
+            <button class="seg iconBtn" type="button" title="Set extended year date-time" on:click={openExtendedPicker}>
+                ±
+            </button>
             <!-- TODO: Re-enable moment save control when save-moment flow is implemented. -->
             {#if false}
                 <MomentControl buttonClass="seg mc-seg compact" ts={currentTs}/>
@@ -229,7 +297,7 @@
                 bind:this={pickerEl}
                 class="hiddenPicker"
                 type="datetime-local"
-                value={toLocalInputValue(currentTs)}
+                value={toNativeLocalInputValue(currentTs)}
                 on:input={handlePickerInput}
         />
     </div>

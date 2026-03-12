@@ -1,7 +1,7 @@
 // src/lib/math/vector.ts
 
 import {deg2rad, isFiniteNumber, norm360} from "./helpers";
-import type {ReferenceMeta, Vec3} from "../catalog";
+import type {ObjKind, ReferenceMeta, Vec3} from "../catalog";
 
 // Obliquity of the ecliptic (J2000), degrees
 export const EPS_DEG_J2000 = 23.439291;
@@ -83,8 +83,7 @@ export function refUnit(meta: ReferenceMeta): Vec3 | null {
 
     // 1) Если unit уже задан — только нормализуем и проверяем, что он конечный
     if ('unit' in d && d.unit) {
-        const u = normalize3(d.unit);
-        return u;
+        return normalize3(d.unit);
     }
 
     // 2) Иначе — строго по frame + соответствующим полям
@@ -126,6 +125,42 @@ export function refUnit(meta: ReferenceMeta): Vec3 | null {
 
     // exhaustiveness (на всякий)
     return null;
+}
+
+const J2000_UTC_MS = Date.UTC(2000, 0, 1, 12, 0, 0, 0);
+const ARCSEC_TO_RAD = Math.PI / (180 * 3600);
+const RAD_TO_DEG = 180 / Math.PI;
+const JULIAN_CENTURY_MS = 36525 * 86400_000;
+
+function precessEqJ2000ToDate(u: Vec3, ts: number): Vec3 | null {
+    if (!isFiniteNumber(ts)) return u;
+    const T = (ts - J2000_UTC_MS) / JULIAN_CENTURY_MS;
+    if (!isFiniteNumber(T)) return u;
+
+    // IAU 1976 precession angles (arcsec), good enough for UI-level epoch shift from J2000.
+    const zeta = (2306.2181 * T + 0.30188 * T * T + 0.017998 * T * T * T) * ARCSEC_TO_RAD;
+    const z = (2306.2181 * T + 1.09468 * T * T + 0.018203 * T * T * T) * ARCSEC_TO_RAD;
+    const theta = (2004.3109 * T - 0.42665 * T * T - 0.041833 * T * T * T) * ARCSEC_TO_RAD;
+
+    const ra0 = Math.atan2(u[1], u[0]);
+    const dec0 = Math.asin(Math.max(-1, Math.min(1, u[2])));
+
+    const A = Math.cos(dec0) * Math.sin(ra0 + zeta);
+    const B = Math.cos(theta) * Math.cos(dec0) * Math.cos(ra0 + zeta) - Math.sin(theta) * Math.sin(dec0);
+    const C = Math.sin(theta) * Math.cos(dec0) * Math.cos(ra0 + zeta) + Math.cos(theta) * Math.sin(dec0);
+
+    const ra = Math.atan2(A, B) + z;
+    const dec = Math.asin(Math.max(-1, Math.min(1, C)));
+    return unitFromRaDecDeg(ra * RAD_TO_DEG, dec * RAD_TO_DEG);
+}
+
+export function refUnitAtTsByKind(kind: ObjKind | undefined, meta: ReferenceMeta, ts: number): Vec3 | null {
+    const base = refUnit(meta);
+    if (!base) return null;
+    if (kind !== 'reference') return base;
+    const frame = (meta?.direction as any)?.frame as string | undefined;
+    if (frame !== 'icrf_j2000') return base;
+    return precessEqJ2000ToDate(base, ts);
 }
 
 // Rotate vector from equatorial J2000 to ecliptic J2000.

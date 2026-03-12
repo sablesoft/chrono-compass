@@ -244,9 +244,12 @@ function computeSpokeIntersectionsCompass(opts: {
 
     const xs = unwrapAnglesByTs(baseTrack);
     const out: CompassTrackPoint[] = [];
-    const SEGMENT_SAMPLES = 10;
-    const BISECT_ITERS = 20;
+    const SEGMENT_SAMPLES = 12;
+    const BISECT_ITERS = 26;
     const ROOT_EPS_DEG = 0.03;
+    const ROOT_MAX_ERR_DEG = 0.12;
+    const ROOT_MAX_TS_DRIFT_FACTOR = 0.45;
+    const ROOT_MAX_ORBIT_DRIFT = 0.32;
     const TS_DEDUP_MS = 60_000;
 
     const pushUnique = (p: CompassTrackPoint) => {
@@ -275,14 +278,21 @@ function computeSpokeIntersectionsCompass(opts: {
                 const targetUnwrapped = spokeBase + 360 * k;
 
                 type HorizonInstant = Exclude<ReturnType<typeof computeHorizonInstant>, null>;
-                const diffAtTs = (ts: number): { diff: number; inst: HorizonInstant } | null => {
+                const diffAtTs = (ts: number): { diff: number; inst: HorizonInstant; angUnwrapped: number } | null => {
                     const inst = computeHorizonInstant({ ts, looker, target, location });
                     if (!inst) return null;
                     const ang = azimuthToWheelAngleDeg(inst.azimuthDeg);
-                    const branch = Math.round((targetUnwrapped - ang) / 360);
+                    const uRaw = (ts - a.ts) / (b.ts - a.ts);
+                    const u = Math.max(0, Math.min(1, uRaw));
+                    const predicted = a.angleUnwrapped + (b.angleUnwrapped - a.angleUnwrapped) * u;
+                    const branch = Math.round((predicted - ang) / 360);
                     const angUnwrapped = ang + 360 * branch;
-                    return { diff: angUnwrapped - targetUnwrapped, inst };
+                    return { diff: angUnwrapped - targetUnwrapped, inst, angUnwrapped };
                 };
+
+                const uGuessRaw = (targetUnwrapped - a.angleUnwrapped) / (b.angleUnwrapped - a.angleUnwrapped);
+                const uGuess = Math.max(0, Math.min(1, uGuessRaw));
+                const tGuess = a.ts + (b.ts - a.ts) * uGuess;
 
                 const samples: Array<{ ts: number; diff: number }> = [];
                 for (let s = 0; s <= SEGMENT_SAMPLES; s++) {
@@ -299,28 +309,30 @@ function computeSpokeIntersectionsCompass(opts: {
                 let loD = 0;
                 let hiD = 0;
                 let bestAbs = Number.POSITIVE_INFINITY;
-                let bestTs = samples[0].ts;
+                let bestTs = tGuess;
+                let bestBracketDist = Number.POSITIVE_INFINITY;
+
+                for (let j = 0; j < samples.length; j++) {
+                    const sj = samples[j];
+                    const aj = Math.abs(sj.diff);
+                    if (aj < bestAbs) {
+                        bestAbs = aj;
+                        bestTs = sj.ts;
+                    }
+                }
 
                 for (let j = 0; j < samples.length - 1; j++) {
                     const s0 = samples[j];
                     const s1 = samples[j + 1];
-                    const a0 = Math.abs(s0.diff);
-                    const a1 = Math.abs(s1.diff);
-                    if (a0 < bestAbs) {
-                        bestAbs = a0;
-                        bestTs = s0.ts;
-                    }
-                    if (a1 < bestAbs) {
-                        bestAbs = a1;
-                        bestTs = s1.ts;
-                    }
-                    if (s0.diff === 0 || s1.diff === 0 || s0.diff * s1.diff <= 0) {
-                        loTs = s0.ts;
-                        hiTs = s1.ts;
-                        loD = s0.diff;
-                        hiD = s1.diff;
-                        break;
-                    }
+                    if (!(s0.diff === 0 || s1.diff === 0 || s0.diff * s1.diff <= 0)) continue;
+                    const mid = (s0.ts + s1.ts) * 0.5;
+                    const dist = Math.abs(mid - tGuess);
+                    if (dist > bestBracketDist) continue;
+                    bestBracketDist = dist;
+                    loTs = s0.ts;
+                    hiTs = s1.ts;
+                    loD = s0.diff;
+                    hiD = s1.diff;
                 }
 
                 let t = bestTs;
@@ -351,11 +363,19 @@ function computeSpokeIntersectionsCompass(opts: {
                         }
                     }
                     t = (loTs + hiTs) * 0.5;
+                } else if (bestAbs > ROOT_MAX_ERR_DEG) {
+                    continue;
                 }
 
                 const final = diffAtTs(t);
                 if (!final) continue;
-                if (Math.abs(final.diff) > 0.35) continue;
+                if (Math.abs(final.diff) > ROOT_MAX_ERR_DEG) continue;
+                const segTs = b.ts - a.ts;
+                if (segTs <= 0) continue;
+                if (Math.abs(t - tGuess) > segTs * ROOT_MAX_TS_DRIFT_FACTOR) continue;
+                const uRoot = Math.max(0, Math.min(1, (t - a.ts) / segTs));
+                const expectedOrbit = a.orbit + (b.orbit - a.orbit) * uRoot;
+                if (Math.abs(final.inst.orbit - expectedOrbit) > ROOT_MAX_ORBIT_DRIFT) continue;
 
                 pushUnique({
                     ts: t,

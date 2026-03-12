@@ -13,7 +13,7 @@ import type { BindMeta } from './bind';
 import { solveNodalWheel } from './nodal';
 import type { NodalMeta } from './nodal';
 import type { CompassTrackPoint } from './compass';
-import { eqToEcl, refUnit } from './vector';
+import { eqToEcl, refUnitAtTsByKind } from './vector';
 import { system as systemSpec } from '../catalog/wheels/system';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
@@ -158,9 +158,9 @@ function helioVec(id: ObjId, ts: number): { x: number; y: number; z: number } | 
     return null;
 }
 
-function referenceDirectionVec(id: ObjId): { x: number; y: number; z: number } | null {
-    const b = (objects as any)[id] as { meta?: ReferenceMeta } | undefined;
-    const unit = b?.meta ? refUnit(b.meta) : null;
+function referenceDirectionVec(id: ObjId, ts: number): { x: number; y: number; z: number } | null {
+    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference'; meta?: ReferenceMeta } | undefined;
+    const unit = b?.meta ? refUnitAtTsByKind(b?.kind, b.meta, ts) : null;
     if (!unit) return null;
     return { x: unit[0], y: unit[1], z: unit[2] };
 }
@@ -191,7 +191,7 @@ function dotVec(a: Vec3d, b: Vec3d): number {
 
 function lookerSideBasisVec(looker: ObjId, focus: ObjId, ts: number): Vec3d | null {
     if (bodyKind(looker) === 'reference') {
-        const dirEq = referenceDirectionVec(looker);
+        const dirEq = referenceDirectionVec(looker, ts);
         if (!dirEq) return null;
         return normalizeVec(projectToEclipticPlane(eqToEcl(dirEq)));
     }
@@ -213,7 +213,7 @@ export function projectSystemReferenceToSide(
     target: ObjId,
     ts: number
 ): SystemSideProjection | null {
-    const dirEq = referenceDirectionVec(target);
+    const dirEq = referenceDirectionVec(target, ts);
     if (!dirEq) return null;
     const dirEcl = normalizeVec(eqToEcl(dirEq));
     const axis = lookerSideBasisVec(looker, focus, ts);
@@ -243,7 +243,7 @@ function referenceTargetInstant(
 
 function eclipticLatitudeDegAt(focus: ObjId, target: ObjId, ts: number): number {
     if (bodyKind(target) === 'reference') {
-        const dirEq = referenceDirectionVec(target);
+        const dirEq = referenceDirectionVec(target, ts);
         if (!dirEq) return NaN;
         const dirEcl = eqToEcl(dirEq);
         const r = Math.hypot(dirEcl.x, dirEcl.y, dirEcl.z);
