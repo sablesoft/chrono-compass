@@ -13,8 +13,8 @@ export type BoardWheelView = {
     visualRowSide?: 'left' | 'right';
     visualColumnOrder?: 'top-first' | 'side-first';
     compassInfoPosition?: 'bottom' | 'left' | 'right';
-    compassVisualSize?: number;
-    compassInfoSideWidth?: number;
+    compassVisualCols?: number;
+    compassInfoSideCols?: number;
     compassInfoBottomHeight?: number;
     infoChipOrder?: string[];
     infoChipSelected?: string[];

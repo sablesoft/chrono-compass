@@ -92,7 +92,7 @@
         border:1px solid var(--panel-border);
         background: var(--panel);
         border-radius: 16px;
-        margin-bottom: 14px;
+        margin-bottom: 4px;
     }
 
     .title {

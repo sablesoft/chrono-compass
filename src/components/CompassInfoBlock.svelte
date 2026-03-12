@@ -1016,6 +1016,8 @@
         overflow-y: auto;
         overscroll-behavior: contain;
         padding-right: 2px;
+        align-content: start;
+        align-items: start;
     }
 
     .blockToolbar {
@@ -1056,6 +1058,9 @@
     .infoSection {
         display: grid;
         gap: 6px;
+        align-content: start;
+        align-items: start;
+        align-self: start;
     }
 
     .chipSep {
@@ -1139,6 +1144,9 @@
         flex-wrap: wrap;
         gap: 6px;
         padding: 2px 0;
+        align-content: flex-start;
+        align-items: flex-start;
+        align-self: start;
     }
 
     .chipStatic {

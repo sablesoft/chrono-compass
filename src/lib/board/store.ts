@@ -21,6 +21,19 @@ import {
     moveAndCompact,
     normalizeRect
 } from './layoutEngine';
+import {
+    CARD_INFO_BOTTOM_HEIGHT_DEFAULT,
+    CARD_INFO_BOTTOM_HEIGHT_MAX,
+    CARD_INFO_BOTTOM_HEIGHT_MIN,
+    CARD_INFO_SIDE_COLS_DEFAULT,
+    CARD_INFO_SIDE_COLS_MAX,
+    CARD_INFO_SIDE_COLS_MIN,
+    CARD_VISUAL_COLS_DEFAULT,
+    CARD_VISUAL_COLS_MAX,
+    CARD_VISUAL_COLS_MIN,
+    clampBottomHeight,
+    clampCols
+} from '../wheel/ui/cardLayout';
 
 export type BoardState = {
     items: BoardWheel[];
@@ -30,15 +43,6 @@ export type BoardState = {
 const dbg = debug('board', '👤');
 const KEY = 'chrono:board';
 export const DEFAULT_WHEEL_CARD_SIZE = 560;
-const DEFAULT_COMPASS_VISUAL_SIZE = 520;
-const MIN_COMPASS_VISUAL_SIZE = 320;
-const MAX_COMPASS_VISUAL_SIZE = 4096;
-const DEFAULT_COMPASS_INFO_SIDE_WIDTH = 460;
-const MIN_COMPASS_INFO_SIDE_WIDTH = 260;
-const MAX_COMPASS_INFO_SIDE_WIDTH = 2048;
-const DEFAULT_COMPASS_INFO_BOTTOM_HEIGHT = 420;
-const MIN_COMPASS_INFO_BOTTOM_HEIGHT = 220;
-const MAX_COMPASS_INFO_BOTTOM_HEIGHT = 1600;
 
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };
 const DEFAULT_VIEW: BoardWheelView = {
@@ -50,9 +54,9 @@ const DEFAULT_VIEW: BoardWheelView = {
     visualRowSide: 'right',
     visualColumnOrder: 'top-first',
     compassInfoPosition: 'bottom',
-    compassVisualSize: DEFAULT_COMPASS_VISUAL_SIZE,
-    compassInfoSideWidth: DEFAULT_COMPASS_INFO_SIDE_WIDTH,
-    compassInfoBottomHeight: DEFAULT_COMPASS_INFO_BOTTOM_HEIGHT,
+    compassVisualCols: CARD_VISUAL_COLS_DEFAULT,
+    compassInfoSideCols: CARD_INFO_SIDE_COLS_DEFAULT,
+    compassInfoBottomHeight: CARD_INFO_BOTTOM_HEIGHT_DEFAULT,
     infoChipOrder: [],
     infoChipSelected: [],
     infoChipLabels: {},
@@ -104,10 +108,10 @@ function normalizeInfoChipLabels(input: unknown): Record<string, string> {
     return out;
 }
 
-function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+function legacyPxToCols(value: unknown, fallback: number, pxPerCol: number, min: number, max: number): number {
     const num = Number(value);
     if (!Number.isFinite(num)) return fallback;
-    return Math.min(max, Math.max(min, Math.round(num)));
+    return clampCols(Math.round(num / pxPerCol), fallback, min, max);
 }
 
 function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWheelView {
@@ -142,23 +146,39 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
         : (src.compassInfoPosition === 'right'
             ? 'right'
             : 'bottom');
-    const compassVisualSize = clampNumber(
-        src.compassVisualSize,
-        base.compassVisualSize ?? DEFAULT_COMPASS_VISUAL_SIZE,
-        MIN_COMPASS_VISUAL_SIZE,
-        MAX_COMPASS_VISUAL_SIZE
-    );
-    const compassInfoSideWidth = clampNumber(
-        src.compassInfoSideWidth,
-        base.compassInfoSideWidth ?? DEFAULT_COMPASS_INFO_SIDE_WIDTH,
-        MIN_COMPASS_INFO_SIDE_WIDTH,
-        MAX_COMPASS_INFO_SIDE_WIDTH
-    );
-    const compassInfoBottomHeight = clampNumber(
+    const compassVisualCols = src.compassVisualCols != null
+        ? clampCols(
+            src.compassVisualCols,
+            base.compassVisualCols ?? CARD_VISUAL_COLS_DEFAULT,
+            CARD_VISUAL_COLS_MIN,
+            CARD_VISUAL_COLS_MAX
+        )
+        : legacyPxToCols(
+            src.compassVisualSize,
+            base.compassVisualCols ?? CARD_VISUAL_COLS_DEFAULT,
+            43,
+            CARD_VISUAL_COLS_MIN,
+            CARD_VISUAL_COLS_MAX
+        );
+    const compassInfoSideCols = src.compassInfoSideCols != null
+        ? clampCols(
+            src.compassInfoSideCols,
+            base.compassInfoSideCols ?? CARD_INFO_SIDE_COLS_DEFAULT,
+            CARD_INFO_SIDE_COLS_MIN,
+            CARD_INFO_SIDE_COLS_MAX
+        )
+        : legacyPxToCols(
+            src.compassInfoSideWidth,
+            base.compassInfoSideCols ?? CARD_INFO_SIDE_COLS_DEFAULT,
+            46,
+            CARD_INFO_SIDE_COLS_MIN,
+            CARD_INFO_SIDE_COLS_MAX
+        );
+    const compassInfoBottomHeight = clampBottomHeight(
         src.compassInfoBottomHeight,
-        base.compassInfoBottomHeight ?? DEFAULT_COMPASS_INFO_BOTTOM_HEIGHT,
-        MIN_COMPASS_INFO_BOTTOM_HEIGHT,
-        MAX_COMPASS_INFO_BOTTOM_HEIGHT
+        base.compassInfoBottomHeight ?? CARD_INFO_BOTTOM_HEIGHT_DEFAULT,
+        CARD_INFO_BOTTOM_HEIGHT_MIN,
+        CARD_INFO_BOTTOM_HEIGHT_MAX
     );
     const markerScaleBias = Number.isFinite(src.markerScaleBias)
         ? (src.markerScaleBias as number)
@@ -172,8 +192,8 @@ function normalizeWheelView(input: unknown, fallback?: BoardWheelView): BoardWhe
         visualRowSide,
         visualColumnOrder,
         compassInfoPosition,
-        compassVisualSize,
-        compassInfoSideWidth,
+        compassVisualCols,
+        compassInfoSideCols,
         compassInfoBottomHeight,
         infoChipOrder: normalizeInfoChipOrder(src.infoChipOrder ?? base.infoChipOrder),
         infoChipSelected: normalizeInfoChipOrder(src.infoChipSelected ?? base.infoChipSelected),

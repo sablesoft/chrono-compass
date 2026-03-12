@@ -29,6 +29,22 @@
 
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
+    import {
+        CARD_INFO_BOTTOM_HEIGHT_DEFAULT,
+        CARD_INFO_SIDE_COLS_DEFAULT,
+        CARD_INFO_SIDE_COLS_MAX,
+        CARD_INFO_SIDE_COLS_MIN,
+        CARD_VISUAL_COLS_DEFAULT,
+        CARD_VISUAL_COLS_MAX,
+        CARD_VISUAL_COLS_MIN,
+        clampBottomHeight,
+        clampCols,
+        normalizeInfoPosition,
+        resizeColsDelta,
+        totalCardCols,
+        visualPaneCols,
+        type InfoPosition
+    } from '../lib/wheel/ui/cardLayout';
 
     // unified resolver (runtime+idb+compute)
     import { resolveWheel } from '../lib/board/dispatcher';
@@ -163,9 +179,53 @@
 
     let wrapEl: HTMLDivElement | null = null;
     $: responsive.bindWrap(wrapEl);
+    let panelEl: HTMLElement | null = null;
+    let visualPaneEl: HTMLDivElement | null = null;
+    let visualPaneHeight = 0;
+    let visualPaneResizeObserver: ResizeObserver | null = null;
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
+    let paneResizeState:
+        | { kind: 'visual'; startX: number; startY: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
+        | { kind: 'info'; startX: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
+        | { kind: 'info-bottom-height'; startY: number; startValue: number }
+        | null = null;
+
+    function updateVisualPaneHeight() {
+        visualPaneHeight = Math.max(0, Math.round(visualPaneEl?.getBoundingClientRect().height ?? 0));
+    }
+
+    let observedVisualPaneEl: HTMLDivElement | null = null;
+
+    $: {
+        if (visualPaneResizeObserver && observedVisualPaneEl && observedVisualPaneEl !== visualPaneEl) {
+            visualPaneResizeObserver.unobserve(observedVisualPaneEl);
+            observedVisualPaneEl = null;
+        }
+        if (!visualPaneEl || typeof ResizeObserver === 'undefined') {
+            updateVisualPaneHeight();
+        } else {
+            if (!visualPaneResizeObserver) visualPaneResizeObserver = new ResizeObserver(() => updateVisualPaneHeight());
+            if (observedVisualPaneEl !== visualPaneEl) {
+                visualPaneResizeObserver.observe(visualPaneEl);
+                observedVisualPaneEl = visualPaneEl;
+            }
+            queueMicrotask(updateVisualPaneHeight);
+        }
+    }
+
+    function currentLayoutCols(): number {
+        const cols = Number(wheel?.layout?.w);
+        if (!Number.isFinite(cols) || cols <= 0) return 1;
+        return Math.max(1, Math.round(cols));
+    }
+
+    function availableCardColsAtCurrentX(): number {
+        const layoutX = Number(wheel?.layout?.x);
+        if (!Number.isFinite(layoutX) || layoutX < 0) return CARD_VISUAL_COLS_MAX;
+        return Math.max(1, CARD_VISUAL_COLS_MAX - Math.round(layoutX));
+    }
     const MARKER_STYLE = {
         // Transparent hit circle radius in px (interaction target).
         hitPx: 18,
@@ -181,10 +241,25 @@
     const MARKER_SCALE_MIN = 0.2;
     const MARKER_SCALE_MAX = 3;
     const MARKER_SCALE_STEP = 0.1;
-
     function clampMarkerScale(value: number): number {
         if (!Number.isFinite(value)) return 1;
         return Math.min(MARKER_SCALE_MAX, Math.max(MARKER_SCALE_MIN, value));
+    }
+
+    function clampCycleVisualCols(value: unknown): number {
+        return clampCols(value, CARD_VISUAL_COLS_DEFAULT, CARD_VISUAL_COLS_MIN, CARD_VISUAL_COLS_MAX);
+    }
+
+    function clampCycleInfoSideCols(value: unknown): number {
+        return clampCols(value, CARD_INFO_SIDE_COLS_DEFAULT, CARD_INFO_SIDE_COLS_MIN, CARD_INFO_SIDE_COLS_MAX);
+    }
+
+    function clampCycleInfoBottomHeight(value: unknown): number {
+        return clampBottomHeight(value, CARD_INFO_BOTTOM_HEIGHT_DEFAULT);
+    }
+
+    function normalizeCycleInfoPosition(value: unknown, canPlaceSide: boolean): InfoPosition {
+        return normalizeInfoPosition(value, canPlaceSide);
     }
 
     function stepMarkerScale(value: number): number {
@@ -213,6 +288,123 @@
 
     function decMarkerScale() {
         setMarkerScaleBias(markerScaleBias - MARKER_SCALE_STEP);
+    }
+
+    function finishPaneResize() {
+        paneResizeState = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        window.removeEventListener('pointermove', handlePaneResizeMove);
+        window.removeEventListener('pointerup', handlePaneResizeEnd);
+        window.removeEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function handlePaneResizeMove(e: PointerEvent) {
+        if (!paneResizeState || !wheelId) return;
+
+        if (paneResizeState.kind === 'visual') {
+            const dx = e.clientX - paneResizeState.startX;
+            const dy = e.clientY - paneResizeState.startY;
+            const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
+            const deltaCols = resizeColsDelta(delta, paneResizeState.startPanelWidth, paneResizeState.startCardCols);
+            const maxCardCols = availableCardColsAtCurrentX();
+            const maxVisualCols = showInfoSide
+                ? Math.max(CARD_VISUAL_COLS_MIN, maxCardCols - cycleInfoSideCols)
+                : maxCardCols;
+            const nextVisualCols = Math.min(
+                maxVisualCols,
+                clampCycleVisualCols(paneResizeState.startColsValue + deltaCols)
+            );
+            const nextCols = totalCardCols(cycleInfoPosition, nextVisualCols, cycleInfoSideCols, false);
+            boardApi.updateWheelById(
+                wheelId,
+                { view: { compassVisualCols: nextVisualCols }, layout: { w: nextCols } },
+                'Cycle.resizeVisual'
+            );
+            return;
+        }
+
+        if (paneResizeState.kind === 'info-bottom-height') {
+            const dy = e.clientY - paneResizeState.startY;
+            boardApi.updateWheelById(
+                wheelId,
+                { view: { compassInfoBottomHeight: clampCycleInfoBottomHeight(paneResizeState.startValue + dy) } },
+                'Cycle.resizeInfoBottomHeight'
+            );
+            return;
+        }
+
+        const dx = e.clientX - paneResizeState.startX;
+        const deltaCols = resizeColsDelta(dx, paneResizeState.startPanelWidth, paneResizeState.startCardCols);
+        const maxCardCols = availableCardColsAtCurrentX();
+        const maxInfoCols = Math.max(CARD_INFO_SIDE_COLS_MIN, maxCardCols - visualPaneColsValue);
+        const nextInfoCols = Math.min(
+            maxInfoCols,
+            clampCycleInfoSideCols(paneResizeState.startColsValue + deltaCols)
+        );
+        const nextCols = totalCardCols(cycleInfoPosition, cycleVisualCols, nextInfoCols, false);
+        boardApi.updateWheelById(
+            wheelId,
+            { view: { compassInfoSideCols: nextInfoCols }, layout: { w: nextCols } },
+            'Cycle.resizeInfoSideWidth'
+        );
+    }
+
+    function handlePaneResizeEnd() {
+        finishPaneResize();
+    }
+
+    function startVisualResize(e: PointerEvent) {
+        if (!wheelId || !panelEl) return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'visual',
+            startX: e.clientX,
+            startY: e.clientY,
+            startColsValue: cycleVisualCols,
+            startCardCols: currentLayoutCols(),
+            startPanelWidth: panelEl.getBoundingClientRect().width
+        };
+        document.body.style.cursor = 'nwse-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function startInfoWidthResize(e: PointerEvent) {
+        if (!wheelId || !panelEl || !showInfoWidthResizeHandle) return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'info',
+            startX: e.clientX,
+            startColsValue: cycleInfoSideCols,
+            startCardCols: currentLayoutCols(),
+            startPanelWidth: panelEl.getBoundingClientRect().width
+        };
+        document.body.style.cursor = 'ew-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
+    }
+
+    function startInfoBottomHeightResize(e: PointerEvent) {
+        if (!wheelId || !showInfoHeightResizeHandle) return;
+        e.preventDefault();
+        e.stopPropagation();
+        paneResizeState = {
+            kind: 'info-bottom-height',
+            startY: e.clientY,
+            startValue: cycleInfoBottomHeight
+        };
+        document.body.style.cursor = 'ns-resize';
+        document.body.style.userSelect = 'none';
+        window.addEventListener('pointermove', handlePaneResizeMove);
+        window.addEventListener('pointerup', handlePaneResizeEnd);
+        window.addEventListener('pointercancel', handlePaneResizeEnd);
     }
 
     let svgEl: SVGSVGElement | null = null;
@@ -711,6 +903,9 @@
     });
 
     onDestroy(() => {
+        finishPaneResize();
+        if (visualPaneResizeObserver && observedVisualPaneEl) visualPaneResizeObserver.unobserve(observedVisualPaneEl);
+        visualPaneResizeObserver?.disconnect();
         if (loadingOverlayTimer) {
             clearTimeout(loadingOverlayTimer);
             loadingOverlayTimer = null;
@@ -845,6 +1040,42 @@
     $: showVisualSection = wheel?.view?.showVisual !== false;
     $: showInfoSection = wheel?.view?.showInfo === true;
     $: showPickersSection = wheel?.view?.showPickers === true;
+    $: cycleInfoPosition = normalizeCycleInfoPosition(wheel?.view?.compassInfoPosition, showVisualSection);
+    $: showInfoSide = showInfoSection && showVisualSection && cycleInfoPosition !== 'bottom';
+    $: showInfoWidthResizeHandle = showInfoSection && showInfoSide;
+    $: showInfoHeightResizeHandle = showInfoSection && !showInfoSide;
+    $: cycleVisualCols = clampCycleVisualCols((wheel?.view?.compassVisualCols ?? CARD_VISUAL_COLS_DEFAULT) as number);
+    $: cycleInfoSideCols = clampCycleInfoSideCols((wheel?.view?.compassInfoSideCols ?? CARD_INFO_SIDE_COLS_DEFAULT) as number);
+    $: cycleInfoBottomHeight = clampCycleInfoBottomHeight((wheel?.view?.compassInfoBottomHeight ?? CARD_INFO_BOTTOM_HEIGHT_DEFAULT) as number);
+    $: visualPaneColsValue = visualPaneCols(cycleVisualCols, false);
+    $: desiredCardCols = showInfoSide ? (visualPaneColsValue + cycleInfoSideCols) : visualPaneColsValue;
+    $: contentLayoutStyle = showInfoSide
+        ? (cycleInfoPosition === 'left'
+            ? `grid-template-columns:minmax(0, ${cycleInfoSideCols}fr) minmax(0, ${visualPaneColsValue}fr);`
+            : `grid-template-columns:minmax(0, ${visualPaneColsValue}fr) minmax(0, ${cycleInfoSideCols}fr);`)
+        : '';
+
+    function setCycleInfoPosition(position: InfoPosition) {
+        onUserActivity();
+        if (!wheelId) return;
+        boardApi.updateWheelById(
+            wheelId,
+            {
+                view: { compassInfoPosition: showVisualSection ? position : 'bottom' },
+                layout: { w: position === 'bottom' ? visualPaneColsValue : (visualPaneColsValue + cycleInfoSideCols) }
+            },
+            'Cycle.setInfoPosition'
+        );
+    }
+
+    $: {
+        if (wheelId && showVisualSection && !paneResizeState) {
+            const currentCols = currentLayoutCols();
+            if (currentCols !== desiredCardCols) {
+                boardApi.updateWheelById(wheelId, { layout: { w: desiredCardCols } }, 'Cycle.syncCardCols');
+            }
+        }
+    }
 
     function toggleVisualSection() {
         onUserActivity();
@@ -1296,7 +1527,7 @@
     })();
 </script>
 
-<section class="panel">
+<section class="panel" bind:this={panelEl}>
     <WheelHeader
             wheel={wheel}
             onDocs={docs.openDocs}
@@ -1378,8 +1609,15 @@
         <div class="sectionSep" aria-hidden="true"></div>
     {/if}
 
+    <div
+        class="contentLayout"
+        class:infoSide={showInfoSide}
+        class:infoLeft={showInfoSide && cycleInfoPosition === 'left'}
+        style={contentLayoutStyle}
+    >
     {#if showVisualSection}
-        <div class="wrap" bind:this={wrapEl} transition:slide|local>
+        <div class="visualPane" bind:this={visualPaneEl}>
+        <div class="wrap" bind:this={wrapEl}>
             <section class="wheelPanel">
             <div class="wheelBox">
                 <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
@@ -1713,14 +1951,40 @@
             {/if}
             </section>
         </div>
-    {/if}
-
-    {#if showVisualSection && showInfoSection}
-        <div class="sectionSep" aria-hidden="true"></div>
+        <button
+                type="button"
+                class="paneResizeHandle visualResizeHandle"
+                aria-label="Resize visual block"
+                title="Resize visual block"
+                on:pointerdown={startVisualResize}
+        ></button>
+    </div>
     {/if}
 
     {#if showInfoSection}
-        <div transition:slide|local>
+        <div
+            class="infoPane"
+            class:side={showInfoSide}
+            style={`${showInfoSide && visualPaneHeight > 0 ? `--cycle-info-pane-height:${visualPaneHeight}px;` : ''}${!showInfoSide ? `--cycle-info-bottom-height:${cycleInfoBottomHeight}px;` : ''}`}
+        >
+        {#if showInfoWidthResizeHandle}
+            <button
+                    type="button"
+                    class="paneResizeHandle infoResizeHandle rightEdge"
+                    aria-label="Resize info block width"
+                    title="Resize info block width"
+                    on:pointerdown={startInfoWidthResize}
+            ></button>
+        {/if}
+        {#if showInfoHeightResizeHandle}
+            <button
+                    type="button"
+                    class="paneResizeHandle infoBottomResizeHandle"
+                    aria-label="Resize info block height"
+                    title="Resize info block height"
+                    on:pointerdown={startInfoBottomHeightResize}
+            ></button>
+        {/if}
             <CycleInfoBlock
                     generalChips={generalChipsOrdered}
                     currentRow={currentRow}
@@ -1739,9 +2003,16 @@
                 onConfigure={applyInfoConfig}
                 locked={$isActiveProfileLocked}
                 reorderEnabled={false}
-        />
+                canPlaceSide={showVisualSection}
+                layoutPosition={cycleInfoPosition}
+                onMoveLeft={() => setCycleInfoPosition('left')}
+                onMoveRight={() => setCycleInfoPosition('right')}
+                onMoveBottom={() => setCycleInfoPosition('bottom')}
+            />
         </div>
     {/if}
+
+    </div>
 
     {#if showLoadingOverlay}
         <div class="wheel-loading-overlay" aria-live="polite" aria-busy="true">
@@ -1770,6 +2041,23 @@
         min-height: 0;
         position: relative;
     }
+    .contentLayout {
+        display: grid;
+        gap: 12px;
+        min-height: 0;
+        align-items: start;
+    }
+    .contentLayout.infoSide {
+        align-items: stretch;
+    }
+    .visualPane {
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+        display: grid;
+        align-self: start;
+        width: 100%;
+    }
     .wrap {
         width: 100%;
         max-width: 100%;
@@ -1777,6 +2065,116 @@
         min-height: 0;
         padding-block: 10px;
         box-sizing: border-box;
+    }
+    .infoPane {
+        min-width: 0;
+        min-height: 0;
+        height: var(--cycle-info-bottom-height, 420px);
+        display: grid;
+        overflow: visible;
+        position: relative;
+        border-radius: 16px;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 2%);
+        padding: 10px 10px 18px;
+        box-sizing: border-box;
+    }
+    .infoPane.side {
+        height: var(--cycle-info-pane-height, auto);
+        max-height: var(--cycle-info-pane-height, none);
+        align-self: start;
+        width: 100%;
+        max-width: 100%;
+        padding: 10px;
+    }
+    .contentLayout.infoSide .visualPane {
+        order: 1;
+    }
+    .contentLayout.infoSide .infoPane.side {
+        order: 2;
+    }
+    .contentLayout.infoSide.infoLeft .infoPane.side {
+        order: 1;
+    }
+    .contentLayout.infoSide.infoLeft .visualPane {
+        order: 2;
+    }
+    .paneResizeHandle {
+        position: absolute;
+        z-index: 5;
+        border: 1px solid var(--btn-border);
+        background: color-mix(in oklab, var(--fg), transparent 78%);
+        padding: 0;
+        touch-action: none;
+        pointer-events: auto;
+    }
+    .paneResizeHandle:hover {
+        background: color-mix(in oklab, var(--fg), transparent 66%);
+    }
+    .visualResizeHandle {
+        right: 10px;
+        bottom: 10px;
+        width: 14px;
+        height: 14px;
+        border-radius: 4px;
+        cursor: nwse-resize;
+    }
+    .infoResizeHandle {
+        top: 50%;
+        width: 14px;
+        height: 96px;
+        border-radius: 999px;
+        cursor: ew-resize;
+        transform: translateY(-50%);
+        border-color: color-mix(in oklab, var(--fg), transparent 58%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--fg), transparent 82%),
+            0 6px 20px color-mix(in oklab, black, transparent 78%);
+    }
+    .infoResizeHandle.rightEdge {
+        right: -7px;
+        left: auto;
+    }
+    .infoResizeHandle::before {
+        content: '';
+        position: absolute;
+        inset: 14px 4px;
+        border-radius: 999px;
+        background:
+            repeating-linear-gradient(
+                to bottom,
+                color-mix(in oklab, var(--fg), transparent 14%) 0 6px,
+                transparent 6px 12px
+            );
+        opacity: 0.9;
+    }
+    .infoBottomResizeHandle {
+        left: 50%;
+        bottom: -7px;
+        width: 96px;
+        height: 14px;
+        border-radius: 999px;
+        cursor: ns-resize;
+        transform: translateX(-50%);
+        border-color: color-mix(in oklab, var(--fg), transparent 58%);
+        background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+        box-shadow:
+            0 0 0 1px color-mix(in oklab, var(--fg), transparent 82%),
+            0 6px 20px color-mix(in oklab, black, transparent 78%);
+    }
+    .infoBottomResizeHandle::before {
+        content: '';
+        position: absolute;
+        inset: 4px 14px;
+        border-radius: 999px;
+        background:
+            repeating-linear-gradient(
+                to right,
+                color-mix(in oklab, var(--fg), transparent 14%) 0 6px,
+                transparent 6px 12px
+            );
+        opacity: 0.9;
     }
     .headerBottom {
         display: grid;

@@ -52,7 +52,7 @@
 
     function showBoardResizeHandle(w: BoardWheel): boolean {
         const entry = getWheelEntry(w.wheelType);
-        return entry.ui !== 'compass';
+        return entry.ui !== 'compass' && entry.ui !== 'cycle';
     }
 
     // стабильный порядок на всякий — boardItems уже отсортирован, но лучше не надеяться

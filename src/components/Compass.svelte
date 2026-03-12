@@ -28,7 +28,21 @@
 
     import { boardApi } from '../lib/board/store';
     import type { BoardWheel } from '../lib/board/types';
-    import { BOARD_GRID_COLUMNS } from '../lib/board/layoutEngine';
+    import {
+        CARD_INFO_BOTTOM_HEIGHT_DEFAULT,
+        CARD_INFO_SIDE_COLS_MAX,
+        CARD_INFO_SIDE_COLS_MIN,
+        CARD_INFO_SIDE_COLS_DEFAULT,
+        CARD_VISUAL_COLS_MAX,
+        CARD_VISUAL_COLS_MIN,
+        CARD_VISUAL_COLS_DEFAULT,
+        clampBottomHeight,
+        clampCols,
+        normalizeInfoPosition,
+        resizeColsDelta,
+        totalCardCols,
+        visualPaneCols
+    } from '../lib/wheel/ui/cardLayout';
 
     // unified resolver (runtime+idb, and if wheel type is excluded -> compute)
     import { resolveWheel } from '../lib/board/dispatcher';
@@ -256,41 +270,25 @@
     const MARKER_SCALE_MIN = 0.2;
     const MARKER_SCALE_MAX = 3;
     const MARKER_SCALE_STEP = 0.1;
-    const COMPASS_VISUAL_SIZE_DEFAULT = 520;
-    const COMPASS_VISUAL_SIZE_MIN = 320;
-    const COMPASS_VISUAL_SIZE_MAX = 4096;
-    const COMPASS_INFO_SIDE_WIDTH_DEFAULT = 460;
-    const COMPASS_INFO_SIDE_WIDTH_MIN = 260;
-    const COMPASS_INFO_SIDE_WIDTH_MAX = 2048;
-    const COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT = 420;
-    const COMPASS_INFO_BOTTOM_HEIGHT_MIN = 220;
-    const COMPASS_INFO_BOTTOM_HEIGHT_MAX = 1600;
-    const COMPASS_PANE_GAP_PX = 12;
-
     function clampMarkerScale(value: number): number {
         if (!Number.isFinite(value)) return 1;
         return Math.min(MARKER_SCALE_MAX, Math.max(MARKER_SCALE_MIN, value));
     }
 
-    function clampCompassVisualSize(value: number): number {
-        if (!Number.isFinite(value)) return COMPASS_VISUAL_SIZE_DEFAULT;
-        return Math.min(COMPASS_VISUAL_SIZE_MAX, Math.max(COMPASS_VISUAL_SIZE_MIN, Math.round(value)));
+    function clampCompassVisualCols(value: unknown): number {
+        return clampCols(value, CARD_VISUAL_COLS_DEFAULT, CARD_VISUAL_COLS_MIN, CARD_VISUAL_COLS_MAX);
     }
 
-    function clampCompassInfoSideWidth(value: number): number {
-        if (!Number.isFinite(value)) return COMPASS_INFO_SIDE_WIDTH_DEFAULT;
-        return Math.min(COMPASS_INFO_SIDE_WIDTH_MAX, Math.max(COMPASS_INFO_SIDE_WIDTH_MIN, Math.round(value)));
+    function clampCompassInfoSideCols(value: unknown): number {
+        return clampCols(value, CARD_INFO_SIDE_COLS_DEFAULT, CARD_INFO_SIDE_COLS_MIN, CARD_INFO_SIDE_COLS_MAX);
     }
 
     function clampCompassInfoBottomHeight(value: number): number {
-        if (!Number.isFinite(value)) return COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT;
-        return Math.min(COMPASS_INFO_BOTTOM_HEIGHT_MAX, Math.max(COMPASS_INFO_BOTTOM_HEIGHT_MIN, Math.round(value)));
+        return clampBottomHeight(value, CARD_INFO_BOTTOM_HEIGHT_DEFAULT);
     }
 
     function normalizeCompassInfoPosition(value: unknown, canPlaceSide: boolean): CompassInfoPosition {
-        if (!canPlaceSide) return 'bottom';
-        if (value === 'left' || value === 'right') return value;
-        return 'bottom';
+        return normalizeInfoPosition(value, canPlaceSide);
     }
 
     function stepMarkerScale(value: number): number {
@@ -2070,17 +2068,15 @@
     let wrapEl: HTMLDivElement | null = null;
     $: responsive.bindWrap(wrapEl);
     let panelEl: HTMLElement | null = null;
-    let contentLayoutEl: HTMLDivElement | null = null;
     let visualPaneEl: HTMLDivElement | null = null;
     let visualPaneHeight = 0;
     let visualPaneResizeObserver: ResizeObserver | null = null;
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
-    let pendingBottomShrink = false;
     let paneResizeState:
-        | { kind: 'visual'; startX: number; startY: number; startValue: number; startPanelWidth: number; startCols: number }
-        | { kind: 'info'; startX: number; startValue: number; position: 'left' | 'right'; startPanelWidth: number; startCols: number }
+        | { kind: 'visual'; startX: number; startY: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
+        | { kind: 'info'; startX: number; startColsValue: number; position: 'left' | 'right'; startCardCols: number; startPanelWidth: number }
         | { kind: 'info-bottom-height'; startY: number; startValue: number }
         | null = null;
 
@@ -2119,52 +2115,6 @@
         return Math.max(1, Math.round(cols));
     }
 
-    function nextLayoutColsFromWidth(startPanelWidth: number, startCols: number, targetPanelWidth: number): number {
-        if (!(startPanelWidth > 0) || !(startCols > 0)) return currentLayoutCols();
-        const pxPerCol = startPanelWidth / startCols;
-        if (!(pxPerCol > 0)) return currentLayoutCols();
-        const rawCols = targetPanelWidth / pxPerCol;
-        const nextCols = targetPanelWidth >= startPanelWidth ? Math.ceil(rawCols) : Math.floor(rawCols);
-        return Math.max(1, Math.min(BOARD_GRID_COLUMNS, nextCols));
-    }
-
-    function desiredContentWidthPx(): number {
-        if (!hasVisualSection) return 0;
-        if (paneResizeState) return 0;
-        if (pendingBottomShrink) return compassVisualSize;
-        if (showInfoSide) return (visualPaneMaxWidth ?? compassVisualSize) + compassInfoSideWidth + COMPASS_PANE_GAP_PX;
-        return 0;
-    }
-
-    function syncCompassCardWidth() {
-        if (!wheelId || !panelEl || !contentLayoutEl || !hasVisualSection) return;
-        const desiredContentWidth = desiredContentWidthPx();
-        if (!(desiredContentWidth > 0)) return;
-
-        const currentCols = currentLayoutCols();
-        const panelWidth = panelEl.getBoundingClientRect().width;
-        const contentWidth = contentLayoutEl.getBoundingClientRect().width;
-        if (!(panelWidth > 0) || !(contentWidth > 0)) return;
-
-        const chromeWidth = Math.max(0, panelWidth - contentWidth);
-        const desiredPanelWidth = desiredContentWidth + chromeWidth;
-        const pxPerCol = panelWidth / currentCols;
-        if (!(pxPerCol > 0)) return;
-
-        const rawCols = desiredPanelWidth / pxPerCol;
-        const nextCols = Math.max(
-            1,
-            Math.min(BOARD_GRID_COLUMNS, desiredPanelWidth >= panelWidth ? Math.ceil(rawCols) : Math.floor(rawCols))
-        );
-        if (nextCols === currentCols) return;
-
-        boardApi.updateWheelById(
-            wheelId,
-            { layout: { w: nextCols } },
-            'Compass.syncCardWidthToContent'
-        );
-    }
-
     function finishPaneResize() {
         paneResizeState = null;
         document.body.style.cursor = '';
@@ -2181,17 +2131,13 @@
             const dx = e.clientX - paneResizeState.startX;
             const dy = e.clientY - paneResizeState.startY;
             const delta = Math.abs(dx) >= Math.abs(dy) ? dx : dy;
-            const nextVisualSize = clampCompassVisualSize(paneResizeState.startValue + delta);
-            const nextPanelWidth = paneResizeState.startPanelWidth + (nextVisualSize - paneResizeState.startValue);
-            const nextCols = nextLayoutColsFromWidth(
-                paneResizeState.startPanelWidth,
-                paneResizeState.startCols,
-                nextPanelWidth
-            );
+            const deltaCols = resizeColsDelta(delta, paneResizeState.startPanelWidth, paneResizeState.startCardCols);
+            const nextVisualCols = clampCompassVisualCols(paneResizeState.startColsValue + deltaCols);
+            const nextCols = totalCardCols(compassInfoPosition, nextVisualCols, compassInfoSideCols, showDualVisualRow);
             boardApi.updateWheelById(
                 wheelId,
                 {
-                    view: { compassVisualSize: nextVisualSize },
+                    view: { compassVisualCols: nextVisualCols },
                     layout: { w: nextCols }
                 },
                 'Compass.resizeVisual'
@@ -2210,18 +2156,13 @@
         }
 
         const dx = e.clientX - paneResizeState.startX;
-        const signedDx = dx;
-        const nextInfoWidth = clampCompassInfoSideWidth(paneResizeState.startValue + signedDx);
-        const nextPanelWidth = paneResizeState.startPanelWidth + (nextInfoWidth - paneResizeState.startValue);
-        const nextCols = nextLayoutColsFromWidth(
-            paneResizeState.startPanelWidth,
-            paneResizeState.startCols,
-            nextPanelWidth
-        );
+        const deltaCols = resizeColsDelta(dx, paneResizeState.startPanelWidth, paneResizeState.startCardCols);
+        const nextInfoCols = clampCompassInfoSideCols(paneResizeState.startColsValue + deltaCols);
+        const nextCols = totalCardCols(compassInfoPosition, compassVisualCols, nextInfoCols, showDualVisualRow);
         boardApi.updateWheelById(
             wheelId,
             {
-                view: { compassInfoSideWidth: nextInfoWidth },
+                view: { compassInfoSideCols: nextInfoCols },
                 layout: { w: nextCols }
             },
             'Compass.resizeInfoSideWidth'
@@ -2240,9 +2181,9 @@
             kind: 'visual',
             startX: e.clientX,
             startY: e.clientY,
-            startValue: compassVisualSize,
+            startColsValue: compassVisualCols,
             startPanelWidth: panelEl.getBoundingClientRect().width,
-            startCols: currentLayoutCols()
+            startCardCols: currentLayoutCols()
         };
         document.body.style.cursor = 'nwse-resize';
         document.body.style.userSelect = 'none';
@@ -2258,10 +2199,10 @@
         paneResizeState = {
             kind: 'info',
             startX: e.clientX,
-            startValue: compassInfoSideWidth,
+            startColsValue: compassInfoSideCols,
             position: compassInfoPosition,
             startPanelWidth: panelEl.getBoundingClientRect().width,
-            startCols: currentLayoutCols()
+            startCardCols: currentLayoutCols()
         };
         document.body.style.cursor = 'ew-resize';
         document.body.style.userSelect = 'none';
@@ -2359,14 +2300,16 @@
     $: showInfoSide = showInfoSection && hasVisualSection && compassInfoPosition !== 'bottom';
     $: showInfoWidthResizeHandle = showInfoSection && showInfoSide;
     $: showInfoHeightResizeHandle = showInfoSection && !showInfoSide;
-    $: compassVisualSize = clampCompassVisualSize((wheel?.view?.compassVisualSize ?? COMPASS_VISUAL_SIZE_DEFAULT) as number);
-    $: compassInfoSideWidth = clampCompassInfoSideWidth((wheel?.view?.compassInfoSideWidth ?? COMPASS_INFO_SIDE_WIDTH_DEFAULT) as number);
-    $: compassInfoBottomHeight = clampCompassInfoBottomHeight((wheel?.view?.compassInfoBottomHeight ?? COMPASS_INFO_BOTTOM_HEIGHT_DEFAULT) as number);
-    $: visualPaneMaxWidth = (showInfoSide || paneResizeState?.kind === 'visual' || pendingBottomShrink)
-        ? (showDualVisualRow
-            ? Math.max(compassVisualSize, compassVisualSize * 2 + COMPASS_PANE_GAP_PX)
-            : compassVisualSize)
-        : null;
+    $: compassVisualCols = clampCompassVisualCols((wheel?.view?.compassVisualCols ?? CARD_VISUAL_COLS_DEFAULT) as number);
+    $: compassInfoSideCols = clampCompassInfoSideCols((wheel?.view?.compassInfoSideCols ?? CARD_INFO_SIDE_COLS_DEFAULT) as number);
+    $: compassInfoBottomHeight = clampCompassInfoBottomHeight((wheel?.view?.compassInfoBottomHeight ?? CARD_INFO_BOTTOM_HEIGHT_DEFAULT) as number);
+    $: visualPaneColsValue = visualPaneCols(compassVisualCols, showDualVisualRow);
+    $: desiredCardCols = showInfoSide ? (visualPaneColsValue + compassInfoSideCols) : visualPaneColsValue;
+    $: contentLayoutStyle = showInfoSide
+        ? (compassInfoPosition === 'left'
+            ? `grid-template-columns:minmax(0, ${compassInfoSideCols}fr) minmax(0, ${visualPaneColsValue}fr);`
+            : `grid-template-columns:minmax(0, ${visualPaneColsValue}fr) minmax(0, ${compassInfoSideCols}fr);`)
+        : '';
     $: controlsPaneMode = showVisualSection ? 'top' : 'side';
     $: systemSideLookerDirection = (() => {
         if (wheel?.wheelType !== 'system') return 'S';
@@ -2449,40 +2392,23 @@
     function setCompassInfoPosition(position: CompassInfoPosition) {
         onUserActivity();
         if (!wheelId) return;
-        pendingBottomShrink = position === 'bottom';
         boardApi.updateWheelById(
             wheelId,
-            { view: { compassInfoPosition: hasVisualSection ? position : 'bottom' } },
+            {
+                view: { compassInfoPosition: hasVisualSection ? position : 'bottom' },
+                layout: { w: position === 'bottom' ? visualPaneColsValue : (visualPaneColsValue + compassInfoSideCols) }
+            },
             'Compass.setInfoPosition'
         );
     }
 
     $: {
-        if (!pendingBottomShrink || !panelEl || !contentLayoutEl || showInfoSide || !hasVisualSection) {
-            if (pendingBottomShrink && showInfoSide) pendingBottomShrink = false;
-        } else {
-            const panelWidth = panelEl.getBoundingClientRect().width;
-            const contentWidth = contentLayoutEl.getBoundingClientRect().width;
-            const chromeWidth = Math.max(0, panelWidth - contentWidth);
-            const targetVisualWidth = showDualVisualRow
-                ? Math.max(compassVisualSize, compassVisualSize * 2 + COMPASS_PANE_GAP_PX)
-                : compassVisualSize;
-            if (panelWidth <= targetVisualWidth + chromeWidth + 2) {
-                pendingBottomShrink = false;
+        if (wheelId && hasVisualSection && !paneResizeState) {
+            const currentCols = currentLayoutCols();
+            if (currentCols !== desiredCardCols) {
+                boardApi.updateWheelById(wheelId, { layout: { w: desiredCardCols } }, 'Compass.syncCardCols');
             }
         }
-    }
-
-    $: {
-        void wheelId;
-        void hasVisualSection;
-        void showInfoSide;
-        void visualPaneMaxWidth;
-        void compassInfoSideWidth;
-        void compassInfoBottomHeight;
-        void panelEl;
-        void contentLayoutEl;
-        queueMicrotask(syncCompassCardWidth);
     }
 
     type CompassInfoChip = {
@@ -3512,10 +3438,9 @@
     {#if hasVisualSection || showInfoSection}
         <div
             class="contentLayout"
-            bind:this={contentLayoutEl}
             class:infoSide={showInfoSide}
             class:infoLeft={showInfoSide && compassInfoPosition === 'left'}
-            style={`--compass-info-side-width:${compassInfoSideWidth}px; --compass-visual-max-width:${visualPaneMaxWidth != null ? `${visualPaneMaxWidth}px` : '100%'};`}
+            style={contentLayoutStyle}
             transition:slide|local
         >
         <!-- WHEEL SVG -->
@@ -4451,15 +4376,7 @@
         align-items: start;
     }
     .contentLayout.infoSide {
-        grid-template-columns:
-            minmax(0, var(--compass-visual-max-width))
-            minmax(var(--compass-info-side-width), 1fr);
         align-items: stretch;
-    }
-    .contentLayout.infoSide.infoLeft {
-        grid-template-columns:
-            minmax(var(--compass-info-side-width), 1fr)
-            minmax(0, var(--compass-visual-max-width));
     }
     .visualPane {
         position: relative;
@@ -4467,10 +4384,10 @@
         min-height: 0;
         display: grid;
         align-self: start;
-        width: min(100%, var(--compass-visual-max-width));
+        width: 100%;
     }
     .wrap {
-        width: min(100%, var(--compass-visual-max-width, 100%));
+        width: 100%;
         max-width: 100%;
         flex: 0 0 auto;
         min-height: 0;
