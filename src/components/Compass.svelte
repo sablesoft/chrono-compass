@@ -384,6 +384,7 @@
     $: activeStarInfoItems = $activeProfile?.data?.starInfoItems ?? [];
 
     let orbitNodesVisible: OrbitNodeUi[] = [];
+    let hasPinnedAnyOrbitNodes = false;
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
     let showOrbitNodesAny = true;
@@ -579,6 +580,7 @@
         return filterVisibleOrbitNodes(orbitNodesSide);
     })();
 
+    $: hasPinnedAnyOrbitNodes = !!pinnedBodyId && orbitNodesAll.some((n) => n.bodyId === pinnedBodyId);
     $: hasPinnedNodalNodes = !!pinnedBodyId && orbitNodesAll.some(
         (n) => n.bodyId === pinnedBodyId && orbitNodeGroup(n) === 'nodal'
     );
@@ -3059,7 +3061,7 @@
         return [
             {
                 id: PINNED_DURATION_TAG_ID,
-                label: 'Duration',
+                label: 'Cycle',
                 scope: 'pinned',
                 enabledByDefault: true,
                 group: 'general'
@@ -3304,7 +3306,7 @@
             const def = compassTagDefById.get(PINNED_DURATION_TAG_ID);
             const label = (cfg?.label && cfg.label.trim())
                 ? cfg.label.trim()
-                : (def?.label ?? 'Duration');
+                : (def?.label ?? 'Cycle');
             const modal = (cfg?.modal && cfg.modal.trim())
                 ? cfg.modal.trim()
                 : (typeof def?.modal === 'string' ? def.modal : undefined);
@@ -3754,7 +3756,7 @@
                         ≋
                     </button>
 
-                    {#if pinnedBodyId}
+                    {#if hasPinnedAnyOrbitNodes}
                         <button
                                 class="nodeToggle navBtn nodeAll"
                                 class:off={!showOrbitNodesAny}
@@ -3792,11 +3794,22 @@
                 </div>
                 {/if}
 
-                {#if pinnedBodyId && controlsPaneMode === 'top'}
+                {#if hasPinnedAnyOrbitNodes && controlsPaneMode === 'top'}
                     {#if wheel?.wheelType === 'compass'}
                         <div class="nodeNav nodeNavCompass">
                             <button
-                                    class="nodeToggle navBtn nodeHorizon"
+                                    class="nodeToggle navBtn nodeRegular nodeRegularTopRight"
+                                    class:off={!orbitNodeGroupVisible.regular}
+                                    type="button"
+                                    title="Toggle regular nodes"
+                                    aria-label="Toggle regular nodes"
+                                    aria-pressed={orbitNodeGroupVisible.regular}
+                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('regular')}
+                            >
+                                .
+                            </button>
+                            <button
+                                    class="nodeToggle navBtn nodeHorizon nodeHorizonBottomLeft"
                                     class:off={!orbitNodeGroupVisible.horizon}
                                     type="button"
                                     title="Toggle horizon nodes"
@@ -3807,7 +3820,7 @@
                                 H
                             </button>
                             <button
-                                    class="nodeToggle navBtn nodeCompass"
+                                    class="nodeToggle navBtn nodeCompass nodeCompassBottomRight"
                                     class:off={!orbitNodeGroupVisible.compass}
                                     type="button"
                                     title="Toggle compass nodes"
@@ -3816,17 +3829,6 @@
                                     on:click|stopPropagation={() => toggleOrbitNodeGroup('compass')}
                             >
                                 C
-                            </button>
-                            <button
-                                    class="nodeToggle navBtn nodeRegular"
-                                    class:off={!orbitNodeGroupVisible.regular}
-                                    type="button"
-                                    title="Toggle regular nodes"
-                                    aria-label="Toggle regular nodes"
-                                    aria-pressed={orbitNodeGroupVisible.regular}
-                                    on:click|stopPropagation={() => toggleOrbitNodeGroup('regular')}
-                            >
-                                .
                             </button>
                         </div>
                     {:else}
@@ -4154,7 +4156,7 @@
                                 ≋
                             </button>
 
-                            {#if pinnedBodyId}
+                            {#if hasPinnedAnyOrbitNodes}
                                 <button
                                         class="nodeToggle navBtn nodeAll"
                                         class:off={!showOrbitNodesAny}
@@ -4190,7 +4192,7 @@
                                 +
                             </button>
                         </div>
-                        {#if pinnedBodyId}
+                        {#if hasPinnedAnyOrbitNodes}
                             <div class="nodeNav">
                                 {#if hasPinnedNodalNodes}
                                     <button
@@ -4842,6 +4844,18 @@
     .nodeNavCompass {
         right: -2px;
         bottom: 20px;
+    }
+    .nodeNavCompass .nodeRegularTopRight {
+        grid-column: 2;
+        grid-row: 1;
+    }
+    .nodeNavCompass .nodeHorizonBottomLeft {
+        grid-column: 1;
+        grid-row: 2;
+    }
+    .nodeNavCompass .nodeCompassBottomRight {
+        grid-column: 2;
+        grid-row: 2;
     }
     .orbitToggle {
         width: 34px;

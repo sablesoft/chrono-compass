@@ -16,8 +16,8 @@
     import {DEFAULT_LOCATION_ID} from "../lib/location/types";
     import { isActiveProfileLocked } from '../lib/profile/store';
     export let selectedTs: number;
-    const GRID_COL_GAP = 13;
-    const GRID_ROW_GAP = 13;
+    const GRID_COL_GAP = 10;
+    const GRID_ROW_GAP = 10;
     const GRID_ROW_UNIT = 6;
 
     const compCache = new Map<string, any>();
@@ -209,7 +209,6 @@
     }
 
     function dragStartWheel(id: string, e: DragEvent) {
-        if ($isActiveProfileLocked) return;
         dragWheelId = id;
         const dt = e.dataTransfer;
         if (!dt) return;
@@ -280,7 +279,6 @@
     }
 
     function dropToWheel(targetId: string, e: DragEvent) {
-        if ($isActiveProfileLocked) return;
         e.preventDefault();
         e.stopPropagation();
         if (!dragWheelId || dragWheelId === targetId) return;
@@ -291,7 +289,6 @@
     }
 
     function dropToGrid(e: DragEvent) {
-        if ($isActiveProfileLocked) return;
         e.preventDefault();
         if (!dragWheelId || !packedEl) return;
         const rect = packedEl.getBoundingClientRect();
@@ -368,7 +365,7 @@
                             wheel={row.w}
                             selectedTs={selectedTs}
                             location={row.loc}
-                            dragEnabled={!$isActiveProfileLocked}
+                            dragEnabled={true}
                             onCardDragStart={(e: DragEvent) => dragStartWheel(row.w.id, e)}
                             onCardDragEnd={dragEndWheel}
                     />

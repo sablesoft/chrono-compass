@@ -658,36 +658,34 @@
                             {/each}
                         </div>
                         {/if}
-                        {#if row.durationItem}
+                        {#if row.durationItem || row.items.length > 0}
                             <div class="chipGrid">
-                                {#if row.durationItem.modal}
-                                    <button
-                                        type="button"
-                                        class="ui-tag chipButton"
-                                        on:click={() => {
-                                            modalTitle = row.durationItem?.label ?? 'Duration';
-                                            modalText = row.durationItem?.modal ?? null;
-                                        }}
-                                    >
-                                        <span class="chipLine">
-                                            <span class="chipLabel">{row.durationItem.label}</span>
-                                            <span class="chipDivider" aria-hidden="true"></span>
-                                            <span class="chipValue">{row.durationItem.value}</span>
+                                {#if row.durationItem}
+                                    {#if row.durationItem.modal}
+                                        <button
+                                            type="button"
+                                            class="ui-tag chipButton"
+                                            on:click={() => {
+                                                modalTitle = row.durationItem?.label ?? 'Cycle';
+                                                modalText = row.durationItem?.modal ?? null;
+                                            }}
+                                        >
+                                            <span class="chipLine">
+                                                <span class="chipLabel">{row.durationItem.label}</span>
+                                                <span class="chipDivider" aria-hidden="true"></span>
+                                                <span class="chipValue">{row.durationItem.value}</span>
+                                            </span>
+                                        </button>
+                                    {:else}
+                                        <span class="ui-tag chipStatic">
+                                            <span class="chipLine">
+                                                <span class="chipLabel">{row.durationItem.label}</span>
+                                                <span class="chipDivider" aria-hidden="true"></span>
+                                                <span class="chipValue">{row.durationItem.value}</span>
+                                            </span>
                                         </span>
-                                    </button>
-                                {:else}
-                                    <span class="ui-tag chipStatic">
-                                        <span class="chipLine">
-                                            <span class="chipLabel">{row.durationItem.label}</span>
-                                            <span class="chipDivider" aria-hidden="true"></span>
-                                            <span class="chipValue">{row.durationItem.value}</span>
-                                        </span>
-                                    </span>
+                                    {/if}
                                 {/if}
-                            </div>
-                        {/if}
-                        {#if row.items.length > 0}
-                            <div class="chipGrid">
                                 {#each row.items as item (`${row.id}:${item.id}`)}
                                     {#if item.modal}
                                         <button
@@ -1040,19 +1038,31 @@
     .layoutControls {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 0;
         min-width: 0;
+        border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
+        border-radius: 10px;
+        overflow: hidden;
+        background: color-mix(in oklab, var(--fg), transparent 94%);
     }
 
     .layoutBtn {
-        min-width: 34px;
-        height: 28px;
-        padding: 0 8px;
+        min-width: 28px;
+        height: 24px;
+        padding: 0 6px;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        border-right: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
+        background: transparent;
+    }
+    .layoutBtn:last-child {
+        border-right: 0;
     }
 
     .layoutBtn.isActive {
-        border-color: color-mix(in oklab, var(--accent-live), transparent 46%);
         background: color-mix(in oklab, var(--accent-live), transparent 84%);
+        color: color-mix(in oklab, var(--accent-live), var(--fg) 34%);
     }
 
     .infoSection {
@@ -1122,10 +1132,11 @@
     }
 
     .rowItem {
-        display: grid;
-        grid-template-columns: minmax(120px, 200px) minmax(0, 1fr);
+        display: flex;
+        flex-direction: column;
         gap: 8px;
         align-items: flex-start;
+        width: 100%;
     }
 
     .rowNameBtn {
@@ -1147,6 +1158,7 @@
         align-content: flex-start;
         align-items: flex-start;
         align-self: start;
+        width: 100%;
     }
 
     .chipStatic {
@@ -1565,10 +1577,6 @@
     }
 
     @media (max-width: 780px) {
-        .rowItem {
-            grid-template-columns: 1fr;
-        }
-
         .editorRow {
             grid-template-columns: auto minmax(0, 1fr);
         }
