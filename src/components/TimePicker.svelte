@@ -2,6 +2,7 @@
 <script lang="ts">
     import { onDestroy } from 'svelte';
     import { formatDateTime, ms } from '../lib/format';
+    import { clampTsToWheelTimeframe, resolveWheelTimeframeBounds } from '../lib/wheel/timeframe';
 
     import {
         selectedTs as globalSelectedTs,
@@ -40,6 +41,8 @@
 
     let pickerEl: HTMLInputElement | null = null;
     let showActions = false;
+    let pickerMinValue = '';
+    let pickerMaxValue = '';
 
     function clearFutureTimer() {
         if (futureTimer) { clearInterval(futureTimer); futureTimer = null; }
@@ -151,10 +154,13 @@
     }
 
     function emitChange(next: { ts: number; live: boolean }) {
-        if (onChange) onChange(next, { lockOnApply: value != null });
+        const safeNext = next.live
+            ? next
+            : { ...next, ts: ms(clampTsToWheelTimeframe(next.ts)) };
+        if (onChange) onChange(safeNext, { lockOnApply: value != null });
         else {
-            if (next.live) toggleGlobalLive();
-            else setGlobalSelectedTs(next.ts);
+            if (safeNext.live) toggleGlobalLive();
+            else setGlobalSelectedTs(safeNext.ts);
         }
     }
 
@@ -166,7 +172,7 @@
         if (!Number.isFinite(t)) return;
 
         // ✅ любое ручное выставление времени => live=false
-        emitChange({ ts: t, live: false });
+        emitChange({ ts: ms(clampTsToWheelTimeframe(t)), live: false });
     }
 
     function openPicker() {
@@ -183,7 +189,7 @@
         if (raw == null) return;
         const t = parseExtendedLocalInputValue(raw);
         if (!Number.isFinite(t)) return;
-        emitChange({ ts: t, live: false });
+        emitChange({ ts: ms(clampTsToWheelTimeframe(t)), live: false });
         showActions = false;
     }
 
@@ -233,6 +239,13 @@
             ? ms(liveTs)
             : ms((value as any).ts ?? Date.now());
         recomputeStateAndTimers();
+    }
+    $: {
+        const bounds = resolveWheelTimeframeBounds();
+        const minTs = bounds?.minTs;
+        const maxTs = bounds?.maxTs;
+        pickerMinValue = Number.isFinite(minTs) ? toNativeLocalInputValue(minTs as number) : '';
+        pickerMaxValue = Number.isFinite(maxTs) ? toNativeLocalInputValue(maxTs as number) : '';
     }
 
     onDestroy(() => {
@@ -298,6 +311,8 @@
                 class="hiddenPicker"
                 type="datetime-local"
                 value={toNativeLocalInputValue(currentTs)}
+                min={pickerMinValue}
+                max={pickerMaxValue}
                 on:input={handlePickerInput}
         />
     </div>

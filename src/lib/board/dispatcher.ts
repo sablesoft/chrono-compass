@@ -2,7 +2,8 @@
 import type { WheelSolveResult, CycleSolveResult } from './runtime';
 import type { BoardWheel } from './types';
 import type { ObjId } from '../catalog';
-import { platoLookerAnchor } from '../math/deprecated/plato';
+import { platoLookerAnchor } from '../math/plato';
+import { isTsWithinWheelTimeframe } from '../wheel/timeframe';
 
 import { getCycle, putCycleSolved } from '../cycle/store';
 
@@ -85,6 +86,26 @@ export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: Solv
     const dbg = dbgApi(ctx.dbg);
 
     const wheelLike = toCacheWheelLike(wheel);
+    const entry = getWheelEntry((wheel as any).wheelType);
+
+    if (!isTsWithinWheelTimeframe(ctx.ts)) {
+        if (entry.ui === 'compass') {
+            return {
+                ok: false,
+                kind: 'compass',
+                ts: ctx.ts,
+                reason: 'Requested timestamp is outside supported global timeframe',
+                bodies: []
+            } as WheelSolveResult;
+        }
+        return {
+            ok: false,
+            kind: 'cycle',
+            ts: ctx.ts,
+            reason: 'Requested timestamp is outside supported global timeframe',
+            spokes: []
+        } as WheelSolveResult;
+    }
 
     // 1) try cache (runtime -> idb -> runtime update inside store)
     try {

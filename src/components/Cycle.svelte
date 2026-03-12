@@ -52,9 +52,10 @@
 
     import { DEFAULT_LOCATION_ID, type Location } from '../lib/location/types';
     import { formatLabelTitleCaseUi, formatSpokeCodeUi, type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
+    import { clampTsToWheelTimeframe, resolveWheelTimeframeBounds } from '../lib/wheel/timeframe';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
-    import { platoLookerAnchor } from '../lib/math/deprecated/plato';
+    import { platoLookerAnchor } from '../lib/math/plato';
 
     import type { MarkerCluster } from '../lib/wheel/types';
     import { formatCycleDurationFromSpokes, typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
@@ -571,6 +572,10 @@
     let spokeTimes: number[] = [];
     let spokeCodes: SpokeKey[] = [];
     let boundaryTimes: number[] = [];
+    let spokeMomentDisabled: boolean[] = [];
+    let boundaryMomentDisabled: boolean[] = [];
+    let prevCycleDisabled = true;
+    let nextCycleDisabled = true;
 
     $: {
         const times: number[] = [];
@@ -948,8 +953,9 @@
 
     function jumpTo(ts0: number, reason = 'jump') {
         if (!Number.isFinite(ts0)) return;
+        const boundedTs = clampTsToWheelTimeframe(ts0);
         onUserActivity();
-        const pickedTs = ms(ts0);
+        const pickedTs = ms(boundedTs);
         dbg.log(`${wheel?.wheelType} ${reason}`, {
             from: new Date(selectedTs).toISOString(),
             to: new Date(pickedTs).toISOString(),
@@ -1037,6 +1043,44 @@
         // to reliably step into the next cycle window (cache buckets are coarser).
         return i === 16 ? (t + NEXT_CYCLE_PICK_EPS_MS) : t;
     }
+
+    $: globalTimeframeBounds = resolveWheelTimeframeBounds();
+    $: spokeMomentDisabled = (() => {
+        const out: boolean[] = [];
+        for (let i = 0; i < 17; i++) {
+            const t = spokeTimes?.[i];
+            if (!Number.isFinite(t)) {
+                out[i] = true;
+                continue;
+            }
+            const minTs = globalTimeframeBounds?.minTs;
+            const maxTs = globalTimeframeBounds?.maxTs;
+            out[i] = !!(
+                (Number.isFinite(minTs) && t < (minTs as number)) ||
+                (Number.isFinite(maxTs) && t > (maxTs as number))
+            );
+        }
+        return out;
+    })();
+    $: boundaryMomentDisabled = (() => {
+        const out: boolean[] = [];
+        for (let i = 0; i < 16; i++) {
+            const t = boundaryTimes?.[i];
+            if (!Number.isFinite(t)) {
+                out[i] = true;
+                continue;
+            }
+            const minTs = globalTimeframeBounds?.minTs;
+            const maxTs = globalTimeframeBounds?.maxTs;
+            out[i] = !!(
+                (Number.isFinite(minTs) && t < (minTs as number)) ||
+                (Number.isFinite(maxTs) && t > (maxTs as number))
+            );
+        }
+        return out;
+    })();
+    $: prevCycleDisabled = (spokeMomentDisabled?.[0] ?? true);
+    $: nextCycleDisabled = (spokeMomentDisabled?.[16] ?? true);
 
     function handleSpokeActivate(i: number) {
         const t = resolveSpokePickTs(i);
@@ -1651,24 +1695,33 @@
                         {@const pB = polarToXY(rOuter * 1.1, a)}
                         {@const pHit = polarToXY(rOuter, a)}
                         {@const key = `boundary:${i}`}
+                        {@const boundaryDisabled = (boundaryMomentDisabled?.[i] ?? true)}
 
                         <g class="tick"
+                           class:disabled={boundaryDisabled}
                            role="button"
-                           tabindex="0"
+                           tabindex={boundaryDisabled ? -1 : 0}
+                           aria-disabled={boundaryDisabled}
                            aria-label={`House boundary ${i + 1}`}
                            on:click={(e) => {
+                               if (boundaryDisabled) return;
                                const p = boundaryPayload(i);
                                if (!canShowCycleTooltip(p)) return;
                                tip.openNow(e, p);
                            }}
-                           on:dblclick={() => handleBoundaryActivate(i)}
+                           on:dblclick={() => {
+                               if (boundaryDisabled) return;
+                               handleBoundaryActivate(i);
+                           }}
                            on:mouseenter={(e) => {
+                               if (boundaryDisabled) return;
                                const p = boundaryPayload(i);
                                if (!canShowCycleTooltip(p)) return;
                                tip.hoverEnter(e, p, key);
                            }}
                            on:mouseleave={() => tip.hoverLeave(key)}
                            on:keydown={(e) => {
+                               if (boundaryDisabled) return;
                                if (e.key === 'Enter' || e.key === ' ') {
                                    e.preventDefault();
                                    handleBoundaryActivate(i);
@@ -1694,6 +1747,7 @@
                         {@const pt = polarToXY(rLabel, a)}
                         {@const key = `spoke:${i}`}
                         {@const isActive = i === activeSpokeIndex}
+                        {@const spokeDisabled = (spokeMomentDisabled?.[i] ?? true)}
 
                         {@const code = (spokeCodes?.[i] ?? (i === 16 ? 'E_next' : labels[i]))}
                         {@const labelEmoji = emojiAtLabel(code)}
@@ -1724,23 +1778,31 @@
 
                             <!-- интерактив только тут -->
                             <g class="spokeHit"
+                               class:disabled={spokeDisabled}
                                style="pointer-events: all;"
                                role="button"
-                               tabindex="0"
+                               tabindex={spokeDisabled ? -1 : 0}
+                               aria-disabled={spokeDisabled}
                                aria-label={`Spoke ${label}`}
                                on:click={(e) => {
+                                   if (spokeDisabled) return;
                                    const p = spokePayload(i);
                                    if (!canShowCycleTooltip(p)) return;
                                    tip.openNow(e, p);
                                }}
-                               on:dblclick={() => handleSpokeActivate(i)}
+                               on:dblclick={() => {
+                                   if (spokeDisabled) return;
+                                   handleSpokeActivate(i);
+                               }}
                                on:mouseenter={(e) => {
+                                   if (spokeDisabled) return;
                                    const p = spokePayload(i);
                                    if (!canShowCycleTooltip(p)) return;
                                    tip.hoverEnter(e, p, key);
                                }}
                                on:mouseleave={() => tip.hoverLeave(key)}
                                on:keydown={(e) => {
+                                   if (spokeDisabled) return;
                                    if (e.key === 'Enter' || e.key === ' ') {
                                        e.preventDefault();
                                        handleSpokeActivate(i);
@@ -1782,26 +1844,35 @@
                                 {@const pt2 = { x: pt.x + 5, y: pt.y + VB * 0.06 }}
                                 {@const key = `spoke:${i}`}
                                 {@const ePlusActive = activeSpokeIndex === 16}
+                                {@const ePlusDisabled = (spokeMomentDisabled?.[16] ?? true)}
 
                                 <!-- E+ отдельная интерактивная зона -->
                                 <g class="eplus spokeHit"
+                                   class:disabled={ePlusDisabled}
                                    style="pointer-events: all;"
                                    role="button"
-                                   tabindex="0"
+                                   tabindex={ePlusDisabled ? -1 : 0}
+                                   aria-disabled={ePlusDisabled}
                                    aria-label="Spoke E+"
                                    on:click={(e) => {
+                                       if (ePlusDisabled) return;
                                        const p = spokePayload(16);
                                        if (!canShowCycleTooltip(p)) return;
                                        tip.openNow(e, p);
                                    }}
-                                   on:dblclick={() => handleSpokeActivate(16)}
+                                   on:dblclick={() => {
+                                       if (ePlusDisabled) return;
+                                       handleSpokeActivate(16);
+                                   }}
                                    on:mouseenter={(e) => {
+                                       if (ePlusDisabled) return;
                                        const p = spokePayload(16);
                                        if (!canShowCycleTooltip(p)) return;
                                        tip.hoverEnter(e, p, key);
                                    }}
                                    on:mouseleave={() => tip.hoverLeave(key)}
                                    on:keydown={(e) => {
+                                       if (ePlusDisabled) return;
                                        if (e.key === 'Enter' || e.key === ' ') {
                                            e.preventDefault();
                                            handleSpokeActivate(16);
@@ -1935,8 +2006,20 @@
                 </svg>
 
                 <div class="cycleNav">
-                    <button class="cycleUp navBtn" title="Next Cycle" on:click={() => shiftCycle(1)}>▲</button>
-                    <button class="cycleDown navBtn" title="Previous Cycle" on:click={() => shiftCycle(-1)}>▼</button>
+                    <button
+                        class="cycleUp navBtn"
+                        class:disabled={nextCycleDisabled}
+                        title="Next Cycle"
+                        disabled={nextCycleDisabled}
+                        on:click={() => shiftCycle(1)}
+                    >▲</button>
+                    <button
+                        class="cycleDown navBtn"
+                        class:disabled={prevCycleDisabled}
+                        title="Previous Cycle"
+                        disabled={prevCycleDisabled}
+                        on:click={() => shiftCycle(-1)}
+                    >▼</button>
                 </div>
                 <div class="cycleNav cycleNavTopLeft">
                     <button
@@ -2257,6 +2340,15 @@
         transition: stroke-opacity 120ms ease;
     }
     .tick:hover .tickLine { stroke-opacity: 0.75; }
+    .tick.disabled {
+        cursor: not-allowed;
+    }
+    .tick.disabled .tickLine {
+        stroke-opacity: 0.14;
+    }
+    .tick.disabled:hover .tickLine {
+        stroke-opacity: 0.14;
+    }
     .tick:focus,
     .tick:focus-visible {
         outline: none;
@@ -2303,6 +2395,22 @@
     /* Курсор должен быть на элементе, который реально "ховерится" */
     .spokeHit .spokeHalo { cursor: pointer; pointer-events: all; }
     .spokeHit .spokeLabel { cursor: pointer; pointer-events: none; } /* чтобы текст не перехватывал */
+    .spokeHit.disabled .spokeHalo,
+    .spokeHit.disabled .spokeLabel {
+        cursor: not-allowed;
+    }
+    .spokeHit.disabled .spokeHalo {
+        stroke-opacity: 0.28;
+    }
+    .spokeHit.disabled .spokeLabel {
+        fill-opacity: 0.35;
+    }
+    .spokeHit.disabled:hover .spokeLabel {
+        font-weight: 600;
+    }
+    .spokeHit.disabled:hover .spokeHalo {
+        stroke-width: 3;
+    }
 
     .marker { cursor: pointer; }
     .marker:hover circle { stroke-opacity: 0.75; }
@@ -2398,6 +2506,11 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+    }
+    .cycleNav .navBtn:disabled,
+    .cycleNav .navBtn.disabled {
+        cursor: not-allowed;
+        opacity: 0.45;
     }
     .markerScaleBtn {
         width: 30px;
