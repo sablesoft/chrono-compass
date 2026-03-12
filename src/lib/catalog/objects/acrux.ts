@@ -15,6 +15,9 @@ export const Acrux = {
         color: '#aabfff',
         distancePc: 98.7166,
         apparentMagnitude: 0.77,
+        properMotionRaMasYr: -35.37,
+        properMotionDecMasYr: -14.73,
+        radialVelocityKmS: -11,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -15,6 +15,9 @@ export const Betelgeuse = {
         color: '#ffcc6f',
         distancePc: 152.6717,
         apparentMagnitude: 0.45,
+        properMotionRaMasYr: 27.33,
+        properMotionDecMasYr: 10.86,
+        radialVelocityKmS: 21,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

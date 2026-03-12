@@ -14,6 +14,9 @@ export const Graffias = {
         color: '#d7e1ff',
         distancePc: 123.9155,
         apparentMagnitude: 4.84,
+        properMotionRaMasYr: -6.75,
+        properMotionDecMasYr: -24.89,
+        radialVelocityKmS: -1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

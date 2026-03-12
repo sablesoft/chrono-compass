@@ -14,6 +14,9 @@ export const ZubenElschemali = {
         color: '#b6ddff',
         distancePc: 56.7538,
         apparentMagnitude: 2.61,
+        properMotionRaMasYr: -96.39,
+        properMotionDecMasYr: -20.76,
+        radialVelocityKmS: -35,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

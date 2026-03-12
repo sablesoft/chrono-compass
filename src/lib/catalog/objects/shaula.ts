@@ -14,6 +14,9 @@ export const Shaula = {
         color: '#cfe0ff',
         distancePc: 175.1312,
         apparentMagnitude: 1.62,
+        properMotionRaMasYr: -8.9,
+        properMotionDecMasYr: -29.95,
+        radialVelocityKmS: -3,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

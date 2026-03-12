@@ -14,6 +14,9 @@ export const Vega = {
         color: '#d8e4ff',
         distancePc: 7.6788,
         apparentMagnitude: 0.03,
+        properMotionRaMasYr: 201.02,
+        properMotionDecMasYr: 287.46,
+        radialVelocityKmS: -12.1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

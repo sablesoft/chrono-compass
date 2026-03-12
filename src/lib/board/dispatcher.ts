@@ -1,6 +1,8 @@
 // src/lib/board/dispatcher.ts
 import type { WheelSolveResult, CycleSolveResult } from './runtime';
 import type { BoardWheel } from './types';
+import type { ObjId } from '../catalog';
+import { platoLookerAnchor } from '../math/deprecated/plato';
 
 import { getCycle, putCycleSolved } from '../cycle/store';
 
@@ -58,6 +60,23 @@ async function solveRaw(wheel: BoardWheel | CacheWheelLike, ctx: SolveCtx): Prom
     return entry.solve(input);
 }
 
+function attachTemplateUpdater(
+    wheelLike: CacheWheelLike,
+    res: WheelSolveResult
+): WheelSolveResult {
+    if (!res || typeof res !== 'object') return res;
+
+    if (String(wheelLike.wheelType) === 'plato') {
+        const looker = (wheelLike.roles as any)?.looker as ObjId | undefined;
+        return {
+            ...(res as any),
+            templateConfigUpdater: () => ({ ui: { looker: platoLookerAnchor(looker) } })
+        } as WheelSolveResult;
+    }
+
+    return res;
+}
+
 /**
  * Single entry point.
  * Cache policy + runtime/idb are encapsulated in cycle/store.
@@ -79,10 +98,13 @@ export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: Solv
                     } catch (e) {
                         dbg.log('resolveWheel.cache.put(backfill) failed', e);
                     }
-                    return recomputed as any;
+                    return attachTemplateUpdater(wheelLike, recomputed as any) as any;
                 }
             }
-            return { ok: true, kind: 'cycle', ts: ctx.ts, spokes: hit.spokes } as any;
+            return attachTemplateUpdater(
+                wheelLike,
+                { ok: true, kind: 'cycle', ts: ctx.ts, spokes: hit.spokes } as any
+            ) as any;
         }
     } catch (e) {
         dbg.log('resolveWheel.cache.get failed', e);
@@ -103,5 +125,5 @@ export async function resolveWheel(wheel: BoardWheel | CacheWheelLike, ctx: Solv
         }
     }
 
-    return res;
+    return attachTemplateUpdater(wheelLike, res);
 }

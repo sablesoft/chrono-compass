@@ -14,6 +14,9 @@ export const Hamal = {
         color: '#ffcb8a',
         distancePc: 20.1775,
         apparentMagnitude: 2.01,
+        properMotionRaMasYr: 190.73,
+        properMotionDecMasYr: -145.77,
+        radialVelocityKmS: -14.4,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

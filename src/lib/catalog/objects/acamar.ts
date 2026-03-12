@@ -14,6 +14,9 @@ export const Acamar = {
         color: '#d7e2ff',
         distancePc: 49.4316,
         apparentMagnitude: 2.88,
+        properMotionRaMasYr: -53.53,
+        properMotionDecMasYr: 25.71,
+        radialVelocityKmS: 12,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

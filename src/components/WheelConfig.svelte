@@ -261,6 +261,12 @@
         targetSearch = value;
     }
 
+    function onRoleSearchInput(role: RoleName, e: Event) {
+        const target = e.target;
+        if (!(target instanceof HTMLInputElement)) return;
+        setRoleSearch(role, target.value);
+    }
+
     function filteredRoleOptions(role: RoleName): ObjId[] {
         const items = optionsForRole(spec, role, effectiveDraftRoles);
         const query = roleSearchValue(role).trim().toLowerCase();
@@ -322,7 +328,7 @@
                                 type="search"
                                 placeholder={`Search ${r}`}
                                 value={roleSearchValue(r)}
-                                on:input={(e) => setRoleSearch(r, e.currentTarget.value)}
+                                on:input={(e) => onRoleSearchInput(r, e)}
                             />
                             <div class="checks checksScrollable">
                                 {#each filteredRoleOptions(r) as id (id)}

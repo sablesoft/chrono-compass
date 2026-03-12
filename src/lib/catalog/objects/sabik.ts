@@ -14,6 +14,9 @@ export const Sabik = {
         color: '#e6edff',
         distancePc: 27.0929,
         apparentMagnitude: 2.43,
+        properMotionRaMasYr: 41.16,
+        properMotionDecMasYr: 97.65,
+        radialVelocityKmS: -2.4,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

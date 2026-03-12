@@ -14,6 +14,9 @@ export const Avior = {
         color: '#ffe0b5',
         distancePc: 185.5287,
         apparentMagnitude: 1.86,
+        properMotionRaMasYr: -25.34,
+        properMotionDecMasYr: 22.72,
+        radialVelocityKmS: 2,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

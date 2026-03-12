@@ -1,5 +1,5 @@
 // src/lib/board/runtime.ts
-import type { ObjId } from '../catalog';
+import type { ObjId, RoleName, EmojiPlacementInput } from '../catalog';
 import type { Location } from '../location/types';
 import type { SpokeKey } from '../wheel/types';
 import type { WheelType, WheelMeta } from '../catalog';
@@ -34,14 +34,20 @@ export type CycleSpoke<TMeta = any> = {
     tags?: string[];
 };
 
+export type WheelTemplateUiPatch = Partial<Record<RoleName, EmojiPlacementInput>>;
+export type WheelTemplatePatch = {
+    ui?: WheelTemplateUiPatch;
+};
+export type WheelTemplateConfigUpdater = () => WheelTemplatePatch | null | undefined;
+
 // 16 + 1
 export type CycleSolveResult<TMeta = any> =
-    | { ok: true; kind: 'cycle'; ts: number; spokes: CycleSpoke<TMeta>[] }
-    | { ok: false; kind: 'cycle'; ts: number; reason: string; spokes: CycleSpoke<TMeta>[] };
+    | { ok: true; kind: 'cycle'; ts: number; spokes: CycleSpoke<TMeta>[]; templateConfigUpdater?: WheelTemplateConfigUpdater }
+    | { ok: false; kind: 'cycle'; ts: number; reason: string; spokes: CycleSpoke<TMeta>[]; templateConfigUpdater?: WheelTemplateConfigUpdater };
 
 // Compass - отдельный вид результата
 export type CompassSolveResult<TBody = any> =
-    | { ok: true; kind: 'compass'; ts: number; bodies: TBody[] }
-    | { ok: false; kind: 'compass'; ts: number; reason: string; bodies: TBody[] };
+    | { ok: true; kind: 'compass'; ts: number; bodies: TBody[]; templateConfigUpdater?: WheelTemplateConfigUpdater }
+    | { ok: false; kind: 'compass'; ts: number; reason: string; bodies: TBody[]; templateConfigUpdater?: WheelTemplateConfigUpdater };
 
 export type WheelSolveResult = CycleSolveResult | CompassSolveResult;

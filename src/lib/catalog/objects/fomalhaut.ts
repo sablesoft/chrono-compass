@@ -14,6 +14,9 @@ export const Fomalhaut = {
         color: '#dff5ff',
         distancePc: 7.7037,
         apparentMagnitude: 1.17,
+        properMotionRaMasYr: 329.22,
+        properMotionDecMasYr: -164.22,
+        radialVelocityKmS: 6.1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

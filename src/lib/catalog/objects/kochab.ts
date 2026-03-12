@@ -14,6 +14,9 @@ export const Kochab = {
         color: '#efe6c8',
         distancePc: 40.1446,
         apparentMagnitude: 2.07,
+        properMotionRaMasYr: -32.29,
+        properMotionDecMasYr: 11.91,
+        radialVelocityKmS: 17,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

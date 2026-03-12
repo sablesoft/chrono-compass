@@ -54,6 +54,7 @@
     import { formatLabelTitleCaseUi, formatSpokeCodeUi, type WheelObserverState, type WheelTimeState, type SpokeKey, SPOKES_ORDER } from '../lib/wheel/types';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
+    import { platoLookerAnchor } from '../lib/math/deprecated/plato';
 
     import type { MarkerCluster } from '../lib/wheel/types';
     import { formatCycleDurationFromSpokes, typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
@@ -471,6 +472,7 @@
 
     let solveDoneForConfig = false;
     let solveDoneConfigKey = '';
+    let templateUiOverride: Partial<Record<RoleName, EmojiPlacementInput>> | null = null;
     $: if (solveDoneConfigKey !== solveConfigKey) {
         solveDoneConfigKey = solveConfigKey;
         solveDoneForConfig = false;
@@ -499,6 +501,18 @@
         return (xs ?? []).slice().sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
     }
 
+    function applyTemplateConfigFromResponse(res: WheelSolveResult | null | undefined) {
+        const updater = (res as any)?.templateConfigUpdater;
+        if (typeof updater !== 'function') {
+            templateUiOverride = null;
+            return;
+        }
+        const patch = updater();
+        templateUiOverride = (patch && typeof patch === 'object' && patch.ui && typeof patch.ui === 'object')
+            ? (patch.ui as Partial<Record<RoleName, EmojiPlacementInput>>)
+            : null;
+    }
+
     async function ensureCycleForTs(ts: number) {
         const myRun = ++ensureRunId;
         solvePending = true;
@@ -521,8 +535,8 @@
             };
 
             const res: WheelSolveResult = await resolveWheel(wheel as any, ctx);
-
             if (ensureRunId !== myRun) return;
+            applyTemplateConfigFromResponse(res);
 
             if (!res || (res as any).kind !== 'cycle') {
                 solveReason = 'Not a cycle result';
@@ -777,35 +791,41 @@
     $: {
         spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
 
-        const ui = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
-        const draws: Array<{ anchor: UiAnchor; emoji: string; color?: string | null }> = [];
+            const baseUi = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
+            const uiMerged = templateUiOverride ? { ...(baseUi ?? {}), ...templateUiOverride } : baseUi;
+            const draws: Array<{ anchor: UiAnchor; emoji: string; color?: string | null }> = [];
 
         const focusId = (wheel?.roles as any)?.focus as ObjId | null;
         const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
         const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
 
-        if (ui?.focus && focusId) {
+        if (uiMerged?.focus && focusId) {
             const e = bodyEmoji(focusId);
             const c = bodyColor(focusId);
             if (e) {
-                for (const a of parsePlacements(ui.focus)) draws.push({ anchor: a, emoji: e, color: c });
+                for (const a of parsePlacements(uiMerged.focus)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
-        if (ui?.target && targetId) {
+        if (uiMerged?.target && targetId) {
             const e = bodyEmoji(targetId);
             const c = bodyColor(targetId);
             if (e) {
-                for (const a of parsePlacements(ui.target)) draws.push({ anchor: a, emoji: e, color: c });
+                for (const a of parsePlacements(uiMerged.target)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
-        if (ui?.looker) {
-            const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
+        const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
+        const fallbackLookerPlacement: EmojiPlacementInput | undefined =
+            (!uiMerged?.looker && wheel?.wheelType === 'plato' && lookerId)
+                ? platoLookerAnchor(lookerId)
+                : undefined;
+        const lookerPlacement = uiMerged?.looker ?? fallbackLookerPlacement;
+        if (lookerPlacement) {
             const e = bodyEmoji(lookerId);
             const c = bodyColor(lookerId);
             if (e) {
-                for (const a of parsePlacements(ui.looker)) draws.push({ anchor: a, emoji: e, color: c });
+                for (const a of parsePlacements(lookerPlacement)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 

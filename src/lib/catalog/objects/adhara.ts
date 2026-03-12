@@ -14,6 +14,9 @@ export const Adhara = {
         color: '#dce7ff',
         distancePc: 124.2237,
         apparentMagnitude: 1.5,
+        properMotionRaMasYr: 2.63,
+        properMotionDecMasYr: 2.29,
+        radialVelocityKmS: 27,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -14,6 +14,9 @@ export const Alnair = {
         color: '#d6e2ff',
         distancePc: 30.9692,
         apparentMagnitude: 1.73,
+        properMotionRaMasYr: 127.6,
+        properMotionDecMasYr: -147.91,
+        radialVelocityKmS: 10.9,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

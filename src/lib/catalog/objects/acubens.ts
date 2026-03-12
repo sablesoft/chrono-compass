@@ -14,6 +14,9 @@ export const Acubens = {
         color: '#d9e6ff',
         distancePc: 57.7368,
         apparentMagnitude: 4.26,
+        properMotionRaMasYr: 41.45,
+        properMotionDecMasYr: -29.22,
+        radialVelocityKmS: -14,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

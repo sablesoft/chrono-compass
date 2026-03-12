@@ -1,5 +1,5 @@
 import type { CycleSolveResult, CycleSpoke, WheelInput } from '../board/runtime';
-import type { ObjId } from '../catalog';
+import { objects, type ObjId } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
 import { buildSpokeTimes, type Anchors } from '../wheel/spokes';
@@ -47,11 +47,15 @@ export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<Pl
     const looker = input.looker as ObjId | undefined;
     const target = toTargetId(input.target as ObjId | ObjId[]);
 
-    if (looker !== 'ref:galactic-center' || target !== 'Earth') {
-        return fail('Plato wheel: invalid roles (allowed only looker=ref:galactic-center, target=Earth)');
+    if (!looker || target !== 'Earth') {
+        return fail('Plato wheel: invalid roles (requires looker reference and target=Earth)');
+    }
+    const lookerObj = (objects as any)?.[looker] as { kind?: string } | undefined;
+    if (!lookerObj || lookerObj.kind !== 'reference') {
+        return fail('Plato wheel: looker must be a reference object');
     }
 
-    const anchors = getPlatoAnchors(ts);
+    const anchors = getPlatoAnchors(ts, looker);
     if (!anchors) return fail('Plato wheel: deprecated solver returned no anchors');
 
     const spokes = anchorsToSpokes(anchors);

@@ -14,6 +14,9 @@ export const Achernar = {
         color: '#cfe0ff',
         distancePc: 42.7532,
         apparentMagnitude: 0.45,
+        properMotionRaMasYr: 88.02,
+        properMotionDecMasYr: -40.08,
+        radialVelocityKmS: 16,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

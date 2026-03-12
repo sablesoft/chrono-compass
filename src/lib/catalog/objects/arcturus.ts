@@ -14,6 +14,9 @@ export const Arcturus = {
         color: '#ffb47e',
         distancePc: 11.2575,
         apparentMagnitude: -0.05,
+        properMotionRaMasYr: -1093.45,
+        properMotionDecMasYr: -1999.4,
+        radialVelocityKmS: -5,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

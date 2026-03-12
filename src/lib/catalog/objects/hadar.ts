@@ -14,6 +14,9 @@ export const Hadar = {
         color: '#cfe0ff',
         distancePc: 120.1922,
         apparentMagnitude: 0.61,
+        properMotionRaMasYr: -33.96,
+        properMotionDecMasYr: -25.06,
+        radialVelocityKmS: 6,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

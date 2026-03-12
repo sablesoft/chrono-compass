@@ -14,6 +14,9 @@ export const ZubenElakrab = {
         color: '#c9dfff',
         distancePc: 263.8523,
         apparentMagnitude: 3.91,
+        properMotionRaMasYr: 13.77,
+        properMotionDecMasYr: -14.94,
+        radialVelocityKmS: 0,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

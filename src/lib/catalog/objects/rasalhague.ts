@@ -14,6 +14,9 @@ export const Rasalhague = {
         color: '#edf2ff',
         distancePc: 14.8966,
         apparentMagnitude: 2.08,
+        properMotionRaMasYr: 110.08,
+        properMotionDecMasYr: -222.61,
+        radialVelocityKmS: 12.6,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

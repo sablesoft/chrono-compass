@@ -14,6 +14,9 @@ export const Denebola = {
         color: '#f2f3ff',
         distancePc: 11,
         apparentMagnitude: 2.14,
+        properMotionRaMasYr: -499.02,
+        properMotionDecMasYr: -113.78,
+        radialVelocityKmS: -0.2,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

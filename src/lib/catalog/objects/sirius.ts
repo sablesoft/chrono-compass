@@ -15,6 +15,9 @@ export const Sirius = {
         color: '#cad7ff',
         distancePc: 2.6371,
         apparentMagnitude: -1.44,
+        properMotionRaMasYr: -546.01,
+        properMotionDecMasYr: -1223.08,
+        radialVelocityKmS: -9.4,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

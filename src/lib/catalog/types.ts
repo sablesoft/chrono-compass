@@ -65,6 +65,9 @@ export type ReferenceMeta = {
     // Legacy distance unit kept only for migration compatibility.
     distanceLy?: number;
     apparentMagnitude?: number; // visible magnitude from Earth; smaller is brighter
+    properMotionRaMasYr?: number; // proper motion in right ascension, mas/year
+    properMotionDecMasYr?: number; // proper motion in declination, mas/year
+    radialVelocityKmS?: number; // line-of-sight velocity, km/s
 };
 
 export type ObjMeta =

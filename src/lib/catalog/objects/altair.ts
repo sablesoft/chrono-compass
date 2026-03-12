@@ -15,6 +15,9 @@ export const Altair = {
         color: '#cad7ff',
         distancePc: 5.1294,
         apparentMagnitude: 0.76,
+        properMotionRaMasYr: 536.82,
+        properMotionDecMasYr: 385.54,
+        radialVelocityKmS: -26.1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

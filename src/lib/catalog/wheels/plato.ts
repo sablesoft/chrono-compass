@@ -1,4 +1,4 @@
-import type { WheelSpec } from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const plato = {
     type: 'plato',
@@ -26,13 +26,12 @@ export const plato = {
         'target': ['engine_body']
     },
     ui: {
-        'looker': 'S',
         'target': 'center',
     },
     roles: [
         {
-            'looker': ['ref:galactic-center'],
-            'target': ['Earth']
+            looker: REFERENCES,
+            target : ['Earth']
         }
     ],
 } satisfies Extract<WheelSpec, { type: 'plato' }>;

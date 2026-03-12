@@ -14,6 +14,9 @@ export const Alfard = {
         color: '#f0d6b5',
         distancePc: 55.2791,
         apparentMagnitude: 1.99,
+        properMotionRaMasYr: -14.49,
+        properMotionDecMasYr: 33.25,
+        radialVelocityKmS: -4,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

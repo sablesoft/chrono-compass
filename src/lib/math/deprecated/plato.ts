@@ -3,6 +3,8 @@ import type { Anchors } from '../../wheel/spokes';
 import { angleFromAnchors } from './angle';
 import { ms } from '../../format';
 import { debug } from '../../debug';
+import { objects, type ObjId, type ReferenceMeta } from '../../catalog';
+import { refUnit } from '../vector';
 
 const dbg = debug('plato', '🧭');
 const { group, log, warn } = dbg;
@@ -82,7 +84,7 @@ function normalize01(x: number) {
 // Galactic center (ICRS/J2000) approx
 const RA_GC = degToRad((17 + 45 / 60 + 40.04 / 3600) * 15);
 const DEC_GC = degToRad(-(29 + 0 / 60 + 28.1 / 3600));
-const G = raDecToUnit(RA_GC, DEC_GC);
+const DEFAULT_LOOKER = raDecToUnit(RA_GC, DEC_GC);
 
 // Obliquity (J2000)
 const EPS = degToRad(23.439291);
@@ -98,31 +100,20 @@ const PERIOD_MS = PRECESSION_YEARS * MS_PER_YEAR;
 // J2000 epoch
 const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0, 0);
 
-// Cone half-angle (reuse EPS)
-const CONE_HALF_ANGLE = EPS;
 const PRECESSION_RAD_PER_MS = (2 * Math.PI) / PERIOD_MS;
 
 // GC alignment is SOUTH => φ=0 corresponds to S => +0.75 cycle from E
 const SOUTH_SHIFT = 0.75;
+const NORTH_SHIFT = 0.25;
 
 // -------------------------
 // Earth axis model
 // -------------------------
-function stablePerpTo(n: V3): V3 {
-    const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
-    const tmp: V3 =
-        ax <= ay && ax <= az ? { x: 1, y: 0, z: 0 } :
-            ay <= ax && ay <= az ? { x: 0, y: 1, z: 0 } :
-                { x: 0, y: 0, z: 1 };
-    return normalizeSafeDbg(cross(n, tmp), { x: 1, y: 0, z: 0 }, 'cross');
-}
-
 function earthAxisAt(ts: number): V3 {
-    const psi = (ts - J2000_MS) * PRECESSION_RAD_PER_MS;
-
-    const perp = stablePerpTo(ECL_POLE);
-    const base = rotateAroundAxis(ECL_POLE, perp, CONE_HALF_ANGLE);
-
+    const psi = -(ts - J2000_MS) * PRECESSION_RAD_PER_MS;
+    // Physical anchor: at J2000 the north Earth axis is +Z in equatorial J2000 frame.
+    // Then precession is modeled as uniform rotation around ecliptic pole.
+    const base: V3 = { x: 0, y: 0, z: 1 };
     return normalize(rotateAroundAxis(base, ECL_POLE, psi));
 }
 
@@ -130,19 +121,23 @@ function earthAxisAt(ts: number): V3 {
 // Phase
 // -------------------------
 export function getPlatoPhaseRad(ts: number) {
+    return getPlatoPhaseRadForLooker(ts, DEFAULT_LOOKER);
+}
+
+function getPlatoPhaseRadForLooker(ts: number, lookerUnit: V3) {
     ts = ms(ts);
 
     return group(`phase ts=${new Date(ts).toISOString()}`, () => {
         const P = earthAxisAt(ts);
 
         const Pproj = projectToPlane(P, ECL_POLE);
-        const Gproj = projectToPlane(G, ECL_POLE);
+        const Gproj = projectToPlane(lookerUnit, ECL_POLE);
 
         // здесь чаще всего и "умирает" геометрия (если вектор почти параллелен ECL_POLE)
         const Pp = normalizeSafeDbg(Pproj, { x: 1, y: 0, z: 0 }, 'Pproj');
         const Gp = normalizeSafeDbg(Gproj, { x: 0, y: 1, z: 0 }, 'Gproj');
 
-        const ang = orientedAngle(Gp, Pp, ECL_POLE);
+        const ang = orientedAngle(Pp, Gp, ECL_POLE);
 
         // опционально: логируй только если хочешь видеть, что вообще считается
         log('phase', {
@@ -159,46 +154,86 @@ export function getPlatoPhaseRad(ts: number) {
 // Anchors (stable, boundary-safe)
 // -------------------------
 
-// Compute E0: the start of the E-cycle that contains J2000 (or immediately before it)
-const phi0 = getPlatoPhaseRad(J2000_MS);
-if (!Number.isFinite(phi0)) {
-    warn('phi0 is not finite at J2000', { phi0 });
-}
-// u0 = fraction of cycle elapsed since E at J2000, where φ=0 is SOUTH => shift by 0.75
-const u0 = normalize01(phi0 / (2 * Math.PI) + SOUTH_SHIFT);
-// nearest previous E relative to J2000:
-const E0 = ms(J2000_MS - u0 * PERIOD_MS);
-if (!Number.isFinite(E0)) {
-    warn('E0 is not finite', { E0, phi0, u0 });
+function lookerUnitById(looker: ObjId | undefined): V3 {
+    if (!looker) return DEFAULT_LOOKER;
+    const rec = (objects as any)?.[looker] as { kind?: string; meta?: ReferenceMeta } | undefined;
+    if (!rec || rec.kind !== 'reference') return DEFAULT_LOOKER;
+    const u3 = rec.meta ? refUnit(rec.meta) : null;
+    if (!u3) return DEFAULT_LOOKER;
+    return normalize({ x: u3[0], y: u3[1], z: u3[2] });
 }
 
-export function getPlatoAnchors(ts: number): Anchors {
+export function platoLookerAnchor(looker?: ObjId): 'N' | 'S' {
+    const lookerUnit = lookerUnitById(looker);
+    return dot(lookerUnit, ECL_POLE) > 0 ? 'N' : 'S';
+}
+
+const e0ByLooker = new Map<string, number>();
+
+function e0ForLooker(lookerUnit: V3, anchorShift: number): number {
+    const key = `${lookerUnit.x.toFixed(12)}:${lookerUnit.y.toFixed(12)}:${lookerUnit.z.toFixed(12)}:${anchorShift.toFixed(2)}`;
+    const cached = e0ByLooker.get(key);
+    if (typeof cached === 'number' && Number.isFinite(cached)) return cached;
+
+    const phi0 = getPlatoPhaseRadForLooker(J2000_MS, lookerUnit);
+    if (!Number.isFinite(phi0)) {
+        warn('phi0 is not finite at J2000', { phi0 });
+    }
+    // u0 = fraction of cycle elapsed since E at J2000,
+    // where φ=0 is mapped to selected anchor (N or S).
+    const u0 = normalize01(phi0 / (2 * Math.PI) + anchorShift);
+    // nearest previous E relative to J2000:
+    const e0 = ms(J2000_MS - u0 * PERIOD_MS);
+    if (!Number.isFinite(e0)) {
+        warn('E0 is not finite', { e0, phi0, u0 });
+    }
+    e0ByLooker.set(key, e0);
+    return e0;
+}
+
+export function getPlatoAnchors(ts: number, looker?: ObjId): Anchors {
     ts = ms(ts);
+    const lookerUnit = lookerUnitById(looker);
+    const isNorthAnchor = platoLookerAnchor(looker) === 'N';
+    const anchorShift = isNorthAnchor ? NORTH_SHIFT : SOUTH_SHIFT;
+    // Phase-origin shift controls what "S/N" means physically.
+    // For southern references we align S with the closest SOUTH pole (not north axis),
+    // so phase origin is offset by half-cycle relative to north-axis criterion.
+    const phaseOriginShift = NORTH_SHIFT;
+    const E0 = e0ForLooker(lookerUnit, phaseOriginShift);
 
     return group(`anchors ts=${new Date(ts).toISOString()}`, () => {
-        const EPS_MS = 1;
+        // If looker is above ecliptic, anchor by nearest N; if below, by nearest S.
 
-        const raw = (ts - E0 + EPS_MS) / PERIOD_MS;
-        const k = Math.floor(raw);
+        const kCurrent = Math.floor((ts - E0 + 1) / PERIOD_MS);
+        let k = Math.round((ts - (E0 + PERIOD_MS * anchorShift)) / PERIOD_MS);
+
+        if (isNorthAnchor) {
+            const nNear = E0 + (k + NORTH_SHIFT) * PERIOD_MS;
+            if (nNear <= ts) {
+                // Nearest N is in the past: always use current cycle.
+                k = kCurrent;
+            } else {
+                // Nearest N is in the future:
+                // if ts is before E of nearest-N cycle -> choose that future cycle,
+                // otherwise keep current cycle.
+                const eNear = E0 + k * PERIOD_MS;
+                k = ts < eNear ? k : kCurrent;
+            }
+        }
 
         const start = ms(E0 + k * PERIOD_MS);
         const end = ms(start + PERIOD_MS);
-
-        if (!(start <= ts && ts < end)) {
-            warn('anchors: ts not inside [start,end)', {
-                ts: new Date(ts).toISOString(),
-                start: new Date(start).toISOString(),
-                end: new Date(end).toISOString(),
-                raw,
-                k,
-            });
-        } else {
-            log('anchors hit', {
-                k,
-                start: new Date(start).toISOString(),
-                end: new Date(end).toISOString(),
-            });
-        }
+        log('anchors selected', {
+            k,
+            kCurrent,
+            ts: new Date(ts).toISOString(),
+            start: new Date(start).toISOString(),
+            end: new Date(end).toISOString(),
+            anchor: anchorShift === NORTH_SHIFT ? 'N' : 'S',
+            S: new Date(ms(start + PERIOD_MS * 0.75)).toISOString(),
+            N: new Date(ms(start + PERIOD_MS * 0.25)).toISOString(),
+        });
 
         return {
             start,

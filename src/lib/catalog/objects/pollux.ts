@@ -14,6 +14,9 @@ export const Pollux = {
         color: '#ffd79d',
         distancePc: 10.3585,
         apparentMagnitude: 1.16,
+        properMotionRaMasYr: -625.69,
+        properMotionDecMasYr: -45.95,
+        radialVelocityKmS: 3.6,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

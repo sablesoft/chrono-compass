@@ -15,6 +15,9 @@ export const Deneb = {
         color: '#cad7ff',
         distancePc: 432.9005,
         apparentMagnitude: 1.25,
+        properMotionRaMasYr: 1.56,
+        properMotionDecMasYr: 1.55,
+        radialVelocityKmS: -5,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

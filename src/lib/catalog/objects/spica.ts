@@ -14,6 +14,9 @@ export const Spica = {
         color: '#cbd9ff',
         distancePc: 76.5698,
         apparentMagnitude: 0.98,
+        properMotionRaMasYr: -42.5,
+        properMotionDecMasYr: -31.73,
+        radialVelocityKmS: 1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

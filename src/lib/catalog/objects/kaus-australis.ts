@@ -14,6 +14,9 @@ export const KausAustralis = {
         color: '#e2ddff',
         distancePc: 43.9366,
         apparentMagnitude: 1.79,
+        properMotionRaMasYr: -39.61,
+        properMotionDecMasYr: -124.05,
+        radialVelocityKmS: -15,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

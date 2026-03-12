@@ -15,6 +15,9 @@ export const Imai = {
         color: '#aabfff',
         distancePc: 105.8202,
         apparentMagnitude: 2.79,
+        properMotionRaMasYr: -36.68,
+        properMotionDecMasYr: -10.72,
+        radialVelocityKmS: 22,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

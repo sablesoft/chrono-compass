@@ -14,6 +14,9 @@ export const Alpheratz = {
         color: '#dce5ff',
         distancePc: 29.744,
         apparentMagnitude: 2.07,
+        properMotionRaMasYr: 135.68,
+        properMotionDecMasYr: -162.95,
+        radialVelocityKmS: -12,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

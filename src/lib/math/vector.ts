@@ -1,6 +1,6 @@
 // src/lib/math/vector.ts
 
-import {deg2rad, isFiniteNumber, norm360} from "./helpers";
+import { AU_KM, AU_PER_LY, deg2rad, isFiniteNumber, norm360 } from "./helpers";
 import type {ObjKind, ReferenceMeta, Vec3} from "../catalog";
 
 // Obliquity of the ecliptic (J2000), degrees
@@ -131,6 +131,9 @@ const J2000_UTC_MS = Date.UTC(2000, 0, 1, 12, 0, 0, 0);
 const ARCSEC_TO_RAD = Math.PI / (180 * 3600);
 const RAD_TO_DEG = 180 / Math.PI;
 const JULIAN_CENTURY_MS = 36525 * 86400_000;
+const MAS_TO_RAD = Math.PI / (180 * 3600 * 1000);
+const YEAR_MS = 365.25 * 86400_000;
+const KM_S_TO_AU_YR = (365.25 * 86400) / AU_KM;
 
 function precessEqJ2000ToDate(u: Vec3, ts: number): Vec3 | null {
     if (!isFiniteNumber(ts)) return u;
@@ -154,13 +157,75 @@ function precessEqJ2000ToDate(u: Vec3, ts: number): Vec3 | null {
     return unitFromRaDecDeg(ra * RAD_TO_DEG, dec * RAD_TO_DEG);
 }
 
+function applyStellarMotion(meta: ReferenceMeta, base: Vec3, ts: number): Vec3 | null {
+    if (!isFiniteNumber(ts)) return base;
+    const dtYears = (ts - J2000_UTC_MS) / YEAR_MS;
+    if (!isFiniteNumber(dtYears) || dtYears === 0) return base;
+
+    const pmRaMasYr = Number(meta?.properMotionRaMasYr);
+    const pmDecMasYr = Number(meta?.properMotionDecMasYr);
+    const rvKmS = Number(meta?.radialVelocityKmS);
+    const distPc = Number(meta?.distancePc);
+
+    const hasPmRa = isFiniteNumber(pmRaMasYr) && pmRaMasYr !== 0;
+    const hasPmDec = isFiniteNumber(pmDecMasYr) && pmDecMasYr !== 0;
+    const hasRv = isFiniteNumber(rvKmS) && rvKmS !== 0 && isFiniteNumber(distPc) && distPc > 0;
+    if (!hasPmRa && !hasPmDec && !hasRv) return base;
+
+    const x = base[0];
+    const y = base[1];
+    const z = base[2];
+    const rxy = Math.hypot(x, y);
+
+    // Tangent basis on the celestial sphere at the current reference direction.
+    const alphaHat: Vec3 = rxy > 1e-14
+        ? (normalize3([-y / rxy, x / rxy, 0] as const) ?? [-y / rxy, x / rxy, 0])
+        : [0, 1, 0];
+    const deltaHat: Vec3 = normalize3([
+        -z * alphaHat[1],
+        z * alphaHat[0],
+        rxy
+    ] as const) ?? [0, 0, 1];
+
+    const muRa = hasPmRa ? (pmRaMasYr * MAS_TO_RAD) : 0;
+    const muDec = hasPmDec ? (pmDecMasYr * MAS_TO_RAD) : 0;
+
+    const drdt: Vec3 = [
+        muRa * alphaHat[0] + muDec * deltaHat[0],
+        muRa * alphaHat[1] + muDec * deltaHat[1],
+        muRa * alphaHat[2] + muDec * deltaHat[2]
+    ];
+
+    if (!hasRv) {
+        return normalize3([
+            x + drdt[0] * dtYears,
+            y + drdt[1] * dtYears,
+            z + drdt[2] * dtYears
+        ] as const);
+    }
+
+    // 3D propagation: tangential component from proper motion + radial component from RV.
+    const distanceAu = distPc * 3.26156 * AU_PER_LY;
+    const rvAuYr = rvKmS * KM_S_TO_AU_YR;
+    const vx = distanceAu * drdt[0] + rvAuYr * x;
+    const vy = distanceAu * drdt[1] + rvAuYr * y;
+    const vz = distanceAu * drdt[2] + rvAuYr * z;
+
+    const px = distanceAu * x + vx * dtYears;
+    const py = distanceAu * y + vy * dtYears;
+    const pz = distanceAu * z + vz * dtYears;
+    return normalize3([px, py, pz] as const);
+}
+
 export function refUnitAtTsByKind(kind: ObjKind | undefined, meta: ReferenceMeta, ts: number): Vec3 | null {
     const base = refUnit(meta);
     if (!base) return null;
-    if (kind !== 'reference') return base;
+    const moved = kind === 'reference' ? applyStellarMotion(meta, base, ts) : base;
+    if (!moved) return null;
+    if (kind !== 'reference') return moved;
     const frame = (meta?.direction as any)?.frame as string | undefined;
-    if (frame !== 'icrf_j2000') return base;
-    return precessEqJ2000ToDate(base, ts);
+    if (frame !== 'icrf_j2000') return moved;
+    return precessEqJ2000ToDate(moved, ts);
 }
 
 // Rotate vector from equatorial J2000 to ecliptic J2000.

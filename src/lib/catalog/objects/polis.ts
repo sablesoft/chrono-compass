@@ -14,6 +14,9 @@ export const Polis = {
         color: '#ffe0ba',
         distancePc: 79.6177,
         apparentMagnitude: 3.84,
+        properMotionRaMasYr: 5.29,
+        properMotionDecMasYr: -105.09,
+        radialVelocityKmS: -12.7,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

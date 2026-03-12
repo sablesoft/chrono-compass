@@ -14,6 +14,9 @@ export const Mintaka = {
         color: '#dfe8ff',
         distancePc: 212.3144,
         apparentMagnitude: 2.25,
+        properMotionRaMasYr: 1.67,
+        properMotionDecMasYr: 0.56,
+        radialVelocityKmS: 16,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

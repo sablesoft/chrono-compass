@@ -14,6 +14,9 @@ export const Menkar = {
         color: '#ffb27c',
         distancePc: 76.3941,
         apparentMagnitude: 2.54,
+        properMotionRaMasYr: -11.81,
+        properMotionDecMasYr: -78.76,
+        radialVelocityKmS: -26,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

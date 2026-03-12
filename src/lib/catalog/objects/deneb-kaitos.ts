@@ -14,6 +14,9 @@ export const DenebKaitos = {
         color: '#ffd0a6',
         distancePc: 29.5334,
         apparentMagnitude: 2.04,
+        properMotionRaMasYr: 232.79,
+        properMotionDecMasYr: 32.71,
+        radialVelocityKmS: 13.3,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -14,6 +14,9 @@ export const Mirfak = {
         color: '#fff0c8',
         distancePc: 155.2794,
         apparentMagnitude: 1.79,
+        properMotionRaMasYr: 24.11,
+        properMotionDecMasYr: -26.01,
+        radialVelocityKmS: -2,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

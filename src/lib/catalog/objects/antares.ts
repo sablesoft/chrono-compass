@@ -15,6 +15,9 @@ export const Antares = {
         color: '#ffcc6f',
         distancePc: 169.7792,
         apparentMagnitude: 1.06,
+        properMotionRaMasYr: -10.16,
+        properMotionDecMasYr: -23.21,
+        radialVelocityKmS: -3,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -14,6 +14,9 @@ export const Aldebaran = {
         color: '#ffb46d',
         distancePc: 20.4332,
         apparentMagnitude: 0.87,
+        properMotionRaMasYr: 62.78,
+        properMotionDecMasYr: -189.36,
+        radialVelocityKmS: 54.5,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

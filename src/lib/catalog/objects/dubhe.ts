@@ -14,6 +14,9 @@ export const Dubhe = {
         color: '#ffd7ab',
         distancePc: 37.6789,
         apparentMagnitude: 1.81,
+        properMotionRaMasYr: -136.46,
+        properMotionDecMasYr: -35.25,
+        radialVelocityKmS: -9,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

@@ -14,6 +14,9 @@ export const Sargas = {
         color: '#ffe1b8',
         distancePc: 92.0811,
         apparentMagnitude: 1.86,
+        properMotionRaMasYr: 6.06,
+        properMotionDecMasYr: -0.95,
+        radialVelocityKmS: 1,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

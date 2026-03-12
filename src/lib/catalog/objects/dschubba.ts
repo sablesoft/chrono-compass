@@ -14,6 +14,9 @@ export const Dschubba = {
         color: '#d8e5ff',
         distancePc: 150.6025,
         apparentMagnitude: 2.29,
+        properMotionRaMasYr: -8.67,
+        properMotionDecMasYr: -36.9,
+        radialVelocityKmS: -7,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

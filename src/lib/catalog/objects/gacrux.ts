@@ -15,6 +15,9 @@ export const Gacrux = {
         color: '#ffcc6f',
         distancePc: 27.1517,
         apparentMagnitude: 1.59,
+        properMotionRaMasYr: 27.94,
+        properMotionDecMasYr: -264.33,
+        radialVelocityKmS: 21,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

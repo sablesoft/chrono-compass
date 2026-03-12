@@ -15,6 +15,9 @@ export const Nunki = {
         color: '#aabfff',
         distancePc: 69.8325,
         apparentMagnitude: 2.05,
+        properMotionRaMasYr: 13.87,
+        properMotionDecMasYr: -52.65,
+        radialVelocityKmS: -11,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

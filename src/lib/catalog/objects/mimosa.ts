@@ -15,6 +15,9 @@ export const Mimosa = {
         color: '#aabfff',
         distancePc: 85.3972,
         apparentMagnitude: 1.25,
+        properMotionRaMasYr: -48.24,
+        properMotionDecMasYr: -12.82,
+        radialVelocityKmS: 16,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

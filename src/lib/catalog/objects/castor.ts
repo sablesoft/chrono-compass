@@ -14,6 +14,9 @@ export const Castor = {
         color: '#e8ebff',
         distancePc: 15.5959,
         apparentMagnitude: 1.58,
+        properMotionRaMasYr: -206.33,
+        properMotionDecMasYr: -148.18,
+        radialVelocityKmS: 6,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

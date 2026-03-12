@@ -14,6 +14,9 @@ export const Regulus = {
         color: '#d6deff',
         distancePc: 24.3132,
         apparentMagnitude: 1.36,
+        properMotionRaMasYr: -249.4,
+        properMotionDecMasYr: 4.91,
+        radialVelocityKmS: 6,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

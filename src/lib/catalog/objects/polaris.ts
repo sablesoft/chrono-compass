@@ -15,6 +15,9 @@ export const Polaris = {
         color: '#f8f7ff',
         distancePc: 132.6261,
         apparentMagnitude: 1.97,
+        properMotionRaMasYr: 44.22,
+        properMotionDecMasYr: -11.74,
+        radialVelocityKmS: -17,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {

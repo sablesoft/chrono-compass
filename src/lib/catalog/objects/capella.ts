@@ -14,6 +14,9 @@ export const Capella = {
         color: '#ffd68e',
         distancePc: 13.1235,
         apparentMagnitude: 0.08,
+        properMotionRaMasYr: 75.52,
+        properMotionDecMasYr: -427.13,
+        radialVelocityKmS: 22.2,
         direction: {
             frame: 'icrf_j2000',
             raDecDeg: {
