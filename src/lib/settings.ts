@@ -1,1 +1,1 @@
-export const APP_TIME_FRAME_YEARS = 26_000;
+export const APP_TIME_FRAME_YEARS = 30_000;

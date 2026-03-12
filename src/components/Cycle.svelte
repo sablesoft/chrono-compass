@@ -576,6 +576,7 @@
     let boundaryMomentDisabled: boolean[] = [];
     let prevCycleDisabled = true;
     let nextCycleDisabled = true;
+    let hasAnyAvailableSpoke = false;
 
     $: {
         const times: number[] = [];
@@ -992,7 +993,7 @@
     const SHIFT_EPS_MS = 1500;
     const NEXT_CYCLE_PICK_EPS_MS = 15_000;
     const SNAP_SPOKE_EPS_MS = 250;
-    let pendingShiftSnap: { dir: -1 | 1 } | null = null;
+    let pendingShiftSnap: { dir: -1 | 1; preferredIndex: number } | null = null;
 
     function nearestMainSpokeIndexByTime(ts0: number, arr: number[]) {
         let bestI = 0;
@@ -1004,6 +1005,95 @@
             if (d < bestD) { bestD = d; bestI = i; }
         }
         return bestI;
+    }
+
+    function resolveShiftLandingSpokeIndex(preferredIndex: number): number | null {
+        if (!Number.isFinite(preferredIndex) || preferredIndex < 0 || preferredIndex > 16) return null;
+        if (!hasAnyAvailableSpoke) return null;
+
+        if (!(spokeMomentDisabled?.[preferredIndex] ?? true)) return preferredIndex;
+
+        const preferredTs = spokeTimes?.[preferredIndex];
+        const minTs = globalTimeframeBounds?.minTs;
+        const maxTs = globalTimeframeBounds?.maxTs;
+
+        if (Number.isFinite(preferredTs) && Number.isFinite(maxTs) && preferredTs > (maxTs as number)) {
+            for (let i = preferredIndex - 1; i >= 0; i--) {
+                if (!(spokeMomentDisabled?.[i] ?? true)) return i;
+            }
+            return null;
+        }
+
+        if (Number.isFinite(preferredTs) && Number.isFinite(minTs) && preferredTs < (minTs as number)) {
+            for (let i = preferredIndex + 1; i <= 16; i++) {
+                if (!(spokeMomentDisabled?.[i] ?? true)) return i;
+            }
+            return null;
+        }
+
+        for (let step = 1; step <= 16; step++) {
+            const left = preferredIndex - step;
+            const right = preferredIndex + step;
+            if (left >= 0 && !(spokeMomentDisabled?.[left] ?? true)) return left;
+            if (right <= 16 && !(spokeMomentDisabled?.[right] ?? true)) return right;
+        }
+        return null;
+    }
+
+    function isTsInsideGlobalBounds(ts: number): boolean {
+        if (!Number.isFinite(ts)) return false;
+        const minTs = globalTimeframeBounds?.minTs;
+        const maxTs = globalTimeframeBounds?.maxTs;
+        if (Number.isFinite(minTs) && ts < (minTs as number)) return false;
+        if (Number.isFinite(maxTs) && ts > (maxTs as number)) return false;
+        return true;
+    }
+
+    function pickShiftProbeTs(dir: -1 | 1, preferredIndex: number): number | null {
+        const t0 = spokeTimes?.[0];
+        const t1 = spokeTimes?.[16];
+        if (!Number.isFinite(t0) || !Number.isFinite(t1) || !(t1 > t0)) return null;
+        const span = t1 - t0;
+
+        const targetTsAt = (idx: number) => {
+            const t = spokeTimes?.[idx];
+            if (!Number.isFinite(t)) return NaN;
+            return dir < 0 ? (t - span) : (t + span);
+        };
+
+        const preferredTs = targetTsAt(preferredIndex);
+        if (isTsInsideGlobalBounds(preferredTs)) return preferredTs;
+
+        const minTs = globalTimeframeBounds?.minTs;
+        const maxTs = globalTimeframeBounds?.maxTs;
+        if (dir < 0 && Number.isFinite(preferredTs) && Number.isFinite(minTs) && preferredTs < (minTs as number)) {
+            for (let i = preferredIndex + 1; i <= 16; i++) {
+                const t = targetTsAt(i);
+                if (isTsInsideGlobalBounds(t)) return t;
+            }
+            return null;
+        }
+        if (dir > 0 && Number.isFinite(preferredTs) && Number.isFinite(maxTs) && preferredTs > (maxTs as number)) {
+            for (let i = preferredIndex - 1; i >= 0; i--) {
+                const t = targetTsAt(i);
+                if (isTsInsideGlobalBounds(t)) return t;
+            }
+            return null;
+        }
+
+        for (let step = 1; step <= 16; step++) {
+            const left = preferredIndex - step;
+            const right = preferredIndex + step;
+            if (left >= 0) {
+                const t = targetTsAt(left);
+                if (isTsInsideGlobalBounds(t)) return t;
+            }
+            if (right <= 16) {
+                const t = targetTsAt(right);
+                if (isTsInsideGlobalBounds(t)) return t;
+            }
+        }
+        return null;
     }
 
     function shiftCycle(dir: -1 | 1) {
@@ -1019,19 +1109,24 @@
         const probe = dir < 0
             ? (t0 - offsetToEnd - SHIFT_EPS_MS)
             : (t1 + offsetFromStart + SHIFT_EPS_MS);
-        pendingShiftSnap = { dir };
-        jumpTo(probe, dir < 0 ? 'prevCycle' : 'nextCycle');
+        const preferredIndex = nearestMainSpokeIndexByTime(effTs, spokeTimes);
+        const boundedProbe = pickShiftProbeTs(dir, preferredIndex);
+        pendingShiftSnap = { dir, preferredIndex };
+        jumpTo(Number.isFinite(boundedProbe) ? (boundedProbe as number) : probe, dir < 0 ? 'prevCycle' : 'nextCycle');
     }
 
     $: {
         if (pendingShiftSnap && solveOk && spokeTimes && spokeTimes.length >= 16) {
             const dir = pendingShiftSnap.dir;
-            const i = nearestMainSpokeIndexByTime(effTs, spokeTimes);
-            const snapTs = spokeTimes[i];
+            const preferredIndex = pendingShiftSnap.preferredIndex;
+            const landingIndex = resolveShiftLandingSpokeIndex(preferredIndex);
             pendingShiftSnap = null;
 
-            if (Number.isFinite(snapTs) && Math.abs(effTs - snapTs) > SNAP_SPOKE_EPS_MS) {
-                jumpTo(snapTs, `shiftSnap:${dir < 0 ? 'prev' : 'next'}:spoke:${i}`);
+            if (landingIndex != null) {
+                const snapTs = spokeTimes[landingIndex];
+                if (Number.isFinite(snapTs) && Math.abs(effTs - snapTs) > SNAP_SPOKE_EPS_MS) {
+                    jumpTo(snapTs, `shiftSnap:${dir < 0 ? 'prev' : 'next'}:spoke:${landingIndex}`);
+                }
             }
         }
     }
@@ -1079,6 +1174,7 @@
         }
         return out;
     })();
+    $: hasAnyAvailableSpoke = Array.isArray(spokeMomentDisabled) && spokeMomentDisabled.some((x) => x === false);
     $: prevCycleDisabled = (spokeMomentDisabled?.[0] ?? true);
     $: nextCycleDisabled = (spokeMomentDisabled?.[16] ?? true);
 
@@ -1959,35 +2055,37 @@
                     {/if}
 
                     <!-- Current Moment Pointer -->
-                    <g transform={`translate(${cx} ${cy})`}>
-                        <g class="pointer"
-                           class:noTransition={noTransition}
-                           style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
-                            <line x1="0" y1="0"
-                                  x2={rOuter} y2="0"
-                                  stroke="currentColor"
-                                  stroke-width="9"
-                                  stroke-linecap="round" />
-                            <circle cx={rOuter} cy="0"
-                                    r={VB * 0.028}
-                                    fill="var(--bg)"
-                                    stroke="currentColor"
-                                    stroke-opacity="0.55"
-                                    stroke-width="3" />
+                    {#if hasAnyAvailableSpoke}
+                        <g transform={`translate(${cx} ${cy})`}>
+                            <g class="pointer"
+                               class:noTransition={noTransition}
+                               style={`transform: rotate(${safeAngle(displayAngle, 0)}deg);`}>
+                                <line x1="0" y1="0"
+                                      x2={rOuter} y2="0"
+                                      stroke="currentColor"
+                                      stroke-width="9"
+                                      stroke-linecap="round" />
+                                <circle cx={rOuter} cy="0"
+                                        r={VB * 0.028}
+                                        fill="var(--bg)"
+                                        stroke="currentColor"
+                                        stroke-opacity="0.55"
+                                        stroke-width="3" />
 
-                            {#if pointerEmoji}
-                                <text class="roleEmoji roleEmojiPointer"
-                                      x={rOuter} y="0"
-                                      text-anchor="middle"
-                                      dominant-baseline="middle"
-                                      class:useObjectColor={!!pointerEmoji.color}
-                                      style={pointerEmoji.color ? `color:${pointerEmoji.color}` : ''}
-                                >
-                                    {pointerEmoji.text}
-                                </text>
-                            {/if}
+                                {#if pointerEmoji}
+                                    <text class="roleEmoji roleEmojiPointer"
+                                          x={rOuter} y="0"
+                                          text-anchor="middle"
+                                          dominant-baseline="middle"
+                                          class:useObjectColor={!!pointerEmoji.color}
+                                          style={pointerEmoji.color ? `color:${pointerEmoji.color}` : ''}
+                                    >
+                                        {pointerEmoji.text}
+                                    </text>
+                                {/if}
+                            </g>
                         </g>
-                    </g>
+                    {/if}
 
                     {#if centerEmoji}
                         <text

@@ -2,7 +2,7 @@ import {REFERENCES, type WheelSpec} from '../types';
 
 export const plato = {
     type: 'plato',
-    ready: true,
+    ready: false,
     info: [
         { defaultLabel: 'first quarter', spokes: ['E', "E_next"], modal: 'First quarter marks a 90° phase offset in the cycle. It appears at both cycle boundaries in this wheel model.' },
         { defaultLabel: 'opposition', spokes: ['N'], modal: 'Opposition marks the phase where the target is opposite the reference direction in this cycle frame.' },
