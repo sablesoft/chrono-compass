@@ -1,13 +1,15 @@
 // src/lib/math/compass.ts
+import { AstroTime, Horizon, Observer, RotateVector, Rotation_ECT_EQD, Vector } from 'astronomy-engine';
 import type {ObjId} from '../catalog';
 import {objects} from '../catalog';
 import {cycleSpokeTags} from '../catalog/tags';
-import type {MarkerItem} from '../wheel/types'; // если путь у тебя другой — скажи, поправлю
+import type {MarkerItem} from '../wheel/types';
 import type {CompassSolveResult, CycleSpoke, WheelInput} from '../board/runtime';
 import {resolveWheel} from '../board/dispatcher';
 import {currentHouseAtTs, toSigned180, trackInMainCycleWindow} from "./helpers";
-import { classifyHorizonVisibility, computeHorizonInstant, type HorizonMeta } from './horizon';
+import { classifyHorizonVisibility, computeHorizonInstant, orbitFromAltitudeDeg, type HorizonMeta } from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
+import { constellationEntriesFromObjects, findConstellationByRaDec } from './constellation';
 
 export type CompassTrackPoint = {
     ts: number;
@@ -44,6 +46,41 @@ export type CompassTargetState = {
     decDeg?: number;
     distanceAu?: number;
     distanceLabel?: string;
+};
+
+export type CompassAstroFrameCurveKind = 'equator' | 'ecliptic';
+export type CompassAstroFrameNodeKind = 'intersection' | 'pole';
+
+export type CompassAstroFrameCurve = {
+    id: CompassAstroFrameCurveKind;
+    label: string;
+    color: string;
+    track: CompassTrackPoint[];
+};
+
+export type CompassAstroFrameNode = {
+    id: string;
+    label: string;
+    kind: CompassAstroFrameNodeKind;
+    ts: number;
+    azimuthDeg: number;
+    altitudeDeg: number;
+    angleDeg: number;
+    orbit: number;
+    visible: boolean;
+    emoji: string;
+    color?: string;
+    meta?: {
+        raHours: number;
+        decDeg: number;
+        constellationAbbr?: string;
+        constellationName?: string;
+    };
+};
+
+export type CompassAstroFrameLayer = {
+    curves: CompassAstroFrameCurve[];
+    nodes: CompassAstroFrameNode[];
 };
 
 const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
@@ -774,6 +811,264 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
  */
 function azimuthToWheelAngleDeg(azimuthDeg: number): number {
     return toSigned180(azimuthDeg - 90);
+}
+
+function norm360Local(deg: number): number {
+    const x = deg % 360;
+    return x < 0 ? x + 360 : x;
+}
+
+function raDecToHorizonPoint(opts: {
+    ts: number;
+    lat: number;
+    lon: number;
+    raHours: number;
+    decDeg: number;
+}): CompassTrackPoint | null {
+    const { ts, lat, lon, raHours, decDeg } = opts;
+    const time = new AstroTime(new Date(ts));
+    const observer = new Observer(lat, lon, 0);
+    const hor = Horizon(time, observer, raHours, decDeg, undefined);
+    const altitudeDeg = Number(hor.altitude);
+    const azimuthDeg = norm360Local(Number(hor.azimuth));
+    if (!Number.isFinite(altitudeDeg) || !Number.isFinite(azimuthDeg)) return null;
+    return {
+        ts,
+        index: 0,
+        code: 'FRAME',
+        azimuthDeg,
+        altitudeDeg,
+        angleDeg: azimuthToWheelAngleDeg(azimuthDeg),
+        orbit: orbitFromAltitudeDeg(altitudeDeg),
+        visible: altitudeDeg >= 0,
+        source: 'cycle',
+        sourceWheel: 'compass',
+        meta: {
+            raHours,
+            decDeg
+        }
+    };
+}
+
+function eclipticLonToRaDecOfDateDeg(
+    lonDeg: number,
+    time: AstroTime,
+    ectToEqdRot: ReturnType<typeof Rotation_ECT_EQD>
+): { raDeg: number; decDeg: number } {
+    const lonRad = (lonDeg * Math.PI) / 180;
+    const eclVec = new Vector(Math.cos(lonRad), Math.sin(lonRad), 0, time);
+    const eqdVec = RotateVector(ectToEqdRot, eclVec);
+    const x = Number(eqdVec.x);
+    const y = Number(eqdVec.y);
+    const z = Number(eqdVec.z);
+    const rxy = Math.hypot(x, y);
+    const raDeg = norm360Local((Math.atan2(y, x) * 180) / Math.PI);
+    const decDeg = (Math.atan2(z, rxy) * 180) / Math.PI;
+    return { raDeg, decDeg };
+}
+
+export function buildCompassAstroFrameLayer(input: {
+    ts: number;
+    location: WheelInput['location'];
+}): CompassAstroFrameLayer | null {
+    const ts = Number(input.ts);
+    const lat = Number(input.location?.lat);
+    const lon = Number(input.location?.lon);
+    if (!Number.isFinite(ts) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const sampleStepDeg = 2;
+    const sampleCount = Math.round(360 / sampleStepDeg);
+    const equatorTrack: CompassTrackPoint[] = [];
+    const eclipticTrack: CompassTrackPoint[] = [];
+    const time = new AstroTime(new Date(ts));
+    // ECT (true ecliptic of date) -> EQD (true equator of date).
+    const ectToEqdRot = Rotation_ECT_EQD(time);
+    const constellationEntries = constellationEntriesFromObjects(objects);
+    const umiEntry = constellationEntries.find((c) => c.id === 'ref:constellation:umi');
+    const octEntry = constellationEntries.find((c) => c.id === 'ref:constellation:oct');
+
+    for (let i = 0; i <= sampleCount; i++) {
+        const lonDeg = i * sampleStepDeg;
+        const baseTs = ts + i;
+
+        const eqRaHours = norm360Local(lonDeg) / 15;
+        const eqPoint = raDecToHorizonPoint({
+            ts: baseTs,
+            lat,
+            lon,
+            raHours: eqRaHours,
+            decDeg: 0
+        });
+        if (eqPoint) {
+            equatorTrack.push({
+                ...eqPoint,
+                code: 'EQ',
+                index: i
+            });
+        }
+
+        const ecl = eclipticLonToRaDecOfDateDeg(lonDeg, time, ectToEqdRot);
+        const eclPoint = raDecToHorizonPoint({
+            ts: baseTs,
+            lat,
+            lon,
+            raHours: ecl.raDeg / 15,
+            decDeg: ecl.decDeg
+        });
+        if (eclPoint) {
+            eclipticTrack.push({
+                ...eclPoint,
+                code: 'EC',
+                index: i
+            });
+        }
+    }
+
+    const makeNode = (opts: {
+        id: string;
+        label: string;
+        kind: CompassAstroFrameNodeKind;
+        emoji: string;
+        color?: string;
+        raHours: number;
+        decDeg: number;
+        constellationAbbr?: string;
+        constellationName?: string;
+    }): CompassAstroFrameNode | null => {
+        const p = raDecToHorizonPoint({
+            ts,
+            lat,
+            lon,
+            raHours: opts.raHours,
+            decDeg: opts.decDeg
+        });
+        if (!p) return null;
+        const hit = (opts.constellationAbbr || opts.constellationName)
+            ? null
+            : findConstellationByRaDec({
+                raDeg: opts.raHours * 15,
+                decDeg: opts.decDeg,
+                ts,
+                constellations: constellationEntries
+            });
+        const poleFallback = (!hit && opts.kind === 'pole')
+            ? (opts.decDeg >= 0
+                ? { abbr: umiEntry?.meta.abbr, name: umiEntry?.name }
+                : { abbr: octEntry?.meta.abbr, name: octEntry?.name })
+            : null;
+        return {
+            id: opts.id,
+            label: opts.label,
+            kind: opts.kind,
+            ts,
+            azimuthDeg: p.azimuthDeg,
+            altitudeDeg: p.altitudeDeg,
+            angleDeg: p.angleDeg,
+            orbit: p.orbit,
+            visible: p.visible,
+            emoji: opts.emoji,
+            color: opts.color,
+            meta: {
+                raHours: opts.raHours,
+                decDeg: opts.decDeg,
+                constellationAbbr: opts.constellationAbbr ?? hit?.abbr ?? poleFallback?.abbr,
+                constellationName: opts.constellationName ?? hit?.name ?? poleFallback?.name
+            }
+        };
+    };
+
+    const nodes: CompassAstroFrameNode[] = [];
+    const pushNode = (x: CompassAstroFrameNode | null) => {
+        if (x) nodes.push(x);
+    };
+
+    const makeEclipticSeasonNode = (opts: {
+        id: string;
+        label: string;
+        lonDeg: number;
+        color: string;
+    }): CompassAstroFrameNode | null => {
+        const ecl = eclipticLonToRaDecOfDateDeg(opts.lonDeg, time, ectToEqdRot);
+        const hit = findConstellationByRaDec({
+            raDeg: ecl.raDeg,
+            decDeg: ecl.decDeg,
+            ts,
+            constellations: constellationEntries
+        });
+        return makeNode({
+            id: opts.id,
+            label: opts.label,
+            kind: 'intersection',
+            emoji: '✶',
+            color: opts.color,
+            raHours: ecl.raDeg / 15,
+            decDeg: ecl.decDeg,
+            constellationAbbr: hit?.abbr,
+            constellationName: hit?.name
+        });
+    };
+
+    // Seasonal anchors on the ecliptic (of-date projection on the current wheel timestamp).
+    pushNode(makeEclipticSeasonNode({
+        id: 'astro:intersection:vernal',
+        label: 'Vernal Equinox',
+        lonDeg: 0,
+        color: '#ff4d4f'
+    }));
+    pushNode(makeEclipticSeasonNode({
+        id: 'astro:intersection:autumnal',
+        label: 'Autumnal Equinox',
+        lonDeg: 180,
+        color: '#4d7cff'
+    }));
+    pushNode(makeEclipticSeasonNode({
+        id: 'astro:solstice:summer',
+        label: 'Summer Solstice',
+        lonDeg: 90,
+        color: '#ffffff'
+    }));
+    pushNode(makeEclipticSeasonNode({
+        id: 'astro:solstice:winter',
+        label: 'Winter Solstice',
+        lonDeg: 270,
+        color: '#f5c542'
+    }));
+    pushNode(makeNode({
+        id: 'astro:pole:north',
+        label: 'North Celestial Pole',
+        kind: 'pole',
+        emoji: '⬆',
+        color: '#bcd3ff',
+        raHours: 0,
+        decDeg: 90
+    }));
+    pushNode(makeNode({
+        id: 'astro:pole:south',
+        label: 'South Celestial Pole',
+        kind: 'pole',
+        emoji: '⬇',
+        color: '#ffc9c9',
+        raHours: 0,
+        decDeg: -90
+    }));
+
+    return {
+        curves: [
+            {
+                id: 'equator',
+                label: 'Celestial Equator',
+                color: '#4cc9f0',
+                track: equatorTrack
+            },
+            {
+                id: 'ecliptic',
+                label: 'Ecliptic',
+                color: '#d4af37',
+                track: eclipticTrack
+            }
+        ],
+        nodes
+    };
 }
 
 /**

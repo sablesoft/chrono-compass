@@ -52,16 +52,19 @@
     import type { CompassInfoConfig, CompassInfoGroupConfig, CompassInfoTagConfig, WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { setSelectedTs } from '../lib/time/store';
 
-    import { compassTargetsToMarkerItems } from '../lib/math/compass';
-    import type { CompassTargetState } from '../lib/math/compass';
+    import { buildCompassAstroFrameLayer, compassTargetsToMarkerItems } from '../lib/math/compass';
+    import type { CompassAstroFrameLayer, CompassAstroFrameNode, CompassTargetState } from '../lib/math/compass';
+    import { constellationEntriesFromObjects, findConstellationByRaDec } from '../lib/math/constellation';
     import { AU_PER_LY, norm360 } from '../lib/math/helpers';
     import { projectSystemSideCoordinates, systemLookerSideDirection } from '../lib/math/system';
     import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { activeProfile, isActiveProfileLocked } from '../lib/profile/store';
     import {
+        DEFAULT_EMOJI_SCALE,
         resolveBodyColor,
         resolveBodyDistancePc,
         resolveBodyEmoji,
+        resolveBodyEmojiScale,
         resolveBodyInfoItems,
         resolveBodyName
     } from '../lib/profile/bodyInfo';
@@ -227,7 +230,18 @@
     let lastTargets: CompassTargetState[] = [];
     let displayTargets: Array<CompassTargetState & { hiddenDuringTween?: boolean }> = [];
     let allBodies: CompassBodyRow[] = [];
+    let astroFrameLayerDisplay: CompassAstroFrameLayer | null = null;
     let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
+    let astroFrameCurves: Array<{ id: 'equator' | 'ecliptic'; seg: number; d: string; visible: boolean }> = [];
+    let astroFrameNodes: Array<{
+        id: string;
+        kind: 'intersection' | 'pole';
+        x: number;
+        y: number;
+        visible: boolean;
+        node: CompassAstroFrameNode;
+        tip: MomentTip;
+    }> = [];
     let sideOrbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     type OrbitNodeUi = {
         key: string;
@@ -393,6 +407,7 @@
     let hasPinnedAnyOrbitNodes = false;
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
+    let showAstroFrame = false;
     let showOrbitNodesAny = true;
     let lastShowOrbitsWheelType: string | undefined;
     type OrbitNodeGroup = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
@@ -426,11 +441,19 @@
             showOrbits = wheelType === 'compass' ? false : true;
             lastShowOrbitsWheelType = wheelType;
         }
+        if (wheelType !== 'compass') {
+            showAstroFrame = false;
+        }
     }
 
     function toggleOrbits() {
         onUserActivity();
         showOrbits = !showOrbits;
+    }
+
+    function toggleAstroFrame() {
+        onUserActivity();
+        showAstroFrame = !showAstroFrame;
     }
 
     function toggleOrbitNodesAny() {
@@ -595,6 +618,108 @@
         activeSpokeCode = node.source === 'spoke' ? node.code : null;
     }
 
+    function buildAstroFrameAtTs(ts: number): CompassAstroFrameLayer | null {
+        if (wheel?.wheelType !== 'compass') return null;
+        return buildCompassAstroFrameLayer({
+            ts,
+            location: wheelLoc
+        });
+    }
+
+    const CONSTELLATION_ENTRIES = constellationEntriesFromObjects(objects);
+
+    function formatConstellationLabel(abbr: string | undefined, name: string | undefined): string {
+        const abbrText = typeof abbr === 'string' ? abbr.trim() : '';
+        const nameText = typeof name === 'string' ? name.trim() : '';
+        if (abbrText && nameText) return `${abbrText} — ${nameText}`;
+        return abbrText || nameText;
+    }
+
+    function astroConstellationText(meta: CompassAstroFrameNode['meta']): string {
+        return formatConstellationLabel(meta?.constellationAbbr, meta?.constellationName);
+    }
+
+    function bodyConstellationInfoItem(body: CompassTargetState, ts: number): CompassInfoChip | null {
+        const raHours = Number(body.raHours);
+        const decDeg = Number(body.decDeg);
+        if (!Number.isFinite(ts) || !Number.isFinite(raHours) || !Number.isFinite(decDeg)) return null;
+        const hit = findConstellationByRaDec({
+            raDeg: raHours * 15,
+            decDeg,
+            ts,
+            constellations: CONSTELLATION_ENTRIES
+        });
+        const value = formatConstellationLabel(hit?.abbr, hit?.name);
+        if (!value) return null;
+        return {
+            id: `body:constellation:${body.id}`,
+            label: 'Constellation',
+            value
+        };
+    }
+
+    function astroFrameNodeTip(node: CompassAstroFrameNode): MomentTip {
+        const kindLabel = node.kind === 'pole' ? 'Pole' : 'Intersection';
+        const label = `${node.emoji} ${node.label}`;
+        const constellation = astroConstellationText(node.meta);
+        const infoItems: MomentTip['infoItems'] = [];
+        if (constellation) {
+            infoItems.push({
+                id: `astro:constellation:${node.id}`,
+                label: 'Constellation',
+                value: constellation
+            });
+        }
+        const metaParts = [
+            constellation ? `Constellation ${constellation}` : '',
+            `Az ${fmtNodeDeg(node.azimuthDeg)}`,
+            `Alt ${fmtNodeDeg(node.altitudeDeg)}`,
+            Number.isFinite(node.meta?.raHours) ? `RA ${Number(node.meta?.raHours).toFixed(3)} h` : '',
+            Number.isFinite(node.meta?.decDeg) ? `Dec ${fmtNodeDeg(Number(node.meta?.decDeg))}` : ''
+        ].filter((x) => !!x);
+        return {
+            label,
+            ts: node.ts,
+            desc: `astro-frame:${node.kind}:${node.id}`,
+            tags: [`astro-frame`, node.kind],
+            infoItems,
+            metaParts,
+            metaText: `${kindLabel} • ${metaParts.join(' • ')}`,
+            copyText: `${label} | ${metaParts.join(' | ')} | ts ${Math.round(node.ts)}`
+        };
+    }
+
+    function handleAstroNodeKeydown(e: KeyboardEvent, tipData: MomentTip, key: string) {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            const ev = centerClickEvent(e.currentTarget);
+            if (ev) tip.openMomentNow(ev, tipData);
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            tip.hoverLeave(key);
+        }
+    }
+
+    function astroOverlapInfoItemsForBody(bodyXY: { x: number; y: number }): CompassInfoChip[] {
+        const out: CompassInfoChip[] = [];
+        for (const astroNode of astroFrameNodes) {
+            const d = Math.hypot(astroNode.x - bodyXY.x, astroNode.y - bodyXY.y);
+            if (d > BODY_MARKER_HIDE_RADIUS_VB) continue;
+            const constellation = astroConstellationText(astroNode.node.meta);
+            out.push({
+                id: `astro:overlap:${astroNode.id}`,
+                label: astroNode.node.label,
+                value: constellation || undefined,
+                modal: astroNode.node.kind === 'pole'
+                    ? 'Celestial pole marker from Astro Frame.'
+                    : 'Seasonal Astro Frame marker (equinox/solstice).'
+            });
+        }
+        return out;
+    }
+
     function clearActiveSpoke() {
         activeSpokeCode = null;
     }
@@ -630,6 +755,67 @@
         while (d > 180) d -= 360;
         while (d < -180) d += 360;
         return a0 + d * u;
+    }
+
+    function interpolateAstroFrameLayers(
+        from: CompassAstroFrameLayer | null,
+        to: CompassAstroFrameLayer | null,
+        u: number
+    ): CompassAstroFrameLayer | null {
+        if (!from || !to) return to ?? from;
+
+        const toCurveById = new Map(to.curves.map((c) => [c.id, c] as const));
+        const curves = from.curves
+            .map((curveFrom) => {
+                const curveTo = toCurveById.get(curveFrom.id);
+                if (!curveTo) return null;
+                const n = Math.min(curveFrom.track.length, curveTo.track.length);
+                if (n < 2) return null;
+                const track = Array.from({ length: n }, (_, idx) => {
+                    const a = curveFrom.track[idx];
+                    const b = curveTo.track[idx];
+                    const altitudeDeg = lerp(a.altitudeDeg, b.altitudeDeg, u);
+                    const azimuthDeg = norm360(lerpAngleShortest(a.azimuthDeg, b.azimuthDeg, u));
+                    return {
+                        ...b,
+                        ts: lerp(a.ts, b.ts, u),
+                        index: b.index,
+                        azimuthDeg,
+                        altitudeDeg,
+                        angleDeg: lerpAngleShortest(a.angleDeg, b.angleDeg, u),
+                        orbit: lerp(a.orbit, b.orbit, u),
+                        visible: altitudeDeg >= 0
+                    };
+                });
+                return {
+                    ...curveTo,
+                    track
+                };
+            })
+            .filter((x): x is CompassAstroFrameLayer['curves'][number] => !!x);
+
+        const toNodeById = new Map(to.nodes.map((n) => [n.id, n] as const));
+        const nodes = from.nodes
+            .map((nodeFrom) => {
+                const nodeTo = toNodeById.get(nodeFrom.id);
+                if (!nodeTo) return null;
+                const altitudeDeg = lerp(nodeFrom.altitudeDeg, nodeTo.altitudeDeg, u);
+                return {
+                    ...nodeTo,
+                    ts: lerp(nodeFrom.ts, nodeTo.ts, u),
+                    azimuthDeg: norm360(lerpAngleShortest(nodeFrom.azimuthDeg, nodeTo.azimuthDeg, u)),
+                    altitudeDeg,
+                    angleDeg: lerpAngleShortest(nodeFrom.angleDeg, nodeTo.angleDeg, u),
+                    orbit: lerp(nodeFrom.orbit, nodeTo.orbit, u),
+                    visible: altitudeDeg >= 0
+                };
+            })
+            .filter((x): x is CompassAstroFrameLayer['nodes'][number] => !!x);
+
+        return {
+            curves,
+            nodes
+        };
     }
 
     function sampleTrackAtTs(track: CompassTargetState['orbitTrack'], ts: number) {
@@ -675,6 +861,8 @@
     function animateDisplayTargets(fromTs: number, toTs: number, next: CompassTargetState[]) {
         stopMarkerTween();
         const token = ++markerTweenToken;
+        const fromAstroFrame = buildAstroFrameAtTs(fromTs);
+        const toAstroFrame = buildAstroFrameAtTs(toTs);
 
         const prevById = new Map(displayTargets.map((t) => [t.id, t]));
         const jump = Math.abs(toTs - fromTs);
@@ -702,6 +890,7 @@
 
         if (!shouldAnimateSome || !displayTargets.length) {
             displayTargets = next;
+            astroFrameLayerDisplay = toAstroFrame;
             return;
         }
 
@@ -712,6 +901,7 @@
             if (token !== markerTweenToken) return;
             const u = easeInOut((now - t0) / duration);
             const tsNow = lerp(fromTs, toTs, u);
+            astroFrameLayerDisplay = interpolateAstroFrameLayers(fromAstroFrame, toAstroFrame, u) ?? toAstroFrame;
 
             displayTargets = next.map((n) => {
                 if (!animatableIds.has(n.id)) {
@@ -748,6 +938,7 @@
             } else {
                 markerTweenRaf = 0;
                 displayTargets = next;
+                astroFrameLayerDisplay = toAstroFrame;
             }
         };
 
@@ -1834,6 +2025,56 @@
             : [];
     }
 
+    $: {
+        if (wheel?.wheelType !== 'compass') {
+            astroFrameLayerDisplay = null;
+            astroFrameCurves = [];
+            astroFrameNodes = [];
+        } else {
+            if (!astroFrameLayerDisplay) {
+                astroFrameLayerDisplay = buildAstroFrameAtTs(effTs);
+            }
+            const layer = astroFrameLayerDisplay;
+            if (!layer) {
+                astroFrameCurves = [];
+                astroFrameNodes = [];
+            } else {
+                astroFrameCurves = layer.curves
+                    .flatMap((curve) => {
+                        if (!curve.track || curve.track.length < 2) return [];
+                        const segments = splitTrackByVisibility(curve.track);
+                        return segments.flatMap((s, idx) => {
+                            if (!s.visible) return [];
+                            if (!s.pts || s.pts.length < 2) return [];
+                            const d = trackPathD(s.pts);
+                            if (!d) return [];
+                            return [{
+                                id: curve.id,
+                                seg: idx,
+                                d,
+                                visible: true
+                            }];
+                        });
+                    })
+                    ;
+
+                astroFrameNodes = layer.nodes.flatMap((node) => {
+                    if (!node.visible) return [];
+                    const p = polarToXY(orbitToRadiusVB(node.orbit), node.angleDeg);
+                    return [{
+                        id: node.id,
+                        kind: node.kind,
+                        x: p.x,
+                        y: p.y,
+                        visible: true,
+                        node,
+                        tip: astroFrameNodeTip(node)
+                    }];
+                });
+            }
+        }
+    }
+
     $: orbitCurves = lastTargets
         .flatMap((t) => {
             const track = t.orbitTrack;
@@ -2010,6 +2251,8 @@
         const secondaryDeg = t.altitudeDeg;
         const bodyR = orbitToRadiusVB(t.orbit);
         const bodyXY = polarToXY(bodyR, t.angleDeg);
+        const astroOverlapItems = astroOverlapInfoItemsForBody(bodyXY);
+        const constellationItem = bodyConstellationInfoItem(t, effTs);
 
         const activeNode = orbitNodesAll
             .filter((n) => n.bodyId === t.id)
@@ -2047,7 +2290,11 @@
             currentHouses: normalizeBodyCurrentHouses(t),
             bodyInfoItems: normalizeCompassBodyInfoItems(
                 t.id,
-                resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems, activeBodyDescriptionLabel)
+                [
+                    ...(constellationItem ? [constellationItem] : []),
+                    ...resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems, activeBodyDescriptionLabel),
+                    ...astroOverlapItems
+                ]
             ),
             activeNode
         };
@@ -3650,6 +3897,45 @@
                         </g>
                     {/each}
 
+                    {#if wheel?.wheelType === 'compass' && showAstroFrame}
+                        {#each astroFrameCurves as c (`astro-frame:${c.id}:${c.seg}`)}
+                            <path
+                                    class={`astroFrameCurve astroFrameCurve-${c.id}`}
+                                    d={c.d}
+                                    data-keep-pin="1"
+                            />
+                        {/each}
+
+                        {#each astroFrameNodes as n (`astro-node:${n.id}`)}
+                            {@const nodeKey = `astro-node:${n.id}`}
+                            <g
+                                    class={`astroFrameNode astroFrameNode-${n.kind}`}
+                                    data-keep-pin="1"
+                                    role="img"
+                                    aria-label={n.tip.label}
+                                    style={n.node.color ? `color:${n.node.color}` : undefined}
+                                    on:mouseenter={(e) => tip.hoverMomentEnter(e, n.tip, nodeKey)}
+                                    on:mouseleave={() => tip.hoverLeave(nodeKey)}
+                            >
+                                <circle class="astroFrameNodeHit" cx={n.x} cy={n.y} r={VB * 0.018} />
+                                {#if n.kind === 'intersection'}
+                                    <circle class="astroFrameIntersectionDot" cx={n.x} cy={n.y} r={VB * 0.005} />
+                                {:else}
+                                    <circle class="astroFramePoleRing" cx={n.x} cy={n.y} r={VB * 0.014} />
+                                    <text
+                                            class="astroFramePoleEmoji"
+                                            x={n.x}
+                                            y={n.y}
+                                            text-anchor="middle"
+                                            dominant-baseline="middle"
+                                    >
+                                        {n.node.emoji}
+                                    </text>
+                                {/if}
+                            </g>
+                        {/each}
+                    {/if}
+
                     {#each orbitCurves as c (`orbit:${c.id}:${c.seg}`)}
                         {#if showOrbits || pinnedBodyId === c.id}
                             <path
@@ -3741,17 +4027,20 @@
                         >
                             <g class="markerBody">
                                 <circle r={markerSizes.hit} fill="transparent" />
-
-                                <circle
-                                        r={markerSizes.ring}
-                                        fill="transparent"
-                                        stroke="currentColor"
-                                        stroke-opacity={0.28}/>
+                                {#if isCluster}
+                                    <circle
+                                            r={markerSizes.ring}
+                                            fill="transparent"
+                                            stroke="currentColor"
+                                            stroke-opacity={0.28}/>
+                                {/if}
                                 <text
                                         class="markerGlyph useObjectColor"
                                         text-anchor="middle"
                                         dominant-baseline="middle"
-                                        font-size={isCluster ? markerSizes.fontCluster : (isReference ? markerSizes.fontReference : markerSizes.fontSingle)}
+                                        font-size={isCluster
+                                            ? markerSizes.fontCluster
+                                            : (isReference ? markerSizes.fontReference : markerSizes.fontSingle) * (singleId ? resolveBodyEmojiScale(singleId) : DEFAULT_EMOJI_SCALE)}
                                         font-weight={isCluster ? 900 : 850}
                                         letter-spacing={c.count === 1 ? 0 : 0.6}
                                         fill={glyphColor}
@@ -3785,6 +4074,19 @@
 
                 {#if controlsPaneMode === 'top'}
                 <div class="compassNav">
+                    {#if wheel?.wheelType === 'compass'}
+                        <button
+                                class="nodeToggle navBtn astroFrameToggle"
+                                class:off={!showAstroFrame}
+                                type="button"
+                                title={showAstroFrame ? 'Hide Astro Frame' : 'Show Astro Frame'}
+                                aria-label={showAstroFrame ? 'Hide Astro Frame' : 'Show Astro Frame'}
+                                aria-pressed={showAstroFrame}
+                                on:click={toggleAstroFrame}
+                        >
+                            AF
+                        </button>
+                    {/if}
                     <button
                             class="orbitToggle navBtn"
                             class:off={!showOrbits}
@@ -4144,16 +4446,20 @@
                             >
                                 <g class="markerBody">
                                     <circle r={markerSizes.hit} fill="transparent" />
-                                    <circle
-                                            r={markerSizes.ring}
-                                            fill="transparent"
-                                            stroke="currentColor"
-                                            stroke-opacity={0.28}/>
+                                    {#if isCluster}
+                                        <circle
+                                                r={markerSizes.ring}
+                                                fill="transparent"
+                                                stroke="currentColor"
+                                                stroke-opacity={0.28}/>
+                                    {/if}
                                     <text
                                             class="markerGlyph useObjectColor"
                                             text-anchor="middle"
                                             dominant-baseline="middle"
-                                            font-size={isCluster ? markerSizes.fontCluster : (isReference ? markerSizes.fontReference : markerSizes.fontSingle)}
+                                            font-size={isCluster
+                                                ? markerSizes.fontCluster
+                                                : (isReference ? markerSizes.fontReference : markerSizes.fontSingle) * (singleId ? resolveBodyEmojiScale(singleId) : DEFAULT_EMOJI_SCALE)}
                                             font-weight={isCluster ? 900 : 850}
                                             letter-spacing={c.count === 1 ? 0 : 0.6}
                                             fill={glyphColor}
@@ -4938,6 +5244,58 @@
     }
     .nodeToggle.nodeBind {
         color: color-mix(in oklab, #40a8ff, white 8%);
+    }
+    .nodeToggle.astroFrameToggle {
+        color: color-mix(in oklab, #7bdff2, white 8%);
+    }
+    .astroFrameCurve {
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-opacity: 0.35;
+        pointer-events: none;
+    }
+    .astroFrameCurve.astroFrameCurve-equator {
+        stroke: #4cc9f0;
+    }
+    .astroFrameCurve.astroFrameCurve-ecliptic {
+        stroke: #d4af37;
+        stroke-dasharray: 9 7;
+    }
+    .astroFrameCurve.dim {
+        stroke-opacity: 0.18;
+    }
+    .astroFrameNode {
+        cursor: pointer;
+    }
+    .astroFrameNodeHit {
+        fill: transparent;
+    }
+    .astroFrameIntersectionDot {
+        fill: color-mix(in oklab, #fff, currentColor 18%);
+        stroke: currentColor;
+        stroke-width: 1.5;
+        opacity: 0.9;
+    }
+    .astroFramePoleEmoji {
+        font-size: 23px;
+        font-weight: 800;
+        fill: currentColor;
+        opacity: 0.9;
+        user-select: none;
+        pointer-events: none;
+    }
+    .astroFramePoleRing {
+        fill: transparent;
+        stroke: currentColor;
+        stroke-width: 1.6;
+        opacity: 0.9;
+    }
+    .astroFrameNode.dim .astroFrameIntersectionDot,
+    .astroFrameNode.dim .astroFramePoleEmoji,
+    .astroFrameNode.dim .astroFramePoleRing {
+        opacity: 0.6;
     }
     .orbitCurve {
         fill: none;

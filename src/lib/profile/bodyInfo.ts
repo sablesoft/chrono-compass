@@ -16,19 +16,22 @@ type ResolveBodyStarInfoItemsOptions = {
 };
 
 type BodyOverrideMap = Partial<Record<ObjId, BodyUserOverride>>;
+export const DEFAULT_EMOJI_SCALE = 0.7;
 
 function catalogBody(id: ObjId): {
-    kind?: 'engine_body' | 'reference' | 'pole';
+    kind?: 'engine_body' | 'reference' | 'pole' | 'constellation';
     name?: string;
     description?: string;
     emoji?: string;
+    emojiScale?: number;
     meta?: { color?: string } & Partial<ReferenceMeta>;
 } | null {
     return ((objects as any)?.[id] ?? null) as {
-        kind?: 'engine_body' | 'reference' | 'pole';
+        kind?: 'engine_body' | 'reference' | 'pole' | 'constellation';
         name?: string;
         description?: string;
         emoji?: string;
+        emojiScale?: number;
         meta?: { color?: string } & Partial<ReferenceMeta>;
     } | null;
 }
@@ -68,6 +71,12 @@ export function resolveBodyEmoji(id: ObjId, overrides: BodyOverrideMap | null | 
     const custom = trimText(bodyOverrideRecord(overrides, id)?.emoji);
     if (custom) return custom;
     return trimText(catalogBody(id)?.emoji) || '•';
+}
+
+export function resolveBodyEmojiScale(id: ObjId): number {
+    const raw = Number(catalogBody(id)?.emojiScale);
+    if (Number.isFinite(raw) && raw > 0) return raw;
+    return DEFAULT_EMOJI_SCALE;
 }
 
 export function resolveBodyDescription(id: ObjId, overrides: BodyOverrideMap | null | undefined): string {
