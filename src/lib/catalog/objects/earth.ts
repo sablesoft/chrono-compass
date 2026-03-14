@@ -8,5 +8,6 @@ export const Earth: Obj = {
     meta: {
         color: '#4ea8de'
     },
-    emoji: '🌍'
+    emoji: '🌍',
+    emojiScale: 1.06
 };

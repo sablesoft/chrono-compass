@@ -29,7 +29,8 @@ export type ObjId = EngineBodyId | `ref:${string}`;
 export type ObjKind =
     | 'engine_body'     // exists in astronomy-engine (must use EngineBodyId)
     | 'reference'       // generic inertial/static references (must use ref:*)
-    | 'pole';           // celestial poles (must use ref:*)
+    | 'pole'            // celestial poles (must use ref:*)
+    | 'constellation';  // constellation boundary object (must use ref:*)
 
 /* =============================================================================
    Meta for objects (references, constants, directions)
@@ -70,9 +71,24 @@ export type ReferenceMeta = {
     radialVelocityKmS?: number; // line-of-sight velocity, km/s
 };
 
+export type ConstellationBand = 'ecliptic' | 'north' | 'south';
+export type ConstellationPolygonEpoch = 'B1875' | 'J2000';
+export type ConstellationVertex = {
+    raDeg: number;
+    decDeg: number;
+};
+export type ConstellationMeta = {
+    name: string;
+    abbr: string;
+    band: ConstellationBand;
+    polygonEpoch: ConstellationPolygonEpoch;
+    polygons: Array<Array<ConstellationVertex>>;
+};
+
 export type ObjMeta =
     | EngineBodyMeta
-    | ReferenceMeta;
+    | ReferenceMeta
+    | ConstellationMeta;
 
 /* =============================================================================
    Obj: enforce (kind <-> id) at the type level
@@ -82,6 +98,7 @@ type ObjBase = {
     name: string;
     description?: string;
     emoji: string;
+    emojiScale?: number;
     meta?: (ObjMeta & { color?: string }) | { color?: string };
 };
 
@@ -100,7 +117,13 @@ export type PoleObj = ObjBase & {
     id: `ref:${string}`;
 };
 
-export type Obj = EngineBodyObj | ReferenceObj | PoleObj;
+export type ConstellationObj = ObjBase & {
+    kind: 'constellation';
+    id: `ref:${string}`;
+    meta: ConstellationMeta & { color?: string };
+};
+
+export type Obj = EngineBodyObj | ReferenceObj | PoleObj | ConstellationObj;
 
 /* =============================================================================
    Wheel types + per-type meta
@@ -150,11 +173,6 @@ export type RoleName = 'looker' | 'focus' | 'target';
 export const ROLE_NAMES: RoleName[] = ['looker', 'focus', 'target'];
 
 export type PoleRefId = 'ref:north-celestial-pole' | 'ref:south-celestial-pole';
-
-export const POLES: PoleRefId[] = [
-    'ref:north-celestial-pole',
-    'ref:south-celestial-pole',
-];
 
 export const REFERENCES: ObjId[] = [
     'ref:galactic-center',
@@ -208,8 +226,6 @@ export const REFERENCES: ObjId[] = [
     'ref:zuben-elakrab',
     'ref:zuben-elschemali',
 ];
-
-export const COMPASS_REFERENCES: ObjId[] = [...REFERENCES, ...POLES];
 
 /**
  * REQUIRED ROLES (new model):

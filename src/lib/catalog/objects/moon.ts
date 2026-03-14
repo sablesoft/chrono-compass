@@ -8,5 +8,6 @@ export const Moon: Obj = {
     meta: {
         color: '#d9d9d9'
     },
-    emoji: '🌙'
+    emoji: '🌙',
+    emojiScale: 1.12
 };

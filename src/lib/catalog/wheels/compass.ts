@@ -1,4 +1,4 @@
-import {COMPASS_REFERENCES, type WheelSpec} from '../types';
+import {REFERENCES, type WheelSpec} from '../types';
 
 export const compass = {
     type: 'compass',
@@ -29,7 +29,7 @@ export const compass = {
                 'Pluto',
                 'Saturn',
                 'Uranus',
-                ...COMPASS_REFERENCES,
+                ...REFERENCES,
             ]
         }
     ]

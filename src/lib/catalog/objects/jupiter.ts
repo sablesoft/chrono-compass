@@ -9,5 +9,6 @@ export const Jupiter: Obj = {
     meta: {
         color: '#d2a679'
     },
-    emoji: '♃'
+    emoji: '♃',
+    emojiScale: 1.12
 };

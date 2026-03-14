@@ -9,5 +9,6 @@ export const Venus: Obj = {
     meta: {
         color: '#e9d8a6'
     },
-    emoji: '♀️'
+    emoji: '♀️',
+    emojiScale: 1.06
 };

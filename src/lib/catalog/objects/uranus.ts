@@ -9,5 +9,6 @@ export const Uranus: Obj = {
     meta: {
         color: '#7ad1d6'
     },
-    emoji: '♅'
+    emoji: '♅',
+    emojiScale: 1.06
 };

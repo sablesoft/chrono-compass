@@ -8,5 +8,6 @@ export const Sun: Obj = {
     meta: {
         color: '#ffd166'
     },
-    emoji: '☀️'
+    emoji: '☀️',
+    emojiScale: 1.2
 };

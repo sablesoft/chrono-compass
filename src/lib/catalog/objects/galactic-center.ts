@@ -11,6 +11,7 @@ export const GalacticCenter = {
     name: 'Galactic',
     description: 'Reference direction toward the Galactic Center in ICRF/J2000. It is a line-of-sight vector, not a physical point with modeled orbital motion in this app.',
     emoji: '🌀',
+    emojiScale: 1.1,
     meta: {
         color: '#b285ff',
         direction: {

@@ -9,5 +9,6 @@ export const Neptune: Obj = {
     meta: {
         color: '#4d7bd6'
     },
-    emoji: '♆'
+    emoji: '♆',
+    emojiScale: 1.06
 };

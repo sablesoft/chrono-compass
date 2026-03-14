@@ -1,6 +1,6 @@
 # Compass Wheel
 
-Compass Wheel (also called **Rose Wheel**) is a Wheel type that describes **spatial orientation** around a local observer at a given moment.
+Compass Wheel (also called **Rose Wheel**) is a Wheel type that describes **spatial orientation** around a local observer at a given moment. Compass Wheel is a full-sphere local sky interface built on an azimuthal equidistant visible hemisphere and extended with a below-horizon orbital band plus node grammar.
 
 It is intentionally designed as a **navigation instrument** for the entire Chrono Compass system: a shared spatial frame that connects multiple targets and serves as an entry point for exploring and switching between other Wheels associated with those targets.
 

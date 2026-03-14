@@ -9,5 +9,6 @@ export const Pluto: Obj = {
     meta: {
         color: '#b3b3b3'
     },
-    emoji: '♇'
+    emoji: '♇',
+    emojiScale: 1.03
 };

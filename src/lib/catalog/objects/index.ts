@@ -15,54 +15,59 @@ import {GalacticCenter} from "./galactic-center";
 import { EclipticAxis } from './ecliptic-axis';
 import { NorthCelestialPole } from './north-celestial-pole';
 import { SouthCelestialPole } from './south-celestial-pole';
-import { Sirius } from './sirius';
-import { Polaris } from './polaris';
-import { Betelgeuse } from './betelgeuse';
-import { Antares } from './antares';
-import { Deneb } from './deneb';
-import { Altair } from './altair';
-import { Nunki } from './nunki';
-import { Acrux } from './acrux';
-import { Mimosa } from './mimosa';
-import { Gacrux } from './gacrux';
-import { Imai } from './imai';
-import { Vega } from './vega';
-import { Pollux } from './pollux';
-import { Aldebaran } from './aldebaran';
-import { Arcturus } from './arcturus';
-import { Achernar } from './achernar';
-import { Alnair } from './alnair';
-import { KausAustralis } from './kaus-australis';
-import { Spica } from './spica';
-import { Regulus } from './regulus';
-import { Dubhe } from './dubhe';
-import { Castor } from './castor';
-import { Capella } from './capella';
-import { Mirfak } from './mirfak';
-import { Hamal } from './hamal';
-import { Alpheratz } from './alpheratz';
-import { Shaula } from './shaula';
-import { Menkar } from './menkar';
-import { Denebola } from './denebola';
-import { Mintaka } from './mintaka';
-import { Avior } from './avior';
-import { Markab } from './markab';
-import { DenebKaitos } from './deneb-kaitos';
-import { Acamar } from './acamar';
-import { Kochab } from './kochab';
-import { Acubens } from './acubens';
-import { Alfard } from './alfard';
-import { ZubenElschemali } from './zuben-elschemali';
-import { ZubenElakrab } from './zuben-elakrab';
-import { Polis } from './polis';
-import { Fomalhaut } from './fomalhaut';
-import { Rasalhague } from './rasalhague';
-import { Sabik } from './sabik';
-import { Sargas } from './sargas';
-import { Dschubba } from './dschubba';
-import { Graffias } from './graffias';
-import { Hadar } from './hadar';
-import { Adhara } from './adhara';
+import { Sirius } from './stars/sirius';
+import { Polaris } from './stars/polaris';
+import { Betelgeuse } from './stars/betelgeuse';
+import { Antares } from './stars/antares';
+import { Deneb } from './stars/deneb';
+import { Altair } from './stars/altair';
+import { Nunki } from './stars/nunki';
+import { Acrux } from './stars/acrux';
+import { Mimosa } from './stars/mimosa';
+import { Gacrux } from './stars/gacrux';
+import { Imai } from './stars/imai';
+import { Vega } from './stars/vega';
+import { Pollux } from './stars/pollux';
+import { Aldebaran } from './stars/aldebaran';
+import { Arcturus } from './stars/arcturus';
+import { Achernar } from './stars/achernar';
+import { Alnair } from './stars/alnair';
+import { KausAustralis } from './stars/kaus-australis';
+import { Spica } from './stars/spica';
+import { Regulus } from './stars/regulus';
+import { Dubhe } from './stars/dubhe';
+import { Castor } from './stars/castor';
+import { Capella } from './stars/capella';
+import { Mirfak } from './stars/mirfak';
+import { Hamal } from './stars/hamal';
+import { Alpheratz } from './stars/alpheratz';
+import { Shaula } from './stars/shaula';
+import { Menkar } from './stars/menkar';
+import { Denebola } from './stars/denebola';
+import { Mintaka } from './stars/mintaka';
+import { Avior } from './stars/avior';
+import { Markab } from './stars/markab';
+import { DenebKaitos } from './stars/deneb-kaitos';
+import { Acamar } from './stars/acamar';
+import { Kochab } from './stars/kochab';
+import { Acubens } from './stars/acubens';
+import { Alfard } from './stars/alfard';
+import { ZubenElschemali } from './stars/zuben-elschemali';
+import { ZubenElakrab } from './stars/zuben-elakrab';
+import { Polis } from './stars/polis';
+import { Fomalhaut } from './stars/fomalhaut';
+import { Rasalhague } from './stars/rasalhague';
+import { Sabik } from './stars/sabik';
+import { Sargas } from './stars/sargas';
+import { Dschubba } from './stars/dschubba';
+import { Graffias } from './stars/graffias';
+import { Hadar } from './stars/hadar';
+import { Adhara } from './stars/adhara';
+import { CONSTELLATIONS } from './constellations';
+
+const constellationObjects: Partial<Record<ObjId, Obj>> = Object.fromEntries(
+    CONSTELLATIONS.map((item) => [item.id, item] as const)
+) as Partial<Record<ObjId, Obj>>;
 
 export const objects: Partial<Record<ObjId, Obj>> = {
     [Sun.id]: Sun,
@@ -128,4 +133,5 @@ export const objects: Partial<Record<ObjId, Obj>> = {
     [Graffias.id]: Graffias,
     [Hadar.id]: Hadar,
     [Adhara.id]: Adhara,
+    ...constellationObjects
 } satisfies Partial<Record<ObjId, Obj>>;

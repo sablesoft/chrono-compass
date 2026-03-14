@@ -9,5 +9,6 @@ export const Saturn: Obj = {
     meta: {
         color: '#c9b37e'
     },
-    emoji: '♄'
+    emoji: '♄',
+    emojiScale: 1.1
 };

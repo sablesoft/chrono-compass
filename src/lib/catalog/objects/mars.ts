@@ -9,5 +9,6 @@ export const Mars: Obj = {
     meta: {
         color: '#d94b3d'
     },
-    emoji: '♂️'
+    emoji: '♂️',
+    emojiScale: 1.05
 };

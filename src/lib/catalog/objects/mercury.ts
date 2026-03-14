@@ -9,5 +9,6 @@ export const Mercury: Obj = {
     meta: {
         color: '#b0b0b0'
     },
-    emoji: '☿️'
+    emoji: '☿️',
+    emojiScale: 1.03
 };
