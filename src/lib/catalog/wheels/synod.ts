@@ -7,6 +7,8 @@ export const synod = {
     info: [
         { defaultLabel: 'phase', metaField: 'phaseDeg', format: 'deg', spokes: '*', enabled: true, modal: 'Synod phase is the oriented angle in the ecliptic plane between the projected rays focus -> looker and focus -> target. It defines the target position around the synod wheel.' },
         { defaultLabel: 'ecl', metaField: 'eclipticLatDeg', format: 'deg', spokes: '*', enabled: true, modal: 'Ecliptic latitude is the angular offset of the target from the ecliptic plane. Positive values are north of the plane, negative values are south.' },
+        { defaultLabel: 'synod constellation', metaField: 'constellation', spokes: '*', enabled: true, modal: 'IAU ecliptic-band constellation for this synod spoke geometry (derived from looker/focus at the spoke phase).' },
+        { defaultLabel: 'current constellation', metaField: 'currentConstellation', spokes: '*', enabled: true, modal: 'IAU constellation for the real current focus->target direction at this timestamp (can be above or below the ecliptic).' },
         { defaultLabel: 'dist au', metaField: 'distanceAu', enabledStatic: false, format: 'au', spokes: '*', modal: 'Distance between focus and target in astronomical units (AU) at each synodic spoke.' },
         { defaultLabel: 'dist km', metaField: 'distanceKm', enabled: false, format: 'km', spokes: '*', modal: 'Distance between focus and target in kilometers at each synodic spoke.' },
         { defaultLabel: 'looker dist au', metaField: 'focusDistAu', enabled: false, format: 'au', spokes: '*', modal: 'Distance from looker to focus in AU, useful for observer-dependent synodic context.' },

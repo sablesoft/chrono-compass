@@ -5,7 +5,7 @@ export const CONSTELLATION_ARI: ConstellationObj = {
     "kind": "constellation",
     "name": "Aries",
     "description": "Aries boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♈",
     "meta": {
         "name": "Aries",
         "abbr": "Ari",

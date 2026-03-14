@@ -139,7 +139,7 @@ export type MomentTip = {
     metaText?: string;
     metaParts?: string[];
     copyText?: string;
-    infoItems?: Array<{ id?: string; label: string; value?: string; modal?: string }>;
+    infoItems?: Array<{ id?: string; label: string; value?: string; modal?: string; emoji?: string }>;
 };
 
 export type MarkerItem = {

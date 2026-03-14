@@ -5,7 +5,7 @@ export const CONSTELLATION_TAU: ConstellationObj = {
     "kind": "constellation",
     "name": "Taurus",
     "description": "Taurus boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♉",
     "meta": {
         "name": "Taurus",
         "abbr": "Tau",

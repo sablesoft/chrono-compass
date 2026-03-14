@@ -56,7 +56,7 @@
     import type { CompassAstroFrameLayer, CompassAstroFrameNode, CompassTargetState } from '../lib/math/compass';
     import { constellationEntriesFromObjects, findConstellationByRaDec } from '../lib/math/constellation';
     import { AU_PER_LY, norm360 } from '../lib/math/helpers';
-    import { projectSystemSideCoordinates, systemLookerSideDirection } from '../lib/math/system';
+    import { projectSystemSideCoordinates, systemLookerSideDirection, systemSynodSpokeConstellationsAt } from '../lib/math/system';
     import { formatCycleDurationFromSpokes, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
     import { activeProfile, isActiveProfileLocked } from '../lib/profile/store';
     import {
@@ -654,20 +654,71 @@
         return {
             id: `body:constellation:${body.id}`,
             label: 'Constellation',
-            value
+            value,
+            modal: hit?.description,
+            emoji: hit?.emoji
+        };
+    }
+
+    function bodyEclipticConstellationInfoItem(body: CompassTargetState, spokeCode?: string): CompassInfoChip | null {
+        if (wheel?.wheelType !== 'system') return null;
+        const synodCode = typeof spokeCode === 'string' && spokeCode.trim()
+            ? spokeCode.trim()
+            : normalizeBodyCurrentHouses(body).synod;
+        if (!synodCode) return null;
+        const hit = systemSpokeConstellation(synodCode);
+        if (!hit?.value) return null;
+        return {
+            id: `body:ecliptic-constellation:${body.id}`,
+            label: 'Synod Constellation',
+            value: hit.value,
+            modal: hit.modal,
+            emoji: hit.emoji
+        };
+    }
+
+    function bodyCurrentConstellationInfoItem(body: CompassTargetState): CompassInfoChip | null {
+        if (wheel?.wheelType !== 'system') return null;
+        const infoMeta = normalizeBodyInfoMeta(body);
+        const synodMeta = infoMeta.synod;
+        const value = typeof synodMeta?.currentConstellation === 'string' ? synodMeta.currentConstellation.trim() : '';
+        if (!value) return null;
+        const modal = typeof synodMeta?.currentConstellationDescription === 'string'
+            ? synodMeta.currentConstellationDescription.trim()
+            : '';
+        return {
+            id: `body:current-constellation:${body.id}`,
+            label: 'Current Constellation',
+            value,
+            modal: modal || undefined,
+            emoji: typeof synodMeta?.currentConstellationEmoji === 'string' ? synodMeta.currentConstellationEmoji : undefined
         };
     }
 
     function astroFrameNodeTip(node: CompassAstroFrameNode): MomentTip {
         const kindLabel = node.kind === 'pole' ? 'Pole' : 'Intersection';
         const label = `${node.emoji} ${node.label}`;
-        const constellation = astroConstellationText(node.meta);
+        const constellation = node.kind === 'pole' ? '' : astroConstellationText(node.meta);
+        const constellationDescription = (() => {
+            if (node.kind === 'pole') return undefined;
+            const raHours = Number(node.meta?.raHours);
+            const decDeg = Number(node.meta?.decDeg);
+            if (!Number.isFinite(raHours) || !Number.isFinite(decDeg)) return undefined;
+            return findConstellationByRaDec({
+                raDeg: raHours * 15,
+                decDeg,
+                ts: node.ts,
+                constellations: CONSTELLATION_ENTRIES
+            })?.description;
+        })();
         const infoItems: MomentTip['infoItems'] = [];
         if (constellation) {
             infoItems.push({
                 id: `astro:constellation:${node.id}`,
                 label: 'Constellation',
-                value: constellation
+                value: constellation,
+                modal: constellationDescription,
+                emoji: typeof node.meta?.constellationEmoji === 'string' ? node.meta.constellationEmoji : undefined
             });
         }
         const metaParts = [
@@ -707,7 +758,7 @@
         for (const astroNode of astroFrameNodes) {
             const d = Math.hypot(astroNode.x - bodyXY.x, astroNode.y - bodyXY.y);
             if (d > BODY_MARKER_HIDE_RADIUS_VB) continue;
-            const constellation = astroConstellationText(astroNode.node.meta);
+            const constellation = astroNode.node.kind === 'pole' ? '' : astroConstellationText(astroNode.node.meta);
             out.push({
                 id: `astro:overlap:${astroNode.id}`,
                 label: astroNode.node.label,
@@ -722,6 +773,26 @@
 
     function clearActiveSpoke() {
         activeSpokeCode = null;
+    }
+
+    let systemSpokeConstellations: Partial<Record<string, { value: string; description?: string; emoji?: string; ts: number }>> = {};
+    $: systemSpokeConstellations = (() => {
+        if (wheel?.wheelType !== 'system') return {};
+        const looker = roles?.looker as ObjId | undefined;
+        const focus = roles?.focus as ObjId | undefined;
+        if (!looker || !focus || !Number.isFinite(effTs)) return {};
+        return systemSynodSpokeConstellationsAt({ looker, focus, ts: effTs });
+    })();
+
+    function systemSpokeConstellation(spokeCode: string): { value: string; modal?: string; emoji?: string; ts: number } | null {
+        const hit = systemSpokeConstellations[spokeCode];
+        if (!hit?.value) return null;
+        return {
+            value: hit.value,
+            modal: hit.description,
+            emoji: hit.emoji,
+            ts: hit.ts
+        };
     }
 
     function parseOrbitNodeDesc(desc: string | undefined): { bodyId: ObjId; code?: string } | null {
@@ -1723,11 +1794,38 @@
                 const value = def.metaField === 'distanceAu'
                     ? (formatDistAuValue3(rawNumber) ?? '—')
                     : (def.format ? formatInfoValue(def.format, formatInput) : String(formatInput));
+                const dynamicModal = (() => {
+                    if (def.metaField === 'constellation') {
+                        return (typeof meta?.constellationDescription === 'string' && meta.constellationDescription.trim())
+                            ? meta.constellationDescription.trim()
+                            : resolvedModal;
+                    }
+                    if (def.metaField === 'currentConstellation') {
+                        return (typeof meta?.currentConstellationDescription === 'string' && meta.currentConstellationDescription.trim())
+                            ? meta.currentConstellationDescription.trim()
+                            : resolvedModal;
+                    }
+                    return resolvedModal;
+                })();
+                const dynamicEmoji = (() => {
+                    if (def.metaField === 'constellation') {
+                        return (typeof meta?.constellationEmoji === 'string' && meta.constellationEmoji.trim())
+                            ? meta.constellationEmoji.trim()
+                            : undefined;
+                    }
+                    if (def.metaField === 'currentConstellation') {
+                        return (typeof meta?.currentConstellationEmoji === 'string' && meta.currentConstellationEmoji.trim())
+                            ? meta.currentConstellationEmoji.trim()
+                            : undefined;
+                    }
+                    return undefined;
+                })();
                 out.push({
                     id,
                     label: resolvedLabel,
                     value,
-                    modal: resolvedModal
+                    modal: dynamicModal,
+                    emoji: dynamicEmoji
                 });
 
                 continue;
@@ -2253,6 +2351,8 @@
         const bodyXY = polarToXY(bodyR, t.angleDeg);
         const astroOverlapItems = astroOverlapInfoItemsForBody(bodyXY);
         const constellationItem = bodyConstellationInfoItem(t, effTs);
+        const eclipticConstellationItem = bodyEclipticConstellationInfoItem(t, house);
+        const currentConstellationItem = bodyCurrentConstellationInfoItem(t);
 
         const activeNode = orbitNodesAll
             .filter((n) => n.bodyId === t.id)
@@ -2291,6 +2391,8 @@
             bodyInfoItems: normalizeCompassBodyInfoItems(
                 t.id,
                 [
+                    ...(currentConstellationItem ? [currentConstellationItem] : []),
+                    ...(eclipticConstellationItem ? [eclipticConstellationItem] : []),
                     ...(constellationItem ? [constellationItem] : []),
                     ...resolveBodyInfoItems(t.id, activeBodyOverrides, 'en', activeStarInfoItems, activeBodyDescriptionLabel),
                     ...astroOverlapItems
@@ -2343,7 +2445,23 @@
     $: tooltipSeparatorLabel = wheel?.wheelType === 'system' ? 'PLANE' : 'HORIZON';
 
     function buildHouseTip(label: string): MomentTip {
-        return { label, ts: effTs, desc: `house:${label}` };
+        const base: MomentTip = { label, ts: effTs, desc: `house:${label}` };
+        const systemConstellation = systemSpokeConstellation(label);
+        if (!systemConstellation) return base;
+        const constellationText = `Synod Constellation ${systemConstellation.value}`;
+        return {
+            ...base,
+            infoItems: [{
+                id: `house:${label}:constellation`,
+                label: 'Synod Constellation',
+                value: systemConstellation.value,
+                modal: systemConstellation.modal,
+                emoji: systemConstellation.emoji
+            }],
+            metaParts: [constellationText],
+            metaText: `Spoke ${label} • ${constellationText}`,
+            copyText: `Spoke ${label} | ${constellationText} | ts ${Math.round(systemConstellation.ts)}`
+        };
     }
 
     // ------------------------------------------------------------
@@ -2704,6 +2822,7 @@
         label: string;
         value?: string;
         modal?: string;
+        emoji?: string;
     };
 
     type CompassDynamicRow = {
@@ -4027,12 +4146,13 @@
                         >
                             <g class="markerBody">
                                 <circle r={markerSizes.hit} fill="transparent" />
-                                {#if isCluster}
+                                {#if isCluster || singleId === pinnedBodyId}
                                     <circle
                                             r={markerSizes.ring}
                                             fill="transparent"
                                             stroke="currentColor"
-                                            stroke-opacity={0.28}/>
+                                            stroke-opacity={isCluster ? 0.2 : 0.1}
+                                            stroke-width={isCluster ? 0.5 : 0.3}/>
                                 {/if}
                                 <text
                                         class="markerGlyph useObjectColor"
@@ -4046,8 +4166,8 @@
                                         fill={glyphColor}
                                         fill-opacity={Math.max(0.92, o)}
                                         stroke={glyphColor}
-                                        stroke-opacity={isCluster ? 0.35 : 0.55}
-                                        stroke-width={isCluster ? 2.5 : 2}
+                                        stroke-opacity={isCluster ? 0.2 : 0.4}
+                                        stroke-width={isCluster ? 1.5 : 1}
                                         style="pointer-events:none"
                                 >
                                     {c.count === 1 ? c.emoji : c.label}
@@ -4446,12 +4566,13 @@
                             >
                                 <g class="markerBody">
                                     <circle r={markerSizes.hit} fill="transparent" />
-                                    {#if isCluster}
+                                    {#if isCluster || singleId === pinnedBodyId}
                                         <circle
                                                 r={markerSizes.ring}
                                                 fill="transparent"
                                                 stroke="currentColor"
-                                                stroke-opacity={0.28}/>
+                                                stroke-opacity={isCluster ? 0.2 : 0.1}
+                                                stroke-width={isCluster ? 0.5 : 0.3}/>
                                     {/if}
                                     <text
                                             class="markerGlyph useObjectColor"
@@ -4465,8 +4586,8 @@
                                             fill={glyphColor}
                                             fill-opacity={Math.max(0.92, o)}
                                             stroke={glyphColor}
-                                            stroke-opacity={isCluster ? 0.35 : 0.55}
-                                            stroke-width={isCluster ? 2.5 : 2}
+                                            stroke-opacity={isCluster ? 0.2 : 0.4}
+                                            stroke-width={isCluster ? 1.5 : 1}
                                             style="pointer-events:none"
                                     >
                                         {c.count === 1 ? c.emoji : c.label}

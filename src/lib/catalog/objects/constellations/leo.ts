@@ -5,7 +5,7 @@ export const CONSTELLATION_LEO: ConstellationObj = {
     "kind": "constellation",
     "name": "Leo",
     "description": "Leo boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♌",
     "meta": {
         "name": "Leo",
         "abbr": "Leo",

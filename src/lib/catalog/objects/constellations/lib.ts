@@ -5,7 +5,7 @@ export const CONSTELLATION_LIB: ConstellationObj = {
     "kind": "constellation",
     "name": "Libra",
     "description": "Libra boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♎",
     "meta": {
         "name": "Libra",
         "abbr": "Lib",

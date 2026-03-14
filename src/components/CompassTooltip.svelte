@@ -34,11 +34,11 @@
         house: string;        // E/ENE/...
         visible: boolean;
         activeNode?: MomentTip | null;
-        bodyInfoItems?: Array<{ id: string; label: string; value?: string; modal?: string }>;
+        bodyInfoItems?: Array<{ id: string; label: string; value?: string; modal?: string; emoji?: string }>;
     }[] = [];
     export let dynamicRows: Array<{
         id: ObjId;
-        items: Array<{ id: string; label: string; value?: string; modal?: string }>;
+        items: Array<{ id: string; label: string; value?: string; modal?: string; emoji?: string }>;
     }> = [];
     export let dynamicDisabledIds: Set<string> = new Set();
 
@@ -159,7 +159,7 @@
         house: string;
         visible: boolean;
         opacity?: number;
-        infoItems?: Array<{ id: string; label: string; value?: string; modal?: string }>;
+        infoItems?: Array<{ id: string; label: string; value?: string; modal?: string; emoji?: string }>;
     };
 
     let openInfoItemKey = '';
@@ -194,7 +194,7 @@
         }
     }
 
-    function openInfoForRow(scope: 'above' | 'below', row: BodyRow): { key: string; item: { id: string; label: string; value?: string; modal?: string } } | null {
+    function openInfoForRow(scope: 'above' | 'below', row: BodyRow): { key: string; item: { id: string; label: string; value?: string; modal?: string; emoji?: string } } | null {
         if (!row.infoItems || row.infoItems.length === 0) return null;
         for (let i = 0; i < row.infoItems.length; i++) {
             const item = row.infoItems[i];
@@ -208,8 +208,8 @@
         return String(text ?? '').trim().toLowerCase();
     }
 
-    function uniqueBodyInfoItems(items: Array<{ id: string; label: string; value?: string; modal?: string }>, excluded: Set<string>) {
-        const byLabel = new Map<string, { id: string; label: string; value?: string; modal?: string }>();
+    function uniqueBodyInfoItems(items: Array<{ id: string; label: string; value?: string; modal?: string; emoji?: string }>, excluded: Set<string>) {
+        const byLabel = new Map<string, { id: string; label: string; value?: string; modal?: string; emoji?: string }>();
         for (const item of items) {
             const key = normalizeLabelKey(item.label);
             if (!key || excluded.has(key)) continue;
@@ -565,6 +565,10 @@
                                 on:click={() => toggleMomentItem(i, item.modal)}
                             >
                                 <span class="chipLine">
+                                    {#if item.emoji}
+                                        <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                    {/if}
                                     <span class="chipLabel">{item.label}</span>
                                     {#if item.value}
                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -575,6 +579,10 @@
                         {:else}
                             <span class="ui-tag chipStatic">
                                 <span class="chipLine">
+                                    {#if item.emoji}
+                                        <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                    {/if}
                                     <span class="chipLabel">{item.label}</span>
                                     {#if item.value}
                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -654,6 +662,10 @@
                                                     on:keydown|stopPropagation={(e) => handleInfoItemKeydown(e, 'above', row.id, item, item.modal)}
                                                 >
                                                     <span class="chipLine">
+                                                        {#if item.emoji}
+                                                            <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                        {/if}
                                                         <span class="chipLabel">{item.label}</span>
                                                         {#if item.value}
                                                             <span class="chipDivider" aria-hidden="true"></span>
@@ -664,6 +676,10 @@
                                             {:else}
                                                 <span class="ui-tag chipStatic">
                                                     <span class="chipLine">
+                                                        {#if item.emoji}
+                                                            <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                        {/if}
                                                         <span class="chipLabel">{item.label}</span>
                                                         {#if item.value}
                                                             <span class="chipDivider" aria-hidden="true"></span>
@@ -743,6 +759,10 @@
                                                     on:keydown|stopPropagation={(e) => handleInfoItemKeydown(e, 'below', row.id, item, item.modal)}
                                                 >
                                                     <span class="chipLine">
+                                                        {#if item.emoji}
+                                                            <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                        {/if}
                                                         <span class="chipLabel">{item.label}</span>
                                                         {#if item.value}
                                                             <span class="chipDivider" aria-hidden="true"></span>
@@ -753,6 +773,10 @@
                                             {:else}
                                                 <span class="ui-tag chipStatic">
                                                     <span class="chipLine">
+                                                        {#if item.emoji}
+                                                            <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                            <span class="chipDivider" aria-hidden="true"></span>
+                                                        {/if}
                                                         <span class="chipLabel">{item.label}</span>
                                                         {#if item.value}
                                                             <span class="chipDivider" aria-hidden="true"></span>
@@ -1003,6 +1027,10 @@
     }
     .chipLabel {
         font-weight: 700;
+    }
+    .chipEmoji {
+        font-size: 1.2em;
+        line-height: 1;
     }
     .chipDivider {
         width: 1px;

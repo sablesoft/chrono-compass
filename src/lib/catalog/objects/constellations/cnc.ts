@@ -5,7 +5,7 @@ export const CONSTELLATION_CNC: ConstellationObj = {
     "kind": "constellation",
     "name": "Cancer",
     "description": "Cancer boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♋",
     "meta": {
         "name": "Cancer",
         "abbr": "Cnc",

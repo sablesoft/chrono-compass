@@ -5,7 +5,7 @@ export const CONSTELLATION_PSC: ConstellationObj = {
     "kind": "constellation",
     "name": "Pisces",
     "description": "Pisces boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♓",
     "meta": {
         "name": "Pisces",
         "abbr": "Psc",

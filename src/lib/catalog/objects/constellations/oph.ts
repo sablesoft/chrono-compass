@@ -5,7 +5,7 @@ export const CONSTELLATION_OPH: ConstellationObj = {
     "kind": "constellation",
     "name": "Ophiuchus",
     "description": "Ophiuchus boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "⛎",
     "meta": {
         "name": "Ophiuchus",
         "abbr": "Oph",

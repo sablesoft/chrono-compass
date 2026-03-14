@@ -5,7 +5,7 @@ export const CONSTELLATION_SCO: ConstellationObj = {
     "kind": "constellation",
     "name": "Scorpius",
     "description": "Scorpius boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♏",
     "meta": {
         "name": "Scorpius",
         "abbr": "Sco",

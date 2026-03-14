@@ -5,7 +5,7 @@ export const CONSTELLATION_AQR: ConstellationObj = {
     "kind": "constellation",
     "name": "Aquarius",
     "description": "Aquarius boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♒",
     "meta": {
         "name": "Aquarius",
         "abbr": "Aqr",

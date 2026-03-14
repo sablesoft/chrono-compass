@@ -5,7 +5,7 @@ export const CONSTELLATION_SGR: ConstellationObj = {
     "kind": "constellation",
     "name": "Sagittarius",
     "description": "Sagittarius boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♐",
     "meta": {
         "name": "Sagittarius",
         "abbr": "Sgr",

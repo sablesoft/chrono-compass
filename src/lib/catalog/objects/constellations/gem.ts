@@ -5,7 +5,7 @@ export const CONSTELLATION_GEM: ConstellationObj = {
     "kind": "constellation",
     "name": "Gemini",
     "description": "Gemini boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♊",
     "meta": {
         "name": "Gemini",
         "abbr": "Gem",

@@ -5,7 +5,7 @@ export const CONSTELLATION_CAP: ConstellationObj = {
     "kind": "constellation",
     "name": "Capricornus",
     "description": "Capricornus boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♑",
     "meta": {
         "name": "Capricornus",
         "abbr": "Cap",

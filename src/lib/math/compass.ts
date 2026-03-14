@@ -75,6 +75,7 @@ export type CompassAstroFrameNode = {
         decDeg: number;
         constellationAbbr?: string;
         constellationName?: string;
+        constellationEmoji?: string;
     };
 };
 
@@ -884,8 +885,6 @@ export function buildCompassAstroFrameLayer(input: {
     // ECT (true ecliptic of date) -> EQD (true equator of date).
     const ectToEqdRot = Rotation_ECT_EQD(time);
     const constellationEntries = constellationEntriesFromObjects(objects);
-    const umiEntry = constellationEntries.find((c) => c.id === 'ref:constellation:umi');
-    const octEntry = constellationEntries.find((c) => c.id === 'ref:constellation:oct');
 
     for (let i = 0; i <= sampleCount; i++) {
         const lonDeg = i * sampleStepDeg;
@@ -934,6 +933,7 @@ export function buildCompassAstroFrameLayer(input: {
         decDeg: number;
         constellationAbbr?: string;
         constellationName?: string;
+        constellationEmoji?: string;
     }): CompassAstroFrameNode | null => {
         const p = raDecToHorizonPoint({
             ts,
@@ -943,7 +943,9 @@ export function buildCompassAstroFrameLayer(input: {
             decDeg: opts.decDeg
         });
         if (!p) return null;
-        const hit = (opts.constellationAbbr || opts.constellationName)
+        // TODO(constellation-spherical): Re-enable constellation lookup for poles
+        // after migrating boundary inclusion to robust spherical geometry.
+        const hit = (opts.kind === 'pole' || opts.constellationAbbr || opts.constellationName)
             ? null
             : findConstellationByRaDec({
                 raDeg: opts.raHours * 15,
@@ -951,11 +953,6 @@ export function buildCompassAstroFrameLayer(input: {
                 ts,
                 constellations: constellationEntries
             });
-        const poleFallback = (!hit && opts.kind === 'pole')
-            ? (opts.decDeg >= 0
-                ? { abbr: umiEntry?.meta.abbr, name: umiEntry?.name }
-                : { abbr: octEntry?.meta.abbr, name: octEntry?.name })
-            : null;
         return {
             id: opts.id,
             label: opts.label,
@@ -971,8 +968,9 @@ export function buildCompassAstroFrameLayer(input: {
             meta: {
                 raHours: opts.raHours,
                 decDeg: opts.decDeg,
-                constellationAbbr: opts.constellationAbbr ?? hit?.abbr ?? poleFallback?.abbr,
-                constellationName: opts.constellationName ?? hit?.name ?? poleFallback?.name
+                constellationAbbr: opts.constellationAbbr ?? hit?.abbr,
+                constellationName: opts.constellationName ?? hit?.name,
+                constellationEmoji: opts.constellationEmoji ?? hit?.emoji
             }
         };
     };
@@ -1004,7 +1002,8 @@ export function buildCompassAstroFrameLayer(input: {
             raHours: ecl.raDeg / 15,
             decDeg: ecl.decDeg,
             constellationAbbr: hit?.abbr,
-            constellationName: hit?.name
+            constellationName: hit?.name,
+            constellationEmoji: hit?.emoji
         });
     };
 

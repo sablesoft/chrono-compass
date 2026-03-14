@@ -189,12 +189,15 @@ export function currentHouseAtTs<T extends { ts: number; code: string }>(
         .sort((a, b) => a.ts - b.ts);
     if (!sorted.length) return undefined;
 
-    if (ts <= sorted[0].ts) return sorted[0].code;
+    if (sorted.length === 1) return sorted[0].code;
+
+    // House switches at boundaries between neighboring spoke moments.
+    // Boundary is defined as midpoint in time between adjacent spokes.
     for (let i = 0; i < sorted.length - 1; i++) {
         const cur = sorted[i];
         const next = sorted[i + 1];
-        if (ts < next.ts) return cur.code;
-        if (ts === next.ts) return next.code;
+        const boundaryTs = (cur.ts + next.ts) * 0.5;
+        if (ts < boundaryTs) return cur.code;
     }
     return sorted[sorted.length - 1].code;
 }

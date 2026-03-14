@@ -5,7 +5,7 @@ export const CONSTELLATION_VIR: ConstellationObj = {
     "kind": "constellation",
     "name": "Virgo",
     "description": "Virgo boundary polygon from Delporte/IAU data (B1875).",
-    "emoji": "✧",
+    "emoji": "♍",
     "meta": {
         "name": "Virgo",
         "abbr": "Vir",

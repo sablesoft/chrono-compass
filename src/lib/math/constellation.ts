@@ -10,12 +10,16 @@ import type {
 export type ConstellationCatalogEntry = {
     id: ConstellationObj['id'];
     name: string;
+    description?: string;
+    emoji?: string;
     meta: ConstellationMeta;
 };
 
 export type ConstellationHit = {
     id: ConstellationObj['id'];
     name: string;
+    description?: string;
+    emoji?: string;
     abbr: string;
     band: ConstellationMeta['band'];
     polygonEpoch: ConstellationPolygonEpoch;
@@ -148,6 +152,8 @@ export function constellationEntriesFromObjects(input: Partial<Record<string, Ob
         out.push({
             id: obj.id,
             name: obj.name,
+            description: obj.description,
+            emoji: obj.emoji,
             meta
         });
     }
@@ -187,6 +193,8 @@ export function findConstellationByRaDec(opts: {
             return {
                 id: c.id,
                 name: c.name,
+                description: c.description,
+                emoji: c.emoji,
                 abbr: meta.abbr,
                 band: meta.band,
                 polygonEpoch: meta.polygonEpoch,

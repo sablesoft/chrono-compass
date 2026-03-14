@@ -15,9 +15,13 @@ import type { NodalMeta } from './nodal';
 import type { CompassTrackPoint } from './compass';
 import { eqToEcl, refUnitAtTsByKind } from './vector';
 import { system as systemSpec } from '../catalog/wheels/system';
+import { constellationEntriesFromObjects, findConstellationByRaDec } from './constellation';
 
 const SYSTEM_TRACK_DENSIFY_ANGLE_GAP_DEG = 20;
 const SYSTEM_REFERENCE_RING_ORBIT = 1.5;
+const SYSTEM_ALL_CONSTELLATION_ENTRIES = constellationEntriesFromObjects(objects);
+const SYSTEM_ECLIPTIC_CONSTELLATION_ENTRIES = SYSTEM_ALL_CONSTELLATION_ENTRIES
+    .filter((entry) => entry.meta.band === 'ecliptic');
 
 function uniqueTags(tags: Array<string | null | undefined>): string[] {
     const out: string[] = [];
@@ -173,6 +177,126 @@ function referenceDistanceAu(id: ObjId): number {
     }
     const distanceLy = Number((b?.meta as any)?.distanceLy);
     return Number.isFinite(distanceLy) && distanceLy > 0 ? distanceLy * AU_PER_LY : NaN;
+}
+
+function normVec(v: { x: number; y: number; z: number }): { x: number; y: number; z: number } | null {
+    const m = Math.hypot(v.x, v.y, v.z);
+    if (!(m > 0)) return null;
+    return { x: v.x / m, y: v.y / m, z: v.z / m };
+}
+
+function eqdRaDecFromEclipticDirection(
+    eclDir: { x: number; y: number; z: number },
+    ts: number
+): { raDeg: number; decDeg: number } | null {
+    const A = Astronomy as any;
+    if (typeof A.AstroTime !== 'function' || typeof A.Vector !== 'function' || typeof A.RotateVector !== 'function' || typeof A.Rotation_ECT_EQD !== 'function') {
+        return null;
+    }
+    const time = new A.AstroTime(new Date(ts));
+    const eclVec = new A.Vector(eclDir.x, eclDir.y, eclDir.z, time);
+    const eqdVec = A.RotateVector(A.Rotation_ECT_EQD(time), eclVec);
+    const x = Number(eqdVec.x);
+    const y = Number(eqdVec.y);
+    const z = Number(eqdVec.z);
+    const raDeg = norm360((Math.atan2(y, x) * 180) / Math.PI);
+    const decDeg = (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI;
+    return Number.isFinite(raDeg) && Number.isFinite(decDeg) ? { raDeg, decDeg } : null;
+}
+
+function eqdRaDecFromFocusTargetDirection(
+    focus: ObjId,
+    target: ObjId,
+    ts: number
+): { raDeg: number; decDeg: number } | null {
+    if (bodyKind(target) === 'reference') {
+        const dir = referenceDirectionVec(target, ts);
+        if (!dir) return null;
+        const raDeg = norm360((Math.atan2(dir.y, dir.x) * 180) / Math.PI);
+        const decDeg = (Math.atan2(dir.z, Math.hypot(dir.x, dir.y)) * 180) / Math.PI;
+        return Number.isFinite(raDeg) && Number.isFinite(decDeg) ? { raDeg, decDeg } : null;
+    }
+
+    const pFocus = helioVec(focus, ts);
+    const pTarget = helioVec(target, ts);
+    if (!pFocus || !pTarget) return null;
+    const relEqj = normVec({
+        x: pTarget.x - pFocus.x,
+        y: pTarget.y - pFocus.y,
+        z: pTarget.z - pFocus.z
+    });
+    if (!relEqj) return null;
+
+    const A = Astronomy as any;
+    if (typeof A.AstroTime !== 'function' || typeof A.Vector !== 'function' || typeof A.RotateVector !== 'function' || typeof A.Rotation_EQJ_EQD !== 'function') {
+        return null;
+    }
+    const time = new A.AstroTime(new Date(ts));
+    const eqjVec = new A.Vector(relEqj.x, relEqj.y, relEqj.z, time);
+    const eqdVec = A.RotateVector(A.Rotation_EQJ_EQD(time), eqjVec);
+    const x = Number(eqdVec.x);
+    const y = Number(eqdVec.y);
+    const z = Number(eqdVec.z);
+    const raDeg = norm360((Math.atan2(y, x) * 180) / Math.PI);
+    const decDeg = (Math.atan2(z, Math.hypot(x, y)) * 180) / Math.PI;
+    return Number.isFinite(raDeg) && Number.isFinite(decDeg) ? { raDeg, decDeg } : null;
+}
+
+export type SystemSpokeConstellation = {
+    value: string;
+    description?: string;
+    emoji?: string;
+    ts: number;
+};
+
+function formatConstellationValue(hit: {
+    abbr?: string;
+    name?: string;
+} | null | undefined): string {
+    if (!hit) return '';
+    const abbr = typeof hit.abbr === 'string' ? hit.abbr.trim() : '';
+    const name = typeof hit.name === 'string' ? hit.name.trim() : '';
+    const core = abbr && name ? `${abbr} — ${name}` : (abbr || name);
+    return core;
+}
+
+export function systemSynodSpokeConstellationsAt(input: {
+    looker: ObjId;
+    focus: ObjId;
+    ts: number;
+}): Partial<Record<SpokeKey, SystemSpokeConstellation>> {
+    const out: Partial<Record<SpokeKey, SystemSpokeConstellation>> = {};
+    const base = lookerSideBasisVec(input.looker, input.focus, input.ts);
+    if (!base) return out;
+
+    for (let i = 0; i < 17; i++) {
+        const code = SPOKES_ORDER[i] ?? (i === 16 ? 'E_next' : 'E');
+        const phaseDeg = 90 + (360 * i) / 16;
+        const phaseRad = (phaseDeg * Math.PI) / 180;
+        const eclDir = normVec({
+            x: base.x * Math.cos(phaseRad) - base.y * Math.sin(phaseRad),
+            y: base.x * Math.sin(phaseRad) + base.y * Math.cos(phaseRad),
+            z: 0
+        });
+        if (!eclDir) continue;
+        const eqd = eqdRaDecFromEclipticDirection(eclDir, input.ts);
+        if (!eqd) continue;
+        const hit = findConstellationByRaDec({
+            raDeg: eqd.raDeg,
+            decDeg: eqd.decDeg,
+            ts: input.ts,
+            constellations: SYSTEM_ECLIPTIC_CONSTELLATION_ENTRIES
+        });
+        if (!hit) continue;
+        out[code] = {
+            value: formatConstellationValue(hit),
+            description: hit.description,
+            emoji: hit.emoji,
+            ts: input.ts
+        };
+    }
+
+    return out;
 }
 
 function normalizeVec(v: Vec3d): Vec3d | null {
@@ -1110,6 +1234,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
         dbg?.warn?.('solveSystemWheel.fail', reason);
         return { ok: false, kind: 'compass', ts, reason, bodies: [] };
     }
+    const synodSpokeConstellations = systemSynodSpokeConstellationsAt({ looker, focus, ts });
 
     const raw = await Promise.all(targets.map(async (id): Promise<{
         id: ObjId;
@@ -1229,6 +1354,17 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
             };
         });
 
+        const currentConstellationHit = (() => {
+            const eqd = eqdRaDecFromFocusTargetDirection(focus, r.id, ts);
+            if (!eqd) return null;
+            return findConstellationByRaDec({
+                raDeg: eqd.raDeg,
+                decDeg: eqd.decDeg,
+                ts,
+                constellations: SYSTEM_ALL_CONSTELLATION_ENTRIES
+            });
+        })();
+
         return {
             id: r.id,
             kind: r.kind,
@@ -1251,7 +1387,13 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
                     distanceAu: r.distanceAu,
                     distanceKm: Number.isFinite(r.distanceAu) ? r.distanceAu * AU_KM : NaN,
                     focusDistAu: r.focusDistAu,
-                    eclipticLatDeg: eclLat
+                    eclipticLatDeg: eclLat,
+                    constellation: r.currentHouses?.synod ? synodSpokeConstellations[r.currentHouses.synod as SpokeKey]?.value : undefined,
+                    constellationDescription: r.currentHouses?.synod ? synodSpokeConstellations[r.currentHouses.synod as SpokeKey]?.description : undefined,
+                    constellationEmoji: r.currentHouses?.synod ? synodSpokeConstellations[r.currentHouses.synod as SpokeKey]?.emoji : undefined,
+                    currentConstellation: formatConstellationValue(currentConstellationHit) || undefined,
+                    currentConstellationDescription: currentConstellationHit?.description,
+                    currentConstellationEmoji: currentConstellationHit?.emoji
                 },
                 bind: Number.isFinite(r.distanceAu) ? {
                     distanceAu: r.distanceAu,

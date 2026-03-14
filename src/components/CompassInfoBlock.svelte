@@ -8,6 +8,7 @@
         label: string;
         value?: string;
         modal?: string;
+        emoji?: string;
     };
 
     type CompassDynamicRow = {
@@ -588,6 +589,10 @@
                                 }}
                             >
                                 <span class="chipLine">
+                                    {#if chip.emoji}
+                                        <span class="chipEmoji" aria-hidden="true">{chip.emoji}</span>
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                    {/if}
                                     <span class="chipLabel">{chip.label}</span>
                                     {#if chip.value}
                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -598,6 +603,10 @@
                         {:else}
                             <span class="ui-tag chipStatic" title={chip.modal}>
                                 <span class="chipLine">
+                                    {#if chip.emoji}
+                                        <span class="chipEmoji" aria-hidden="true">{chip.emoji}</span>
+                                        <span class="chipDivider" aria-hidden="true"></span>
+                                    {/if}
                                     <span class="chipLabel">{chip.label}</span>
                                     {#if chip.value}
                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -697,6 +706,10 @@
                                             }}
                                         >
                                             <span class="chipLine">
+                                                {#if item.emoji}
+                                                    <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                    <span class="chipDivider" aria-hidden="true"></span>
+                                                {/if}
                                                 <span class="chipLabel">{item.label}</span>
                                                 {#if item.value}
                                                     <span class="chipDivider" aria-hidden="true"></span>
@@ -707,6 +720,10 @@
                                     {:else}
                                         <span class="ui-tag chipStatic">
                                             <span class="chipLine">
+                                                {#if item.emoji}
+                                                    <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                    <span class="chipDivider" aria-hidden="true"></span>
+                                                {/if}
                                                 <span class="chipLabel">{item.label}</span>
                                                 {#if item.value}
                                                     <span class="chipDivider" aria-hidden="true"></span>
@@ -764,6 +781,10 @@
                                                 on:click|stopPropagation={() => { modalTitle = item.label; modalText = item.modal ?? null; }}
                                             >
                                                 <span class="chipLine">
+                                                    {#if item.emoji}
+                                                        <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                        <span class="chipDivider" aria-hidden="true"></span>
+                                                    {/if}
                                                     <span class="chipLabel">{item.label}</span>
                                                     {#if item.value}
                                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -774,6 +795,10 @@
                                         {:else}
                                             <span class="ui-tag chipStatic" title={item.modal}>
                                                 <span class="chipLine">
+                                                    {#if item.emoji}
+                                                        <span class="chipEmoji" aria-hidden="true">{item.emoji}</span>
+                                                        <span class="chipDivider" aria-hidden="true"></span>
+                                                    {/if}
                                                     <span class="chipLabel">{item.label}</span>
                                                     {#if item.value}
                                                         <span class="chipDivider" aria-hidden="true"></span>
@@ -1251,6 +1276,11 @@
     .chipLabel {
         opacity: 0.85;
         font-weight: 700;
+    }
+
+    .chipEmoji {
+        font-size: 1.2em;
+        line-height: 1;
     }
 
     .chipDivider {
