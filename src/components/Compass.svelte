@@ -2020,6 +2020,7 @@
 
     let ensureRunId = 0;
     let solvePending = false;
+    let solveReason = '';
     let solveDoneForKey = false;
     let solveDoneKey = '';
     let showLoadingOverlay = false;
@@ -2050,6 +2051,7 @@
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
         solvePending = true;
+        solveReason = '';
 
         const targets = asBodyIdArray((roles as any)?.target);
         // const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
@@ -2075,6 +2077,9 @@
             applyTemplateConfigFromResponse(res);
 
             if (!res || res.kind !== 'compass' || !res.ok) {
+                solveReason = (res && (res as any)?.kind === 'compass')
+                    ? (String((res as any)?.reason ?? 'Solve failed'))
+                    : 'Not a compass result';
                 markerClusters = [];
                 lastTargets = [];
                 displayTargets = [];
@@ -2086,6 +2091,13 @@
             lastTargets = applyPendingNodeSnap(solvedTargets);
             animateDisplayTargets(lastResolvedTs, ts, lastTargets);
             lastResolvedTs = ts;
+            solveDoneForKey = true;
+        } catch (e: any) {
+            if (ensureRunId !== myRun) return;
+            solveReason = e?.message ? String(e.message) : 'Solve failed';
+            markerClusters = [];
+            lastTargets = [];
+            displayTargets = [];
             solveDoneForKey = true;
         } finally {
             if (ensureRunId === myRun) solvePending = false;
@@ -4788,6 +4800,7 @@
                         houseDefs={compassHouseDefs}
                         pinnedAvailableGroups={pinnedAvailableGroups}
                         generalChips={compassGeneralChips}
+                        errorReason={solveReason}
                         dynamicRows={compassDynamicRows}
                         pinnedRows={compassPinnedRows}
                         referenceTs={localLiveNowTs}

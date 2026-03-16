@@ -796,40 +796,41 @@
 
     $: {
         spec = wheel?.wheelType ? (wheels as any)[wheel.wheelType] as WheelSpec : null;
+        const roleState = (wheel?.roles ?? {}) as Partial<Record<RoleName, ObjId | ObjId[] | null>>;
+        const roleLookerId = (typeof roleState.looker === 'string' && roleState.looker) ? roleState.looker : null;
+        const roleFocusId = (typeof roleState.focus === 'string' && roleState.focus) ? roleState.focus : null;
+        const roleTargetId = Array.isArray(roleState.target)
+            ? ((typeof roleState.target[0] === 'string' && roleState.target[0]) ? roleState.target[0] : null)
+            : ((typeof roleState.target === 'string' && roleState.target) ? roleState.target : null);
 
-            const baseUi = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
-            const uiMerged = templateUiOverride ? { ...(baseUi ?? {}), ...templateUiOverride } : baseUi;
-            const draws: Array<{ anchor: UiAnchor; emoji: string; color?: string | null }> = [];
+        const baseUi = (spec as any)?.ui as Partial<Record<RoleName, EmojiPlacementInput>> | undefined;
+        const uiMerged = templateUiOverride ? { ...(baseUi ?? {}), ...templateUiOverride } : baseUi;
+        const draws: Array<{ anchor: UiAnchor; emoji: string; color?: string | null }> = [];
 
-        const focusId = (wheel?.roles as any)?.focus as ObjId | null;
-        const targetRaw = (wheel?.roles as any)?.target as ObjId[] | ObjId | null;
-        const targetId = Array.isArray(targetRaw) ? (targetRaw[0] ?? null) : targetRaw;
-
-        if (uiMerged?.focus && focusId) {
-            const e = bodyEmoji(focusId);
-            const c = bodyColor(focusId);
+        if (uiMerged?.focus && roleFocusId) {
+            const e = bodyEmoji(roleFocusId as ObjId);
+            const c = bodyColor(roleFocusId as ObjId);
             if (e) {
                 for (const a of parsePlacements(uiMerged.focus)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
-        if (uiMerged?.target && targetId) {
-            const e = bodyEmoji(targetId);
-            const c = bodyColor(targetId);
+        if (uiMerged?.target && roleTargetId) {
+            const e = bodyEmoji(roleTargetId as ObjId);
+            const c = bodyColor(roleTargetId as ObjId);
             if (e) {
                 for (const a of parsePlacements(uiMerged.target)) draws.push({ anchor: a, emoji: e, color: c });
             }
         }
 
-        const lookerId = (wheel?.roles as any)?.looker as ObjId | null;
         const fallbackLookerPlacement: EmojiPlacementInput | undefined =
-            (!uiMerged?.looker && wheel?.wheelType === 'plato' && lookerId)
-                ? platoLookerAnchor(lookerId)
+            (!uiMerged?.looker && wheel?.wheelType === 'plato' && roleLookerId)
+                ? platoLookerAnchor(roleLookerId as ObjId, effTs)
                 : undefined;
         const lookerPlacement = uiMerged?.looker ?? fallbackLookerPlacement;
         if (lookerPlacement) {
-            const e = bodyEmoji(lookerId);
-            const c = bodyColor(lookerId);
+            const e = bodyEmoji(roleLookerId as ObjId);
+            const c = bodyColor(roleLookerId as ObjId);
             if (e) {
                 for (const a of parsePlacements(lookerPlacement)) draws.push({ anchor: a, emoji: e, color: c });
             }
@@ -858,14 +859,6 @@
     }
     function emojiAtSpoke(spoke: SpokeCode): EmojiAt | null {
         return emojiAt.find(x => x.anchor.kind === 'spoke' && x.anchor.spoke === spoke) ?? null;
-    }
-
-    let pointerEmoji: EmojiAt | null = null;
-    let centerEmoji: EmojiAt | null = null;
-
-    $: {
-        pointerEmoji = emojiAtPointer();
-        centerEmoji = emojiAtCenter();
     }
 
     // ------------------------------------------------------------
@@ -1314,7 +1307,7 @@
     let availableSpokeCodes: SpokeKey[] = [];
     let activeSpoke: CycleSpoke | null = null;
 
-    let generalDefs: Array<{ id: string; label: string; value: string }> = [];
+    let generalDefs: Array<{ id: string; label: string; value: string; modal?: string }> = [];
     let currentValues: Record<string, string> = {};
     let staticValues: Record<string, string> = {};
 
@@ -1508,6 +1501,14 @@
         return out;
     }
 
+    function platoCurrentAxisLookerDeviationDeg(spokeRows: CycleSpoke[]): number {
+        for (const spoke of spokeRows) {
+            const raw = Number((spoke as any)?.meta?.currentTsAxisLookerDeviationDeg);
+            if (Number.isFinite(raw)) return raw;
+        }
+        return NaN;
+    }
+
     function buildChips(tagConfigs: InfoTagConfig[], meta: Record<string, unknown>, code: SpokeKey, templateId?: string): InfoChip[] {
         const out: InfoChip[] = [];
         for (const tag of tagConfigs) {
@@ -1576,16 +1577,31 @@
     $: availableSpokeCodes = SPOKES_ORDER.filter((code) => spokes.some((s) => s.code === code));
     $: activeSpoke = spokes.find((x) => x.index === activeSpokeIndex) ?? null;
 
-    $: generalDefs = [{
-        id: 'duration',
-        label: formatLabelTitleCaseUi('duration'),
-        value: formatCycleDurationFromSpokes(spokes)
-    }];
+    $: generalDefs = (() => {
+        const out: Array<{ id: string; label: string; value: string; modal?: string }> = [{
+            id: 'duration',
+            label: formatLabelTitleCaseUi('duration'),
+            value: formatCycleDurationFromSpokes(spokes)
+        }];
+        if (wheel?.wheelType === 'plato') {
+            const currentDeg = platoCurrentAxisLookerDeviationDeg(spokes);
+            const value = formatInfoValue('deg', currentDeg);
+            if (value && value !== '—') {
+                out.push({
+                    id: 'plato-current-axis-looker-deviation',
+                    label: 'Current Axis-Looker Deviation',
+                    value,
+                    modal: 'Angular distance in degrees between the active Earth-axis pole and the looker direction at the current wheel timestamp (ts).'
+                });
+            }
+        }
+        return out;
+    })();
 
     $: defaultInfoConfig = {
         general: {
             enabled: true,
-            tags: [{ id: 'duration', enabled: true }]
+            tags: generalDefs.map((d) => ({ id: d.id, enabled: true, modal: d.modal }))
         },
         templates: [
             {
@@ -1631,7 +1647,7 @@
                 const def = generalMap.get(t.id);
                 const label = (t.label && t.label.trim()) ? t.label.trim() : (def?.label ?? formatLabelTitleCaseUi(t.id));
                 const value = def?.value;
-                const modal = t.modal && t.modal.trim() ? t.modal.trim() : undefined;
+                const modal = t.modal && t.modal.trim() ? t.modal.trim() : def?.modal;
                 return {
                     id: t.id,
                     label,
@@ -1780,6 +1796,7 @@
         <div class="wrap" bind:this={wrapEl}>
             <section class="wheelPanel">
             <div class="wheelBox">
+                {#key solveConfigKey}
                 <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                     <circle cx={cx} cy={cy} r={rInner} fill="none" stroke="currentColor" stroke-opacity="0.18" />
@@ -2056,6 +2073,7 @@
 
                     <!-- Current Moment Pointer -->
                     {#if hasAnyAvailableSpoke}
+                        {@const pointerEmojiNow = emojiAtPointer()}
                         <g transform={`translate(${cx} ${cy})`}>
                             <g class="pointer"
                                class:noTransition={noTransition}
@@ -2072,36 +2090,42 @@
                                         stroke-opacity="0.55"
                                         stroke-width="3" />
 
-                                {#if pointerEmoji}
-                                    <text class="roleEmoji roleEmojiPointer"
-                                          x={rOuter} y="0"
-                                          text-anchor="middle"
-                                          dominant-baseline="middle"
-                                          class:useObjectColor={!!pointerEmoji.color}
-                                          style={pointerEmoji.color ? `color:${pointerEmoji.color}` : ''}
-                                    >
-                                        {pointerEmoji.text}
-                                    </text>
+                                {#if pointerEmojiNow}
+                                    {#key pointerEmojiNow.text}
+                                        <text class="roleEmoji roleEmojiPointer"
+                                              x={rOuter} y="0"
+                                              text-anchor="middle"
+                                              dominant-baseline="middle"
+                                              class:useObjectColor={!!pointerEmojiNow.color}
+                                              style={pointerEmojiNow.color ? `color:${pointerEmojiNow.color}` : ''}
+                                        >
+                                            {pointerEmojiNow.text}
+                                        </text>
+                                    {/key}
                                 {/if}
                             </g>
                         </g>
                     {/if}
 
-                    {#if centerEmoji}
-                        <text
-                                class="roleEmoji roleEmojiCenter"
-                                x={cx} y={cy}
-                                text-anchor="middle"
-                                dominant-baseline="middle"
-                                class:useObjectColor={!!centerEmoji.color}
-                                style={centerEmoji.color ? `color:${centerEmoji.color}` : ''}
-                        >
-                            {centerEmoji.text}
-                        </text>
+                    {#if emojiAtCenter()}
+                        {@const centerEmojiNow = emojiAtCenter()}
+                        {#key centerEmojiNow?.text ?? ''}
+                            <text
+                                    class="roleEmoji roleEmojiCenter"
+                                    x={cx} y={cy}
+                                    text-anchor="middle"
+                                    dominant-baseline="middle"
+                                    class:useObjectColor={!!centerEmojiNow?.color}
+                                    style={centerEmojiNow?.color ? `color:${centerEmojiNow.color}` : ''}
+                            >
+                                {centerEmojiNow?.text ?? ''}
+                            </text>
+                        {/key}
                     {:else}
                         <circle cx={cx} cy={cy} r={VB * 0.012} fill="currentColor" />
                     {/if}
                 </svg>
+                {/key}
 
                 <div class="cycleNav">
                     <button
@@ -2188,6 +2212,7 @@
         {/if}
             <CycleInfoBlock
                     generalChips={generalChipsOrdered}
+                    errorReason={!solveOk && solveReason ? solveReason : ''}
                     currentRow={currentRow}
                     spokeRows={staticSpokeRows}
                     referenceTs={Number.isFinite(localLiveNowTs) ? localLiveNowTs : Date.now()}

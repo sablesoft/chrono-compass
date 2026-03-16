@@ -41,6 +41,7 @@
     };
 
     export let generalChips: WheelInfoChip[] = [];
+    export let errorReason = '';
     export let currentRow: SpokeInfoRow | null = null;
     export let spokeRows: SpokeInfoRow[] = [];
     export let referenceTs: number = Date.now();
@@ -585,6 +586,12 @@
         {/if}
     </div>
 
+    {#if errorReason.trim()}
+        <section class="infoSection errorSection" aria-live="polite">
+            <div class="errorText">Solve Error: {errorReason}</div>
+        </section>
+    {/if}
+
     {#if generalChips.length}
         <section class="infoSection">
             <div class="chipGrid">
@@ -1120,6 +1127,19 @@
         align-content: start;
         align-items: start;
         align-self: start;
+    }
+    .errorSection {
+        border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 55%);
+        background: color-mix(in oklab, var(--accent-gold), transparent 90%);
+        border-radius: 10px;
+        padding: 8px 10px;
+    }
+    .errorText {
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.35;
+        color: color-mix(in oklab, var(--fg), var(--accent-gold) 22%);
+        white-space: pre-wrap;
     }
 
     .editBtn {

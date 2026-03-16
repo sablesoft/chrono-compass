@@ -13,20 +13,14 @@ import { refUnit } from './vector';
 type PlatoMeta = {
     axisLookerDeviationDeg: number;
     axisLookerDeviationRad: number;
-    axisLookerDeviationFromAnchorDeg: number;
-    axisLookerDeviationFromAnchorRad: number;
     currentTsAxisLookerDeviationDeg: number;
     currentTsAxisLookerDeviationRad: number;
-    currentTsAxisLookerDeviationFromAnchorDeg: number;
-    currentTsAxisLookerDeviationFromAnchorRad: number;
     anchorCode: 'N' | 'S';
     oppositeCode: 'N' | 'S';
 };
 type PlatoInstantMeta = {
     currentTsAxisLookerDeviationDeg: number;
     currentTsAxisLookerDeviationRad: number;
-    currentTsAxisLookerDeviationFromAnchorDeg: number;
-    currentTsAxisLookerDeviationFromAnchorRad: number;
     anchorCode: 'N' | 'S';
     oppositeCode: 'N' | 'S';
 };
@@ -94,8 +88,10 @@ function angleBetweenUnit(a: V3, b: V3): number {
     return Math.acos(clamp(dot(a, b), -1, 1));
 }
 
-function currentAnchorCode(lookerUnit: V3): 'N' | 'S' {
-    return dot(lookerUnit, ECL_POLE) > 0 ? 'N' : 'S';
+function currentAnchorCode(ts: number, lookerUnit: V3): 'N' | 'S' {
+    // Celestial-equator anchor selection: compare looker direction to Earth's
+    // instantaneous rotation axis (normal of the true celestial equator model used here).
+    return dot(lookerUnit, earthAxisAt(ts)) >= 0 ? 'N' : 'S';
 }
 
 const RA_GC = degToRad((17 + 45 / 60 + 40.04 / 3600) * 15);
@@ -104,6 +100,8 @@ const DEFAULT_LOOKER = raDecToUnit(RA_GC, DEC_GC);
 
 const EPS = degToRad(23.439291);
 const ECL_POLE: V3 = normalize({ x: 0, y: -Math.sin(EPS), z: Math.cos(EPS) });
+const PRECESSION_BELT_HALF_WIDTH_RAD = EPS;
+const PRECESSION_BELT_EPS_RAD = 1e-12;
 
 const MS_PER_YEAR = 365.2422 * 86400_000;
 const PRECESSION_YEARS = 25772;
@@ -155,9 +153,17 @@ function lookerUnitById(looker: ObjId | undefined): V3 {
     return normalize({ x: u3[0], y: u3[1], z: u3[2] });
 }
 
-export function platoLookerAnchor(looker?: ObjId): 'N' | 'S' {
+function lookerEclipticLatitudeRad(lookerUnit: V3): number {
+    return Math.asin(clamp(dot(lookerUnit, ECL_POLE), -1, 1));
+}
+
+function isLookerOutsidePrecessionBelt(lookerUnit: V3): boolean {
+    return Math.abs(lookerEclipticLatitudeRad(lookerUnit)) > (PRECESSION_BELT_HALF_WIDTH_RAD + PRECESSION_BELT_EPS_RAD);
+}
+
+export function platoLookerAnchor(looker?: ObjId, ts: number = Date.now()): 'N' | 'S' {
     const lookerUnit = lookerUnitById(looker);
-    return dot(lookerUnit, ECL_POLE) > 0 ? 'N' : 'S';
+    return currentAnchorCode(ms(ts), lookerUnit);
 }
 
 type Ext = { t: number; v: number };
@@ -313,7 +319,16 @@ function findNearestMinimumWithNeighbors(ts: number, lookerUnit: V3, anchorCode:
 export function getPlatoAnchors(ts: number, looker?: ObjId): Anchors | null {
     ts = ms(ts);
     const lookerUnit = lookerUnitById(looker);
-    const anchorCode = currentAnchorCode(lookerUnit);
+    if (!isLookerOutsidePrecessionBelt(lookerUnit)) {
+        warn('plato.anchors.invalidLooker.precessionBelt', {
+            ts: fmt(ts),
+            looker: looker ?? null,
+            lookerEclipticLatDeg: Number((lookerEclipticLatitudeRad(lookerUnit) * 180 / Math.PI).toFixed(6)),
+            beltHalfWidthDeg: Number((PRECESSION_BELT_HALF_WIDTH_RAD * 180 / Math.PI).toFixed(6)),
+        });
+        return null;
+    }
+    const anchorCode = currentAnchorCode(ts, lookerUnit);
     const anchorShift = anchorCode === 'N' ? NORTH_SHIFT : SOUTH_SHIFT;
 
     return group(`anchors ts=${new Date(ts).toISOString()}`, () => {
@@ -401,7 +416,6 @@ function anchorsToSpokes(
     if (anchorIndex < 0 || anchorIndex >= times.length) return null;
     const anchorTs = times[anchorIndex];
     if (!isFiniteNumber(anchorTs)) return null;
-    const anchorDeviationRad = deviationAt(anchorTs, lookerUnit, anchorCode);
 
     const out: CycleSpoke<PlatoMeta>[] = [];
     for (let i = 0; i < 17; i++) {
@@ -410,7 +424,6 @@ function anchorsToSpokes(
         if (!isFiniteNumber(ts)) return null;
         if (i > 0 && !(ts > times[i - 1])) return null;
         const deviationRad = deviationAt(ts, lookerUnit, anchorCode);
-        const deviationFromAnchorRad = Math.max(0, deviationRad - anchorDeviationRad);
         out.push({
             ts,
             code,
@@ -419,12 +432,8 @@ function anchorsToSpokes(
             meta: {
                 axisLookerDeviationDeg: deviationRad * 180 / Math.PI,
                 axisLookerDeviationRad: deviationRad,
-                axisLookerDeviationFromAnchorDeg: deviationFromAnchorRad * 180 / Math.PI,
-                axisLookerDeviationFromAnchorRad: deviationFromAnchorRad,
                 currentTsAxisLookerDeviationDeg: instant.currentTsAxisLookerDeviationDeg,
                 currentTsAxisLookerDeviationRad: instant.currentTsAxisLookerDeviationRad,
-                currentTsAxisLookerDeviationFromAnchorDeg: instant.currentTsAxisLookerDeviationFromAnchorDeg,
-                currentTsAxisLookerDeviationFromAnchorRad: instant.currentTsAxisLookerDeviationFromAnchorRad,
                 anchorCode: instant.anchorCode,
                 oppositeCode: instant.oppositeCode,
             },
@@ -436,7 +445,7 @@ function anchorsToSpokes(
 function buildPlatoInstantMeta(ts: number, looker?: ObjId): PlatoInstantMeta {
     const safeTs = ms(ts);
     const lookerUnit = lookerUnitById(looker);
-    const anchorCode = currentAnchorCode(lookerUnit);
+    const anchorCode = currentAnchorCode(safeTs, lookerUnit);
     const oppositeCode = anchorCode === 'N' ? 'S' : 'N';
     const anchors = getPlatoAnchors(safeTs, looker);
     if (!anchors) {
@@ -445,23 +454,16 @@ function buildPlatoInstantMeta(ts: number, looker?: ObjId): PlatoInstantMeta {
             oppositeCode,
             currentTsAxisLookerDeviationDeg: NaN,
             currentTsAxisLookerDeviationRad: NaN,
-            currentTsAxisLookerDeviationFromAnchorDeg: NaN,
-            currentTsAxisLookerDeviationFromAnchorRad: NaN,
         };
     }
-    const anchorTs = anchorCode === 'N' ? anchors.N : anchors.S;
 
     const tsDeviationRad = deviationAt(safeTs, lookerUnit, anchorCode);
-    const anchorDeviationRad = deviationAt(anchorTs, lookerUnit, anchorCode);
-    const tsDeviationFromAnchorRad = Math.max(0, tsDeviationRad - anchorDeviationRad);
 
     return {
         anchorCode,
         oppositeCode,
         currentTsAxisLookerDeviationDeg: tsDeviationRad * 180 / Math.PI,
         currentTsAxisLookerDeviationRad: tsDeviationRad,
-        currentTsAxisLookerDeviationFromAnchorDeg: tsDeviationFromAnchorRad * 180 / Math.PI,
-        currentTsAxisLookerDeviationFromAnchorRad: tsDeviationFromAnchorRad,
     };
 }
 
@@ -489,11 +491,18 @@ export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<Pl
     if (!isTsWithinWheelTimeframe(ts)) {
         return fail('Plato wheel: requested timestamp is outside supported timeframe');
     }
+    const lookerUnit = lookerUnitById(looker);
+    if (!isLookerOutsidePrecessionBelt(lookerUnit)) {
+        const betaDeg = lookerEclipticLatitudeRad(lookerUnit) * 180 / Math.PI;
+        const beltHalfWidthDeg = PRECESSION_BELT_HALF_WIDTH_RAD * 180 / Math.PI;
+        return fail(
+            `Plato wheel: looker lies inside precession belt (|ecliptic latitude|=${Math.abs(betaDeg).toFixed(3)}° <= ${beltHalfWidthDeg.toFixed(3)}°).`
+        );
+    }
 
     const anchors = getPlatoAnchors(ts, looker);
     if (!anchors) return fail('Plato wheel: failed to locate deviation minima around ts');
-    const lookerUnit = lookerUnitById(looker);
-    const anchorCode = currentAnchorCode(lookerUnit);
+    const anchorCode = currentAnchorCode(ts, lookerUnit);
     const instantMeta = buildPlatoInstantMeta(ts, looker);
     const spokes = anchorsToSpokes(anchors, lookerUnit, anchorCode, instantMeta);
     if (!spokes) return fail('Plato wheel: failed to build spokes from anchors');

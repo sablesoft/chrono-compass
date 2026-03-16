@@ -69,9 +69,10 @@ function attachTemplateUpdater(
 
     if (String(wheelLike.wheelType) === 'plato') {
         const looker = (wheelLike.roles as any)?.looker as ObjId | undefined;
+        const ts = Number((res as any)?.ts);
         return {
             ...(res as any),
-            templateConfigUpdater: () => ({ ui: { looker: platoLookerAnchor(looker) } })
+            templateConfigUpdater: () => ({ ui: { looker: platoLookerAnchor(looker, ts) } })
         } as WheelSolveResult;
     }
 
