@@ -153,6 +153,7 @@ export type MarkerItem = {
     bg: string;
     opacity?: number;
     emoji: string;
+    emojiRotationDeg?: number;
     color?: string;
 
     title: string;

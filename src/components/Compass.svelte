@@ -1867,6 +1867,23 @@
         return out;
     }
 
+    function moonPhaseInfoItem(t: CompassTargetState): CompassInfoChip | null {
+        if (t.id !== 'Moon') return null;
+        const phaseName = typeof (t as any).moonPhaseName === 'string' ? (t as any).moonPhaseName.trim() : '';
+        const phaseEmoji = typeof (t as any).moonPhaseEmoji === 'string' ? (t as any).moonPhaseEmoji.trim() : '';
+        const fraction = Number((t as any).moonPhaseFraction);
+        if (!phaseName && !Number.isFinite(fraction) && !phaseEmoji) return null;
+        const illum = Number.isFinite(fraction) ? `${(fraction * 100).toFixed(1)}%` : '';
+        const value = phaseName && illum ? `${phaseName} (${illum})` : (phaseName || illum || '');
+        return {
+            id: 'moon-phase',
+            label: 'Moon Phase',
+            value: value || undefined,
+            modal: 'Geocentric lunar phase for the current timestamp, with illuminated fraction.',
+            emoji: phaseEmoji || '🌙'
+        };
+    }
+
     // ------------------------------------------------------------
     // Role emoji placements (center / label / spoke)
     // ------------------------------------------------------------
@@ -2353,7 +2370,10 @@
     // table rows for tooltip / pinned row
     $: allBodies = lastTargets.map(t => {
         const name = resolveBodyName(t.id, activeBodyOverrides);
-        const emoji = resolveBodyEmoji(t.id, activeBodyOverrides);
+        const moonPhaseEmoji = (t.id === 'Moon' && typeof (t as any).moonPhaseEmoji === 'string')
+            ? String((t as any).moonPhaseEmoji).trim()
+            : '';
+        const emoji = moonPhaseEmoji || resolveBodyEmoji(t.id, activeBodyOverrides);
         const color = resolveBodyColor(t.id);
         const house = houseLabelForAzimuth(t.azimuthDeg);
         const isSystemWheel = wheel?.wheelType === 'system';
@@ -2365,6 +2385,7 @@
         const constellationItem = bodyConstellationInfoItem(t, effTs);
         const eclipticConstellationItem = bodyEclipticConstellationInfoItem(t, house);
         const currentConstellationItem = bodyCurrentConstellationInfoItem(t);
+        const moonPhaseItem = moonPhaseInfoItem(t);
 
         const activeNode = orbitNodesAll
             .filter((n) => n.bodyId === t.id)
@@ -2403,6 +2424,7 @@
             bodyInfoItems: normalizeCompassBodyInfoItems(
                 t.id,
                 [
+                    ...(moonPhaseItem ? [moonPhaseItem] : []),
                     ...(currentConstellationItem ? [currentConstellationItem] : []),
                     ...(eclipticConstellationItem ? [eclipticConstellationItem] : []),
                     ...(constellationItem ? [constellationItem] : []),
@@ -2432,7 +2454,10 @@
         const t = lastTargets?.find((x) => x.id === pinnedBodyId);
         if (!t) return null;
 
-        const emoji = resolveBodyEmoji(pinnedBodyId, activeBodyOverrides);
+        const moonPhaseEmoji = (t.id === 'Moon' && typeof (t as any).moonPhaseEmoji === 'string')
+            ? String((t as any).moonPhaseEmoji).trim()
+            : '';
+        const emoji = moonPhaseEmoji || resolveBodyEmoji(pinnedBodyId, activeBodyOverrides);
         const name = resolveBodyName(pinnedBodyId, activeBodyOverrides);
         const color = resolveBodyColor(pinnedBodyId);
 
@@ -4122,8 +4147,10 @@
                         {@const markerKey = `marker:${c.id}`}
                         {@const isCluster = c.count > 1}
                         {@const singleId = clusterSingleBodyId(c)}
+                        {@const singleItem = c.count === 1 ? c.items[0] : null}
                         {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
                         {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
+                        {@const glyphRotateDeg = (!isCluster && singleItem && Number.isFinite(singleItem.emojiRotationDeg)) ? Number(singleItem.emojiRotationDeg) : 0}
                         {@const o = c.opacity ?? 1}
 
                         <g class="marker"
@@ -4180,6 +4207,7 @@
                                         stroke={glyphColor}
                                         stroke-opacity={isCluster ? 0.2 : 0.4}
                                         stroke-width={isCluster ? 1.5 : 1}
+                                        transform={glyphRotateDeg ? `rotate(${glyphRotateDeg})` : undefined}
                                         style="pointer-events:none"
                                 >
                                     {c.count === 1 ? c.emoji : c.label}
@@ -4542,8 +4570,10 @@
                             {@const markerKey = `side-marker:${c.id}`}
                             {@const isCluster = c.count > 1}
                             {@const singleId = clusterSingleBodyId(c)}
+                            {@const singleItem = c.count === 1 ? c.items[0] : null}
                             {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
                             {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
+                            {@const glyphRotateDeg = (!isCluster && singleItem && Number.isFinite(singleItem.emojiRotationDeg)) ? Number(singleItem.emojiRotationDeg) : 0}
                             {@const o = c.opacity ?? 1}
 
                             <g class="marker"
@@ -4600,6 +4630,7 @@
                                             stroke={glyphColor}
                                             stroke-opacity={isCluster ? 0.2 : 0.4}
                                             stroke-width={isCluster ? 1.5 : 1}
+                                            transform={glyphRotateDeg ? `rotate(${glyphRotateDeg})` : undefined}
                                             style="pointer-events:none"
                                     >
                                         {c.count === 1 ? c.emoji : c.label}

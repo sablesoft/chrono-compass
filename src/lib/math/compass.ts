@@ -10,6 +10,7 @@ import {currentHouseAtTs, toSigned180, trackInMainCycleWindow} from "./helpers";
 import { classifyHorizonVisibility, computeHorizonInstant, orbitFromAltitudeDeg, type HorizonMeta } from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
 import { constellationEntriesFromObjects, findConstellationByRaDec } from './constellation';
+import { synodProjectedPhaseAt } from './synod';
 
 export type CompassTrackPoint = {
     ts: number;
@@ -46,6 +47,10 @@ export type CompassTargetState = {
     decDeg?: number;
     distanceAu?: number;
     distanceLabel?: string;
+    moonPhaseEmoji?: string;
+    moonPhaseName?: string;
+    moonPhaseFraction?: number;
+    moonPhaseRotationDeg?: number;
 };
 
 export type CompassAstroFrameCurveKind = 'equator' | 'ecliptic';
@@ -767,6 +772,9 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 horizon: currentHouseAtTs(horizonSpokes, ts),
                 compass: currentHouseAtTs(spokeTrack, ts)
             };
+            const moonPhase = id === 'Moon'
+                ? buildMoonPhaseVisual({ ts, looker, location: loc, moonInstant: instant })
+                : null;
 
             return {
                 id,
@@ -791,7 +799,11 @@ export async function solveCompassWheel(input: WheelInput): Promise<CompassSolve
                 raHours: instant.raHours,
                 decDeg: instant.decDeg,
                 distanceAu: instant.distanceAu,
-                distanceLabel: `Dist to ${bodyNameEn(looker)}`
+                distanceLabel: `Dist to ${bodyNameEn(looker)}`,
+                moonPhaseEmoji: moonPhase?.emoji,
+                moonPhaseName: moonPhase?.name,
+                moonPhaseFraction: moonPhase?.fraction,
+                moonPhaseRotationDeg: moonPhase?.rotationDeg
             };
         } catch (err) {
             dbg?.warn?.('solveCompassWheel.targetError', { id, err });
@@ -817,6 +829,74 @@ function azimuthToWheelAngleDeg(azimuthDeg: number): number {
 function norm360Local(deg: number): number {
     const x = deg % 360;
     return x < 0 ? x + 360 : x;
+}
+
+type MoonPhaseVisual = {
+    emoji: string;
+    name: string;
+    fraction: number;
+    rotationDeg: number;
+};
+
+function moonPhaseFromSynodPhaseDeg(phaseDeg: number): { emoji: string; name: string } {
+    const p = norm360Local(phaseDeg);
+    if (p < 22.5 || p >= 337.5) return { emoji: '🌑', name: 'New Moon' };
+    if (p < 67.5) return { emoji: '🌒', name: 'Waxing Crescent' };
+    if (p < 112.5) return { emoji: '🌓', name: 'First Quarter' };
+    if (p < 157.5) return { emoji: '🌔', name: 'Waxing Gibbous' };
+    if (p < 202.5) return { emoji: '🌕', name: 'Full Moon' };
+    if (p < 247.5) return { emoji: '🌖', name: 'Waning Gibbous' };
+    if (p < 292.5) return { emoji: '🌗', name: 'Last Quarter' };
+    return { emoji: '🌘', name: 'Waning Crescent' };
+}
+
+function moonGlyphBaseBrightDeg(emoji: string): number {
+    if (emoji === '🌖' || emoji === '🌗' || emoji === '🌘') return 180;
+    return 0;
+}
+
+function buildMoonPhaseVisual(opts: {
+    ts: number;
+    looker: ObjId;
+    location: WheelInput['location'];
+    moonInstant: Exclude<ReturnType<typeof computeHorizonInstant>, null>;
+}): MoonPhaseVisual | null {
+    const { ts, looker, location, moonInstant } = opts;
+    if (!location) return null;
+
+    const syn = synodProjectedPhaseAt('Sun', 'Earth', 'Moon', ts);
+    const phaseDeg = Number(syn?.phaseDeg);
+    if (!Number.isFinite(phaseDeg)) return null;
+
+    const phase = moonPhaseFromSynodPhaseDeg(phaseDeg);
+    const phaseRad = (phaseDeg * Math.PI) / 180;
+    const fraction = (1 - Math.cos(phaseRad)) / 2;
+
+    const sunInstant = computeHorizonInstant({ ts, looker, target: 'Sun', location });
+    if (!sunInstant) {
+        return {
+            emoji: phase.emoji,
+            name: phase.name,
+            fraction,
+            rotationDeg: 0
+        };
+    }
+
+    const moonAngleRad = (azimuthToWheelAngleDeg(moonInstant.azimuthDeg) * Math.PI) / 180;
+    const sunAngleRad = (azimuthToWheelAngleDeg(sunInstant.azimuthDeg) * Math.PI) / 180;
+    const moonX = moonInstant.orbit * Math.cos(moonAngleRad);
+    const moonY = moonInstant.orbit * Math.sin(moonAngleRad);
+    const sunX = sunInstant.orbit * Math.cos(sunAngleRad);
+    const sunY = sunInstant.orbit * Math.sin(sunAngleRad);
+    const sunDirDeg = (Math.atan2(sunY - moonY, sunX - moonX) * 180) / Math.PI;
+    const rotationDeg = toSigned180(sunDirDeg - moonGlyphBaseBrightDeg(phase.emoji));
+
+    return {
+        emoji: phase.emoji,
+        name: phase.name,
+        fraction,
+        rotationDeg
+    };
 }
 
 function raDecToHorizonPoint(opts: {
@@ -1083,7 +1163,9 @@ export function compassTargetsToMarkerItems(
 
     return targets.map((t) => {
         const baseId = `body:${String(t.id)}`;
-        const emoji = bodyEmoji(t.id);
+        const emoji = (t.id === 'Moon' && typeof t.moonPhaseEmoji === 'string' && t.moonPhaseEmoji.trim())
+            ? t.moonPhaseEmoji.trim()
+            : bodyEmoji(t.id);
         const color = bodyColor(t.id);
         const name = bodyNameEn(t.id);
 
@@ -1099,6 +1181,7 @@ export function compassTargetsToMarkerItems(
             bg: 'transparent',
             emoji,
             color,
+            emojiRotationDeg: Number.isFinite(t.moonPhaseRotationDeg) ? t.moonPhaseRotationDeg : undefined,
 
             title: name,
             description: t.visible
