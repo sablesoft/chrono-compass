@@ -55,7 +55,7 @@
     import { clampTsToWheelTimeframe, resolveWheelTimeframeBounds } from '../lib/wheel/timeframe';
 
     import { setSelectedTs, startLive as startGlobalLive } from '../lib/time/store';
-    import { platoLookerAnchor } from '../lib/math/plato';
+    import { platoCurrentDeviationDegAt, platoLookerAnchor } from '../lib/math/plato';
 
     import type { MarkerCluster } from '../lib/wheel/types';
     import { formatCycleDurationFromSpokes, typeLabel, WHEEL_LOADING_OVERLAY_DELAY_MS } from '../lib/wheel/control';
@@ -1501,12 +1501,12 @@
         return out;
     }
 
-    function platoCurrentAxisLookerDeviationDeg(spokeRows: CycleSpoke[]): number {
-        for (const spoke of spokeRows) {
-            const raw = Number((spoke as any)?.meta?.currentTsAxisLookerDeviationDeg);
-            if (Number.isFinite(raw)) return raw;
-        }
-        return NaN;
+    function platoCurrentDeviationDegAtCurrentTs(): number {
+        if (wheel?.wheelType !== 'plato') return NaN;
+        const lookerRaw = (wheel?.roles as Partial<Record<RoleName, ObjId | ObjId[] | null>> | undefined)?.looker;
+        const looker = (typeof lookerRaw === 'string' && lookerRaw) ? lookerRaw : undefined;
+        if (!looker) return NaN;
+        return platoCurrentDeviationDegAt(looker, effTs);
     }
 
     function buildChips(tagConfigs: InfoTagConfig[], meta: Record<string, unknown>, code: SpokeKey, templateId?: string): InfoChip[] {
@@ -1584,12 +1584,12 @@
             value: formatCycleDurationFromSpokes(spokes)
         }];
         if (wheel?.wheelType === 'plato') {
-            const currentDeg = platoCurrentAxisLookerDeviationDeg(spokes);
+            const currentDeg = platoCurrentDeviationDegAtCurrentTs();
             const value = formatInfoValue('deg', currentDeg);
             if (value && value !== '—') {
                 out.push({
-                    id: 'plato-current-axis-looker-deviation',
-                    label: 'Current Axis-Looker Deviation',
+                    id: 'plato-current-deviation',
+                    label: 'Current Plato Deviation',
                     value,
                     modal: 'Angular distance in degrees between the active Earth-axis pole and the looker direction at the current wheel timestamp (ts).'
                 });

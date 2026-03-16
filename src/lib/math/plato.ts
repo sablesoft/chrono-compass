@@ -11,16 +11,16 @@ import { clamp, DAY_MS, findExtremumInWindowGold, fmt, isFiniteNumber } from './
 import { refUnit } from './vector';
 
 type PlatoMeta = {
-    axisLookerDeviationDeg: number;
-    axisLookerDeviationRad: number;
-    currentTsAxisLookerDeviationDeg: number;
-    currentTsAxisLookerDeviationRad: number;
+    deviationDeg: number;
+    deviationRad: number;
+    currentTsDeviationDeg: number;
+    currentTsDeviationRad: number;
     anchorCode: 'N' | 'S';
     oppositeCode: 'N' | 'S';
 };
 type PlatoInstantMeta = {
-    currentTsAxisLookerDeviationDeg: number;
-    currentTsAxisLookerDeviationRad: number;
+    currentTsDeviationDeg: number;
+    currentTsDeviationRad: number;
     anchorCode: 'N' | 'S';
     oppositeCode: 'N' | 'S';
 };
@@ -164,6 +164,15 @@ function isLookerOutsidePrecessionBelt(lookerUnit: V3): boolean {
 export function platoLookerAnchor(looker?: ObjId, ts: number = Date.now()): 'N' | 'S' {
     const lookerUnit = lookerUnitById(looker);
     return currentAnchorCode(ms(ts), lookerUnit);
+}
+
+export function platoCurrentDeviationDegAt(looker: ObjId | undefined, ts: number = Date.now()): number {
+    const safeTs = ms(ts);
+    const lookerUnit = lookerUnitById(looker);
+    if (!isLookerOutsidePrecessionBelt(lookerUnit)) return NaN;
+    const anchorCode = currentAnchorCode(safeTs, lookerUnit);
+    const deviationRad = deviationAt(safeTs, lookerUnit, anchorCode);
+    return deviationRad * 180 / Math.PI;
 }
 
 type Ext = { t: number; v: number };
@@ -430,10 +439,10 @@ function anchorsToSpokes(
             index: i,
             tags: cycleSpokeTags('plato', code),
             meta: {
-                axisLookerDeviationDeg: deviationRad * 180 / Math.PI,
-                axisLookerDeviationRad: deviationRad,
-                currentTsAxisLookerDeviationDeg: instant.currentTsAxisLookerDeviationDeg,
-                currentTsAxisLookerDeviationRad: instant.currentTsAxisLookerDeviationRad,
+                deviationDeg: deviationRad * 180 / Math.PI,
+                deviationRad: deviationRad,
+                currentTsDeviationDeg: instant.currentTsDeviationDeg,
+                currentTsDeviationRad: instant.currentTsDeviationRad,
                 anchorCode: instant.anchorCode,
                 oppositeCode: instant.oppositeCode,
             },
@@ -452,8 +461,8 @@ function buildPlatoInstantMeta(ts: number, looker?: ObjId): PlatoInstantMeta {
         return {
             anchorCode,
             oppositeCode,
-            currentTsAxisLookerDeviationDeg: NaN,
-            currentTsAxisLookerDeviationRad: NaN,
+            currentTsDeviationDeg: NaN,
+            currentTsDeviationRad: NaN,
         };
     }
 
@@ -462,8 +471,8 @@ function buildPlatoInstantMeta(ts: number, looker?: ObjId): PlatoInstantMeta {
     return {
         anchorCode,
         oppositeCode,
-        currentTsAxisLookerDeviationDeg: tsDeviationRad * 180 / Math.PI,
-        currentTsAxisLookerDeviationRad: tsDeviationRad,
+        currentTsDeviationDeg: tsDeviationRad * 180 / Math.PI,
+        currentTsDeviationRad: tsDeviationRad,
     };
 }
 
