@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
-    import { objectLabel, wheels } from '../lib/catalog';
+    import { wheels } from '../lib/catalog';
     import type { ObjId, RoleName, WheelSpec, WheelType } from '../lib/catalog';
     import {
         formatWheelSpec,
@@ -16,6 +16,7 @@
     import { boardApi } from '../lib/board/store';
     import type { BoardWheelView } from '../lib/board/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
+    import RoleChecklist from './RoleChecklist.svelte';
 
     export let type: WheelType;
     export let roles: WheelRolesState = {};
@@ -53,9 +54,17 @@
     let multiTarget = false;
     $: multiTarget = isMultiTarget(spec);
     let draftTargets: ObjId[] = [];
+    let targetAllChecked = false;
+    let roleOptionsMap: Partial<Record<RoleName, ObjId[]>> = {};
+    let selectedValuesMap: Partial<Record<RoleName, ObjId[]>> = {};
 
     let effectiveDraftRoles: WheelRolesState = {};
     $: effectiveDraftRoles = multiTarget ? { ...draftRoles, target: draftTargets } : draftRoles;
+    $: roleOptionsMap = {
+        looker: optionsForRole(spec, 'looker', effectiveDraftRoles),
+        focus: optionsForRole(spec, 'focus', effectiveDraftRoles),
+        target: optionsForRole(spec, 'target', effectiveDraftRoles)
+    };
 
     const uid = `wcfg_${Math.random().toString(36).slice(2)}`;
     const idSpec = `${uid}_spec`;
@@ -75,6 +84,16 @@
 
     $: canUpdate = !locked && hasAllRolesOk && draftCompatible && isDirty;
     $: canNew = !locked && hasAllRolesOk && draftCompatible;
+
+    function toSingleSelected(value: WheelRolesState[RoleName]): ObjId[] {
+        return (typeof value === 'string' && value) ? [value] : [];
+    }
+
+    $: selectedValuesMap = {
+        looker: toSingleSelected(effectiveDraftRoles.looker),
+        focus: toSingleSelected(effectiveDraftRoles.focus),
+        target: multiTarget ? draftTargets : toSingleSelected(effectiveDraftRoles.target)
+    };
 
     function openModal() {
         initialRoles = { ...roles };
@@ -186,6 +205,17 @@
         draftRoles = { ...normalized, target: one };
     }
 
+    function toggleAllDraftTargets() {
+        if (locked || !multiTarget) return;
+        const all = roleOptionsMap.target ?? [];
+        if (all.length === 0) return;
+        const picked = targetAllChecked ? [] : all;
+        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+        const t = normalized.target;
+        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+        draftRoles = { ...normalized, target: draftRoles.target };
+    }
+
     function updateExisting() {
         if (locked) return;
         if (!canUpdate) return;
@@ -239,40 +269,13 @@
     onMount(() => window.addEventListener('keydown', onKeyDown));
     onDestroy(() => window.removeEventListener('keydown', onKeyDown));
 
-    function bodyLabel(id: ObjId): string {
-        return objectLabel(id);
-    }
-
-    function roleSearchValue(role: RoleName): string {
-        if (role === 'looker') return lookerSearch;
-        if (role === 'focus') return focusSearch;
-        return targetSearch;
-    }
-
-    function setRoleSearch(role: RoleName, value: string) {
-        if (role === 'looker') {
-            lookerSearch = value;
-            return;
-        }
-        if (role === 'focus') {
-            focusSearch = value;
-            return;
-        }
-        targetSearch = value;
-    }
-
-    function onRoleSearchInput(role: RoleName, e: Event) {
-        const target = e.target;
-        if (!(target instanceof HTMLInputElement)) return;
-        setRoleSearch(role, target.value);
-    }
-
-    function filteredRoleOptions(role: RoleName): ObjId[] {
-        const items = optionsForRole(spec, role, effectiveDraftRoles);
-        const query = roleSearchValue(role).trim().toLowerCase();
-        if (!query) return items;
-        return items.filter((id) => bodyLabel(id).toLowerCase().includes(query));
-    }
+    $: targetAllChecked = (() => {
+        if (!multiTarget) return false;
+        const all = roleOptionsMap.target ?? [];
+        if (all.length === 0) return false;
+        if (draftTargets.length !== all.length) return false;
+        return all.every((id) => draftTargets.includes(id));
+    })();
 
     let draftSpec = '';
     $: draftSpec = formatWheelSpec(type, effectiveDraftRoles);
@@ -321,34 +324,49 @@
                 {#each usedRoles as r (r)}
                     <div class="row" class:multiRow={r === 'target'}>
                         <div class="lbl" id={`${roleId(r)}_label`}>{r}</div>
-                        <div class="checksWrap" role="group" aria-labelledby={`${roleId(r)}_label`}>
-                            <input
-                                id={roleSearchId(r)}
-                                class="roleSearch"
-                                type="search"
-                                placeholder={`Search ${r}`}
-                                value={roleSearchValue(r)}
-                                on:input={(e) => onRoleSearchInput(r, e)}
+                        {#if r === 'looker'}
+                            <RoleChecklist
+                                roleLabel={r}
+                                groupLabelId={`${roleId(r)}_label`}
+                                searchId={roleSearchId(r)}
+                                searchPlaceholder={`Search ${r}`}
+                                items={roleOptionsMap.looker ?? []}
+                                selectedValues={selectedValuesMap.looker ?? []}
+                                locked={locked}
+                                maxHeight="120px"
+                                bind:search={lookerSearch}
+                                onToggleItem={(id) => toggleRoleOption(r, id)}
                             />
-                            <div class="checks checksScrollable">
-                                {#each filteredRoleOptions(r) as id (id)}
-                                    {@const checked = r === 'target'
-                                        ? (multiTarget ? draftTargets.includes(id) : effectiveDraftRoles.target === id)
-                                        : effectiveDraftRoles[r] === id}
-                                    <label class="checkItem" class:checked={checked} class:readonly={locked}>
-                                        <input
-                                            class="checkInput"
-                                            type="checkbox"
-                                            checked={checked}
-                                            disabled={locked}
-                                            on:change={() => toggleRoleOption(r, id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{bodyLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
+                        {:else if r === 'focus'}
+                            <RoleChecklist
+                                roleLabel={r}
+                                groupLabelId={`${roleId(r)}_label`}
+                                searchId={roleSearchId(r)}
+                                searchPlaceholder={`Search ${r}`}
+                                items={roleOptionsMap.focus ?? []}
+                                selectedValues={selectedValuesMap.focus ?? []}
+                                locked={locked}
+                                maxHeight="120px"
+                                bind:search={focusSearch}
+                                onToggleItem={(id) => toggleRoleOption(r, id)}
+                            />
+                        {:else}
+                            <RoleChecklist
+                                roleLabel={r}
+                                groupLabelId={`${roleId(r)}_label`}
+                                searchId={roleSearchId(r)}
+                                searchPlaceholder={`Search ${r}`}
+                                items={roleOptionsMap.target ?? []}
+                                selectedValues={selectedValuesMap.target ?? []}
+                                locked={locked}
+                                showAllOption={multiTarget}
+                                allChecked={targetAllChecked}
+                                maxHeight="120px"
+                                bind:search={targetSearch}
+                                onToggleItem={(id) => toggleRoleOption(r, id)}
+                                onToggleAll={toggleAllDraftTargets}
+                            />
+                        {/if}
                     </div>
                 {/each}
 
@@ -485,100 +503,6 @@
         opacity: 0.75;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-    }
-
-    .checksWrap {
-        display: grid;
-        gap: 8px;
-    }
-
-    .roleSearch {
-        width: 100%;
-        min-width: 0;
-        border-radius: 10px;
-        border: 1px solid var(--btn-border);
-        background: color-mix(in oklab, var(--bg), white 4%);
-        color: inherit;
-        padding: 9px 11px;
-        font: inherit;
-    }
-
-    .checks {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        border-radius: 12px;
-        border: 1px solid var(--btn-border);
-        background: color-mix(in oklab, var(--btn-bg), transparent 10%);
-        padding: 10px;
-    }
-
-    .checksScrollable {
-        max-height: 120px;
-        overflow-y: auto;
-        align-content: start;
-    }
-
-    .checkItem {
-        position: relative;
-        display: grid;
-        grid-template-columns: 16px 1fr;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 10px;
-        border-radius: 10px;
-        border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
-        background: color-mix(in oklab, var(--btn-bg), transparent 18%);
-        cursor: pointer;
-    }
-
-    .checkItem.readonly {
-        cursor: default;
-    }
-
-    .checkItem.checked {
-        border-color: color-mix(in oklab, var(--accent-live), transparent 35%);
-        background: color-mix(in oklab, var(--accent-live), transparent 88%);
-    }
-
-    .checkInput {
-        position: absolute;
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .checkBox {
-        width: 16px;
-        height: 16px;
-        border-radius: 5px;
-        border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
-        background: color-mix(in oklab, var(--bg), white 6%);
-        box-sizing: border-box;
-        display: inline-block;
-        position: relative;
-    }
-
-    .checkItem.checked .checkBox {
-        border-color: color-mix(in oklab, var(--accent-live), transparent 20%);
-        background: color-mix(in oklab, var(--accent-live), transparent 35%);
-    }
-
-    .checkItem.checked .checkBox::after {
-        content: '';
-        position: absolute;
-        left: 4px;
-        top: 1px;
-        width: 5px;
-        height: 9px;
-        border-right: 2px solid currentColor;
-        border-bottom: 2px solid currentColor;
-        transform: rotate(40deg);
-    }
-
-    .checkText {
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 1.2;
     }
 
     .specPreview {

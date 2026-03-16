@@ -1,7 +1,6 @@
 <!-- src/components/WheelPicker.svelte -->
 <script lang="ts">
     import {
-        objectLabel,
         type ObjId,
         requiredRoles,
         type RoleName,
@@ -29,6 +28,7 @@
 
     import LocationPicker from './LocationPicker.svelte';
     import DocsModal from "./DocsModal.svelte";
+    import RoleChecklist from './RoleChecklist.svelte';
 
     const dbg = debug('wheel', '?');
 
@@ -65,11 +65,9 @@
     let lookerSearch = '';
     let focusSearch = '';
     let targetSearch = '';
-    let filteredLookerItems: ObjId[] = [];
-    let filteredFocusItems: ObjId[] = [];
-    let filteredTargetItems: ObjId[] = [];
 
     let multiTarget = false;
+    let targetAllChecked = false;
 
     // title
     let draftTitle = '';
@@ -320,15 +318,20 @@
         setTargets(next);
     }
 
-    function filterRoleItems(items: ObjId[], query: string): ObjId[] {
-        const q = query.trim().toLowerCase();
-        if (!q) return items;
-        return items.filter((id) => objectLabel(id).toLowerCase().includes(q));
+    function toggleAllTargets() {
+        if (!multiTarget || selects.target.length === 0) return;
+        if (targetAllChecked) {
+            setTargets([]);
+            return;
+        }
+        setTargets([...selects.target]);
     }
 
-    $: filteredLookerItems = filterRoleItems(selects.looker, lookerSearch);
-    $: filteredFocusItems = filterRoleItems(selects.focus, focusSearch);
-    $: filteredTargetItems = filterRoleItems(selects.target, targetSearch);
+    $: targetAllChecked =
+        multiTarget
+        && selects.target.length > 0
+        && values.target.length === selects.target.length
+        && selects.target.every((id) => values.target.includes(id));
 
     function addWheel() {
         if (!spec || !type) return;
@@ -553,87 +556,54 @@
                 {#if selects.looker.length > 0}
                     <div class="row multiRow">
                         <div class="lbl" id={`${formId}-looker-label`}>looker</div>
-                        <div class="checksWrap">
-                            <input
-                                    class="inp roleSearch"
-                                    type="text"
-                                    placeholder="Search looker"
-                                    bind:value={lookerSearch}
-                            />
-                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-looker-label`}>
-                                {#each filteredLookerItems as id (id)}
-                                    {@const checked = values.looker === id}
-                                    <label class="checkItem" class:checked={checked}>
-                                        <input
-                                                class="checkInput"
-                                                type="checkbox"
-                                                checked={checked}
-                                                on:change={() => toggleSingleRole('looker', id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{objectLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
+                        <RoleChecklist
+                            roleLabel="looker"
+                            groupLabelId={`${formId}-looker-label`}
+                            searchId={`${formId}-looker-search`}
+                            searchPlaceholder="Search looker"
+                            items={selects.looker}
+                            selectedValues={values.looker ? [values.looker] : []}
+                            maxHeight="none"
+                            bind:search={lookerSearch}
+                            onToggleItem={(id) => toggleSingleRole('looker', id)}
+                        />
                     </div>
                 {/if}
 
                 {#if selects.focus.length > 0}
                     <div class="row multiRow">
                         <div class="lbl" id={`${formId}-focus-label`}>focus</div>
-                        <div class="checksWrap">
-                            <input
-                                    class="inp roleSearch"
-                                    type="text"
-                                    placeholder="Search focus"
-                                    bind:value={focusSearch}
-                            />
-                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-focus-label`}>
-                                {#each filteredFocusItems as id (id)}
-                                    {@const checked = values.focus === id}
-                                    <label class="checkItem" class:checked={checked}>
-                                        <input
-                                                class="checkInput"
-                                                type="checkbox"
-                                                checked={checked}
-                                                on:change={() => toggleSingleRole('focus', id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{objectLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
+                        <RoleChecklist
+                            roleLabel="focus"
+                            groupLabelId={`${formId}-focus-label`}
+                            searchId={`${formId}-focus-search`}
+                            searchPlaceholder="Search focus"
+                            items={selects.focus}
+                            selectedValues={values.focus ? [values.focus] : []}
+                            maxHeight="none"
+                            bind:search={focusSearch}
+                            onToggleItem={(id) => toggleSingleRole('focus', id)}
+                        />
                     </div>
                 {/if}
 
                 {#if selects.target.length > 0}
                     <div class="row" class:multiRow={multiTarget}>
                         <div class="lbl" id={`${formId}-target-label`}>target</div>
-                        <div class="checksWrap">
-                            <input
-                                    class="inp roleSearch"
-                                    type="text"
-                                    placeholder="Search target"
-                                    bind:value={targetSearch}
-                            />
-                            <div class="checks checksScrollable" role="group" aria-labelledby={`${formId}-target-label`}>
-                                {#each filteredTargetItems as id (id)}
-                                    {@const checked = values.target.includes(id)}
-                                    <label class="checkItem" class:checked={checked}>
-                                        <input
-                                                class="checkInput"
-                                                type="checkbox"
-                                                checked={checked}
-                                                on:change={() => toggleTarget(id)}
-                                        />
-                                        <span class="checkBox" aria-hidden="true"></span>
-                                        <span class="checkText">{objectLabel(id)}</span>
-                                    </label>
-                                {/each}
-                            </div>
-                        </div>
+                        <RoleChecklist
+                            roleLabel="target"
+                            groupLabelId={`${formId}-target-label`}
+                            searchId={`${formId}-target-search`}
+                            searchPlaceholder="Search target"
+                            items={selects.target}
+                            selectedValues={values.target}
+                            showAllOption={multiTarget}
+                            allChecked={targetAllChecked}
+                            maxHeight="none"
+                            bind:search={targetSearch}
+                            onToggleItem={toggleTarget}
+                            onToggleAll={toggleAllTargets}
+                        />
                     </div>
                 {/if}
 
@@ -872,16 +842,6 @@
         outline-offset: 2px;
     }
 
-    .checksWrap {
-        display: grid;
-        gap: 8px;
-        min-width: 0;
-    }
-
-    .roleSearch {
-        padding-block: 8px;
-    }
-
     .checks {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -892,11 +852,6 @@
         padding: 10px;
     }
 
-    .checksScrollable {
-        max-height: none;
-        overflow-y: visible;
-        align-content: start;
-    }
     .checkItem {
         position: relative;
         display: grid;
