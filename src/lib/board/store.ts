@@ -221,6 +221,11 @@ function safeParse<T>(raw: string | null, fallback: T): T {
     }
 }
 
+function shouldDefaultInfoOpenOnPhone(): boolean {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(max-width: 640px)').matches;
+}
+
 function normalizeOrder(items: BoardWheel[]): BoardWheel[] {
     return items
         .slice()
@@ -450,6 +455,7 @@ export const boardApi = {
             const order = cur.length;
 
             const baseView = normalizeWheelView({
+                showInfo: shouldDefaultInfoOpenOnPhone(),
                 infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
             });
             const view = input.view
@@ -516,6 +522,7 @@ export const boardApi = {
 
             const id = nanoid();
             const baseView = normalizeWheelView({
+                showInfo: shouldDefaultInfoOpenOnPhone(),
                 infoChipSelected: defaultInfoChipSelectedForWheel(wheelType)
             });
             const view = input.view

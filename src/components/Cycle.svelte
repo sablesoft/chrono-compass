@@ -1224,7 +1224,7 @@
     markerClusters = [];
 
     $: showVisualSection = wheel?.view?.showVisual !== false;
-    $: showInfoSection = wheel?.view?.showInfo === true;
+    $: showInfoSection = ((wheel?.view?.showInfo ?? (isPhoneLayout ? true : false)) === true);
     $: showPickersSection = wheel?.view?.showPickers === true;
     $: cycleInfoPosition = normalizeCycleInfoPosition(wheel?.view?.compassInfoPosition, showVisualSection);
     $: showInfoSide = showInfoSection && showVisualSection && cycleInfoPosition !== 'bottom';
@@ -2570,6 +2570,10 @@
     }
 
     .marker { cursor: pointer; }
+    .marker .markerBody {
+        transform-box: fill-box;
+        transform-origin: center;
+    }
     .marker:hover circle { stroke-opacity: 0.75; }
 
     .pointer {
@@ -2693,6 +2697,9 @@
     }
 
     @media (max-width: 640px) {
+        .marker .markerBody {
+            transform: scale(var(--mobile-marker-scale, 0.82));
+        }
         .phoneSwipeZone {
             display: block;
             position: absolute;

@@ -134,4 +134,31 @@
         cursor: pointer;
         font-weight: 700;
     }
+
+    @media (max-width: 640px) {
+        .modal {
+            inset: 0;
+            left: 0;
+            top: 0;
+            width: 100vw;
+            height: 100dvh;
+            max-height: 100dvh;
+            transform: none;
+            border-radius: 0;
+            border-left: 0;
+            border-right: 0;
+            border-top: 0;
+        }
+        .head {
+            padding-top: calc(var(--sp-12) + env(safe-area-inset-top));
+        }
+        .foot {
+            padding-bottom: calc(var(--sp-12) + env(safe-area-inset-bottom));
+        }
+        .body {
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+        }
+    }
 </style>

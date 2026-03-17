@@ -938,4 +938,40 @@
         border-color: color-mix(in oklab, var(--btn-border), var(--fg) 25%);
     }
     .btn.ghost { opacity: 0.92; }
+
+    @media (max-width: 640px) {
+        .panel.open {
+            position: fixed;
+            inset: 0;
+            z-index: 11900;
+            width: 100vw;
+            height: 100dvh;
+            min-height: 0;
+            border-radius: 0;
+            border-left: 0;
+            border-right: 0;
+            border-top: 0;
+            padding: var(--sp-10);
+            overflow: hidden;
+            transform: none;
+        }
+        .panel.open .pickerContent {
+            height: 100%;
+            min-height: 0;
+            display: grid;
+            grid-template-rows: auto auto minmax(0, 1fr);
+        }
+        .panel.open .top {
+            padding-top: calc(var(--sp-8) + env(safe-area-inset-top));
+        }
+        .panel.open .form {
+            min-height: 0;
+            height: 100%;
+            aspect-ratio: auto;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            padding-bottom: calc(var(--sp-12) + env(safe-area-inset-bottom));
+        }
+    }
 </style>

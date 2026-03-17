@@ -2794,7 +2794,7 @@
     $: supportsSecondaryVisual = wheel?.wheelType === 'system';
     $: showVisualSection = wheel?.view?.showVisual !== false;
     $: showSecondaryVisualSection = supportsSecondaryVisual && wheel?.view?.showSecondaryVisual === true;
-    $: showInfoSection = wheel?.view?.showInfo === true;
+    $: showInfoSection = ((wheel?.view?.showInfo ?? (isPhoneLayout ? true : false)) === true);
     $: showPickersSection = wheel?.view?.showPickers === true;
     $: hasVisualSection = showVisualSection || showSecondaryVisualSection;
     $: showDualVisualRow = hasVisualSection && showVisualSection && showSecondaryVisualSection && wheel?.view?.visualLayout === 'row';
@@ -5213,6 +5213,10 @@
     }
 
     .marker { cursor: pointer; }
+    .marker .markerBody {
+        transform-box: fill-box;
+        transform-origin: center;
+    }
     .marker:hover circle { stroke-opacity: 0.75; }
     .marker:focus,
     .marker:focus-visible {
@@ -5658,6 +5662,14 @@
     }
 
     @media (max-width: 640px) {
+        .marker .markerBody {
+            transform: scale(var(--mobile-marker-scale, 0.82));
+        }
+        .orbitNode {
+            transform-box: fill-box;
+            transform-origin: center;
+            transform: scale(var(--mobile-marker-scale, 0.82));
+        }
         .phoneSwipeZone {
             display: block;
             position: absolute;
