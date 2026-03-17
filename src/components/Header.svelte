@@ -9,6 +9,8 @@
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
     import { phoneCarouselState, requestPhoneCarouselStep } from '../lib/app/phoneCarousel';
     import type { Location } from '../lib/location/types';
+    let mobileMenuOpen = false;
+    $: hasPhoneNav = $phoneCarouselState.enabled && $phoneCarouselState.total > 1;
 
     function handleGlobalLocationChange(
         loc: Location
@@ -23,17 +25,21 @@
         );
         currentLocationId.set(id);
     }
+
+    function toggleMobileMenu() {
+        mobileMenuOpen = !mobileMenuOpen;
+    }
 </script>
 
 <header class="bar">
-    <div class="row rowTop">
+    <div class="row rowTop" class:rowTopNoNav={!hasPhoneNav}>
         <div class="logo">{@html logo}</div>
         <div class="title">Chrono Compass</div>
-        <div class="slot profile">
-            <ProfilePicker />
+        <div class="slot time">
+            <TimePicker />
         </div>
         <div class="phoneNavWrap">
-            {#if $phoneCarouselState.enabled && $phoneCarouselState.total > 1}
+            {#if hasPhoneNav}
                 <nav class="phoneNav" aria-label="Wheel carousel controls">
                     <button type="button" class="phoneNavBtn" on:click={() => requestPhoneCarouselStep(-1)} aria-label="Previous slide">←</button>
                     <div class="phoneNavMeta">{$phoneCarouselState.index + 1} / {$phoneCarouselState.total}</div>
@@ -41,19 +47,29 @@
                 </nav>
             {/if}
         </div>
-        <div class="actions">
-            <ThemeSwitcher />
+        <div class="actions menuActions">
+            <button
+                    type="button"
+                    class="navBtn burgerBtn"
+                    aria-label={mobileMenuOpen ? 'Close mobile controls' : 'Open mobile controls'}
+                    aria-expanded={mobileMenuOpen}
+                    aria-controls="header-mobile-row-bottom"
+                    on:click={toggleMobileMenu}
+            >☰</button>
         </div>
     </div>
-    <div class="row rowBottom">
-        <div class="slot time">
-            <TimePicker />
+    <div id="header-mobile-row-bottom" class="row rowBottom" class:mobileCollapsed={!mobileMenuOpen}>
+        <div class="slot profile">
+            <ProfilePicker />
         </div>
         <div class="slot loc">
             <LocationPicker
                     value={null}
                     locked={false}
                     onChange={handleGlobalLocationChange}/>
+        </div>
+        <div class="actions themeActions">
+            <ThemeSwitcher />
         </div>
     </div>
 </header>
@@ -137,6 +153,9 @@
         align-items: center;
         justify-self: end;
     }
+    .menuActions { display: none; }
+    .themeActions { display: flex; }
+    .burgerBtn { display: none; }
     .phoneNav {
         display: grid;
         grid-template-columns: auto 1fr auto;
@@ -176,22 +195,30 @@
         }
         .rowTop {
             display: grid;
-            grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
-            grid-template-areas: "logo title . phoneNav profile actions";
+            grid-template-columns: auto minmax(0, 1fr) auto auto;
+            grid-template-areas: "logo time phoneNav actions";
             align-items: center;
             gap: var(--sp-4);
             width: 100%;
         }
+        .rowTop.rowTopNoNav {
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            grid-template-areas: "logo time actions";
+        }
         .rowBottom {
             display: grid;
-            grid-template-columns: minmax(176px, 1.06fr) minmax(0, 0.94fr);
-            grid-template-areas: "time loc";
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+            grid-template-areas: "profile loc actions";
             align-items: center;
             gap: var(--sp-4);
+            width: 100%;
+        }
+        .rowBottom.mobileCollapsed {
+            display: none;
         }
 
         .title {
-            display: block;
+            display: none;
             justify-self: start;
             margin: 0;
             font-size: var(--fs-20);
@@ -210,7 +237,6 @@
             grid-area: profile;
             min-width: 0;
             width: 100%;
-            max-width: clamp(132px, 42vw, 220px);
             overflow: hidden;
         }
         .profile :global(.labelSeg) {
@@ -244,6 +270,8 @@
             gap: 0;
             min-width: 0;
         }
+        .menuActions { display: flex; }
+        .themeActions { display: flex; }
         .actions :global(button.icon) {
             width: var(--wheel-header-btn-size, 22px);
             height: var(--wheel-header-btn-size, 22px);
@@ -254,6 +282,9 @@
             place-items: center;
             line-height: 1;
             font-size: var(--fs-13);
+        }
+        .burgerBtn {
+            display: inline-grid;
         }
         .time {
             justify-self: start;
