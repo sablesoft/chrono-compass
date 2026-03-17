@@ -157,14 +157,13 @@
 
     @media (max-width: 640px) {
         .bar {
-            grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr);
+            grid-template-columns: auto auto minmax(0, 1fr) auto;
             grid-template-areas: none;
-            gap: var(--sp-7);
+            gap: var(--sp-5);
             padding: var(--sp-8);
         }
 
-        .title,
-        .actions {
+        .title {
             display: none;
         }
 
@@ -173,14 +172,36 @@
             grid-column: 1;
             grid-row: 1;
         }
-        .phoneNavWrap {
-            display: block;
-            justify-self: stretch;
+        .profile {
+            justify-self: start;
             grid-column: 2;
             grid-row: 1;
         }
-        .profile { justify-self: stretch; grid-column: 3; grid-row: 1; }
+        .phoneNavWrap {
+            display: block;
+            justify-self: stretch;
+            grid-column: 3;
+            grid-row: 1;
+        }
+        .actions {
+            display: flex;
+            justify-self: end;
+            grid-column: 4;
+            grid-row: 1;
+            gap: 0;
+        }
+        .actions :global(button.icon) {
+            width: var(--wheel-header-btn-size, 22px);
+            height: var(--wheel-header-btn-size, 22px);
+            min-width: var(--wheel-header-btn-size, 22px);
+            padding: 0;
+            border-radius: var(--radius-8);
+            display: grid;
+            place-items: center;
+            line-height: 1;
+            font-size: var(--fs-13);
+        }
         .time { justify-self: stretch; grid-column: 1 / span 2; grid-row: 2; }
-        .loc { justify-self: stretch; grid-column: 3; grid-row: 2; }
+        .loc { justify-self: stretch; grid-column: 3 / span 2; grid-row: 2; }
     }
 </style>

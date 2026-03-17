@@ -5665,16 +5665,28 @@
             bottom: 6px;
             width: 28px;
             height: 28px;
-            border-radius: var(--radius-10);
-            border: 1px dashed color-mix(in oklab, var(--fg), transparent 56%);
-            background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+            border-radius: 50%;
+            border: 1px solid color-mix(in oklab, var(--fg), transparent 68%);
+            background: transparent;
+            box-shadow: 0 2px 10px color-mix(in oklab, black, transparent 80%);
             z-index: 7;
             pointer-events: auto;
             touch-action: pan-x;
+            display: grid;
+            place-items: center;
+        }
+        .phoneSwipeZone::before {
+            content: '↔';
+            font-size: var(--fs-18);
+            font-weight: 800;
+            line-height: 1;
+            opacity: 0.9;
         }
         .panel {
             height: 100%;
             min-height: 0;
+            display: grid;
+            grid-template-rows: auto auto auto minmax(0, 1fr);
         }
         .pickersBlock {
             min-height: 0;
@@ -5682,21 +5694,38 @@
         .contentLayout {
             display: flex;
             flex-direction: column;
-            flex: 1 1 auto;
-            min-height: 0;
+            flex: 1 1 auto !important;
+            min-height: 0 !important;
+            height: 100% !important;
             overflow: hidden;
             align-items: stretch;
         }
         .visualPane {
-            flex: 0 0 auto;
+            flex: 0 1 auto;
             min-height: 0;
+            max-height: 52dvh;
+            overflow: visible !important;
+            position: relative;
+            contain: none;
+            clip-path: none;
+        }
+        .wrap,
+        .wheelPanel,
+        .wheelBox,
+        .wheelBox svg {
+            overflow: visible !important;
+        }
+        .wrap,
+        .wheelPanel,
+        .wheelBox {
+            contain: none;
         }
         .infoPane,
         .infoPane.side {
-            flex: 1 1 auto;
-            height: auto;
-            max-height: none;
-            min-height: 0;
+            flex: 1 1 0 !important;
+            height: auto !important;
+            max-height: 100% !important;
+            min-height: 0 !important;
             overflow: hidden;
             width: 100%;
             max-width: 100%;
@@ -5704,11 +5733,12 @@
             display: flex;
             flex-direction: column;
             touch-action: pan-y;
+            position: relative;
         }
         .infoPane :global(.infoBlock) {
             flex: 1 1 auto;
             min-height: 0;
-            height: 100%;
+            height: 100% !important;
             overflow-y: auto !important;
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch;
