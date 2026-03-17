@@ -1039,13 +1039,13 @@
     .infoBlock {
         width: 100%;
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         position: relative;
         min-height: 0;
         height: 100%;
         overflow-y: auto;
         overscroll-behavior: contain;
-        padding-right: 2px;
+        padding-right: var(--sp-2);
         align-content: start;
         align-items: start;
     }
@@ -1057,8 +1057,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding-bottom: 4px;
+        gap: var(--sp-8);
+        padding-bottom: var(--sp-4);
         background: linear-gradient(
             to bottom,
             color-mix(in oklab, var(--panel), transparent 2%) 0%,
@@ -1073,7 +1073,7 @@
         gap: 0;
         min-width: 0;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         overflow: hidden;
         background: color-mix(in oklab, var(--fg), transparent 94%);
     }
@@ -1081,7 +1081,7 @@
     .layoutBtn {
         min-width: 28px;
         height: 24px;
-        padding: 0 6px;
+        padding: 0 var(--sp-6);
         border: 0;
         border-radius: 0;
         box-shadow: none;
@@ -1099,7 +1099,7 @@
 
     .infoSection {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         align-content: start;
         align-items: start;
         align-self: start;
@@ -1107,11 +1107,11 @@
     .errorSection {
         border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 55%);
         background: color-mix(in oklab, var(--accent-gold), transparent 90%);
-        border-radius: 10px;
-        padding: 8px 10px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-8) var(--sp-10);
     }
     .errorText {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         line-height: 1.35;
         color: color-mix(in oklab, var(--fg), var(--accent-gold) 22%);
@@ -1131,30 +1131,30 @@
     .editBtn {
         height: 28px;
         min-width: 34px;
-        padding: 0 8px;
+        padding: 0 var(--sp-8);
     }
 
     .rowList {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .houseGroup {
         display: grid;
-        gap: 6px;
-        padding-top: 4px;
+        gap: var(--sp-6);
+        padding-top: var(--sp-4);
     }
 
     .houseGroup + .houseGroup {
         border-top: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         margin-top: 2px;
-        padding-top: 8px;
+        padding-top: var(--sp-8);
     }
 
     .houseHeader {
         margin: 0;
         justify-self: center;
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 800;
         letter-spacing: 0.03em;
         opacity: 0.7;
@@ -1179,27 +1179,27 @@
     .rowItem {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: flex-start;
         width: 100%;
     }
 
     .rowNameBtn {
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
         background: color-mix(in oklab, var(--fg), transparent 94%);
         color: inherit;
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         text-align: left;
-        padding: 6px 8px;
+        padding: var(--sp-6) var(--sp-8);
         cursor: pointer;
     }
     .chipGrid {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
-        padding: 2px 0;
+        gap: var(--sp-6);
+        padding: var(--sp-2) 0;
         align-content: flex-start;
         align-items: flex-start;
         align-self: start;
@@ -1219,8 +1219,8 @@
 
     .pinnedSection {
         border: 1px solid color-mix(in oklab, var(--accent-live), transparent 82%);
-        border-radius: 12px;
-        padding: 8px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-8);
         background: color-mix(in oklab, var(--accent-live), transparent 96%);
     }
 
@@ -1232,14 +1232,14 @@
     .pinnedNameWrap {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto;
-        gap: 6px;
+        gap: var(--sp-6);
         align-items: start;
     }
 
     .bodyEditBtn {
         min-width: 30px;
         height: 30px;
-        padding: 0 8px;
+        padding: 0 var(--sp-8);
     }
 
     .pinnedChipButton {
@@ -1280,15 +1280,15 @@
     }
 
     .ui-tag {
-        font-size: 12px;
-        padding: 5px 10px;
+        font-size: var(--fs-12);
+        padding: var(--sp-5) var(--sp-10);
     }
 
     .chipLine {
         display: inline-flex;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 700;
         opacity: 0.95;
     }
@@ -1315,9 +1315,9 @@
     }
 
     .empty {
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: 0.72;
-        padding: 4px 2px;
+        padding: var(--sp-4) var(--sp-2);
     }
 
     .editorOverlay {
@@ -1327,20 +1327,20 @@
         background: rgba(0, 0, 0, 0.5);
         display: grid;
         place-items: center;
-        padding: 12px;
+        padding: var(--sp-12);
     }
 
     .editorModal {
         width: min(760px, 94vw);
         max-height: min(86vh, 900px);
         overflow: auto;
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--panel), black 6%);
         box-shadow: 0 16px 56px rgba(0, 0, 0, 0.4);
         display: grid;
-        gap: 10px;
-        padding: 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-10);
     }
 
     .editorHead,
@@ -1348,38 +1348,38 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        font-size: 14px;
+        gap: var(--sp-10);
+        font-size: var(--fs-14);
     }
 
     .editorTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
     }
 
     .editorList {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .editorSection {
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10);
     }
 
     .editorSectionHead {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: var(--sp-8);
     }
 
     .editorHeadActions {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .editorSectionToggle {
@@ -1399,39 +1399,39 @@
     }
 
     .editorSectionTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
     }
 
     .editorSectionChevron {
         opacity: 0.75;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .editorSectionActions {
         display: flex;
-        gap: 6px;
+        gap: var(--sp-6);
         justify-content: flex-end;
     }
 
     .editorEmpty {
-        padding: 10px;
-        border-radius: 10px;
+        padding: var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         opacity: 0.8;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .editorRowWrap {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .modalAccordion {
         border-left: 2px solid color-mix(in oklab, var(--fg), transparent 84%);
         margin-left: 8px;
-        padding-left: 10px;
+        padding-left: var(--sp-10);
     }
 
     .modalInput {
@@ -1441,11 +1441,11 @@
         box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 10%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
+        border-radius: var(--radius-8);
         color: var(--fg);
-        padding: 8px;
+        padding: var(--sp-8);
         font: inherit;
-        font-size: 12px;
+        font-size: var(--fs-12);
         line-height: 1.35;
     }
 
@@ -1453,9 +1453,9 @@
         display: grid;
         grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) minmax(92px, 0.75fr) auto auto;
         align-items: center;
-        gap: 6px;
-        padding: 6px 8px;
-        border-radius: 9px;
+        gap: var(--sp-6);
+        padding: var(--sp-6) var(--sp-8);
+        border-radius: var(--radius-9);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         cursor: default;
@@ -1472,7 +1472,7 @@
 
     .col {
         min-width: 0;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .col.user,
@@ -1482,8 +1482,8 @@
         box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 12%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
-        padding: 3px 6px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-3) var(--sp-6);
         color: var(--fg);
     }
 
@@ -1497,7 +1497,7 @@
 
     .stateToggle {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
         align-items: center;
         white-space: nowrap;
         cursor: pointer;
@@ -1513,12 +1513,12 @@
     .stateTrack {
         width: 30px;
         height: 17px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 72%);
         background: color-mix(in oklab, var(--fg), transparent 90%);
         display: inline-flex;
         align-items: center;
-        padding: 1px;
+        padding: var(--sp-1);
         box-sizing: border-box;
         transition: background 120ms ease, border-color 120ms ease;
     }
@@ -1526,7 +1526,7 @@
     .stateThumb {
         width: 13px;
         height: 13px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background: color-mix(in oklab, var(--fg), transparent 18%);
         transition: transform 120ms ease, background 120ms ease;
     }
@@ -1542,7 +1542,7 @@
     }
 
     .stateText {
-        font-size: 11px;
+        font-size: var(--fs-11);
         font-weight: 700;
         opacity: 0.8;
         min-width: 20px;
@@ -1551,28 +1551,28 @@
     .rowActions {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: var(--sp-4);
     }
 
     .groupFilters {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: var(--sp-8);
     }
     .editorSectionBody {
         max-height: 320px;
         overflow-y: auto;
-        padding-right: 4px;
+        padding-right: var(--sp-4);
     }
     .groupFilterBtn {
         height: 26px;
         min-width: 74px;
-        padding: 0 10px;
-        border-radius: 999px;
+        padding: 0 var(--sp-10);
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 78%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         color: inherit;
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         cursor: pointer;
     }
@@ -1585,14 +1585,14 @@
     .miniBtn {
         height: 28px;
         min-width: 56px;
-        padding: 0 11px;
+        padding: 0 var(--sp-11);
         white-space: nowrap;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 12%);
         color: var(--fg);
         font-weight: 700;
-        font-size: 12px;
+        font-size: var(--fs-12);
         line-height: 1;
         cursor: pointer;
     }
@@ -1607,7 +1607,7 @@
 
     .miniBtn {
         min-width: 36px;
-        padding: 0 9px;
+        padding: 0 var(--sp-9);
     }
 
     .dangerBtn {
@@ -1619,11 +1619,11 @@
     }
 
     .modalBody {
-        font-size: 15px;
+        font-size: var(--fs-15);
         line-height: 1.45;
         white-space: pre-wrap;
         opacity: 0.9;
-        padding: 4px 2px 2px;
+        padding: var(--sp-4) var(--sp-2) var(--sp-2);
     }
 
     @media (max-width: 780px) {

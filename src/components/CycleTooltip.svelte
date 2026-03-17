@@ -321,39 +321,39 @@
         color: var(--fg);
         background: color-mix(in oklab, var(--bg), black 10%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         box-shadow: 0 16px 50px rgba(0, 0, 0, 0.35);
         backdrop-filter: blur(8px);
         overflow: hidden;
         display: grid;
         grid-template-rows: auto 1fr;
-        padding-bottom: 14px;
+        padding-bottom: var(--sp-14);
     }
 
     .head {
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 12px;
-        padding: 10px 12px;
+        gap: var(--sp-12);
+        padding: var(--sp-10) var(--sp-12);
         border-bottom: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
     }
 
     .headLeft {
         min-width: 0;
         display: grid;
-        gap: 2px;
+        gap: var(--sp-2);
     }
 
     .title {
-        font-size: 14px;
+        font-size: var(--fs-14);
         font-weight: 900;
         letter-spacing: 0.04em;
         text-transform: uppercase;
     }
 
     .dt {
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: 0.85;
         font-variant-numeric: tabular-nums;
     }
@@ -369,7 +369,7 @@
         grid-auto-flow: column;
         grid-auto-columns: var(--seg-size);
         border: 1px solid var(--btn-border);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         overflow: hidden;
         background: var(--btn-bg);
     }
@@ -404,12 +404,12 @@
         padding: 0;
         display: inline-grid;
         place-items: center;
-        font-size: 15px;
+        font-size: var(--fs-15);
         line-height: 1;
     }
 
     .ui-tag-row {
-        padding: 10px 12px 0;
+        padding: var(--sp-10) var(--sp-12) 0;
     }
 
     .chipStatic {
@@ -430,9 +430,9 @@
 
     .chipLine {
         display: inline-flex;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
-        font-size: 14px;
+        font-size: var(--fs-14);
         font-weight: 700;
         opacity: 0.95;
     }
@@ -456,29 +456,29 @@
     .itemAccordion {
         margin: 8px 12px 0;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         background: color-mix(in oklab, var(--panel), transparent 8%);
-        padding: 8px 10px;
+        padding: var(--sp-8) var(--sp-10);
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .itemAccordionTitle {
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 800;
         opacity: 0.86;
         letter-spacing: 0.02em;
     }
 
     .itemAccordionBody {
-        font-size: 14px;
+        font-size: var(--fs-14);
         line-height: 1.35;
         opacity: 0.95;
     }
 
     .list {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         margin: 10px 12px 10px;
         overflow: auto;
     }
@@ -486,9 +486,9 @@
     .row {
         display: flex;
         justify-content: space-between;
-        gap: 10px;
-        padding: 6px 8px;
-        border-radius: 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-6) var(--sp-8);
+        border-radius: var(--radius-10);
         border: 1px solid rgba(255, 255, 255, 0.06);
         background: rgba(255, 255, 255, 0.03);
         color: inherit;
@@ -502,7 +502,7 @@
 
     .left {
         display: flex;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
         min-width: 0;
     }

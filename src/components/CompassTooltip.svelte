@@ -829,7 +829,7 @@
         color: var(--fg);
         background: color-mix(in oklab, var(--bg), black 10%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         box-shadow: 0 16px 50px rgba(0,0,0,0.35);
         backdrop-filter: blur(8px);
         overflow: hidden;
@@ -841,23 +841,23 @@
         display: flex;
         align-items: flex-start;
         justify-content: space-between;
-        gap: 12px;
-        padding: 10px 12px;
+        gap: var(--sp-12);
+        padding: var(--sp-10) var(--sp-12);
         border-bottom: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
     }
 
-    .headLeft { min-width: 0; display: grid; gap: 2px; }
+    .headLeft { min-width: 0; display: grid; gap: var(--sp-2); }
     .house {
-        font-size: 14px;
+        font-size: var(--fs-14);
         font-weight: 900;
         letter-spacing: 0.08em;
         text-transform: uppercase;
     }
-    .sub { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { font-size: var(--fs-12); opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .headRight {
         display: flex;
-        gap: 10px;
+        gap: var(--sp-10);
         flex-wrap: wrap;
         justify-content: flex-end;
     }
@@ -867,49 +867,49 @@
         padding: 0;
         display: inline-grid;
         place-items: center;
-        font-size: 15px;
+        font-size: var(--fs-15);
         line-height: 1;
     }
 
     .muted { opacity: 0.75; }
 
     .topExtras {
-        padding: 10px 12px 0;
+        padding: var(--sp-10) var(--sp-12) 0;
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
     }
     .nodeMoment {
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: 0.85;
-        padding: 0 2px;
+        padding: 0 var(--sp-2);
     }
 
     .pinned {
-        padding: 6px 12px;
+        padding: var(--sp-6) var(--sp-12);
         border-bottom: 1px solid color-mix(in oklab, var(--fg), transparent 90%);
         background: color-mix(in oklab, var(--fg), transparent 97%);
     }
     .pinnedRow {
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
         min-height: 24px;
         min-width: 0;
     }
     .prefix {
-        font-size: 12px;
+        font-size: var(--fs-12);
         white-space: nowrap;
-        padding-right: 10px;
+        padding-right: var(--sp-10);
     }
     .pin {
-        font-size: 14px;
+        font-size: var(--fs-14);
         width: 16px;
         text-align: center;
         flex: 0 0 auto;
     }
     .pinName {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         white-space: nowrap;
         overflow: hidden;
@@ -919,34 +919,34 @@
     .pinSpoke {
         margin-left: auto;
         flex: 0 0 auto;
-        font-size: 10px;
+        font-size: var(--fs-10);
         font-weight: 800;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         opacity: 0.85;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
-        border-radius: 999px;
-        padding: 1px 6px;
+        border-radius: var(--radius-pill);
+        padding: var(--sp-1) var(--sp-6);
     }
 
-    .list { padding: 10px 10px 12px; overflow: auto; }
+    .list { padding: var(--sp-10) var(--sp-10) var(--sp-12); overflow: auto; }
 
     .listHead {
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 10px;
-        padding: 0 2px 10px;
+        gap: var(--sp-10);
+        padding: 0 var(--sp-2) var(--sp-10);
     }
     .label {
-        font-size: 11px;
+        font-size: var(--fs-11);
         font-weight: 800;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         opacity: 0.8;
     }
 
-    .empty { padding: 10px 6px; font-size: 12px; opacity: 0.75; }
+    .empty { padding: var(--sp-10) var(--sp-6); font-size: var(--fs-12); opacity: 0.75; }
 
     .itemWrap {
         margin-bottom: 4px;
@@ -958,9 +958,9 @@
         text-align: left;
         display: grid;
         grid-template-columns: 30px 1fr;
-        gap: 10px;
-        padding: 8px 36px 8px 8px;
-        border-radius: 12px;
+        gap: var(--sp-10);
+        padding: var(--sp-8) var(--sp-36) var(--sp-8) var(--sp-8);
+        border-radius: var(--radius-12);
         border: 1px solid transparent;
         background: transparent;
         color: var(--fg);
@@ -976,31 +976,31 @@
     .item.below { opacity: 0.8; }
 
     .l { display: grid; place-items: center; }
-    .emoji { font-size: 20px; }
+    .emoji { font-size: var(--fs-20); }
 
-    .m { min-width: 0; display: grid; gap: 2px; }
-    .t { display: flex; align-items: center; gap: 8px; min-width: 0; }
-    .t .name { font-size: 13px; font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .m { min-width: 0; display: grid; gap: var(--sp-2); }
+    .t { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
+    .t .name { font-size: var(--fs-13); font-weight: 800; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
     .vis {
-        font-size: 10px;
+        font-size: var(--fs-10);
         font-weight: 900;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        padding: 2px 6px;
-        border-radius: 999px;
+        padding: var(--sp-2) var(--sp-6);
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
         opacity: 0.85;
     }
     .vis.bad { opacity: 0.6; }
 
-    .d { font-size: 12px; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .d { font-size: var(--fs-12); opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sep { margin: 0 6px; opacity: 0.6; }
 
     .chipRow {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
+        gap: var(--sp-6);
     }
     .chipButton {
         border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
@@ -1023,7 +1023,7 @@
     .chipLine {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--sp-8);
     }
     .chipLabel {
         font-weight: 700;
@@ -1044,16 +1044,16 @@
         margin-top: 6px;
         margin-left: 40px;
         border-left: 2px solid color-mix(in oklab, var(--fg), transparent 84%);
-        padding-left: 10px;
+        padding-left: var(--sp-10);
     }
     .itemAccordionTitle {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 800;
         opacity: 0.9;
         margin-bottom: 2px;
     }
     .itemAccordionBody {
-        font-size: 14px;
+        font-size: var(--fs-14);
         opacity: 0.84;
         line-height: 1.35;
     }
@@ -1062,10 +1062,10 @@
         display: grid;
         grid-template-columns: 1fr auto 1fr;
         align-items: center;
-        gap: 10px;
-        padding: 8px 6px 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-8) var(--sp-6) var(--sp-10);
         opacity: 0.75;
     }
     .horizonSep .line { height: 1px; background: color-mix(in oklab, var(--fg), transparent 84%); }
-    .horizonSep .txt { font-size: 10px; font-weight: 900; letter-spacing: 0.12em; }
+    .horizonSep .txt { font-size: var(--fs-10); font-weight: 900; letter-spacing: 0.12em; }
 </style>

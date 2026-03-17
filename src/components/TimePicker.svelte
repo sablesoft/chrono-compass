@@ -330,7 +330,7 @@
         align-items: stretch;
         width: 100%;              /* ✅ растянуть на строку */
         min-width: 0;             /* ✅ чтобы дети могли сжиматься */
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--fg), transparent 93%);
         overflow: hidden;
@@ -344,7 +344,7 @@
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 6px 8px;
+        padding: var(--sp-6) var(--sp-8);
         min-width: 0; /* 🔥 убираем раздувание */
     }
 
@@ -379,7 +379,7 @@
     /* компактные фикс-ширины */
     .state {
         width: 54px;
-        font-size: 11px;
+        font-size: var(--fs-11);
         font-weight: 1000;
         letter-spacing: 0.03em;
         text-transform: uppercase;
@@ -389,7 +389,7 @@
         flex: 1 1 auto;           /* ✅ занимает остаток */
         min-width: 0;             /* ✅ включает ellipsis */
         width: auto;              /* ✅ убираем фикс */
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 850;
         letter-spacing: 0.01em;
         font-variant-numeric: tabular-nums;
@@ -406,14 +406,14 @@
         width: 36px;
         padding: 0;
         cursor: pointer;
-        font-size: 16px;
+        font-size: var(--fs-16);
         line-height: 1;
     }
 
     .nowBtn {
         width: 30px;
         padding: 0;
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 900;
         line-height: 1;
         cursor: pointer;
@@ -431,7 +431,7 @@
         align-self: stretch;
         min-width: 34px;
         margin: 0 !important;
-        padding: 0 8px !important;
+        padding: 0 var(--sp-8) !important;
         border: 0 !important;
         border-left: 1px solid var(--btn-border) !important;
         border-radius: 0 !important;
@@ -471,11 +471,11 @@
     @media (max-width: 520px) {
         .state {
             width: 48px;
-            font-size: 10px;
+            font-size: var(--fs-10);
         }
         .timeText {
             width: 140px;
-            font-size: 12px;
+            font-size: var(--fs-12);
         }
         .iconBtn {
             width: 32px;

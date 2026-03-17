@@ -78,7 +78,7 @@
 <style>
     .checksWrap {
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         min-width: 0;
     }
 
@@ -86,22 +86,22 @@
         width: 100%;
         min-width: 0;
         box-sizing: border-box;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         color: inherit;
-        padding: 9px 11px;
+        padding: var(--sp-9) var(--sp-11);
         font: inherit;
     }
 
     .checks {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        border-radius: 12px;
+        gap: var(--sp-8);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
-        padding: 10px;
+        padding: var(--sp-10);
     }
 
     .checksScrollable {
@@ -115,9 +115,9 @@
         display: grid;
         grid-template-columns: 16px 1fr;
         align-items: center;
-        gap: 8px;
-        padding: 8px 10px;
-        border-radius: 10px;
+        gap: var(--sp-8);
+        padding: var(--sp-8) var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
         background: color-mix(in oklab, var(--btn-bg), transparent 18%);
         cursor: pointer;
@@ -160,7 +160,7 @@
     .checkBox {
         width: 16px;
         height: 16px;
-        border-radius: 5px;
+        border-radius: var(--radius-5);
         border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
         background: color-mix(in oklab, var(--bg), white 6%);
         box-sizing: border-box;
@@ -186,7 +186,7 @@
     }
 
     .checkText {
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 700;
         line-height: 1.2;
     }

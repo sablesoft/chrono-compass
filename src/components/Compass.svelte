@@ -4877,8 +4877,8 @@
     .panel {
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        border-radius: 18px;
-        padding: 12px;
+        border-radius: var(--radius-18);
+        padding: var(--sp-12);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -4887,7 +4887,7 @@
     }
     .contentLayout {
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
         min-height: 0;
         align-items: start;
     }
@@ -4918,10 +4918,10 @@
         display: grid;
         overflow: visible;
         position: relative;
-        border-radius: 16px;
+        border-radius: var(--radius-16);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
         background: color-mix(in oklab, var(--panel), var(--fg) 2%);
-        padding: 10px 10px 18px;
+        padding: var(--sp-10) var(--sp-10) var(--sp-18);
         box-sizing: border-box;
     }
     .infoPane.side {
@@ -4930,8 +4930,8 @@
         align-self: start;
         width: 100%;
         max-width: 100%;
-        padding-left: 10px;
-        padding-right: 10px;
+        padding-left: var(--sp-10);
+        padding-right: var(--sp-10);
     }
     .contentLayout.infoSide .visualPane {
         order: 1;
@@ -4962,14 +4962,14 @@
         bottom: 10px;
         width: 14px;
         height: 14px;
-        border-radius: 4px;
+        border-radius: var(--radius-4);
         cursor: nwse-resize;
     }
     .infoResizeHandle {
         top: 50%;
         width: 14px;
         height: 96px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         cursor: ew-resize;
         transform: translateY(-50%);
         border-color: color-mix(in oklab, var(--fg), transparent 58%);
@@ -4990,7 +4990,7 @@
         content: '';
         position: absolute;
         inset: 14px 4px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background:
             repeating-linear-gradient(
                 to bottom,
@@ -5004,7 +5004,7 @@
         bottom: -7px;
         width: 96px;
         height: 14px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         cursor: ns-resize;
         transform: translateX(-50%);
         border-color: color-mix(in oklab, var(--fg), transparent 58%);
@@ -5017,7 +5017,7 @@
         content: '';
         position: absolute;
         inset: 4px 14px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background:
             repeating-linear-gradient(
                 to right,
@@ -5028,7 +5028,7 @@
     }
     .headerBottom {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         margin-top: 0;
         margin-bottom: 10px;
     }
@@ -5054,7 +5054,7 @@
     }
     .wheelPanel {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
         width: 100%;
         justify-items: center;
         padding-inline: 8px;
@@ -5064,7 +5064,7 @@
         width: 100%;
         display: flex;
         justify-content: flex-end;
-        gap: 6px;
+        gap: var(--sp-6);
     }
     .wheelPanel.twoPaneRow {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5126,16 +5126,16 @@
     .info {
         width: 100%;
         max-width: 100%;
-        font-size: 18px;
+        font-size: var(--fs-18);
         line-height: 1.75;
         opacity: 0.82;
         display: grid;
-        gap: 2px;
+        gap: var(--sp-2);
         margin-top: auto;   /* вот это магия “прилипни вниз” */
         min-height: 0;
         overflow: auto;
     }
-    .infoRow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; padding: 4px 6px; border-radius: 10px; }
+    .infoRow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-10); padding: var(--sp-4) var(--sp-6); border-radius: var(--radius-10); }
 
     .infoRow{
         box-sizing: border-box;
@@ -5157,7 +5157,7 @@
     .sideLabel {
         fill: currentColor;
         fill-opacity: 0.72;
-        font-size: 28px;
+        font-size: var(--fs-28);
         font-weight: 700;
         user-select: none;
         pointer-events: none;
@@ -5200,12 +5200,12 @@
         display: grid !important;
         grid-template-columns: auto 1fr auto auto auto;
         align-items: center;
-        gap: 14px;
+        gap: var(--sp-14);
     }
 
-    .pE{ font-size:20px; width:24px; text-align:center; }
+    .pE{ font-size: var(--fs-20); width:24px; text-align:center; }
     .pN{ font-weight:850; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .pH{ font-weight:900; opacity:0.9; padding:2px 8px; border-radius:10px;
+    .pH{ font-weight:900; opacity:0.9; padding:var(--sp-2) var(--sp-8); border-radius:var(--radius-10);
         background: color-mix(in oklab, var(--btn-bg), var(--fg) 8%); }
     .pA, .pAlt{ opacity:0.85; font-variant-numeric: tabular-nums; white-space:nowrap; }
     .rowFill{
@@ -5292,15 +5292,15 @@
         opacity: 0.95;
     }
     .roleEmojiCenter {
-        font-size: 40px;
+        font-size: var(--fs-40);
         font-weight: 400;
     }
     .roleEmojiOnLabel {
-        font-size: 62px;
+        font-size: var(--fs-62);
         font-weight: 900;
     }
     .roleEmojiOnSpoke {
-        font-size: 34px;
+        font-size: var(--fs-34);
         font-weight: 900;
         opacity: 0.9;
     }
@@ -5315,10 +5315,10 @@
                 drop-shadow(0 0 5px color-mix(in oklab, var(--fg), transparent 60%));
     }
     .markerScaleBtn {
-        width: 30px;
-        height: 30px;
+        width: var(--wheel-overlay-btn-size-sm, 30px);
+        height: var(--wheel-overlay-btn-size-sm, 30px);
         padding: 0;
-        border-radius: 9px;
+        border-radius: var(--radius-9);
         font-weight: 900;
         line-height: 1;
     }
@@ -5332,7 +5332,7 @@
         right: 0;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: end;
         z-index: 3;
         pointer-events: auto;
@@ -5342,7 +5342,7 @@
         right: auto;
         top: 4px;
         flex-direction: row;
-        gap: 6px;
+        gap: var(--sp-6);
         align-items: flex-start;
     }
     .nodeNav {
@@ -5350,8 +5350,8 @@
         right: 0;
         bottom: 18px;
         display: grid;
-        grid-template-columns: repeat(2, 30px);
-        gap: 6px;
+        grid-template-columns: repeat(2, var(--wheel-overlay-btn-size-sm, 30px));
+        gap: var(--sp-6);
         z-index: 3;
         pointer-events: auto;
     }
@@ -5372,18 +5372,18 @@
         grid-row: 2;
     }
     .orbitToggle {
-        width: 34px;
-        height: 34px;
-        font-size: 17px;
+        width: var(--wheel-overlay-btn-size-lg, 34px);
+        height: var(--wheel-overlay-btn-size-lg, 34px);
+        font-size: var(--fs-17);
         line-height: 1;
     }
     .orbitToggle.off {
         opacity: 0.5;
     }
     .nodeToggle {
-        width: 30px;
-        height: 30px;
-        font-size: 13px;
+        width: var(--wheel-overlay-btn-size-sm, 30px);
+        height: var(--wheel-overlay-btn-size-sm, 30px);
+        font-size: var(--fs-13);
         line-height: 1;
     }
     .nodeToggle.off {
@@ -5444,7 +5444,7 @@
         opacity: 0.9;
     }
     .astroFramePoleEmoji {
-        font-size: 23px;
+        font-size: var(--fs-23);
         font-weight: 800;
         fill: currentColor;
         opacity: 0.9;
@@ -5605,6 +5605,12 @@
         stroke: color-mix(in oklab, #b991ff, black 35%);
     }
     .padding-right {
-        padding-right: 2px;
+        padding-right: var(--sp-2);
+    }
+
+    @media (max-width: 640px) {
+        .paneResizeHandle {
+            display: none !important;
+        }
     }
 </style>

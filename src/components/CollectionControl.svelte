@@ -429,13 +429,13 @@
     .badge{
         width: 12px;
         height: 12px;
-        border-radius: 4px;
+        border-radius: var(--radius-4);
         opacity: .95;
     }
     .badge.big{
         width: 14px;
         height: 14px;
-        border-radius: 5px;
+        border-radius: var(--radius-5);
     }
     .name{ font-weight: 700; opacity: .95; }
     .dot{ opacity: .55; }
@@ -459,7 +459,7 @@
 
         background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         z-index: 1001;
         overflow: hidden;
         outline: none;
@@ -470,12 +470,12 @@
         display:flex;
         align-items:center;
         justify-content:space-between;
-        gap: 12px;
-        padding: 14px 16px;
+        gap: var(--sp-12);
+        padding: var(--sp-14) var(--sp-16);
         border-bottom: 1px solid var(--panel-border);
     }
     .mc-title{
-        font-size: 18px;
+        font-size: var(--fs-18);
         font-weight: 750;
         opacity: .95;
     }
@@ -486,7 +486,7 @@
         place-items: center;
         line-height: 1;
         padding: 0;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--panel-border);
         background: transparent;
         color: inherit;
@@ -494,31 +494,31 @@
     }
 
     .mc-body{
-        padding: 14px 16px;
+        padding: var(--sp-14) var(--sp-16);
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
         min-width: 0;
     }
 
     .list{
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
     }
 
     .rowCard{
         border: 1px solid var(--panel-border);
-        border-radius: 16px;
+        border-radius: var(--radius-16);
         background: color-mix(in oklab, var(--bg), transparent 10%);
-        padding: 10px;
+        padding: var(--sp-10);
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
         min-width: 0;
     }
 
     .rowTop{
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
         min-width: 0;
     }
@@ -527,9 +527,9 @@
         display: grid;
         grid-template-columns: 16px 1fr auto;
         align-items: center;
-        gap: 10px;
-        padding: 10px 10px;
-        border-radius: 14px;
+        gap: var(--sp-10);
+        padding: var(--sp-10) var(--sp-10);
+        border-radius: var(--radius-14);
         border: 1px solid var(--panel-border);
         background: transparent;
         color: inherit;
@@ -560,14 +560,14 @@
 
     .rowActions{
         display: inline-flex;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
     }
 
     .icon{
         width: 36px;
         height: 36px;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--panel-border);
         background: transparent;
         color: inherit;
@@ -577,7 +577,7 @@
         opacity: .95;
         padding: 0;
         line-height: 1;
-        font-size: 16px;
+        font-size: var(--fs-16);
         vertical-align: middle;
     }
     .icon:hover{
@@ -596,7 +596,7 @@
         border: 0;
         outline: none;
         color: inherit;
-        font-size: 14px;
+        font-size: var(--fs-14);
         padding: 0;
     }
 
@@ -604,7 +604,7 @@
     .rowLine{
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: stretch;
         min-width: 0;
     }
@@ -616,7 +616,7 @@
         display: grid;
         grid-template-columns: 92px 1fr;
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         overflow: hidden;
         background: color-mix(in oklab, var(--bg), transparent 10%);
         min-width: 0;
@@ -628,8 +628,8 @@
     .segLabel{
         display: flex;
         align-items: center;
-        padding: 10px 12px;
-        font-size: 13px;
+        padding: var(--sp-10) var(--sp-12);
+        font-size: var(--fs-13);
         opacity: .75;
         border-right: 1px solid var(--panel-border);
         background: color-mix(in oklab, var(--panel), transparent 12%);
@@ -639,8 +639,8 @@
     .segControl{
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 8px 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-8) var(--sp-10);
         min-width: 0;
     }
 
@@ -648,7 +648,7 @@
         width: 42px;
         height: 34px;
         padding: 0;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--panel-border);
         background: transparent;
         cursor: pointer;
@@ -659,10 +659,10 @@
         min-width: 0;
         background: transparent;
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 8px 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-8) var(--sp-10);
         color: inherit;
-        font-size: 13px;
+        font-size: var(--fs-13);
     }
 
     .emojiPreview{
@@ -671,9 +671,9 @@
         display: grid;
         place-items: center;
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         background: color-mix(in oklab, var(--panel), transparent 12%);
-        font-size: 18px;
+        font-size: var(--fs-18);
         line-height: 1;
     }
 
@@ -682,17 +682,17 @@
         min-width: 0;
         background: transparent;
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 8px 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-8) var(--sp-10);
         color: inherit;
-        font-size: 13px;
+        font-size: var(--fs-13);
     }
 
     .orbitBox{
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 10px;
-        padding: 8px 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-8) var(--sp-10);
         align-items: center;
         min-width: 0;
     }
@@ -706,17 +706,17 @@
         text-align: right;
         opacity: .75;
         font-variant-numeric: tabular-nums;
-        font-size: 13px;
+        font-size: var(--fs-13);
     }
 
     .footRow{
-        padding-top: 2px;
+        padding-top: var(--sp-2);
     }
 
     .add{
         width: 100%;
-        padding: 10px 12px;
-        border-radius: 14px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-14);
         border: 1px dashed var(--panel-border);
         background: transparent;
         color: inherit;
@@ -730,44 +730,44 @@
     .createRow{
         display: grid;
         grid-template-columns: 1fr auto auto;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
     }
 
     .newName{
         background: color-mix(in oklab, var(--bg), transparent 10%);
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10) var(--sp-12);
         color: inherit;
-        font-size: 14px;
+        font-size: var(--fs-14);
         min-width: 0;
     }
 
     .mc-foot{
         display:flex;
         align-items:center;
-        gap: 10px;
-        padding: 14px 16px;
+        gap: var(--sp-10);
+        padding: var(--sp-14) var(--sp-16);
         border-top: 1px solid var(--panel-border);
     }
     .spacer{ margin-left: auto; }
 
     .mc-hint{
-        padding: 10px 16px 14px;
-        font-size: 12px;
+        padding: var(--sp-10) var(--sp-16) var(--sp-14);
+        font-size: var(--fs-12);
         opacity: .65;
     }
 
     .colTop{
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
 
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
-        padding: 10px 12px;
+        border-radius: var(--radius-14);
+        padding: var(--sp-10) var(--sp-12);
         background: color-mix(in oklab, var(--bg), transparent 10%);
         cursor: pointer;
     }
@@ -779,10 +779,10 @@
     .colAccordion{
         margin-top: 10px;
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         background: var(--panel);
-        padding: 12px;
+        padding: var(--sp-12);
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 </style>

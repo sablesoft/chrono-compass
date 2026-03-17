@@ -34,8 +34,8 @@
 
 <style>
     button.icon{
-        padding: 8px 10px;
-        border-radius: 12px;
+        padding: var(--sp-8) var(--sp-10);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;

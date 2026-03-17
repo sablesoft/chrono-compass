@@ -410,7 +410,7 @@
         cursor: pointer;
         opacity: 0.95;
         transition: opacity 120ms ease;
-        font-size: 20px;
+        font-size: var(--fs-20);
         font-weight: 650;
         line-height: 1.15;
         min-width: 0;
@@ -429,7 +429,7 @@
     .wheelTitleBtn:focus-visible {
         outline: 2px solid color-mix(in oklab, var(--fg), transparent 70%);
         outline-offset: 3px;
-        border-radius: 8px;
+        border-radius: var(--radius-8);
     }
 
     .overlay {
@@ -439,14 +439,14 @@
         display: grid;
         place-items: center;
         z-index: 9999;
-        padding: 18px;
+        padding: var(--sp-18);
     }
 
     .modal {
         width: min(620px, 96vw);
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         overflow: hidden;
         box-shadow: 0 18px 60px rgba(0,0,0,0.45);
     }
@@ -455,12 +455,12 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 14px 14px 10px 14px;
+        padding: var(--sp-14) var(--sp-14) var(--sp-10) var(--sp-14);
         border-bottom: 1px solid var(--btn-border);
     }
 
     .modalTitle {
-        font-size: 18px;
+        font-size: var(--fs-18);
         font-weight: 800;
         opacity: 0.92;
     }
@@ -471,26 +471,26 @@
         display: grid;
         place-items: center;
         padding: 0;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;
         cursor: pointer;
-        font-size: 20px;
+        font-size: var(--fs-20);
         line-height: 1;
     }
 
     .modalBody {
-        padding: 14px;
+        padding: var(--sp-14);
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .row {
         display: grid;
         grid-template-columns: 90px 1fr;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .row.multiRow {
@@ -498,7 +498,7 @@
     }
 
     .lbl {
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 800;
         opacity: 0.75;
         text-transform: uppercase;
@@ -509,14 +509,14 @@
         font-variant-numeric: tabular-nums;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
         opacity: 0.9;
-        padding: 8px 0;
+        padding: var(--sp-8) 0;
         min-height: 22px;
         color: color-mix(in oklab, var(--fg), transparent 15%);
     }
 
     .warn {
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 55%);
         background: color-mix(in oklab, var(--accent-gold), transparent 88%);
         font-weight: 700;
@@ -526,16 +526,16 @@
     .modalBottom {
         display: flex;
         justify-content: space-between;
-        gap: 10px;
-        padding: 12px 14px 14px 14px;
+        gap: var(--sp-10);
+        padding: var(--sp-12) var(--sp-14) var(--sp-14) var(--sp-14);
         border-top: 1px solid var(--btn-border);
     }
 
-    .leftBtns, .rightBtns { display: flex; gap: 10px; }
+    .leftBtns, .rightBtns { display: flex; gap: var(--sp-10); }
 
     .btn {
-        padding: 8px 12px;
-        border-radius: 12px;
+        padding: var(--sp-8) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;

@@ -696,7 +696,7 @@
         width: 100%;
         display: inline-flex;
         align-items: stretch;
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--fg), transparent 93%);
         overflow: hidden;
@@ -726,7 +726,7 @@
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 6px 12px;
+        padding: var(--sp-6) var(--sp-12);
         min-width: 0;
         display: inline-flex;
         align-items: center;
@@ -748,7 +748,7 @@
         white-space: nowrap;
         text-align: center;
         font-weight: 850;
-        font-size: 13px;
+        font-size: var(--fs-13);
         letter-spacing: 0.01em;
         opacity: 0.95;
     }
@@ -767,7 +767,7 @@
         flex: 1 1 auto;
         min-width: 140px;
         justify-content: center;
-        padding: 6px 12px;
+        padding: var(--sp-6) var(--sp-12);
     }
 
     .ui-lock {
@@ -777,7 +777,7 @@
         align-self: stretch;
         min-width: 34px;
         margin: 0 !important;
-        padding: 0 8px !important;
+        padding: 0 var(--sp-8) !important;
         border: 0 !important;
         border-left: 1px solid var(--btn-border) !important;
         border-radius: 0 !important;
@@ -791,7 +791,7 @@
     }
 
     .profileEmoji {
-        font-size: 14px;
+        font-size: var(--fs-14);
         line-height: 1;
         display: inline-flex;
         align-items: center;
@@ -811,7 +811,7 @@
         z-index: 9999;
         display: grid;
         place-items: center;
-        padding: 18px;
+        padding: var(--sp-18);
         background: var(--modal-overlay, rgba(0,0,0,0.45));
     }
 
@@ -821,7 +821,7 @@
         overflow: auto;
         background: var(--modal-bg, var(--panel));
         border: 1px solid var(--modal-border, var(--panel-border));
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         box-shadow: 0 18px 60px rgba(0,0,0,0.45);
         display: flex;
         flex-direction: column;
@@ -836,16 +836,16 @@
         top: 0;
         background: var(--modal-bg, var(--panel));
         border-bottom: 1px solid var(--btn-border);
-        padding: 10px 12px;
+        padding: var(--sp-10) var(--sp-12);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
         z-index: 1;
     }
 
     .modalTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 900;
         opacity: 0.92;
     }
@@ -862,7 +862,7 @@
         grid-auto-flow: column;
         grid-auto-columns: var(--seg-size);
         border: 1px solid var(--btn-border);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         overflow: hidden;
         background: var(--btn-bg);
     }
@@ -882,7 +882,7 @@
         place-items: center;
         cursor: pointer;
         line-height: 1;
-        font-size: 16px;
+        font-size: var(--fs-16);
     }
 
     .headBtn:hover:not(:disabled) {
@@ -900,26 +900,26 @@
     }
 
     .modalBody {
-        padding: 12px;
+        padding: var(--sp-12);
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
     }
 
     .row2 {
         display: grid;
         grid-template-columns: 1.2fr 1.8fr;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: end;
     }
 
     .field {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         min-width: 0;
     }
 
     .lbl {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 900;
         opacity: 0.75;
         text-transform: uppercase;
@@ -929,8 +929,8 @@
     .inp, .sel {
         width: 100%;
         box-sizing: border-box;
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         color: inherit;
@@ -950,7 +950,7 @@
         display: grid;
         grid-template-columns: auto 1fr auto;
         align-items: center;
-        gap: 8px;
+        gap: var(--sp-8);
         text-align: left;
         cursor: pointer;
     }
@@ -964,7 +964,7 @@
 
     .savedBtnChevron {
         opacity: 0.75;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .savedMenu {
@@ -975,13 +975,13 @@
         right: 0;
         max-height: min(36vh, 280px);
         overflow-y: auto;
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--panel);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
-        padding: 4px;
+        padding: var(--sp-4);
         display: grid;
-        gap: 2px;
+        gap: var(--sp-2);
     }
 
     .savedOption {
@@ -991,12 +991,12 @@
         width: 100%;
         min-width: 0;
         text-align: left;
-        border-radius: 8px;
-        padding: 8px 10px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-8) var(--sp-10);
         display: grid;
         grid-template-columns: auto 1fr;
         align-items: center;
-        gap: 8px;
+        gap: var(--sp-8);
         cursor: pointer;
     }
 
@@ -1024,18 +1024,18 @@
     .pendingDelete {
         border: 1px solid color-mix(in oklab, var(--accent-red), transparent 45%);
         background: color-mix(in oklab, var(--accent-red), transparent 88%);
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10) var(--sp-12);
         font-weight: 800;
         opacity: 0.9;
     }
 
     .block {
         border: 1px solid var(--btn-border);
-        border-radius: 14px;
-        padding: 10px;
+        border-radius: var(--radius-14);
+        padding: var(--sp-10);
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         background: color-mix(in oklab, var(--panel), transparent 10%);
     }
 
@@ -1043,11 +1043,11 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .blockTitle {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 900;
         opacity: 0.75;
         text-transform: uppercase;
@@ -1062,20 +1062,20 @@
 
     .rows {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         max-height: min(34vh, 320px);
         overflow-y: auto;
-        padding-right: 2px;
+        padding-right: var(--sp-2);
     }
 
     .rowItem {
         display: grid;
         grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 1fr) auto;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
         border: 1px solid color-mix(in oklab, var(--btn-border), transparent 35%);
-        border-radius: 10px;
-        padding: 8px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-8);
     }
 
     .spec {
@@ -1098,12 +1098,12 @@
 
     .rowActions {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .mini {
-        padding: 6px 8px;
-        border-radius: 10px;
+        padding: var(--sp-6) var(--sp-8);
+        border-radius: var(--radius-10);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;
@@ -1124,30 +1124,30 @@
 
     .empty {
         border: 1px dashed color-mix(in oklab, var(--btn-border), var(--fg) 18%);
-        border-radius: 10px;
-        padding: 10px 12px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-10) var(--sp-12);
         font-weight: 700;
         opacity: 0.7;
     }
 
     .modalBottom {
         border-top: 1px solid var(--btn-border);
-        padding: 12px 12px 14px 12px;
+        padding: var(--sp-12) var(--sp-12) var(--sp-14) var(--sp-12);
         display: flex;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
         background: var(--modal-bg, var(--panel));
         flex-wrap: wrap;
     }
 
     .leftBtns, .rightBtns {
         display: inline-flex;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .btn {
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         font-weight: 900;

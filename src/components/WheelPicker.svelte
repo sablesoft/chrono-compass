@@ -659,8 +659,8 @@
     .panel {
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        border-radius: 18px;
-        padding: 14px;
+        border-radius: var(--radius-18);
+        padding: var(--sp-14);
         overflow: hidden;
         position: relative;
         min-height: 220px;
@@ -696,7 +696,7 @@
     .plusCircle {
         width: 92px;
         height: 92px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 2px dashed color-mix(in oklab, var(--fg), transparent 70%);
         display: grid;
         place-items: center;
@@ -722,7 +722,7 @@
     }
 
     .plus {
-        font-size: 56px;
+        font-size: var(--fs-56);
         line-height: 1;
         font-weight: 900;
         opacity: 0.85;
@@ -733,8 +733,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding-bottom: 8px;
+        gap: var(--sp-12);
+        padding-bottom: var(--sp-8);
         cursor: default;
     }
 
@@ -744,7 +744,7 @@
         align-items: center;
     }
     .title {
-        font-size: 20px;
+        font-size: var(--fs-20);
         line-height: 1.15;
         font-weight: 650;
         opacity: 0.95;
@@ -760,7 +760,7 @@
         grid-auto-flow: column;
         grid-auto-columns: var(--seg-size);
         border: 1px solid var(--btn-border);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         overflow: hidden;
         background: var(--btn-bg);
     }
@@ -796,7 +796,7 @@
     }
     .form {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
         cursor: default;
         width: 100%;
         box-sizing: border-box;
@@ -811,14 +811,14 @@
         display: grid;
         grid-template-columns: 90px 1fr;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-10);
     }
     .row.multiRow {
         align-items: start;
     }
 
     .lbl {
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 800;
         opacity: 0.75;
         text-transform: uppercase;
@@ -828,11 +828,11 @@
     .inp, .sel {
         width: 100%;
         box-sizing: border-box;
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         color: inherit;
-        padding: 10px 12px;
+        padding: var(--sp-10) var(--sp-12);
         font: inherit;
         outline: none;
     }
@@ -845,11 +845,11 @@
     .checks {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-        gap: 8px;
-        border-radius: 12px;
+        gap: var(--sp-8);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
-        padding: 10px;
+        padding: var(--sp-10);
     }
 
     .checkItem {
@@ -857,9 +857,9 @@
         display: grid;
         grid-template-columns: 16px 1fr;
         align-items: center;
-        gap: 8px;
-        padding: 8px 10px;
-        border-radius: 10px;
+        gap: var(--sp-8);
+        padding: var(--sp-8) var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
         background: color-mix(in oklab, var(--btn-bg), transparent 18%);
         cursor: pointer;
@@ -882,7 +882,7 @@
     .checkBox {
         width: 16px;
         height: 16px;
-        border-radius: 5px;
+        border-radius: var(--radius-5);
         border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
         background: color-mix(in oklab, var(--bg), white 6%);
         box-sizing: border-box;
@@ -905,7 +905,7 @@
         transform: rotate(40deg);
     }
     .checkText {
-        font-size: 13px;
+        font-size: var(--fs-13);
         font-weight: 700;
         line-height: 1.2;
     }
@@ -913,13 +913,13 @@
     .bottom {
         display: flex;
         justify-content: flex-end;
-        gap: 10px;
+        gap: var(--sp-10);
         margin-top: 6px;
     }
 
     .btn {
-        padding: 8px 12px;
-        border-radius: 12px;
+        padding: var(--sp-8) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;

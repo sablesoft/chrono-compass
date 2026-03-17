@@ -414,7 +414,7 @@
         width: 100%;
         display: inline-flex;
         align-items: stretch;
-        border-radius: 12px;
+        border-radius: var(--radius-12);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--fg), transparent 93%);
         overflow: hidden;
@@ -429,8 +429,8 @@
     }
 
     .left {
-        padding: 6px 9px;
-        gap: 8px;
+        padding: var(--sp-6) var(--sp-9);
+        gap: var(--sp-8);
         min-width: 0;
         flex: 1 1 auto;
     }
@@ -442,7 +442,7 @@
         background: transparent;
         outline: none;
         box-shadow: none;
-        padding: 6px 8px;
+        padding: var(--sp-6) var(--sp-8);
         min-width: 0;
         display: inline-flex;
         align-items: center;
@@ -463,7 +463,7 @@
         text-overflow: ellipsis;
         white-space: nowrap;
         font-weight: 850;
-        font-size: 13px;
+        font-size: var(--fs-13);
         letter-spacing: 0.01em;
         opacity: 0.95;
     }
@@ -473,11 +473,11 @@
         opacity: 0.8;
         font-weight: 850;
         white-space: nowrap;
-        font-size: 11px;
+        font-size: var(--fs-11);
         letter-spacing: 0.04em;
     }
 
-    .tzSeg { width: 52px; justify-content: center; padding: 6px 6px; }
+    .tzSeg { width: 52px; justify-content: center; padding: var(--sp-6) var(--sp-6); }
 
     .ui-lock {
         display: inline-flex;
@@ -486,7 +486,7 @@
         align-self: stretch;
         min-width: 34px;
         margin: 0 !important;
-        padding: 0 8px !important;
+        padding: 0 var(--sp-8) !important;
         border: 0 !important;
         border-left: 1px solid var(--btn-border) !important;
         border-radius: 0 !important;
@@ -504,7 +504,7 @@
         z-index: 9999;
         display: grid;
         place-items: center;
-        padding: 18px;
+        padding: var(--sp-18);
         background: var(--modal-overlay, rgba(0,0,0,0.45));
     }
 
@@ -514,7 +514,7 @@
         overflow: auto;
         background: var(--modal-bg, var(--panel));
         border: 1px solid var(--modal-border, var(--panel-border));
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         box-shadow: 0 18px 60px rgba(0,0,0,0.45);
         display: flex;
         flex-direction: column;
@@ -525,47 +525,47 @@
         top: 0;
         background: var(--modal-bg, var(--panel));
         border-bottom: 1px solid var(--btn-border);
-        padding: 10px 12px;
+        padding: var(--sp-10) var(--sp-12);
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
         z-index: 1;
     }
 
-    .modalTitle { font-size: 16px; font-weight: 900; opacity: 0.92; }
+    .modalTitle { font-size: var(--fs-16); font-weight: 900; opacity: 0.92; }
 
     .x {
         width: 34px;
         height: 34px;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         display: grid;
         place-items: center;
         cursor: pointer;
         line-height: 1;
-        font-size: 20px;
+        font-size: var(--fs-20);
         padding: 0;
     }
 
-    .modalBody { padding: 12px; display: grid; gap: 12px; }
+    .modalBody { padding: var(--sp-12); display: grid; gap: var(--sp-12); }
 
     .lbl, .lbl2 {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 900;
         opacity: 0.75;
         text-transform: uppercase;
         letter-spacing: 0.04em;
     }
 
-    .field { display: grid; gap: 6px; min-width: 0; }
+    .field { display: grid; gap: var(--sp-6); min-width: 0; }
 
     .inp, .sel {
         width: 100%;
         box-sizing: border-box;
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--btn-bg), transparent 10%);
         color: inherit;
@@ -577,13 +577,13 @@
         outline-offset: 2px;
     }
 
-    .row2 { display: grid; grid-template-columns: 1.2fr 1.8fr; gap: 10px; align-items: end; }
-    .row3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
+    .row2 { display: grid; grid-template-columns: 1.2fr 1.8fr; gap: var(--sp-10); align-items: end; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-10); align-items: end; }
 
     .miniBtn {
         height: 42px;
-        padding: 0 12px;
-        border-radius: 12px;
+        padding: 0 var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         font-weight: 900;
@@ -591,9 +591,9 @@
         white-space: nowrap;
     }
 
-    .tzBlock { display: grid; gap: 10px; padding-top: 4px; }
+    .tzBlock { display: grid; gap: var(--sp-10); padding-top: var(--sp-4); }
 
-    .tzTop { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; min-width: 0; }
+    .tzTop { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-10); min-width: 0; }
 
     .hint {
         min-width: 0;
@@ -605,25 +605,25 @@
         font-variant-numeric: tabular-nums;
     }
 
-    .tzList { min-height: 170px; padding: 8px 10px; }
+    .tzList { min-height: 170px; padding: var(--sp-8) var(--sp-10); }
 
-    .hint2 { opacity: 0.7; font-size: 13px; font-weight: 700; }
+    .hint2 { opacity: 0.7; font-size: var(--fs-13); font-weight: 700; }
 
     .modalBottom {
         border-top: 1px solid var(--btn-border);
-        padding: 12px 12px 14px 12px;
+        padding: var(--sp-12) var(--sp-12) var(--sp-14) var(--sp-12);
         display: flex;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
         background: var(--modal-bg, var(--panel));
         flex-wrap: wrap;
     }
 
-    .leftBtns, .rightBtns { display: inline-flex; gap: 10px; }
+    .leftBtns, .rightBtns { display: inline-flex; gap: var(--sp-10); }
 
     .btn {
-        padding: 10px 12px;
-        border-radius: 12px;
+        padding: var(--sp-10) var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         font-weight: 900;
@@ -640,10 +640,10 @@
     }
 
     @media (max-width: 520px) {
-        .left { padding: 6px 8px; }
-        .label { font-size: 14px; }
-        .tz { font-size: 12px; }
-        .tzSeg { width: 52px; padding: 6px 6px; }
+        .left { padding: var(--sp-6) var(--sp-8); }
+        .label { font-size: var(--fs-14); }
+        .tz { font-size: var(--fs-12); }
+        .tzSeg { width: 52px; padding: var(--sp-6) var(--sp-6); }
     }
 
     @media (max-width: 720px) {

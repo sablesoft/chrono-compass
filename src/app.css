@@ -6,6 +6,68 @@
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
+  --ui-font-scale: 1;
+  --ui-space-scale: 1;
+  --ui-radius-scale: 1;
+  --app-font-size: 18px;
+  --app-main-pad: 16px;
+  --header-logo-size: 50px;
+  --wheel-header-btn-size: 32px;
+  --wheel-header-drag-size: 26px;
+  --wheel-overlay-btn-size-sm: 30px;
+  --wheel-overlay-btn-size-lg: 34px;
+
+  --fs-10: calc(10px * var(--ui-font-scale));
+  --fs-11: calc(11px * var(--ui-font-scale));
+  --fs-12: calc(12px * var(--ui-font-scale));
+  --fs-13: calc(13px * var(--ui-font-scale));
+  --fs-14: calc(14px * var(--ui-font-scale));
+  --fs-15: calc(15px * var(--ui-font-scale));
+  --fs-16: calc(16px * var(--ui-font-scale));
+  --fs-17: calc(17px * var(--ui-font-scale));
+  --fs-18: calc(18px * var(--ui-font-scale));
+  --fs-20: calc(20px * var(--ui-font-scale));
+  --fs-22: calc(22px * var(--ui-font-scale));
+  --fs-23: calc(23px * var(--ui-font-scale));
+  --fs-26: calc(26px * var(--ui-font-scale));
+  --fs-28: calc(28px * var(--ui-font-scale));
+  --fs-34: calc(34px * var(--ui-font-scale));
+  --fs-40: calc(40px * var(--ui-font-scale));
+  --fs-54: calc(54px * var(--ui-font-scale));
+  --fs-56: calc(56px * var(--ui-font-scale));
+  --fs-62: calc(62px * var(--ui-font-scale));
+  --fs-70: calc(70px * var(--ui-font-scale));
+  --fs-82: calc(82px * var(--ui-font-scale));
+
+  --sp-1: calc(1px * var(--ui-space-scale));
+  --sp-2: calc(2px * var(--ui-space-scale));
+  --sp-3: calc(3px * var(--ui-space-scale));
+  --sp-4: calc(4px * var(--ui-space-scale));
+  --sp-5: calc(5px * var(--ui-space-scale));
+  --sp-6: calc(6px * var(--ui-space-scale));
+  --sp-7: calc(7px * var(--ui-space-scale));
+  --sp-8: calc(8px * var(--ui-space-scale));
+  --sp-9: calc(9px * var(--ui-space-scale));
+  --sp-10: calc(10px * var(--ui-space-scale));
+  --sp-11: calc(11px * var(--ui-space-scale));
+  --sp-12: calc(12px * var(--ui-space-scale));
+  --sp-13: calc(13px * var(--ui-space-scale));
+  --sp-14: calc(14px * var(--ui-space-scale));
+  --sp-16: calc(16px * var(--ui-space-scale));
+  --sp-18: calc(18px * var(--ui-space-scale));
+  --sp-36: calc(36px * var(--ui-space-scale));
+
+  --radius-3: calc(3px * var(--ui-radius-scale));
+  --radius-4: calc(4px * var(--ui-radius-scale));
+  --radius-5: calc(5px * var(--ui-radius-scale));
+  --radius-8: calc(8px * var(--ui-radius-scale));
+  --radius-9: calc(9px * var(--ui-radius-scale));
+  --radius-10: calc(10px * var(--ui-radius-scale));
+  --radius-12: calc(12px * var(--ui-radius-scale));
+  --radius-14: calc(14px * var(--ui-radius-scale));
+  --radius-16: calc(16px * var(--ui-radius-scale));
+  --radius-18: calc(18px * var(--ui-radius-scale));
+  --radius-pill: 999px;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -20,7 +82,7 @@
   --modal-shadow: 0 18px 60px rgba(0,0,0,0.45);
 
   --modal-pad: 14px;
-  --modal-gap: 10px;
+  --modal-gap: var(--sp-10);
 
   --modal-header-border: 1px solid var(--btn-border);
   --modal-footer-border: 1px solid var(--btn-border);
@@ -32,6 +94,7 @@ html, body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  font-size: var(--app-font-size);
 }
 
 #app {
@@ -118,10 +181,10 @@ html, body {
    ========================= */
 
 button {
-  border-radius: 10px;
+  border-radius: var(--radius-10);
   border: 1px solid var(--btn-border);
   padding: 0.6em 1.1em;
-  font-size: 1em;
+  font-size: calc(1em * var(--ui-font-scale));
   font-weight: 600;
   font-family: inherit;
 
@@ -156,7 +219,7 @@ button:focus-visible {
 
 .ui-lock .lockIco{
   line-height: 1;
-  font-size: 18px;
+  font-size: var(--fs-18);
   transition: opacity 120ms ease, filter 120ms ease;
 }
 
@@ -180,8 +243,8 @@ button:focus-visible {
 }
 
 .navBtn {
-  padding: 8px 10px;
-  border-radius: 10px;
+  padding: var(--sp-8) var(--sp-10);
+  border-radius: var(--radius-10);
   border: 1px solid var(--btn-border);
   background: var(--btn-bg);
   color: inherit;
@@ -206,9 +269,9 @@ button:focus-visible {
 /* Shared chips/tags (tooltips) */
 .ui-chip {
   font-weight: 800;
-  font-size: 0.85em;
-  padding: 2px 8px;
-  border-radius: 999px;
+  font-size: calc(0.85em * var(--ui-font-scale));
+  padding: var(--sp-2) var(--sp-8);
+  border-radius: var(--radius-pill);
   background: rgba(255,255,255,0.06);
   border: 1px solid rgba(255,255,255,0.08);
   opacity: 0.9;
@@ -217,20 +280,35 @@ button:focus-visible {
 .ui-tag-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
-  padding: 0 2px 10px;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-2) var(--sp-10);
 }
 
 .ui-tag {
-  font-size: 11px;
+  font-size: var(--fs-11);
   font-weight: 700;
   letter-spacing: 0.02em;
-  padding: 4px 8px;
-  border-radius: 999px;
+  padding: var(--sp-4) var(--sp-8);
+  border-radius: var(--radius-pill);
   border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
   background: color-mix(in oklab, var(--fg), transparent 93%);
   opacity: 0.9;
   white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  :root {
+    --app-font-size: 12px;
+    --app-main-pad: 7px;
+    --header-logo-size: 24px;
+    --wheel-header-btn-size: 22px;
+    --wheel-header-drag-size: 18px;
+    --wheel-overlay-btn-size-sm: 20px;
+    --wheel-overlay-btn-size-lg: 24px;
+    --ui-font-scale: 0.63;
+    --ui-space-scale: 0.45;
+    --ui-radius-scale: 0.5;
+  }
 }
 
 /* Time state palette: past / now / future */

@@ -104,11 +104,11 @@
         right: 8px;
         width: 24px;
         height: 24px;
-        border-radius: 8px;
+        border-radius: var(--radius-8);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 84%);
         background: transparent;
         color: var(--fg);
-        font-size: 13px;
+        font-size: var(--fs-13);
         line-height: 1;
         cursor: pointer;
         z-index: 2;
@@ -122,22 +122,22 @@
     .rwPanel {
         margin-top: 6px;
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         background: color-mix(in oklab, var(--fg), transparent 97%);
-        padding: 8px;
+        padding: var(--sp-8);
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         margin-top: 4px;
         width: 100%;
     }
 
     .rwBlock {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .rwTitle {
-        font-size: 10px;
+        font-size: var(--fs-10);
         font-weight: 800;
         letter-spacing: 0.08em;
         text-transform: uppercase;
@@ -150,9 +150,9 @@
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: transparent;
         color: var(--fg);
-        border-radius: 8px;
-        padding: 6px 8px;
-        font-size: 12px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-6) var(--sp-8);
+        font-size: var(--fs-12);
         cursor: pointer;
     }
 
@@ -162,8 +162,8 @@
     }
 
     .rwEmpty {
-        font-size: 11px;
+        font-size: var(--fs-11);
         opacity: 0.75;
-        padding: 2px 2px;
+        padding: var(--sp-2) var(--sp-2);
     }
 </style>

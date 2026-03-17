@@ -2259,8 +2259,8 @@
     .panel {
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        border-radius: 18px;
-        padding: 12px;
+        border-radius: var(--radius-18);
+        padding: var(--sp-12);
         overflow: hidden;
         display: flex;
         flex-direction: column;
@@ -2269,7 +2269,7 @@
     }
     .contentLayout {
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
         min-height: 0;
         align-items: start;
     }
@@ -2299,10 +2299,10 @@
         display: grid;
         overflow: visible;
         position: relative;
-        border-radius: 16px;
+        border-radius: var(--radius-16);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
         background: color-mix(in oklab, var(--panel), var(--fg) 2%);
-        padding: 10px 10px 18px;
+        padding: var(--sp-10) var(--sp-10) var(--sp-18);
         box-sizing: border-box;
     }
     .infoPane.side {
@@ -2311,7 +2311,7 @@
         align-self: start;
         width: 100%;
         max-width: 100%;
-        padding: 10px;
+        padding: var(--sp-10);
     }
     .contentLayout.infoSide .visualPane {
         order: 1;
@@ -2342,14 +2342,14 @@
         bottom: 10px;
         width: 14px;
         height: 14px;
-        border-radius: 4px;
+        border-radius: var(--radius-4);
         cursor: nwse-resize;
     }
     .infoResizeHandle {
         top: 50%;
         width: 14px;
         height: 96px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         cursor: ew-resize;
         transform: translateY(-50%);
         border-color: color-mix(in oklab, var(--fg), transparent 58%);
@@ -2366,7 +2366,7 @@
         content: '';
         position: absolute;
         inset: 14px 4px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background:
             repeating-linear-gradient(
                 to bottom,
@@ -2380,7 +2380,7 @@
         bottom: -7px;
         width: 96px;
         height: 14px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         cursor: ns-resize;
         transform: translateX(-50%);
         border-color: color-mix(in oklab, var(--fg), transparent 58%);
@@ -2393,7 +2393,7 @@
         content: '';
         position: absolute;
         inset: 4px 14px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background:
             repeating-linear-gradient(
                 to right,
@@ -2404,7 +2404,7 @@
     }
     .headerBottom {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         margin-top: 0;
         margin-bottom: 10px;
     }
@@ -2430,7 +2430,7 @@
     }
     .wheelPanel {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
         width: 100%;
         justify-items: center;
         padding-inline: 8px;
@@ -2589,24 +2589,24 @@
     }
 
     .roleEmojiCenter{
-        font-size: 82px;
+        font-size: var(--fs-82);
         font-weight: 900;
     }
 
     .roleEmojiPointer{
-        font-size: 54px;
+        font-size: var(--fs-54);
         font-weight: 900;
         filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
 
     }
 
     .roleEmojiOnLabel{
-        font-size: 70px;
+        font-size: var(--fs-70);
         font-weight: 900;
     }
 
     .roleEmojiOnSpoke{
-        font-size: 26px;
+        font-size: var(--fs-26);
         font-weight: 900;
     }
 
@@ -2628,7 +2628,7 @@
         right: 0;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: var(--sp-8);
     }
     .cycleNav .navBtn:disabled,
     .cycleNav .navBtn.disabled {
@@ -2636,10 +2636,10 @@
         opacity: 0.45;
     }
     .markerScaleBtn {
-        width: 30px;
-        height: 30px;
+        width: var(--wheel-overlay-btn-size-sm, 30px);
+        height: var(--wheel-overlay-btn-size-sm, 30px);
         padding: 0;
-        border-radius: 9px;
+        border-radius: var(--radius-9);
         font-weight: 900;
         line-height: 1;
     }
@@ -2649,12 +2649,18 @@
         right: auto;
         top: 4px;
         flex-direction: row;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .cycleUp,
     .cycleDown {
-        width: 34px;
-        height: 34px;
+        width: var(--wheel-overlay-btn-size-lg, 34px);
+        height: var(--wheel-overlay-btn-size-lg, 34px);
+    }
+
+    @media (max-width: 640px) {
+        .paneResizeHandle {
+            display: none !important;
+        }
     }
 </style>

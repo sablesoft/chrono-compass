@@ -95,21 +95,21 @@
         right: 16px;
         bottom: 16px;
         z-index: 9999;
-        padding: 12px 14px;
-        border-radius: 12px;
+        padding: var(--sp-12) var(--sp-14);
+        border-radius: var(--radius-12);
         background: rgba(20,20,24,0.95);
         border: 1px solid rgba(255,255,255,0.12);
         color: rgba(255,255,255,0.92);
         display: flex;
-        gap: 12px;
+        gap: var(--sp-12);
         align-items: center;
         justify-content: space-between;
         backdrop-filter: blur(10px);
     }
-    .sw-toast__actions{ display:flex; gap:8px; }
+    .sw-toast__actions{ display:flex; gap:var(--sp-8); }
     button{
-        padding: 8px 10px;
-        border-radius: 10px;
+        padding: var(--sp-8) var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid rgba(255,255,255,0.16);
         background: rgba(255,255,255,0.06);
         color: rgba(255,255,255,0.92);

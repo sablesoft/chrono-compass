@@ -359,20 +359,20 @@
         background: rgba(0, 0, 0, 0.5);
         display: grid;
         place-items: center;
-        padding: 12px;
+        padding: var(--sp-12);
     }
 
     .editorModal {
         width: min(760px, 94vw);
         max-height: min(86vh, 900px);
         overflow: auto;
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--panel), black 6%);
         box-shadow: 0 16px 56px rgba(0, 0, 0, 0.4);
         display: grid;
-        gap: 10px;
-        padding: 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-10);
     }
 
     .editorHead,
@@ -380,54 +380,54 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .editorTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: var(--sp-8);
     }
 
     .bodyEmoji {
-        font-size: 18px;
+        font-size: var(--fs-18);
     }
 
     .editorSection {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10);
     }
 
     .sectionTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
     }
 
     .editorSectionActions,
     .footActions {
         display: flex;
-        gap: 8px;
+        gap: var(--sp-8);
         justify-content: flex-end;
     }
 
     .editorItems,
     .editorRowWrap {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .editorRow {
         display: grid;
         grid-template-columns: minmax(120px, 0.9fr) minmax(180px, 1.2fr) minmax(110px, 0.8fr) auto;
         align-items: center;
-        gap: 6px;
-        padding: 6px 8px;
-        border-radius: 9px;
+        gap: var(--sp-6);
+        padding: var(--sp-6) var(--sp-8);
+        border-radius: var(--radius-9);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
     }
@@ -442,7 +442,7 @@
 
     .col {
         min-width: 0;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .col.user,
@@ -452,8 +452,8 @@
         box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 12%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
-        padding: 6px 8px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-6) var(--sp-8);
         color: var(--fg);
         font: inherit;
     }
@@ -468,11 +468,11 @@
 
     .editorRowArea {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .areaLabel {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         opacity: 0.82;
     }
@@ -480,7 +480,7 @@
     .modalAccordion {
         border-left: 2px solid color-mix(in oklab, var(--fg), transparent 84%);
         margin-left: 8px;
-        padding-left: 10px;
+        padding-left: var(--sp-10);
     }
 
     .modalInput {
@@ -490,25 +490,25 @@
         box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 10%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
+        border-radius: var(--radius-8);
         color: var(--fg);
-        padding: 8px;
+        padding: var(--sp-8);
         font: inherit;
-        font-size: 12px;
+        font-size: var(--fs-12);
         line-height: 1.35;
     }
 
     .rowActions {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
         align-items: center;
     }
 
     .miniBtn {
         min-width: 28px;
         height: 28px;
-        padding: 0 8px;
-        border-radius: 8px;
+        padding: 0 var(--sp-8);
+        border-radius: var(--radius-8);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 78%);
         background: color-mix(in oklab, var(--btn-bg), transparent 12%);
         color: inherit;
@@ -519,12 +519,12 @@
     }
 
     .editorEmpty {
-        padding: 10px;
-        border-radius: 10px;
+        padding: var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         opacity: 0.8;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     @media (max-width: 720px) {

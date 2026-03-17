@@ -192,7 +192,7 @@
     .db-caret {
         opacity: .65;
         margin-left: 10px;
-        font-size: 28px;
+        font-size: var(--fs-28);
     }
 
     /* dropdown itself — always component-owned */
@@ -201,7 +201,7 @@
         z-index: 5000;
         border: 1px solid var(--panel-border);
         background: var(--panel);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         box-shadow: 0 18px 60px rgba(0,0,0,.22);
         overflow: hidden;
     }
@@ -210,8 +210,8 @@
         display:flex;
         align-items:center;
         justify-content:space-between;
-        gap: 10px;
-        padding: 10px 12px;
+        gap: var(--sp-10);
+        padding: var(--sp-10) var(--sp-12);
         border-bottom: 1px solid var(--panel-border);
     }
 
@@ -225,7 +225,7 @@
         height: 34px;
         display: grid;
         place-items: center;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--panel-border);
         background: transparent;
         color: inherit;
@@ -238,17 +238,17 @@
     .db-list{
         max-height: min(46vh, 360px);
         overflow: auto;
-        padding: 8px;
+        padding: var(--sp-8);
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .db-item{
         display:flex;
         align-items:center;
-        gap: 10px;
-        padding: 8px 10px;
-        border-radius: 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-8) var(--sp-10);
+        border-radius: var(--radius-10);
         cursor: pointer;
         user-select: none;
     }
@@ -269,9 +269,9 @@
     }
 
     .db-foot{
-        padding: 8px 12px;
+        padding: var(--sp-8) var(--sp-12);
         border-top: 1px solid var(--panel-border);
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: .65;
     }
 </style>

@@ -6,6 +6,7 @@
     import { currentLocationId, resolveLocationById, savedLocations } from '../lib/location/store';
     import { getWheelEntry } from '../lib/board/registry';
     import { BOARD_GRID_COLUMNS, BOARD_DEFAULT_W, nextFreeRect, normalizeRect } from '../lib/board/layoutEngine';
+    import { phoneCarouselState, syncPhoneCarousel } from '../lib/app/phoneCarousel';
 
     import WheelPicker from "./WheelPicker.svelte";
     import Compass from './Compass.svelte';
@@ -25,8 +26,18 @@
     let pickerEl: HTMLElement | null = null;
     let packedWidth = 0;
     let isDesktop = false;
+    let isPhone = false;
+    let phoneIndex = 0;
+    let phoneWheelId: string | null = null;
+    let phoneSwipeStartX = 0;
+    let phoneSwipeStartY = 0;
+    let phoneSwipeTracking = false;
+    let phoneSectionEl: HTMLElement | null = null;
+    let phoneViewportHeight = 0;
     let mqDesktop: MediaQueryList | null = null;
+    let mqPhone: MediaQueryList | null = null;
     let onDesktopChange: (() => void) | null = null;
+    let onPhoneChange: (() => void) | null = null;
     let ro: ResizeObserver | null = null;
     let dragWheelId: string | null = null;
     const cellEls = new Map<string, HTMLElement>();
@@ -37,6 +48,7 @@
     let resizeState: { id: string; startX: number; startW: number } | null = null;
     let resizeRaf = 0;
     let resizeNextW: number | null = null;
+    let lastPhoneCommandSeq = 0;
 
     function pickComponentStable(w: BoardWheel) {
         const id = w.id;
@@ -84,13 +96,25 @@
         ...row,
         Comp: pickComponentStable(row.w)
     }));
+    $: phoneSlidesCount = itemsViewWithComp.length + ($isActiveProfileLocked ? 0 : 1);
 
-    function updateDesktopMode() {
+    function updateViewportModes() {
         isDesktop = !!mqDesktop?.matches;
+        isPhone = !!mqPhone?.matches;
     }
 
     function recomputePackedWidth() {
         packedWidth = packedEl?.clientWidth ?? 0;
+    }
+
+    function recomputePhoneViewportHeight() {
+        if (!phoneSectionEl) {
+            phoneViewportHeight = 0;
+            return;
+        }
+        const rect = phoneSectionEl.getBoundingClientRect();
+        const h = Math.max(0, Math.floor(window.innerHeight - rect.top));
+        phoneViewportHeight = h;
     }
 
     function rowsFromHeight(px: number): number {
@@ -140,11 +164,17 @@
 
     onMount(() => {
         if ('matchMedia' in window) {
-            mqDesktop = window.matchMedia('(min-width: 980px)');
-            updateDesktopMode();
-            onDesktopChange = () => updateDesktopMode();
+            mqDesktop = window.matchMedia('(min-width: 1025px)');
+            mqPhone = window.matchMedia('(max-width: 640px)');
+            updateViewportModes();
+            onDesktopChange = () => updateViewportModes();
+            onPhoneChange = () => updateViewportModes();
             if ('addEventListener' in mqDesktop) mqDesktop.addEventListener('change', onDesktopChange);
             else (mqDesktop as any).addListener(onDesktopChange);
+            if (mqPhone) {
+                if ('addEventListener' in mqPhone) mqPhone.addEventListener('change', onPhoneChange);
+                else (mqPhone as any).addListener(onPhoneChange);
+            }
         }
 
         if ('ResizeObserver' in window) {
@@ -157,9 +187,13 @@
 
         queueMicrotask(recomputePackedWidth);
         queueMicrotask(scheduleHeightSync);
+        queueMicrotask(recomputePhoneViewportHeight);
+        window.addEventListener('resize', recomputePhoneViewportHeight, { passive: true });
     });
 
     onDestroy(() => {
+        syncPhoneCarousel(false, 0, 0);
+        window.removeEventListener('resize', recomputePhoneViewportHeight);
         if (syncRaf) cancelAnimationFrame(syncRaf);
         if (resizeRaf) cancelAnimationFrame(resizeRaf);
         if (layoutAnimTimer) {
@@ -173,10 +207,34 @@
             if (ro) ro.unobserve(el);
         }
         ro?.disconnect();
-        if (!mqDesktop || !onDesktopChange) return;
-        if ('removeEventListener' in mqDesktop) mqDesktop.removeEventListener('change', onDesktopChange);
-        else (mqDesktop as any).removeListener(onDesktopChange);
+        if (mqDesktop && onDesktopChange) {
+            if ('removeEventListener' in mqDesktop) mqDesktop.removeEventListener('change', onDesktopChange);
+            else (mqDesktop as any).removeListener(onDesktopChange);
+        }
+        if (mqPhone && onPhoneChange) {
+            if ('removeEventListener' in mqPhone) mqPhone.removeEventListener('change', onPhoneChange);
+            else (mqPhone as any).removeListener(onPhoneChange);
+        }
     });
+
+    $: {
+        const wheelCount = itemsViewWithComp.length;
+        const hasPickerSlide = !$isActiveProfileLocked;
+        const total = phoneSlidesCount;
+
+        if (total <= 0) {
+            phoneIndex = 0;
+            phoneWheelId = null;
+        } else if (phoneWheelId) {
+            const exact = itemsViewWithComp.findIndex((row) => row.w.id === phoneWheelId);
+            if (exact >= 0) phoneIndex = exact;
+            else setPhoneIndex(phoneIndex);
+        } else if (hasPickerSlide && phoneIndex === wheelCount) {
+            phoneIndex = wheelCount;
+        } else {
+            setPhoneIndex(phoneIndex);
+        }
+    }
 
     $: unitPxRaw = packedWidth > 0
         ? (packedWidth - GRID_COL_GAP * (BOARD_GRID_COLUMNS - 1)) / BOARD_GRID_COLUMNS
@@ -218,6 +276,58 @@
 
     function dragEndWheel() {
         dragWheelId = null;
+    }
+
+    function normalizePhoneIndex(next: number, count: number): number {
+        if (count <= 0) return 0;
+        const rem = next % count;
+        return rem >= 0 ? rem : rem + count;
+    }
+
+    function setPhoneIndex(next: number) {
+        const count = phoneSlidesCount;
+        if (count <= 0) {
+            phoneIndex = 0;
+            phoneWheelId = null;
+            return;
+        }
+        const normalized = normalizePhoneIndex(next, count);
+        phoneIndex = normalized;
+        phoneWheelId = itemsViewWithComp[normalized]?.w.id ?? null;
+    }
+
+    function goPhonePrev() {
+        setPhoneIndex(phoneIndex - 1);
+    }
+
+    function goPhoneNext() {
+        setPhoneIndex(phoneIndex + 1);
+    }
+
+    function resetPhoneSwipe() {
+        phoneSwipeTracking = false;
+    }
+
+    function handlePhonePointerDown(e: PointerEvent) {
+        if (!isPhone || e.pointerType !== 'touch') return;
+        phoneSwipeStartX = e.clientX;
+        phoneSwipeStartY = e.clientY;
+        phoneSwipeTracking = true;
+    }
+
+    function handlePhonePointerUp(e: PointerEvent) {
+        if (!phoneSwipeTracking || !isPhone || e.pointerType !== 'touch') {
+            resetPhoneSwipe();
+            return;
+        }
+        const dx = e.clientX - phoneSwipeStartX;
+        const dy = e.clientY - phoneSwipeStartY;
+        resetPhoneSwipe();
+
+        if (Math.abs(dx) < 50) return;
+        if (Math.abs(dx) <= Math.abs(dy)) return;
+        if (dx < 0) goPhoneNext();
+        else goPhonePrev();
     }
 
     function finishResize() {
@@ -334,6 +444,25 @@
         void itemsViewWithComp.length;
         if (isDesktop) queueMicrotask(scheduleHeightSync);
     }
+
+    $: {
+        const nav = $phoneCarouselState;
+        if (!isPhone) {
+            lastPhoneCommandSeq = nav.commandSeq;
+        } else if (nav.commandSeq !== lastPhoneCommandSeq) {
+            lastPhoneCommandSeq = nav.commandSeq;
+            if (nav.commandStep < 0) goPhonePrev();
+            else if (nav.commandStep > 0) goPhoneNext();
+        }
+    }
+
+    $: syncPhoneCarousel(isPhone, phoneIndex, phoneSlidesCount);
+    $: {
+        void isPhone;
+        void phoneIndex;
+        void phoneSlidesCount;
+        queueMicrotask(recomputePhoneViewportHeight);
+    }
 </script>
 
 {#if isDesktop}
@@ -388,6 +517,40 @@
             </div>
         {/if}
     </section>
+{:else if isPhone}
+    <section
+            class="phoneCarousel"
+            bind:this={phoneSectionEl}
+            aria-label="Wheel carousel"
+            style={phoneViewportHeight > 0 ? `--phone-min-h:${phoneViewportHeight}px;` : ''}
+            on:pointerdown={handlePhonePointerDown}
+            on:pointerup={handlePhonePointerUp}
+            on:pointercancel={resetPhoneSwipe}
+    >
+        {#if phoneSlidesCount > 0}
+            {#if !$isActiveProfileLocked && phoneIndex === itemsViewWithComp.length}
+                <div class="phonePickerSlide">
+                    <WheelPicker/>
+                </div>
+            {:else}
+                {@const currentRow = itemsViewWithComp[phoneIndex]}
+                {#if currentRow}
+                    <div class="cell phoneCell">
+                        <svelte:component
+                                this={currentRow.Comp}
+                                wheel={currentRow.w}
+                                selectedTs={selectedTs}
+                                location={currentRow.loc}
+                                dragEnabled={false}
+                                onCardDragStart={() => {}}
+                                onCardDragEnd={() => {}}
+                        />
+                    </div>
+                {/if}
+            {/if}
+
+        {/if}
+    </section>
 {:else}
     <section class="grid">
         {#each itemsViewWithComp as row (row.w.id)}
@@ -414,7 +577,7 @@
         display: grid;
         position: relative;
         z-index: 1;
-        padding-top: 12px;
+        padding-top: var(--sp-12);
         column-gap: var(--col-gap);
         row-gap: var(--row-gap);
         grid-auto-rows: var(--row-unit);
@@ -435,7 +598,7 @@
         bottom: 8px;
         width: 12px;
         height: 12px;
-        border-radius: 3px;
+        border-radius: var(--radius-3);
         border: 1px solid var(--btn-border);
         background: color-mix(in oklab, var(--fg), transparent 80%);
         cursor: ew-resize;
@@ -458,9 +621,37 @@
         width: 100%;
         box-sizing: border-box;
     }
+    .phoneCarousel {
+        display: grid;
+        gap: var(--sp-10);
+        padding-top: var(--sp-8);
+        min-height: var(--phone-min-h, auto);
+        align-content: start;
+    }
+    .phoneCell {
+        width: 100%;
+        min-width: 0;
+        min-height: var(--phone-min-h, auto);
+    }
+    .phoneCell > :global(*) {
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+        display: block;
+        min-height: 100%;
+    }
+    .phonePickerSlide {
+        min-width: 0;
+        min-height: var(--phone-min-h, auto);
+    }
+    .phonePickerSlide > :global(*) {
+        width: 100%;
+        box-sizing: border-box;
+        min-height: 100%;
+    }
     .grid {
         display: grid;
-        gap: 13px;
+        gap: var(--sp-13);
         grid-template-columns: 1fr;
         align-items: start;
     }
@@ -476,10 +667,10 @@
         display: block;
     }
 
-    @media (min-width: 980px) {
+    @media (min-width: 760px) {
         .grid { grid-template-columns: 1fr 1fr; }
     }
-    @media (min-width: 1400px) {
+    @media (min-width: 1024px) {
         .grid { grid-template-columns: 1fr 1fr 1fr; }
     }
 </style>

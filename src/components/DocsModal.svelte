@@ -77,7 +77,7 @@
         transform: translateX(-50%);
         background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         z-index: 12001;
         display: grid;
         grid-template-rows: auto 1fr auto;
@@ -86,42 +86,42 @@
     .head {
         display: flex;
         justify-content: space-between;
-        gap: 12px;
-        padding: 14px 16px;
+        gap: var(--sp-12);
+        padding: var(--sp-14) var(--sp-16);
         border-bottom: 1px solid var(--panel-border);
         align-items: center;
     }
-    .htitle { font-size: 18px; font-weight: 800; }
-    .hurl { opacity: 0.55; font-size: 12px; font-variant-numeric: tabular-nums; }
+    .htitle { font-size: var(--fs-18); font-weight: 800; }
+    .hurl { opacity: 0.55; font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
     .x {
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;
-        border-radius: 10px;
-        padding: 8px 10px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-8) var(--sp-10);
         cursor: pointer;
         opacity: 0.9;
     }
     .body {
-        padding: 14px 16px;
+        padding: var(--sp-14) var(--sp-16);
         overflow: auto;
     }
-    .md :global(h1) { font-size: 22px; margin: 0 0 12px; }
-    .md :global(h2) { font-size: 18px; margin: 18px 0 10px; }
+    .md :global(h1) { font-size: var(--fs-22); margin: 0 0 12px; }
+    .md :global(h2) { font-size: var(--fs-18); margin: 18px 0 10px; }
     .md :global(p) { opacity: 0.9; line-height: 1.55; }
     .md :global(code) { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
     .md :global(pre) {
-        padding: 12px;
-        border-radius: 12px;
+        padding: var(--sp-12);
+        border-radius: var(--radius-12);
         border: 1px solid var(--panel-border);
         overflow: auto;
     }
     .foot {
-        padding: 12px 16px;
+        padding: var(--sp-12) var(--sp-16);
         border-top: 1px solid var(--panel-border);
         display: flex;
         justify-content: flex-end;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
     }
     .link { opacity: 0.75; margin-right: auto; }
@@ -129,8 +129,8 @@
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
         color: inherit;
-        border-radius: 10px;
-        padding: 8px 12px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-8) var(--sp-12);
         cursor: pointer;
         font-weight: 700;
     }

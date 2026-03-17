@@ -16,10 +16,12 @@
     unsubLoc = currentLocation.subscribe((v) => {
       resetUiId += 1;
     });
-
   });
 
-  onDestroy(() => { unsubLoc?.(); unsubLoc = null; });
+  onDestroy(() => {
+    unsubLoc?.();
+    unsubLoc = null;
+  });
 
   const isDev = import.meta.env.DEV;
 </script>
@@ -39,17 +41,20 @@
 
 <style>
   main {
-    padding: 16px;
+    padding: var(--app-main-pad, 16px);
     background: var(--bg);
     min-height: 100vh;
     color: var(--fg);
-    width: 98%;
-    overflow-x: visible;
-    font-size: 18px;
+    width: 100%;
+    overflow-x: hidden;
+    font-size: var(--app-font-size, 18px);
+    box-sizing: border-box;
   }
 
   .container {
-    width: clamp(1200px, calc(100vw - 28px), 2600px);
+    width: min(2600px, 100%);
     margin: 0 auto;
+    min-width: 0;
   }
+
 </style>

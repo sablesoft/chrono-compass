@@ -491,7 +491,7 @@
 
         background: var(--panel);
         border: 1px solid var(--panel-border);
-        border-radius: 18px;
+        border-radius: var(--radius-18);
         z-index: 1001;
         overflow: hidden;
         outline: none;
@@ -502,12 +502,12 @@
         display:flex;
         align-items:center;
         justify-content:space-between;
-        gap: 12px;
-        padding: 14px 16px;
+        gap: var(--sp-12);
+        padding: var(--sp-14) var(--sp-16);
         border-bottom: 1px solid var(--panel-border);
     }
     .mc-title{
-        font-size: 18px;
+        font-size: var(--fs-18);
         font-weight: 750;
         opacity: .95;
     }
@@ -518,7 +518,7 @@
         place-items: center;
         line-height: 1;
         padding: 0;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         border: 1px solid var(--panel-border);
         background: transparent;
         color: inherit;
@@ -526,32 +526,32 @@
     }
 
     .mc-body{
-        padding: 14px 16px;
+        padding: var(--sp-14) var(--sp-16);
         display: grid;
-        gap: 12px;
+        gap: var(--sp-12);
     }
-    .row{ display: grid; gap: 6px; }
+    .row{ display: grid; gap: var(--sp-6); }
 
     label{
-        font-size: 13px;
+        font-size: var(--fs-13);
         opacity: .75;
     }
 
     input, select, textarea{
         background: color-mix(in oklab, var(--bg), transparent 10%);
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10) var(--sp-12);
         color: inherit;
-        font-size: 14px;
+        font-size: var(--fs-14);
     }
     textarea{ resize: vertical; }
 
     .mc-foot{
         display:flex;
         align-items:center;
-        gap: 10px;
-        padding: 14px 16px;
+        gap: var(--sp-10);
+        padding: var(--sp-14) var(--sp-16);
         border-top: 1px solid var(--panel-border);
     }
     .spacer{ margin-left: auto; }
@@ -567,8 +567,8 @@
     }
 
     .mc-hint{
-        padding: 10px 16px 14px;
-        font-size: 12px;
+        padding: var(--sp-10) var(--sp-16) var(--sp-14);
+        font-size: var(--fs-12);
         opacity: .65;
     }
 
@@ -580,7 +580,7 @@
     .rowLine{
         display: grid;
         grid-template-columns: 1fr 1.2fr;
-        gap: 12px;
+        gap: var(--sp-12);
         align-items: stretch;
     }
 
@@ -593,7 +593,7 @@
         display: grid;
         grid-template-columns: 92px 1fr;
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         overflow: hidden;
         background: color-mix(in oklab, var(--bg), transparent 10%);
     }
@@ -601,8 +601,8 @@
     .segLabel{
         display: flex;
         align-items: center;
-        padding: 10px 12px;
-        font-size: 13px;
+        padding: var(--sp-10) var(--sp-12);
+        font-size: var(--fs-13);
         opacity: .75;
         border-right: 1px solid var(--panel-border);
         background: color-mix(in oklab, var(--panel), transparent 12%);
@@ -612,8 +612,8 @@
     .segValue{
         display: flex;
         align-items: center;
-        padding: 10px 12px;
-        font-size: 14px;
+        padding: var(--sp-10) var(--sp-12);
+        font-size: var(--fs-14);
         opacity: .92;
         min-width: 0;
         white-space: nowrap;
@@ -624,9 +624,9 @@
     .segBtn{
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-10);
         justify-content: space-between;
-        padding: 10px 12px;
+        padding: var(--sp-10) var(--sp-12);
         border: 0;
         background: transparent;
         color: inherit;
@@ -638,12 +638,12 @@
     }
 
     .segEmoji{
-        font-size: 18px;
+        font-size: var(--fs-18);
         line-height: 1;
     }
 
     .segCaret{
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: .65;
     }
 
@@ -651,15 +651,15 @@
     .emojiAccordion{
         margin-top: 10px;
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         background: var(--panel);
-        padding: 12px;
+        padding: var(--sp-12);
     }
 
     .emojiTop{
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
         margin-bottom: 10px;
     }
@@ -667,21 +667,21 @@
     .emojiInput{
         background: color-mix(in oklab, var(--bg), transparent 10%);
         border: 1px solid var(--panel-border);
-        border-radius: 12px;
-        padding: 10px 12px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10) var(--sp-12);
         color: inherit;
-        font-size: 14px;
+        font-size: var(--fs-14);
     }
 
     /* ограничиваем высоту именно области выбора */
     .emojiGrid{
         display: grid;
         grid-template-columns: repeat(10, 1fr);
-        gap: 6px;
+        gap: var(--sp-6);
 
         max-height: 320px;   /* подбери: 280–360 обычно ок */
         overflow: auto;
-        padding-right: 2px;  /* чтобы скроллбар не “ел” край */
+        padding-right: var(--sp-2);  /* чтобы скроллбар не “ел” край */
         overscroll-behavior: contain;
     }
 
@@ -701,11 +701,11 @@
         align-items: center;
         justify-content: center;
 
-        font-size: 18px;
+        font-size: var(--fs-18);
         line-height: 1;            /* ключ */
         border: 1px solid transparent;
         background: transparent;
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         cursor: pointer;
     }
 
@@ -724,30 +724,30 @@
     .repeatAccordion{
         margin-top: 10px;
         border: 1px solid var(--panel-border);
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         background: var(--panel);
-        padding: 12px;
+        padding: var(--sp-12);
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .repeatRow{
         display: grid;
         grid-template-columns: 92px 1fr;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
     }
 
     label.mini{
-        font-size: 13px;
+        font-size: var(--fs-13);
         opacity: .75;
-        padding-left: 2px;
+        padding-left: var(--sp-2);
     }
 
     .repeatEvery, .repeatEnd{
         display: grid;
         grid-template-columns: 90px 1fr;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .repeatEnd{
@@ -759,7 +759,7 @@
     }
 
     .repeatHint{
-        font-size: 12px;
+        font-size: var(--fs-12);
         opacity: .65;
         line-height: 1.35;
     }

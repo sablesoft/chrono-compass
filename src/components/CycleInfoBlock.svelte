@@ -1077,7 +1077,7 @@
     .infoBlock {
         width: 100%;
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         min-height: 0;
         height: 100%;
         overflow: auto;
@@ -1093,8 +1093,8 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
-        padding-bottom: 4px;
+        gap: var(--sp-8);
+        padding-bottom: var(--sp-4);
         background: linear-gradient(
             to bottom,
             color-mix(in oklab, var(--panel), transparent 2%) 0%,
@@ -1106,14 +1106,14 @@
     .layoutControls {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--sp-6);
         min-width: 0;
     }
 
     .layoutBtn {
         min-width: 34px;
         height: 28px;
-        padding: 0 8px;
+        padding: 0 var(--sp-8);
     }
 
     .layoutBtn.isActive {
@@ -1123,7 +1123,7 @@
 
     .infoSection {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
         align-content: start;
         align-items: start;
         align-self: start;
@@ -1131,11 +1131,11 @@
     .errorSection {
         border: 1px solid color-mix(in oklab, var(--accent-gold), transparent 55%);
         background: color-mix(in oklab, var(--accent-gold), transparent 90%);
-        border-radius: 10px;
-        padding: 8px 10px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-8) var(--sp-10);
     }
     .errorText {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         line-height: 1.35;
         color: color-mix(in oklab, var(--fg), var(--accent-gold) 22%);
@@ -1145,14 +1145,14 @@
     .editBtn {
         height: 28px;
         min-width: 34px;
-        padding: 0 8px;
+        padding: 0 var(--sp-8);
     }
 
     .chipGrid {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
-        padding: 2px;
+        gap: var(--sp-8);
+        padding: var(--sp-2);
         align-content: flex-start;
         align-items: flex-start;
         align-self: start;
@@ -1168,39 +1168,39 @@
     .spokeRow {
         display: grid;
         grid-template-columns: max-content 1fr;
-        gap: 10px;
+        gap: var(--sp-10);
         align-items: center;
     }
 
     .infoSection .spokeRow + .spokeRow {
         border-top: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
-        padding-top: 4px;
+        padding-top: var(--sp-4);
         margin-top: 2px;
     }
 
     .spokeRow.currentRow,
     .spokeRow.time-surface-past,
     .spokeRow.time-surface-future {
-        border-radius: 10px;
-        padding: 4px;
+        border-radius: var(--radius-10);
+        padding: var(--sp-4);
     }
 
     .spokeCode {
         height: 32px;
         min-width: 32px;
         width: max-content;
-        padding: 0 10px;
+        padding: 0 var(--sp-10);
         display: inline-flex;
         align-items: center;
         justify-content: center;
         text-align: center;
         white-space: nowrap;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 20%);
         color: var(--fg);
         font-weight: 700;
-        font-size: 13px;
+        font-size: var(--fs-13);
         cursor: pointer;
     }
 
@@ -1243,16 +1243,16 @@
 
     .ui-tag {
         font-variant-numeric: tabular-nums;
-        font-size: 12px;
-        padding: 5px 10px;
+        font-size: var(--fs-12);
+        padding: var(--sp-5) var(--sp-10);
     }
 
     .chipLine {
         display: inline-flex;
-        gap: 8px;
+        gap: var(--sp-8);
         align-items: center;
         max-width: 100%;
-        font-size: 14px;
+        font-size: var(--fs-14);
         font-weight: 700;
         opacity: 0.95;
     }
@@ -1284,20 +1284,20 @@
         background: rgba(0, 0, 0, 0.5);
         display: grid;
         place-items: center;
-        padding: 12px;
+        padding: var(--sp-12);
     }
 
     .editorModal {
         width: min(760px, 94vw);
         max-height: min(86vh, 900px);
         overflow: auto;
-        border-radius: 14px;
+        border-radius: var(--radius-14);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--panel), black 6%);
         box-shadow: 0 16px 56px rgba(0, 0, 0, 0.4);
         display: grid;
-        gap: 10px;
-        padding: 10px;
+        gap: var(--sp-10);
+        padding: var(--sp-10);
     }
 
     .editorHead,
@@ -1305,38 +1305,38 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 10px;
-        font-size: 14px;
+        gap: var(--sp-10);
+        font-size: var(--fs-14);
     }
 
     .editorTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
     }
 
     .editorList {
         display: grid;
-        gap: 10px;
+        gap: var(--sp-10);
     }
 
     .editorSection {
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 86%);
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10);
     }
 
     .editorSectionHead {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: var(--sp-8);
     }
 
     .editorHeadActions {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .editorSectionToggle {
@@ -1356,37 +1356,37 @@
     }
 
     .editorSectionTitle {
-        font-size: 16px;
+        font-size: var(--fs-16);
         font-weight: 800;
     }
 
     .editorSectionChevron {
         opacity: 0.75;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .editorSectionActions {
         display: flex;
-        gap: 6px;
+        gap: var(--sp-6);
         justify-content: flex-end;
     }
 
     .editorEmpty {
-        padding: 10px;
-        border-radius: 10px;
+        padding: var(--sp-10);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         opacity: 0.8;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .editorRow {
         display: grid;
         grid-template-columns: minmax(120px, 0.95fr) minmax(160px, 1.15fr) minmax(92px, 0.75fr) auto auto;
         align-items: center;
-        gap: 6px;
-        padding: 6px 8px;
-        border-radius: 9px;
+        gap: var(--sp-6);
+        padding: var(--sp-6) var(--sp-8);
+        border-radius: var(--radius-9);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
         background: color-mix(in oklab, var(--fg), transparent 95%);
         cursor: grab;
@@ -1398,12 +1398,12 @@
 
     .editorRowWrap {
         display: grid;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .col {
         min-width: 0;
-        font-size: 12px;
+        font-size: var(--fs-12);
     }
 
     .col.user,
@@ -1413,8 +1413,8 @@
         box-sizing: border-box;
         background: color-mix(in oklab, var(--panel), transparent 12%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
-        padding: 3px 6px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-3) var(--sp-6);
         color: var(--fg);
     }
 
@@ -1428,7 +1428,7 @@
 
     .stateToggle {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
         align-items: center;
         white-space: nowrap;
         cursor: pointer;
@@ -1444,12 +1444,12 @@
     .stateTrack {
         width: 30px;
         height: 17px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 72%);
         background: color-mix(in oklab, var(--fg), transparent 90%);
         display: inline-flex;
         align-items: center;
-        padding: 1px;
+        padding: var(--sp-1);
         box-sizing: border-box;
         transition: background 120ms ease, border-color 120ms ease;
     }
@@ -1457,7 +1457,7 @@
     .stateThumb {
         width: 13px;
         height: 13px;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         background: color-mix(in oklab, var(--fg), transparent 18%);
         transition: transform 120ms ease, background 120ms ease;
     }
@@ -1473,7 +1473,7 @@
     }
 
     .stateText {
-        font-size: 11px;
+        font-size: var(--fs-11);
         font-weight: 700;
         opacity: 0.8;
         min-width: 20px;
@@ -1482,13 +1482,13 @@
     .rowActions {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: var(--sp-4);
     }
 
     .modalAccordion {
         border: 1px solid color-mix(in oklab, var(--fg), transparent 88%);
-        border-radius: 9px;
-        padding: 6px;
+        border-radius: var(--radius-9);
+        padding: var(--sp-6);
         background: color-mix(in oklab, var(--panel), transparent 4%);
     }
 
@@ -1500,8 +1500,8 @@
         font-family: inherit;
         background: color-mix(in oklab, var(--panel), transparent 12%);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
-        border-radius: 8px;
-        padding: 6px 8px;
+        border-radius: var(--radius-8);
+        padding: var(--sp-6) var(--sp-8);
         color: var(--fg);
     }
 
@@ -1509,21 +1509,21 @@
     .miniBtn {
         height: 28px;
         min-width: 56px;
-        padding: 0 11px;
+        padding: 0 var(--sp-11);
         white-space: nowrap;
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 80%);
         background: color-mix(in oklab, var(--panel), transparent 12%);
         color: var(--fg);
         font-weight: 700;
-        font-size: 12px;
+        font-size: var(--fs-12);
         line-height: 1;
         cursor: pointer;
     }
 
     .miniBtn {
         min-width: 36px;
-        padding: 0 9px;
+        padding: 0 var(--sp-9);
     }
 
     .modalBtn {
@@ -1536,19 +1536,19 @@
 
     .templateBlock {
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         border: 1px solid color-mix(in oklab, var(--fg), transparent 85%);
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: var(--radius-12);
+        padding: var(--sp-10);
         background: color-mix(in oklab, var(--panel), transparent 4%);
     }
 
     .templateHead {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--sp-10);
         cursor: pointer;
-        padding-bottom: 10px;
+        padding-bottom: var(--sp-10);
     }
 
     .templateHead:focus,
@@ -1560,7 +1560,7 @@
     .templateTitleGroup {
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--sp-6);
         min-width: 0;
     }
 
@@ -1575,8 +1575,8 @@
         min-height: 24px;
         display: inline-flex;
         align-items: center;
-        padding: 0 2px;
-        font-size: 13px;
+        padding: 0 var(--sp-2);
+        font-size: var(--fs-13);
         font-weight: 800;
         opacity: 0.95;
         white-space: nowrap;
@@ -1586,32 +1586,32 @@
 
     .templateActions {
         display: flex;
-        gap: 6px;
+        gap: var(--sp-6);
         flex-wrap: nowrap;
         margin-left: auto;
     }
 
     .templateActions .toggleBtn {
         min-width: 64px;
-        padding: 0 12px;
+        padding: 0 var(--sp-12);
     }
 
     .iconBtn {
         min-width: 34px;
-        padding: 0 8px;
-        font-size: 13px;
+        padding: 0 var(--sp-8);
+        font-size: var(--fs-13);
     }
 
     .templateTabs {
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .templateTabsLeft {
         display: inline-flex;
-        gap: 6px;
+        gap: var(--sp-6);
     }
 
     .templateTabsRight {
@@ -1623,11 +1623,11 @@
         border: 1px solid color-mix(in oklab, var(--fg), transparent 82%);
         background: color-mix(in oklab, var(--panel), transparent 8%);
         color: var(--fg);
-        border-radius: 999px;
+        border-radius: var(--radius-pill);
         min-height: 28px;
         min-width: 56px;
-        padding: 0 11px;
-        font-size: 12px;
+        padding: 0 var(--sp-11);
+        font-size: var(--fs-12);
         font-weight: 700;
         line-height: 1;
         cursor: pointer;
@@ -1641,7 +1641,7 @@
     .spokePickGrid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-        gap: 8px;
+        gap: var(--sp-8);
     }
 
     .spokePick {
@@ -1649,9 +1649,9 @@
         display: grid;
         grid-template-columns: 16px 1fr;
         align-items: center;
-        gap: 8px;
-        padding: 7px 9px;
-        border-radius: 10px;
+        gap: var(--sp-8);
+        padding: var(--sp-7) var(--sp-9);
+        border-radius: var(--radius-10);
         border: 1px solid color-mix(in oklab, var(--btn-border), transparent 25%);
         background: color-mix(in oklab, var(--btn-bg), transparent 18%);
         cursor: pointer;
@@ -1678,7 +1678,7 @@
     .spokePickBox {
         width: 16px;
         height: 16px;
-        border-radius: 5px;
+        border-radius: var(--radius-5);
         border: 1px solid color-mix(in oklab, var(--btn-border), var(--fg) 15%);
         background: color-mix(in oklab, var(--bg), white 6%);
         box-sizing: border-box;
@@ -1704,24 +1704,24 @@
     }
 
     .spokePickText {
-        font-size: 12px;
+        font-size: var(--fs-12);
         font-weight: 700;
         line-height: 1.2;
     }
 
     .templateTags {
         display: grid;
-        gap: 8px;
+        gap: var(--sp-8);
         max-height: 360px;
         overflow-y: auto;
         overflow-x: hidden;
-        padding-right: 2px;
+        padding-right: var(--sp-2);
     }
 
     .modalBody {
         white-space: pre-wrap;
-        font-size: 15px;
+        font-size: var(--fs-15);
         line-height: 1.4;
-        padding: 6px 2px;
+        padding: var(--sp-6) var(--sp-2);
     }
 </style>

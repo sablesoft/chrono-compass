@@ -104,19 +104,19 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding-bottom: 8px;
+        gap: var(--sp-12);
+        padding-bottom: var(--sp-8);
     }
-    .left { display: flex; gap: 10px; min-width: 0; align-items: center; }
+    .left { display: flex; gap: var(--sp-10); min-width: 0; align-items: center; }
 
     .btnRail {
-        --seg-size: 32px;
+        --seg-size: var(--wheel-header-btn-size, 32px);
         flex: 0 0 auto;
         display: grid;
         grid-auto-flow: column;
         grid-auto-columns: var(--seg-size);
         border: 1px solid var(--btn-border);
-        border-radius: 10px;
+        border-radius: var(--radius-10);
         overflow: hidden;
         background: var(--btn-bg);
     }
@@ -157,10 +157,10 @@
         position: relative;
         z-index: 4;
         pointer-events: auto;
-        width: 26px;
-        height: 26px;
+        width: var(--wheel-header-drag-size, 26px);
+        height: var(--wheel-header-drag-size, 26px);
         padding: 0;
-        border-radius: 8px;
+        border-radius: var(--radius-8);
         cursor: grab;
         flex: 0 0 auto;
         opacity: 0.78;
