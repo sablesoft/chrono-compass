@@ -1121,6 +1121,12 @@
         background: color-mix(in oklab, var(--accent-live), transparent 84%);
     }
 
+    @media (max-width: 640px) {
+        .layoutControls {
+            display: none;
+        }
+    }
+
     .infoSection {
         display: grid;
         gap: var(--sp-6);
@@ -1143,8 +1149,8 @@
     }
 
     .editBtn {
-        height: 28px;
-        min-width: 34px;
+        height: var(--info-edit-btn-h, 28px);
+        min-width: var(--info-edit-btn-minw, 34px);
         padding: 0 var(--sp-8);
     }
 

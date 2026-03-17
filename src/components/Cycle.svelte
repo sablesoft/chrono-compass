@@ -188,6 +188,8 @@
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
+    let isPhoneLayout = false;
+    $: isPhoneLayout = responsive.isPhoneLayout;
     let paneResizeState:
         | { kind: 'visual'; startX: number; startY: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
         | { kind: 'info'; startX: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
@@ -448,6 +450,7 @@
 
     const tip = useCycleTooltip({
         isCoarsePointer: () => isCoarsePointer,
+        isDoubleTapRequired: () => isPhoneLayout,
         onActivateMarker: (_m) => {},
         hoverDelayMs: 600,
         closeDelayMs: 120,
@@ -1186,6 +1189,36 @@
         tip.closeNow();
     }
 
+    function openCycleTooltipByLongPress(e: MouseEvent, payload: CycleTipPayload) {
+        if (!isPhoneLayout) return;
+        if (!canShowCycleTooltip(payload)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        tip.openNow(e, payload);
+    }
+
+    function handleBoundaryTap(e: MouseEvent, i: number, disabled: boolean) {
+        if (disabled) return;
+        if (isPhoneLayout) {
+            handleBoundaryActivate(i);
+            return;
+        }
+        const p = boundaryPayload(i);
+        if (!canShowCycleTooltip(p)) return;
+        tip.openNow(e, p);
+    }
+
+    function handleSpokeTap(e: MouseEvent, i: number, disabled: boolean) {
+        if (disabled) return;
+        if (isPhoneLayout) {
+            handleSpokeActivate(i);
+            return;
+        }
+        const p = spokePayload(i);
+        if (!canShowCycleTooltip(p)) return;
+        tip.openNow(e, p);
+    }
+
     // Markers (stub)
     let markerClusters: MarkerCluster[] = [];
     markerClusters = [];
@@ -1796,6 +1829,7 @@
         <div class="wrap" bind:this={wrapEl}>
             <section class="wheelPanel">
             <div class="wheelBox">
+                <div class="phoneSwipeZone" data-phone-swipe-zone="1" aria-hidden="true"></div>
                 {#key solveConfigKey}
                 <svg bind:this={svgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`} aria-label="Cycle Wheel">
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
@@ -1816,15 +1850,14 @@
                            tabindex={boundaryDisabled ? -1 : 0}
                            aria-disabled={boundaryDisabled}
                            aria-label={`House boundary ${i + 1}`}
-                           on:click={(e) => {
-                               if (boundaryDisabled) return;
-                               const p = boundaryPayload(i);
-                               if (!canShowCycleTooltip(p)) return;
-                               tip.openNow(e, p);
-                           }}
+                           on:click={(e) => handleBoundaryTap(e, i, boundaryDisabled)}
                            on:dblclick={() => {
                                if (boundaryDisabled) return;
                                handleBoundaryActivate(i);
+                           }}
+                           on:contextmenu={(e) => {
+                               if (boundaryDisabled) return;
+                               openCycleTooltipByLongPress(e, boundaryPayload(i));
                            }}
                            on:mouseenter={(e) => {
                                if (boundaryDisabled) return;
@@ -1897,15 +1930,14 @@
                                tabindex={spokeDisabled ? -1 : 0}
                                aria-disabled={spokeDisabled}
                                aria-label={`Spoke ${label}`}
-                               on:click={(e) => {
-                                   if (spokeDisabled) return;
-                                   const p = spokePayload(i);
-                                   if (!canShowCycleTooltip(p)) return;
-                                   tip.openNow(e, p);
-                               }}
+                               on:click={(e) => handleSpokeTap(e, i, spokeDisabled)}
                                on:dblclick={() => {
                                    if (spokeDisabled) return;
                                    handleSpokeActivate(i);
+                               }}
+                               on:contextmenu={(e) => {
+                                   if (spokeDisabled) return;
+                                   openCycleTooltipByLongPress(e, spokePayload(i));
                                }}
                                on:mouseenter={(e) => {
                                    if (spokeDisabled) return;
@@ -1967,15 +1999,14 @@
                                    tabindex={ePlusDisabled ? -1 : 0}
                                    aria-disabled={ePlusDisabled}
                                    aria-label="Spoke E+"
-                                   on:click={(e) => {
-                                       if (ePlusDisabled) return;
-                                       const p = spokePayload(16);
-                                       if (!canShowCycleTooltip(p)) return;
-                                       tip.openNow(e, p);
-                                   }}
+                                   on:click={(e) => handleSpokeTap(e, 16, ePlusDisabled)}
                                    on:dblclick={() => {
                                        if (ePlusDisabled) return;
                                        handleSpokeActivate(16);
+                                   }}
+                                   on:contextmenu={(e) => {
+                                       if (ePlusDisabled) return;
+                                       openCycleTooltipByLongPress(e, spokePayload(16));
                                    }}
                                    on:mouseenter={(e) => {
                                        if (ePlusDisabled) return;
@@ -2447,6 +2478,9 @@
 
     .wheelBox svg { width: 100%; height: 100%; display: block; overflow: visible; }
     svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; overflow: visible; }
+    .phoneSwipeZone {
+        display: none;
+    }
 
     .quadrants .q { fill-opacity: 0.16; stroke: none; }
     .quadrants .q-red   { fill: var(--accent-red); }
@@ -2659,6 +2693,62 @@
     }
 
     @media (max-width: 640px) {
+        .phoneSwipeZone {
+            display: block;
+            position: absolute;
+            left: 6px;
+            bottom: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-10);
+            border: 1px dashed color-mix(in oklab, var(--fg), transparent 56%);
+            background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+            z-index: 7;
+            pointer-events: auto;
+            touch-action: pan-x;
+        }
+        .panel {
+            height: 100%;
+            min-height: 0;
+        }
+        .pickersBlock {
+            min-height: 0;
+        }
+        .contentLayout {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            align-items: stretch;
+        }
+        .visualPane {
+            flex: 0 0 auto;
+            min-height: 0;
+        }
+        .infoPane,
+        .infoPane.side {
+            flex: 1 1 auto;
+            height: auto;
+            max-height: none;
+            min-height: 0;
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
+            align-self: stretch;
+            display: flex;
+            flex-direction: column;
+            touch-action: pan-y;
+        }
+        .infoPane :global(.infoBlock) {
+            flex: 1 1 auto;
+            min-height: 0;
+            height: 100%;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
         .paneResizeHandle {
             display: none !important;
         }

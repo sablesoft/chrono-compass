@@ -16,6 +16,8 @@
   --wheel-header-drag-size: 26px;
   --wheel-overlay-btn-size-sm: 30px;
   --wheel-overlay-btn-size-lg: 34px;
+  --info-edit-btn-h: 28px;
+  --info-edit-btn-minw: 34px;
 
   --fs-10: calc(10px * var(--ui-font-scale));
   --fs-11: calc(11px * var(--ui-font-scale));
@@ -305,6 +307,8 @@ button:focus-visible {
     --wheel-header-drag-size: 18px;
     --wheel-overlay-btn-size-sm: 20px;
     --wheel-overlay-btn-size-lg: 24px;
+    --info-edit-btn-h: 20px;
+    --info-edit-btn-minw: 24px;
     --ui-font-scale: 0.63;
     --ui-space-scale: 0.45;
     --ui-radius-scale: 0.5;

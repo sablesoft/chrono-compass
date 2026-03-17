@@ -53,6 +53,7 @@ export type CycleTooltipState = {
 
 export function useCycleTooltip(args: {
     isCoarsePointer: () => boolean;
+    isDoubleTapRequired?: () => boolean;
     onActivateMarker?: (m: CycleTipMarker) => void;
 
     hoverDelayMs?: number;
@@ -69,6 +70,10 @@ export function useCycleTooltip(args: {
 
     let hideTimer: ReturnType<typeof setTimeout> | null = null;
     let hoverTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastTap: { key: string; at: number; x: number; y: number } | null = null;
+
+    const DOUBLE_TAP_MS = 360;
+    const DOUBLE_TAP_MAX_DIST_PX = 28;
 
     let hoverRun = 0;
     let activeHoverKey: string | null = null;
@@ -83,7 +88,34 @@ export function useCycleTooltip(args: {
         hoverRun++;
     }
 
+    function payloadTapKey(payload: CycleTipPayload): string {
+        if (payload.kind === 'marker') return `marker:${payload.id}`;
+        if (payload.kind === 'spoke') return `spoke:${payload.code}:${payload.ts}`;
+        return `boundary:${payload.from}:${payload.to}:${payload.ts}`;
+    }
+
+    function shouldOpenNowByTap(e: MouseEvent, key: string): boolean {
+        const needsDoubleTap = args.isDoubleTapRequired ? args.isDoubleTapRequired() : args.isCoarsePointer();
+        if (!needsDoubleTap) return true;
+        if (e.detail === 0) return true;
+
+        const now = Date.now();
+        const x = e.clientX;
+        const y = e.clientY;
+        const prev = lastTap;
+        lastTap = { key, at: now, x, y };
+
+        if (!prev) return false;
+        if (prev.key !== key) return false;
+        if ((now - prev.at) > DOUBLE_TAP_MS) return false;
+
+        const dx = x - prev.x;
+        const dy = y - prev.y;
+        return (dx * dx + dy * dy) <= (DOUBLE_TAP_MAX_DIST_PX * DOUBLE_TAP_MAX_DIST_PX);
+    }
+
     function openNow(e: MouseEvent, payload: CycleTipPayload) {
+        if (!shouldOpenNowByTap(e, payloadTapKey(payload))) return;
         clearHideTimer();
         clearHoverTimer();
         state.set({ open: true, x: e.clientX, y: e.clientY, payload });
@@ -131,6 +163,7 @@ export function useCycleTooltip(args: {
     function closeNow() {
         clearHideTimer();
         clearHoverTimer();
+        lastTap = null;
         state.set({ open: false, x: 0, y: 0, payload: null });
     }
 

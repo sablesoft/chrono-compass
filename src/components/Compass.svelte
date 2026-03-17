@@ -2517,6 +2517,8 @@
 
     let isCoarsePointer = false;
     $: isCoarsePointer = responsive.isCoarsePointer;
+    let isPhoneLayout = false;
+    $: isPhoneLayout = responsive.isPhoneLayout;
     let paneResizeState:
         | { kind: 'visual'; startX: number; startY: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
         | { kind: 'info'; startX: number; startColsValue: number; position: 'left' | 'right'; startCardCols: number; startPanelWidth: number }
@@ -2710,8 +2712,67 @@
         handleMarkerPick(best.ts, best.bodyId, best.code);
     }
 
+    function handleHouseTap(e: MouseEvent, houseTip: MomentTip, spokeCode: string) {
+        if (isPhoneLayout) {
+            handleSpokeDoubleClick(spokeCode);
+            return;
+        }
+        tip.openMomentNow(e, houseTip);
+    }
+
+    function handleHouseLongPress(e: MouseEvent, houseTip: MomentTip) {
+        if (!isPhoneLayout) return;
+        e.preventDefault();
+        e.stopPropagation();
+        tip.openMomentNow(e, houseTip);
+    }
+
+    function handleOrbitNodeTap(
+        e: MouseEvent,
+        node: {
+            tip: MomentTip;
+            ts: number;
+            bodyId: ObjId;
+            code: string;
+            sourceWheel?: 'compass' | 'horizon' | 'synod' | 'bind' | 'nodal';
+        }
+    ) {
+        if (isPhoneLayout) {
+            if ((node.tip.pickTsList?.length ?? 0) > 1) return;
+            e.preventDefault();
+            e.stopPropagation();
+            handleMarkerPick(node.ts, node.bodyId, node.code, node.sourceWheel);
+            return;
+        }
+        tip.openMomentNow(e, node.tip);
+    }
+
+    function handleOrbitNodeLongPress(e: MouseEvent, nodeTip: MomentTip) {
+        if (!isPhoneLayout) return;
+        e.preventDefault();
+        e.stopPropagation();
+        tip.openMomentNow(e, nodeTip);
+    }
+
+    function handleClusterTap(e: MouseEvent, c: MarkerCluster) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const id = clusterSingleBodyId(c);
+        if (id) togglePin(id);
+        if (!isPhoneLayout) tip.openClusterNow(e, c);
+    }
+
+    function handleClusterLongPress(e: MouseEvent, c: MarkerCluster) {
+        if (!isPhoneLayout) return;
+        e.preventDefault();
+        e.stopPropagation();
+        tip.openClusterNow(e, c);
+    }
+
     const tip = useTooltip({
         isCoarsePointer: () => isCoarsePointer,
+        isDoubleTapRequired: () => isPhoneLayout,
         onActivateCluster: (c) => handleMarkerActivate(c),
         hoverDelayMs: 600,
         closeDelayMs: 120,
@@ -3932,6 +3993,7 @@
                 class:rowSecond={showDualVisualRow && visualRowSide === 'left'}
                 class:columnSecond={!showDualVisualRow && visualColumnOrder === 'side-first'}
             >
+                <div class="phoneSwipeZone" data-phone-swipe-zone="1" aria-hidden="true"></div>
                 <svg bind:this={primarySvgEl} width={size} height={size} viewBox={`0 0 ${VB} ${VB}`}
                      role="button"
                      tabindex="0"
@@ -3988,8 +4050,9 @@
                                 role="button"
                                 tabindex="0"
                                 aria-label={`House ${label}`}
-                                on:click={(e) => tip.openMomentNow(e, houseTip)}
+                                on:click={(e) => handleHouseTap(e, houseTip, label)}
                                 on:dblclick={() => handleSpokeDoubleClick(label)}
+                                on:contextmenu={(e) => handleHouseLongPress(e, houseTip)}
                                 on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
                                 on:mouseleave={() => tip.hoverLeave(houseKey)}
                                 on:keydown={(e) => handleHouseKeydown(e, houseTip)}
@@ -4117,13 +4180,14 @@
                                         cx={n.x}
                                         cy={n.y}
                                         r={orbitNodeRadiusVB(n)}
-                                        on:click={(e) => tip.openMomentNow(e, n.tip)}
+                                        on:click={(e) => handleOrbitNodeTap(e, n)}
                                         on:dblclick={(e) => {
                                             if ((n.tip.pickTsList?.length ?? 0) > 1) return;
                                             e.preventDefault();
                                             e.stopPropagation();
                                             handleMarkerPick(n.tip.ts, n.bodyId, n.code, n.sourceWheel);
                                         }}
+                                        on:contextmenu={(e) => handleOrbitNodeLongPress(e, n.tip)}
                                         on:mouseenter={(e) => {
                                             activateSpokeFromOrbitNode(n);
                                             tip.hoverMomentEnter(e, n.tip, n.key);
@@ -4160,18 +4224,8 @@
                            data-marker="1"
                            transform={`translate(${p.x} ${p.y})`}
                            style={`opacity:${c.opacity ?? 1}`}
-                           on:click={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-
-                                  const id = clusterSingleBodyId(c);
-                                  if (id) {
-                                    togglePin(id);
-                                    tip.openClusterNow(e, c);
-                                  } else {
-                                   tip.openClusterNow(e, c);
-                                  }
-                                }}
+                           on:click={(e) => handleClusterTap(e, c)}
+                           on:contextmenu={(e) => handleClusterLongPress(e, c)}
                            on:keydown={(e) => {
                                if (e.key === 'Enter' || e.key === ' ') {
                                    e.preventDefault();
@@ -4452,8 +4506,9 @@
                                     role="button"
                                     tabindex="0"
                                     aria-label={`House ${label}`}
-                                    on:click={(e) => tip.openMomentNow(e, houseTip)}
+                                    on:click={(e) => handleHouseTap(e, houseTip, label)}
                                     on:dblclick={() => handleSpokeDoubleClick(label)}
+                                    on:contextmenu={(e) => handleHouseLongPress(e, houseTip)}
                                     on:mouseenter={(e) => tip.hoverMomentEnter(e, houseTip, houseKey)}
                                     on:mouseleave={() => tip.hoverLeave(houseKey)}
                                     on:keydown={(e) => handleHouseKeydown(e, houseTip)}
@@ -4543,13 +4598,14 @@
                                             cx={n.x}
                                             cy={n.y}
                                             r={orbitNodeRadiusVB(n)}
-                                            on:click={(e) => tip.openMomentNow(e, n.tip)}
+                                            on:click={(e) => handleOrbitNodeTap(e, n)}
                                             on:dblclick={(e) => {
                                                 if ((n.tip.pickTsList?.length ?? 0) > 1) return;
                                                 e.preventDefault();
                                                 e.stopPropagation();
                                                 handleMarkerPick(n.tip.ts, n.bodyId, n.code, n.sourceWheel);
                                             }}
+                                            on:contextmenu={(e) => handleOrbitNodeLongPress(e, n.tip)}
                                             on:mouseenter={(e) => {
                                                 activateSpokeFromOrbitNode(n);
                                                 tip.hoverMomentEnter(e, n.tip, `${n.key}:side`);
@@ -4583,18 +4639,8 @@
                                data-marker="1"
                                transform={`translate(${c.x} ${c.y})`}
                                style={`opacity:${c.opacity ?? 1}`}
-                               on:click={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-
-                                      const id = clusterSingleBodyId(c);
-                                      if (id) {
-                                        togglePin(id);
-                                        tip.openClusterNow(e, c);
-                                      } else {
-                                       tip.openClusterNow(e, c);
-                                      }
-                                    }}
+                               on:click={(e) => handleClusterTap(e, c)}
+                               on:contextmenu={(e) => handleClusterLongPress(e, c)}
                                on:keydown={(e) => {
                                    if (e.key === 'Enter' || e.key === ' ') {
                                        e.preventDefault();
@@ -5093,6 +5139,9 @@
         overflow: visible;
         position: relative;
         z-index: 1;
+    }
+    .phoneSwipeZone {
+        display: none;
     }
     svg { display: block; width: 100%; height: 100%; max-width: none; max-height: none; overflow: visible; }
     svg:focus,
@@ -5609,6 +5658,62 @@
     }
 
     @media (max-width: 640px) {
+        .phoneSwipeZone {
+            display: block;
+            position: absolute;
+            left: 6px;
+            bottom: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: var(--radius-10);
+            border: 1px dashed color-mix(in oklab, var(--fg), transparent 56%);
+            background: color-mix(in oklab, var(--panel), var(--fg) 10%);
+            z-index: 7;
+            pointer-events: auto;
+            touch-action: pan-x;
+        }
+        .panel {
+            height: 100%;
+            min-height: 0;
+        }
+        .pickersBlock {
+            min-height: 0;
+        }
+        .contentLayout {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            align-items: stretch;
+        }
+        .visualPane {
+            flex: 0 0 auto;
+            min-height: 0;
+        }
+        .infoPane,
+        .infoPane.side {
+            flex: 1 1 auto;
+            height: auto;
+            max-height: none;
+            min-height: 0;
+            overflow: hidden;
+            width: 100%;
+            max-width: 100%;
+            align-self: stretch;
+            display: flex;
+            flex-direction: column;
+            touch-action: pan-y;
+        }
+        .infoPane :global(.infoBlock) {
+            flex: 1 1 auto;
+            min-height: 0;
+            height: 100%;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
+        }
         .paneResizeHandle {
             display: none !important;
         }

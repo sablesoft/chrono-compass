@@ -308,20 +308,35 @@
         phoneSwipeTracking = false;
     }
 
-    function handlePhonePointerDown(e: PointerEvent) {
-        if (!isPhone || e.pointerType !== 'touch') return;
-        phoneSwipeStartX = e.clientX;
-        phoneSwipeStartY = e.clientY;
+    function handlePhoneTouchStart(e: TouchEvent) {
+        if (!isPhone) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        const target = e.target;
+        if (target instanceof Element) {
+            const swipeZone = target.closest('[data-phone-swipe-zone="1"]');
+            if (!swipeZone) {
+                phoneSwipeTracking = false;
+                return;
+            }
+        }
+        phoneSwipeStartX = touch.clientX;
+        phoneSwipeStartY = touch.clientY;
         phoneSwipeTracking = true;
     }
 
-    function handlePhonePointerUp(e: PointerEvent) {
-        if (!phoneSwipeTracking || !isPhone || e.pointerType !== 'touch') {
+    function handlePhoneTouchEnd(e: TouchEvent) {
+        if (!phoneSwipeTracking || !isPhone) {
             resetPhoneSwipe();
             return;
         }
-        const dx = e.clientX - phoneSwipeStartX;
-        const dy = e.clientY - phoneSwipeStartY;
+        const touch = e.changedTouches[0];
+        if (!touch) {
+            resetPhoneSwipe();
+            return;
+        }
+        const dx = touch.clientX - phoneSwipeStartX;
+        const dy = touch.clientY - phoneSwipeStartY;
         resetPhoneSwipe();
 
         if (Math.abs(dx) < 50) return;
@@ -523,9 +538,9 @@
             bind:this={phoneSectionEl}
             aria-label="Wheel carousel"
             style={phoneViewportHeight > 0 ? `--phone-min-h:${phoneViewportHeight}px;` : ''}
-            on:pointerdown={handlePhonePointerDown}
-            on:pointerup={handlePhonePointerUp}
-            on:pointercancel={resetPhoneSwipe}
+            on:touchstart={handlePhoneTouchStart}
+            on:touchend={handlePhoneTouchEnd}
+            on:touchcancel={resetPhoneSwipe}
     >
         {#if phoneSlidesCount > 0}
             {#if !$isActiveProfileLocked && phoneIndex === itemsViewWithComp.length}
@@ -627,6 +642,7 @@
         padding-top: var(--sp-8);
         min-height: var(--phone-min-h, auto);
         align-content: start;
+        min-width: 0;
     }
     .phoneCell {
         width: 100%;
@@ -648,6 +664,26 @@
         width: 100%;
         box-sizing: border-box;
         min-height: 100%;
+    }
+    @media (max-width: 640px) {
+        .phoneCarousel {
+            height: 100%;
+            min-height: 0;
+            padding-top: 0;
+            gap: 0;
+            align-content: stretch;
+            overflow: hidden;
+        }
+        .phoneCell,
+        .phonePickerSlide {
+            height: 100%;
+            min-height: 0;
+        }
+        .phoneCell > :global(*),
+        .phonePickerSlide > :global(*) {
+            height: 100%;
+            min-height: 0;
+        }
     }
     .grid {
         display: grid;

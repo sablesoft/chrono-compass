@@ -8,9 +8,15 @@ export function useWheelResponsive() {
 
     let isCoarsePointer = false;
     let mqCoarse: MediaQueryList | null = null;
+    let isPhoneLayout = false;
+    let mqPhone: MediaQueryList | null = null;
 
     function updatePointerMode() {
         isCoarsePointer = !!mqCoarse?.matches;
+    }
+
+    function updatePhoneLayoutMode() {
+        isPhoneLayout = !!mqPhone?.matches;
     }
 
     function recomputeWheelSize() {
@@ -37,15 +43,25 @@ export function useWheelResponsive() {
 
         if ('matchMedia' in window) {
             mqCoarse = window.matchMedia('(pointer: coarse)');
+            mqPhone = window.matchMedia('(max-width: 640px)');
             updatePointerMode();
-            const onChange = () => updatePointerMode();
-            if ('addEventListener' in mqCoarse) mqCoarse.addEventListener('change', onChange);
-            else (mqCoarse as any).addListener(onChange);
+            updatePhoneLayoutMode();
+            const onPointerChange = () => updatePointerMode();
+            const onPhoneChange = () => updatePhoneLayoutMode();
+            if ('addEventListener' in mqCoarse) mqCoarse.addEventListener('change', onPointerChange);
+            else (mqCoarse as any).addListener(onPointerChange);
+            if (mqPhone) {
+                if ('addEventListener' in mqPhone) mqPhone.addEventListener('change', onPhoneChange);
+                else (mqPhone as any).addListener(onPhoneChange);
+            }
 
             return () => {
                 if (!mqCoarse) return;
-                if ('removeEventListener' in mqCoarse) mqCoarse.removeEventListener('change', onChange);
-                else (mqCoarse as any).removeListener(onChange);
+                if ('removeEventListener' in mqCoarse) mqCoarse.removeEventListener('change', onPointerChange);
+                else (mqCoarse as any).removeListener(onPointerChange);
+                if (!mqPhone) return;
+                if ('removeEventListener' in mqPhone) mqPhone.removeEventListener('change', onPhoneChange);
+                else (mqPhone as any).removeListener(onPhoneChange);
             };
         }
     });
@@ -59,5 +75,6 @@ export function useWheelResponsive() {
         bindWrap: (el: HTMLDivElement | null) => { wrapEl = el; },
         get size() { return size; },
         get isCoarsePointer() { return isCoarsePointer; },
+        get isPhoneLayout() { return isPhoneLayout; },
     };
 }

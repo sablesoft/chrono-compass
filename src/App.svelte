@@ -35,7 +35,9 @@
 <main>
   <div class="container">
     <Header />
-    <Board selectedTs={$selectedTsStore} />
+    <div class="boardSlot">
+      <Board selectedTs={$selectedTsStore} />
+    </div>
   </div>
 </main>
 
@@ -55,6 +57,29 @@
     width: min(2600px, 100%);
     margin: 0 auto;
     min-width: 0;
+  }
+  .boardSlot {
+    min-width: 0;
+  }
+
+  @media (max-width: 640px) {
+    main {
+      min-height: 100dvh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    .container {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      min-height: 0;
+      overflow: hidden;
+    }
+    .boardSlot {
+      min-height: 0;
+      overflow: hidden;
+      display: grid;
+    }
   }
 
 </style>
