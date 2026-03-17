@@ -311,7 +311,7 @@ button:focus-visible {
     --info-edit-btn-h: 20px;
     --info-edit-btn-minw: 24px;
     --mobile-marker-scale: 0.75;
-    --ui-font-scale: 0.63;
+    --ui-font-scale: 0.75;
     --ui-space-scale: 0.45;
     --ui-radius-scale: 0.5;
     --mobile-tooltip-height: 46dvh;
