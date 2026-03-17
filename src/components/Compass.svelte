@@ -408,6 +408,15 @@
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
     let showAstroFrame = false;
+    type LiveNorthPermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unsupported';
+    let liveNorthEnabled = false;
+    let liveNorthHeadingDeg: number | null = null;
+    let liveNorthPermission: LiveNorthPermissionState = 'unknown';
+    let liveNorthError = '';
+    let liveNorthSupported = false;
+    let liveNorthListening = false;
+    let liveNorthButtonTitle = 'Enable live true north direction';
+    const LIVE_NORTH_SMOOTHING = 0.28;
     let showOrbitNodesAny = true;
     let lastShowOrbitsWheelType: string | undefined;
     type OrbitNodeGroup = 'regular' | 'compass' | 'horizon' | 'nodal' | 'synod' | 'bind';
@@ -454,6 +463,119 @@
     function toggleAstroFrame() {
         onUserActivity();
         showAstroFrame = !showAstroFrame;
+    }
+
+    function shortestSignedAngleDeg(fromDeg: number, toDeg: number): number {
+        return ((((toDeg - fromDeg) % 360) + 540) % 360) - 180;
+    }
+
+    function extractDeviceHeadingDeg(event: DeviceOrientationEvent): number | null {
+        const withWebkit = event as DeviceOrientationEvent & { webkitCompassHeading?: number };
+        if (Number.isFinite(withWebkit.webkitCompassHeading)) {
+            return norm360(Number(withWebkit.webkitCompassHeading));
+        }
+        if (Number.isFinite(event.alpha)) {
+            return norm360(360 - Number(event.alpha));
+        }
+        return null;
+    }
+
+    function handleLiveNorthOrientation(event: Event) {
+        const orientationEvent = event as DeviceOrientationEvent;
+        const nextHeading = extractDeviceHeadingDeg(orientationEvent);
+        const stableNextHeading = Number(nextHeading);
+        if (!Number.isFinite(stableNextHeading)) return;
+        const currentHeading = liveNorthHeadingDeg;
+        if (currentHeading == null) {
+            liveNorthHeadingDeg = stableNextHeading;
+            return;
+        }
+        const stableHeading = Number(currentHeading);
+        const delta = shortestSignedAngleDeg(stableHeading, stableNextHeading);
+        liveNorthHeadingDeg = norm360(stableHeading + (delta * LIVE_NORTH_SMOOTHING));
+    }
+
+    function startLiveNorthStream(): boolean {
+        if (typeof window === 'undefined') return false;
+        if (!('DeviceOrientationEvent' in window)) return false;
+        if (liveNorthListening) return true;
+        window.addEventListener('deviceorientation', handleLiveNorthOrientation, true);
+        window.addEventListener('deviceorientationabsolute', handleLiveNorthOrientation, true);
+        liveNorthListening = true;
+        return true;
+    }
+
+    function stopLiveNorthStream() {
+        if (typeof window !== 'undefined' && liveNorthListening) {
+            window.removeEventListener('deviceorientation', handleLiveNorthOrientation, true);
+            window.removeEventListener('deviceorientationabsolute', handleLiveNorthOrientation, true);
+        }
+        liveNorthListening = false;
+        liveNorthEnabled = false;
+        liveNorthHeadingDeg = null;
+    }
+
+    async function readOrientationPermissions(): Promise<LiveNorthPermissionState> {
+        if (typeof navigator === 'undefined' || !('permissions' in navigator)) return 'unknown';
+        const names = ['accelerometer', 'gyroscope', 'magnetometer'] as const;
+        let hasGranted = false;
+        let hasPrompt = false;
+        for (const name of names) {
+            try {
+                const status = await navigator.permissions.query({ name } as unknown as PermissionDescriptor);
+                if (status.state === 'denied') return 'denied';
+                if (status.state === 'prompt') hasPrompt = true;
+                if (status.state === 'granted') hasGranted = true;
+            } catch {
+                // ignore unsupported permission descriptors
+            }
+        }
+        if (hasPrompt) return 'prompt';
+        if (hasGranted) return 'granted';
+        return 'unknown';
+    }
+
+    async function ensureLiveNorthPermission(): Promise<LiveNorthPermissionState> {
+        if (typeof window === 'undefined') return 'unsupported';
+        if (!('DeviceOrientationEvent' in window)) return 'unsupported';
+        const deviceOrientationCtor = window.DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<'granted' | 'denied'> };
+        if (typeof deviceOrientationCtor.requestPermission === 'function') {
+            try {
+                const result = await deviceOrientationCtor.requestPermission();
+                return result === 'granted' ? 'granted' : 'denied';
+            } catch {
+                return 'denied';
+            }
+        }
+        const sensorsPermission = await readOrientationPermissions();
+        if (sensorsPermission === 'denied') return 'denied';
+        if (sensorsPermission === 'prompt') return 'prompt';
+        return 'granted';
+    }
+
+    async function toggleLiveNorth() {
+        onUserActivity();
+        if (liveNorthEnabled) {
+            stopLiveNorthStream();
+            return;
+        }
+        liveNorthError = '';
+        const permission = await ensureLiveNorthPermission();
+        liveNorthPermission = permission;
+        if (permission === 'unsupported') {
+            liveNorthError = 'Orientation sensor is unavailable on this device.';
+            return;
+        }
+        if (permission === 'denied') {
+            liveNorthError = 'Orientation permission was denied.';
+            return;
+        }
+        if (!startLiveNorthStream()) {
+            liveNorthPermission = 'unsupported';
+            liveNorthError = 'Unable to start orientation listener.';
+            return;
+        }
+        liveNorthEnabled = true;
     }
 
     function toggleOrbitNodesAny() {
@@ -2519,6 +2641,21 @@
     $: isCoarsePointer = responsive.isCoarsePointer;
     let isPhoneLayout = false;
     $: isPhoneLayout = responsive.isPhoneLayout;
+    $: liveNorthSupported = isPhoneLayout && typeof window !== 'undefined' && 'DeviceOrientationEvent' in window;
+    $: if (!liveNorthSupported && liveNorthEnabled) {
+        stopLiveNorthStream();
+    }
+    $: if (wheel?.wheelType !== 'compass' && liveNorthEnabled) {
+        stopLiveNorthStream();
+    }
+    $: liveNorthButtonTitle = (() => {
+        if (!liveNorthEnabled) {
+            if (liveNorthError) return liveNorthError;
+            return 'Enable live true north direction';
+        }
+        if (!Number.isFinite(liveNorthHeadingDeg)) return 'Live true north: waiting for sensor data';
+        return `Live true north: ${Math.round(Number(liveNorthHeadingDeg))}°`;
+    })();
     let paneResizeState:
         | { kind: 'visual'; startX: number; startY: number; startColsValue: number; startCardCols: number; startPanelWidth: number }
         | { kind: 'info'; startX: number; startColsValue: number; position: 'left' | 'right'; startCardCols: number; startPanelWidth: number }
@@ -2782,6 +2919,7 @@
 
     onDestroy(() => {
         stopMarkerTween();
+        stopLiveNorthStream();
         finishPaneResize();
         if (visualPaneResizeObserver && observedVisualPaneEl) visualPaneResizeObserver.unobserve(observedVisualPaneEl);
         visualPaneResizeObserver?.disconnect();
@@ -4013,6 +4151,35 @@
                     <circle cx={cx} cy={cy} r={rOuter} fill="none" stroke="currentColor" stroke-opacity="0.25" />
                     <circle cx={cx} cy={cy} r={rHorizon} fill="none" class="horizon" />
 
+                    {#if liveNorthEnabled && Number.isFinite(liveNorthHeadingDeg)}
+                        <g
+                                class="liveNorthArrow"
+                                transform={`rotate(${-Number(liveNorthHeadingDeg)} ${cx} ${cy})`}
+                                aria-hidden="true"
+                        >
+                            <line
+                                    class="liveNorthArrowShaft"
+                                    x1={cx}
+                                    y1={cy + (rOuter * 0.08)}
+                                    x2={cx}
+                                    y2={cy - (rOuter * 0.74)}
+                            />
+                            <path
+                                    class="liveNorthArrowHead"
+                                    d={`M ${cx} ${cy - (rOuter * 0.93)} L ${cx - (rOuter * 0.055)} ${cy - (rOuter * 0.78)} L ${cx + (rOuter * 0.055)} ${cy - (rOuter * 0.78)} Z`}
+                            />
+                            <text
+                                    class="liveNorthArrowLabel"
+                                    x={cx}
+                                    y={cy - (rOuter * 0.64)}
+                                    text-anchor="middle"
+                                    dominant-baseline="middle"
+                            >
+                                N
+                            </text>
+                        </g>
+                    {/if}
+
                     {#each Array(spokeCount) as _, i (i)}
                         {@const a = boundaryAngleDeg(i)}
                         {@const pA = polarToXY(rOuter * 0.96, a)}
@@ -4288,6 +4455,19 @@
 
                 {#if controlsPaneMode === 'top'}
                 <div class="compassNav">
+                    {#if wheel?.wheelType === 'compass' && liveNorthSupported}
+                        <button
+                                class="nodeToggle navBtn trueNorthToggle"
+                                class:off={!liveNorthEnabled}
+                                type="button"
+                                title={liveNorthButtonTitle}
+                                aria-label={liveNorthButtonTitle}
+                                aria-pressed={liveNorthEnabled}
+                                on:click={toggleLiveNorth}
+                        >
+                            N
+                        </button>
+                    {/if}
                     {#if wheel?.wheelType === 'compass'}
                         <button
                                 class="nodeToggle navBtn astroFrameToggle"
@@ -5463,8 +5643,31 @@
     .nodeToggle.nodeBind {
         color: color-mix(in oklab, #40a8ff, white 8%);
     }
+    .nodeToggle.trueNorthToggle {
+        color: color-mix(in oklab, var(--accent-red), white 10%);
+        font-weight: 900;
+    }
     .nodeToggle.astroFrameToggle {
         color: color-mix(in oklab, #7bdff2, white 8%);
+    }
+    .liveNorthArrow {
+        pointer-events: none;
+    }
+    .liveNorthArrowShaft {
+        stroke: color-mix(in oklab, var(--accent-red), white 18%);
+        stroke-width: 5;
+        stroke-linecap: round;
+        opacity: 0.92;
+    }
+    .liveNorthArrowHead {
+        fill: color-mix(in oklab, var(--accent-red), white 14%);
+        opacity: 0.96;
+    }
+    .liveNorthArrowLabel {
+        fill: color-mix(in oklab, var(--accent-red), white 14%);
+        font-size: calc(var(--fs-14) * 1.15);
+        font-weight: 900;
+        letter-spacing: 0.02em;
     }
     .astroFrameCurve {
         fill: none;
