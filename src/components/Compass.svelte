@@ -3956,7 +3956,7 @@
             {#if supportsSecondaryVisual && showSecondaryVisualSection}
                 <div class="visualLayoutBar">
                     <button
-                            class="nodeToggle navBtn"
+                            class="nodeToggle navBtn sideBySideToggle"
                             type="button"
                             title={showDualVisualRow ? 'Stack views vertically' : 'Show both views side by side'}
                             aria-label={showDualVisualRow ? 'Stack views vertically' : 'Show both views side by side'}
@@ -5662,6 +5662,9 @@
     }
 
     @media (max-width: 640px) {
+        .sideBySideToggle {
+            display: none !important;
+        }
         .marker .markerBody {
             transform: scale(var(--mobile-marker-scale, 0.82));
         }
@@ -5718,6 +5721,7 @@
             max-height: 52dvh;
             overflow: visible !important;
             position: relative;
+            z-index: 1;
             contain: none;
             clip-path: none;
         }
@@ -5746,6 +5750,8 @@
             flex-direction: column;
             touch-action: pan-y;
             position: relative;
+            z-index: 2;
+            background: var(--panel) !important;
         }
         .infoPane :global(.infoBlock) {
             flex: 1 1 auto;
@@ -5755,6 +5761,7 @@
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+            background: var(--panel) !important;
         }
         .paneResizeHandle {
             display: none !important;

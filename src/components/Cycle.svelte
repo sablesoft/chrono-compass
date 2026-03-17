@@ -2748,6 +2748,7 @@
             max-height: 52dvh;
             overflow: visible !important;
             position: relative;
+            z-index: 1;
             contain: none;
             clip-path: none;
         }
@@ -2776,6 +2777,8 @@
             flex-direction: column;
             touch-action: pan-y;
             position: relative;
+            z-index: 2;
+            background: var(--panel) !important;
         }
         .infoPane :global(.infoBlock) {
             flex: 1 1 auto;
@@ -2785,6 +2788,7 @@
             overflow-x: hidden !important;
             -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
+            background: var(--panel) !important;
         }
         .paneResizeHandle {
             display: none !important;
