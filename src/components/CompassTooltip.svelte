@@ -1068,4 +1068,17 @@
     }
     .horizonSep .line { height: 1px; background: color-mix(in oklab, var(--fg), transparent 84%); }
     .horizonSep .txt { font-size: var(--fs-10); font-weight: 900; letter-spacing: 0.12em; }
+
+    @media (max-width: 640px) {
+        .tip {
+            height: var(--mobile-tooltip-height, 46dvh);
+            max-height: var(--mobile-tooltip-height, 46dvh);
+            overflow-y: auto;
+            grid-template-rows: auto auto auto;
+        }
+
+        .list {
+            overflow: visible;
+        }
+    }
 </style>

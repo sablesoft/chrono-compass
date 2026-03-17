@@ -523,4 +523,18 @@
         opacity: 0.9;
         font-variant-numeric: tabular-nums;
     }
+
+    @media (max-width: 640px) {
+        .tip {
+            height: var(--mobile-tooltip-height, 46dvh);
+            max-height: var(--mobile-tooltip-height, 46dvh);
+            overflow-y: auto;
+            grid-template-rows: auto auto;
+            padding-bottom: var(--sp-10);
+        }
+
+        .list {
+            overflow: visible;
+        }
+    }
 </style>

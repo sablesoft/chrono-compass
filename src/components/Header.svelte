@@ -26,31 +26,35 @@
 </script>
 
 <header class="bar">
-    <div class="logo">{@html logo}</div>
-    <div class="phoneNavWrap">
-        {#if $phoneCarouselState.enabled && $phoneCarouselState.total > 1}
-            <nav class="phoneNav" aria-label="Wheel carousel controls">
-                <button type="button" class="phoneNavBtn" on:click={() => requestPhoneCarouselStep(-1)} aria-label="Previous slide">←</button>
-                <div class="phoneNavMeta">{$phoneCarouselState.index + 1} / {$phoneCarouselState.total}</div>
-                <button type="button" class="phoneNavBtn" on:click={() => requestPhoneCarouselStep(1)} aria-label="Next slide">→</button>
-            </nav>
-        {/if}
+    <div class="row rowTop">
+        <div class="logo">{@html logo}</div>
+        <div class="title">Chrono Compass</div>
+        <div class="slot profile">
+            <ProfilePicker />
+        </div>
+        <div class="phoneNavWrap">
+            {#if $phoneCarouselState.enabled && $phoneCarouselState.total > 1}
+                <nav class="phoneNav" aria-label="Wheel carousel controls">
+                    <button type="button" class="phoneNavBtn" on:click={() => requestPhoneCarouselStep(-1)} aria-label="Previous slide">←</button>
+                    <div class="phoneNavMeta">{$phoneCarouselState.index + 1} / {$phoneCarouselState.total}</div>
+                    <button type="button" class="phoneNavBtn" on:click={() => requestPhoneCarouselStep(1)} aria-label="Next slide">→</button>
+                </nav>
+            {/if}
+        </div>
+        <div class="actions">
+            <ThemeSwitcher />
+        </div>
     </div>
-    <div class="title">Chrono Compass</div>
-    <div class="slot profile">
-        <ProfilePicker />
-    </div>
-    <div class="slot time">
-        <TimePicker />
-    </div>
-    <div class="slot loc">
-        <LocationPicker
-                value={null}
-                locked={false}
-                onChange={handleGlobalLocationChange}/>
-    </div>
-    <div class="actions">
-        <ThemeSwitcher />
+    <div class="row rowBottom">
+        <div class="slot time">
+            <TimePicker />
+        </div>
+        <div class="slot loc">
+            <LocationPicker
+                    value={null}
+                    locked={false}
+                    onChange={handleGlobalLocationChange}/>
+        </div>
     </div>
 </header>
 
@@ -69,6 +73,11 @@
         backdrop-filter: blur(6px);
         background: color-mix(in oklab, var(--bg), transparent 10%);
     }
+    .row {
+        display: contents;
+        min-width: 0;
+    }
+
     .logo {
         grid-area: logo;
         width: var(--header-logo-size, 50px);
@@ -157,38 +166,83 @@
 
     @media (max-width: 640px) {
         .bar {
-            grid-template-columns: auto auto minmax(0, 1fr) auto;
-            grid-template-areas: none;
-            gap: var(--sp-5);
+            display: flex;
+            flex-direction: column;
+            gap: var(--sp-4);
             padding: var(--sp-8);
+        }
+        .row {
+            display: grid;
+        }
+        .rowTop {
+            display: grid;
+            grid-template-columns: auto auto minmax(0, 1fr) auto auto auto;
+            grid-template-areas: "logo title . phoneNav profile actions";
+            align-items: center;
+            gap: var(--sp-4);
+            width: 100%;
+        }
+        .rowBottom {
+            display: grid;
+            grid-template-columns: minmax(176px, 1.06fr) minmax(0, 0.94fr);
+            grid-template-areas: "time loc";
+            align-items: center;
+            gap: var(--sp-4);
         }
 
         .title {
-            display: none;
+            display: block;
+            justify-self: start;
+            margin: 0;
+            font-size: var(--fs-20);
+            font-weight: 750;
+            letter-spacing: 0.01em;
+            opacity: 0.85;
+            white-space: nowrap;
         }
 
         .logo {
             align-self: center;
-            grid-column: 1;
-            grid-row: 1;
+            grid-area: logo;
         }
         .profile {
             justify-self: start;
-            grid-column: 2;
-            grid-row: 1;
+            grid-area: profile;
+            min-width: 0;
+            width: 100%;
+            max-width: clamp(132px, 42vw, 220px);
+            overflow: hidden;
+        }
+        .profile :global(.labelSeg) {
+            min-width: 0;
+            padding-left: var(--sp-8);
+            padding-right: var(--sp-8);
+        }
+        .profile :global(.iconSeg) {
+            width: 30px;
+            min-width: 30px;
+            max-width: 30px;
+        }
+        .profile :global(.ui-lock) {
+            min-width: 30px;
+            padding: 0 var(--sp-6) !important;
         }
         .phoneNavWrap {
-            display: block;
-            justify-self: stretch;
-            grid-column: 3;
-            grid-row: 1;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            justify-self: start;
+            grid-area: phoneNav;
+            min-width: 0;
+            overflow: visible;
         }
         .actions {
             display: flex;
             justify-self: end;
-            grid-column: 4;
-            grid-row: 1;
+            align-self: center;
+            grid-area: actions;
             gap: 0;
+            min-width: 0;
         }
         .actions :global(button.icon) {
             width: var(--wheel-header-btn-size, 22px);
@@ -201,7 +255,24 @@
             line-height: 1;
             font-size: var(--fs-13);
         }
-        .time { justify-self: stretch; grid-column: 1 / span 2; grid-row: 2; }
-        .loc { justify-self: stretch; grid-column: 3 / span 2; grid-row: 2; }
+        .time {
+            justify-self: start;
+            grid-area: time;
+            width: 100%;
+            /*max-width: clamp(170px, 46vw, 240px);*/
+            min-width: 0;
+        }
+        .loc {
+            justify-self: stretch;
+            grid-area: loc;
+            width: 100%;
+            min-width: 0;
+        }
+        .phoneNav {
+            gap: var(--sp-4);
+        }
+        .phoneNavMeta {
+            font-size: var(--fs-10);
+        }
     }
 </style>
