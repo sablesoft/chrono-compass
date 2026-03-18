@@ -286,7 +286,9 @@ export function systemSynodSpokeConstellationsAt(input: {
             raDeg: eqd.raDeg,
             decDeg: eqd.decDeg,
             ts: input.ts,
-            constellations: SYSTEM_ECLIPTIC_CONSTELLATION_ENTRIES
+            constellations: SYSTEM_ECLIPTIC_CONSTELLATION_ENTRIES,
+            boundaryLayer: 'spherical',
+            geometry: 'spherical'
         });
         if (!hit) continue;
         out[code] = {
@@ -1364,7 +1366,9 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
                 raDeg: eqd.raDeg,
                 decDeg: eqd.decDeg,
                 ts,
-                constellations: SYSTEM_ALL_CONSTELLATION_ENTRIES
+                constellations: SYSTEM_ALL_CONSTELLATION_ENTRIES,
+                boundaryLayer: 'spherical',
+                geometry: 'spherical'
             });
         })();
 

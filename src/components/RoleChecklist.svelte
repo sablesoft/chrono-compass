@@ -285,8 +285,19 @@
     }
 
     .checkItemAll[aria-pressed='true'] {
-        border-color: color-mix(in oklab, var(--accent-gold), transparent 28%);
-        background: color-mix(in oklab, var(--accent-gold), transparent 82%);
+        border-color: color-mix(in oklab, var(--accent-gold), transparent 10%);
+        background: color-mix(in oklab, var(--accent-gold), transparent 70%);
+        box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent-gold), transparent 35%);
+    }
+
+    .checkItemAll[aria-pressed='true'] .checkBox {
+        border-color: color-mix(in oklab, var(--accent-gold), transparent 5%);
+        background: color-mix(in oklab, var(--accent-gold), transparent 24%);
+    }
+
+    .checkItemAll[aria-pressed='true'] .checkBox::after {
+        border-right-color: color-mix(in oklab, var(--accent-gold), black 18%);
+        border-bottom-color: color-mix(in oklab, var(--accent-gold), black 18%);
     }
 
     .checkBox {

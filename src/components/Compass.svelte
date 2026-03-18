@@ -769,7 +769,9 @@
             raDeg: raHours * 15,
             decDeg,
             ts,
-            constellations: CONSTELLATION_ENTRIES
+            constellations: CONSTELLATION_ENTRIES,
+            boundaryLayer: 'spherical',
+            geometry: 'spherical'
         });
         const value = formatConstellationLabel(hit?.abbr, hit?.name);
         if (!value) return null;
@@ -830,7 +832,9 @@
                 raDeg: raHours * 15,
                 decDeg,
                 ts: node.ts,
-                constellations: CONSTELLATION_ENTRIES
+                constellations: CONSTELLATION_ENTRIES,
+                boundaryLayer: 'spherical',
+                geometry: 'spherical'
             })?.description;
         })();
         const infoItems: MomentTip['infoItems'] = [];

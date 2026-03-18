@@ -83,12 +83,23 @@ export type ConstellationVertex = {
     raDeg: number;
     decDeg: number;
 };
+export type ConstellationPolygonLayerId = 'chart' | 'spherical';
+export type ConstellationPolygonLayer = {
+    polygonEpoch: ConstellationPolygonEpoch;
+    polygons: Array<Array<ConstellationVertex>>;
+    samplingStepDeg?: number;
+};
 export type ConstellationMeta = {
     name: string;
     abbr: string;
     band: ConstellationBand;
-    polygonEpoch: ConstellationPolygonEpoch;
-    polygons: Array<Array<ConstellationVertex>>;
+    boundaryLayers: {
+        chart: ConstellationPolygonLayer;
+        spherical: ConstellationPolygonLayer & {
+            polygonEpoch: 'J2000';
+            samplingStepDeg: number;
+        };
+    };
 };
 
 export type ObjMeta =

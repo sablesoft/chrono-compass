@@ -1031,7 +1031,9 @@ export function buildCompassAstroFrameLayer(input: {
                 raDeg: opts.raHours * 15,
                 decDeg: opts.decDeg,
                 ts,
-                constellations: constellationEntries
+                constellations: constellationEntries,
+                boundaryLayer: 'spherical',
+                geometry: 'spherical'
             });
         return {
             id: opts.id,
@@ -1071,7 +1073,9 @@ export function buildCompassAstroFrameLayer(input: {
             raDeg: ecl.raDeg,
             decDeg: ecl.decDeg,
             ts,
-            constellations: constellationEntries
+            constellations: constellationEntries,
+            boundaryLayer: 'spherical',
+            geometry: 'spherical'
         });
         return makeNode({
             id: opts.id,
