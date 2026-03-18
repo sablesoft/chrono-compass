@@ -238,6 +238,7 @@
     let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     let astroFrameCurves: Array<{ id: 'equator' | 'ecliptic'; seg: number; d: string; visible: boolean }> = [];
     let constellationBoundaryCurves: Array<{ id: string; seg: number; d: string; visible: boolean; title: string }> = [];
+    let constellationBoundaryTsDisplay = NaN;
     let astroFrameNodes: Array<{
         id: string;
         kind: 'intersection' | 'pole';
@@ -1100,6 +1101,7 @@
         if (!shouldAnimateSome || !displayTargets.length) {
             displayTargets = next;
             astroFrameLayerDisplay = toAstroFrame;
+            constellationBoundaryTsDisplay = toTs;
             return;
         }
 
@@ -1111,6 +1113,7 @@
             const u = easeInOut((now - t0) / duration);
             const tsNow = lerp(fromTs, toTs, u);
             astroFrameLayerDisplay = interpolateAstroFrameLayers(fromAstroFrame, toAstroFrame, u) ?? toAstroFrame;
+            constellationBoundaryTsDisplay = tsNow;
 
             displayTargets = next.map((n) => {
                 if (!animatableIds.has(n.id)) {
@@ -1148,6 +1151,7 @@
                 markerTweenRaf = 0;
                 displayTargets = next;
                 astroFrameLayerDisplay = toAstroFrame;
+                constellationBoundaryTsDisplay = toTs;
             }
         };
 
@@ -1366,12 +1370,33 @@
             if (ra !== rb) parent[rb] = ra;
         };
 
+        const cellSize = Math.max(1, thresholdPx);
+        const grid = new Map<string, number[]>();
+        const neighborShifts = [-1, 0, 1];
+        const cellKey = (cx: number, cy: number) => `${cx}:${cy}`;
+
         for (let i = 0; i < pts.length; i++) {
-            for (let j = i + 1; j < pts.length; j++) {
-                const dx = pts[i].x - pts[j].x;
-                const dy = pts[i].y - pts[j].y;
-                if (Math.hypot(dx, dy) < thresholdPx) union(i, j);
+            const p = pts[i];
+            const cx = Math.floor(p.x / cellSize);
+            const cy = Math.floor(p.y / cellSize);
+
+            for (const dx of neighborShifts) {
+                for (const dy of neighborShifts) {
+                    const bucket = grid.get(cellKey(cx + dx, cy + dy));
+                    if (!bucket) continue;
+                    for (const j of bucket) {
+                        const q = pts[j];
+                        const ddx = p.x - q.x;
+                        const ddy = p.y - q.y;
+                        if (Math.hypot(ddx, ddy) < thresholdPx) union(i, j);
+                    }
+                }
             }
+
+            const key = cellKey(cx, cy);
+            const bucket = grid.get(key);
+            if (bucket) bucket.push(i);
+            else grid.set(key, [i]);
         }
 
         const groups = new Map<number, MarkerItem[]>();
@@ -2181,6 +2206,8 @@
     let showLoadingOverlay = false;
     let showLoadingOverlayBase = false;
     let loadingOverlayTimer: ReturnType<typeof setTimeout> | null = null;
+    let loadingOverlayShownInSolve = false;
+    let pendingSolvedTargetsAfterOverlay: { ts: number; targets: CompassTargetState[] } | null = null;
     $: if (solveDoneKey !== solveDepsKey) {
         solveDoneKey = solveDepsKey;
         solveDoneForKey = false;
@@ -2191,6 +2218,7 @@
             if (!showLoadingOverlay && !loadingOverlayTimer) {
                 loadingOverlayTimer = setTimeout(() => {
                     showLoadingOverlay = true;
+                    loadingOverlayShownInSolve = true;
                     loadingOverlayTimer = null;
                 }, WHEEL_LOADING_OVERLAY_DELAY_MS);
             }
@@ -2203,10 +2231,24 @@
         }
     }
 
+    $: {
+        if (!showLoadingOverlay && !showLoadingOverlayBase && pendingSolvedTargetsAfterOverlay) {
+            const pending = pendingSolvedTargetsAfterOverlay;
+            pendingSolvedTargetsAfterOverlay = null;
+            const nextTargets = applyPendingNodeSnap(pending.targets);
+            lastTargets = nextTargets;
+            animateDisplayTargets(lastResolvedTs, pending.ts, nextTargets);
+            lastResolvedTs = pending.ts;
+            loadingOverlayShownInSolve = false;
+        }
+    }
+
     async function ensureCompassForTs(ts: number) {
         const myRun = ++ensureRunId;
         solvePending = true;
         solveReason = '';
+        loadingOverlayShownInSolve = false;
+        pendingSolvedTargetsAfterOverlay = null;
 
         const targets = asBodyIdArray((roles as any)?.target);
         // const looker = asBodyIdOrNull((roles as any)?.looker) ?? 'Earth';
@@ -2243,9 +2285,17 @@
             }
 
             const solvedTargets = (res.bodies as CompassTargetState[]) ?? [];
-            lastTargets = applyPendingNodeSnap(solvedTargets);
-            animateDisplayTargets(lastResolvedTs, ts, lastTargets);
-            lastResolvedTs = ts;
+            const shouldDeferAnimation = loadingOverlayShownInSolve && (showLoadingOverlayBase || showLoadingOverlay);
+            if (shouldDeferAnimation) {
+                pendingSolvedTargetsAfterOverlay = {
+                    ts,
+                    targets: solvedTargets
+                };
+            } else {
+                lastTargets = applyPendingNodeSnap(solvedTargets);
+                animateDisplayTargets(lastResolvedTs, ts, lastTargets);
+                lastResolvedTs = ts;
+            }
             solveDoneForKey = true;
         } catch (e: any) {
             if (ensureRunId !== myRun) return;
@@ -2344,8 +2394,9 @@
         if (wheel?.wheelType !== 'compass' || !showConstellationBoundaries) {
             constellationBoundaryCurves = [];
         } else {
+            const boundaryTs = Number.isFinite(constellationBoundaryTsDisplay) ? constellationBoundaryTsDisplay : effTs;
             const layer = buildCompassConstellationBoundaryLayer({
-                ts: effTs,
+                ts: boundaryTs,
                 location: wheelLoc,
                 constellations: CONSTELLATION_ENTRIES
             });

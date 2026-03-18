@@ -70,14 +70,36 @@ export function compassClusters(
         if (ra !== rb) parent[rb] = ra;
     };
 
-    // O(n^2) — targets обычно мало
+    // Spatial hash grid to avoid O(n^2) blow-up on large target sets.
+    const cellSize = Math.max(1, thresholdPx);
+    const grid = new Map<string, number[]>();
+    const neighborShifts = [-1, 0, 1];
+    const cellKey = (cx: number, cy: number) => `${cx}:${cy}`;
+
     for (let i = 0; i < n; i++) {
-        for (let j = i + 1; j < n; j++) {
-            const dx = pts[i].x - pts[j].x;
-            const dy = pts[i].y - pts[j].y;
-            const dist = Math.hypot(dx, dy);
-            if (dist < thresholdPx) union(i, j);
+        const p = pts[i];
+        const cx = Math.floor(p.x / cellSize);
+        const cy = Math.floor(p.y / cellSize);
+
+        for (const dx of neighborShifts) {
+            for (const dy of neighborShifts) {
+                const bucket = grid.get(cellKey(cx + dx, cy + dy));
+                if (!bucket) continue;
+                for (const j of bucket) {
+                    const q = pts[j];
+                    const dpx = p.x - q.x;
+                    const dpy = p.y - q.y;
+                    if (Math.hypot(dpx, dpy) < thresholdPx) {
+                        union(i, j);
+                    }
+                }
+            }
         }
+
+        const key = cellKey(cx, cy);
+        const bucket = grid.get(key);
+        if (bucket) bucket.push(i);
+        else grid.set(key, [i]);
     }
 
     // компоненты

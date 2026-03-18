@@ -468,6 +468,8 @@
     let showLoadingOverlay = false;
     let showLoadingOverlayBase = false;
     let loadingOverlayTimer: ReturnType<typeof setTimeout> | null = null;
+    let loadingOverlayShownInSolve = false;
+    let pendingSolveOutcomeAfterOverlay: { ok: boolean; reason: string; spokes: CycleSpoke[] } | null = null;
     $: solveRolesKey = JSON.stringify((wheel as any)?.roles ?? {});
     $: solveLocationKey = String((isHorizon ? wheelLoc?.id : '') ?? '');
     $: solveConfigReady = !!wheel && !!wheelId && (!isHorizon || !!wheelLoc);
@@ -487,6 +489,7 @@
             if (!showLoadingOverlay && !loadingOverlayTimer) {
                 loadingOverlayTimer = setTimeout(() => {
                     showLoadingOverlay = true;
+                    loadingOverlayShownInSolve = true;
                     loadingOverlayTimer = null;
                 }, WHEEL_LOADING_OVERLAY_DELAY_MS);
             }
@@ -496,6 +499,17 @@
                 loadingOverlayTimer = null;
             }
             showLoadingOverlay = false;
+        }
+    }
+
+    $: {
+        if (!showLoadingOverlay && !showLoadingOverlayBase && pendingSolveOutcomeAfterOverlay) {
+            const pending = pendingSolveOutcomeAfterOverlay;
+            pendingSolveOutcomeAfterOverlay = null;
+            solveOk = pending.ok;
+            solveReason = pending.reason;
+            spokes = pending.spokes;
+            loadingOverlayShownInSolve = false;
         }
     }
 
@@ -520,6 +534,8 @@
     async function ensureCycleForTs(ts: number) {
         const myRun = ++ensureRunId;
         solvePending = true;
+        loadingOverlayShownInSolve = false;
+        pendingSolveOutcomeAfterOverlay = null;
 
         solveOk = false;
         solveReason = '';
@@ -553,7 +569,17 @@
             solveReason = r.ok ? '' : (r.reason ?? 'Solve failed');
 
             // обновляем спицы, только когда пришёл валидный ответ
-            spokes = sortSpokes(r.spokes ?? []);
+            const nextSpokes = sortSpokes(r.spokes ?? []);
+            const shouldDeferAnimation = loadingOverlayShownInSolve && (showLoadingOverlayBase || showLoadingOverlay);
+            if (shouldDeferAnimation) {
+                pendingSolveOutcomeAfterOverlay = {
+                    ok: solveOk,
+                    reason: solveReason,
+                    spokes: nextSpokes
+                };
+            } else {
+                spokes = nextSpokes;
+            }
             solveDoneForConfig = true;
         } catch (e: any) {
             if (ensureRunId !== myRun) return;
