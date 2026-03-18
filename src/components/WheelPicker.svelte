@@ -17,6 +17,7 @@
     import { makeDedupKey } from '../lib/profile/dedup';
     import { formatWheelSpec, typeLabel } from '../lib/wheel/control';
     import { debug } from '../lib/debug';
+    import { buildConstellationTargetGroups, type ConstellationTargetGroup } from '../lib/catalog/constellationGroups';
 
     // profiles (saved wheels)
     import { activeProfile } from '../lib/profile/store';
@@ -68,6 +69,8 @@
 
     let multiTarget = false;
     let targetAllChecked = false;
+    let targetAllStarsChecked = false;
+    let targetConstellationGroups: ConstellationTargetGroup[] = [];
 
     // title
     let draftTitle = '';
@@ -327,11 +330,43 @@
         setTargets([...selects.target]);
     }
 
+    function toggleTargetConstellationGroup(groupId: string) {
+        if (!multiTarget) return;
+        const group = targetConstellationGroups.find((item) => item.id === groupId);
+        if (!group || group.itemIds.length === 0) return;
+
+        const allChecked = group.itemIds.every((id) => values.target.includes(id));
+        const next = allChecked
+            ? values.target.filter((id) => !group.itemIds.includes(id))
+            : Array.from(new Set([...values.target, ...group.itemIds]));
+
+        setTargets(next);
+    }
+
+    function toggleAllTargetStars() {
+        if (!multiTarget) return;
+        const starIds = Array.from(new Set(targetConstellationGroups.flatMap((group) => group.itemIds)));
+        if (starIds.length === 0) return;
+
+        const next = targetAllStarsChecked
+            ? values.target.filter((id) => !starIds.includes(id))
+            : Array.from(new Set([...values.target, ...starIds]));
+
+        setTargets(next);
+    }
+
     $: targetAllChecked =
         multiTarget
         && selects.target.length > 0
         && values.target.length === selects.target.length
         && selects.target.every((id) => values.target.includes(id));
+    $: targetConstellationGroups = multiTarget ? buildConstellationTargetGroups(selects.target) : [];
+    $: targetAllStarsChecked = (() => {
+        if (!multiTarget) return false;
+        const starIds = Array.from(new Set(targetConstellationGroups.flatMap((group) => group.itemIds)));
+        if (starIds.length === 0) return false;
+        return starIds.every((id) => values.target.includes(id));
+    })();
 
     function addWheel() {
         if (!spec || !type) return;
@@ -599,10 +634,15 @@
                             selectedValues={values.target}
                             showAllOption={multiTarget}
                             allChecked={targetAllChecked}
+                            showAllStarsOption={multiTarget}
+                            allStarsChecked={targetAllStarsChecked}
+                            groupOptions={targetConstellationGroups}
                             maxHeight="none"
                             bind:search={targetSearch}
                             onToggleItem={toggleTarget}
                             onToggleAll={toggleAllTargets}
+                            onToggleAllStars={toggleAllTargetStars}
+                            onToggleGroup={toggleTargetConstellationGroup}
                         />
                     </div>
                 {/if}

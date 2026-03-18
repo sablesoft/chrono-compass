@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Rasalhague
 const RA_RASALHAGUE_DEG = hmsToDeg(17, 34, 56.1);
@@ -6,12 +6,13 @@ const DEC_RASALHAGUE_DEG = dmsToDeg(1, 12, 33, 36.0);
 
 export const Rasalhague = {
     id: 'ref:rasalhague',
-    kind: 'reference',
+    kind: 'star',
     name: 'Rasalhague',
     description: 'Rasalhague (ICRF/J2000) — Alpha Ophiuchi, the bright head star of the Serpent Bearer and a prominent marker of Ophiuchus.',
     emoji: '✦',
     meta: {
         color: '#edf2ff',
+        constellationId: 'ref:constellation:oph',
         distancePc: 14.8966,
         apparentMagnitude: 2.08,
         properMotionRaMasYr: 110.08,
@@ -25,4 +26,4 @@ export const Rasalhague = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Mirfak
 const RA_MIRFAK_DEG = hmsToDeg(3, 24, 19.4);
@@ -6,12 +6,13 @@ const DEC_MIRFAK_DEG = dmsToDeg(1, 49, 51, 40.3);
 
 export const Mirfak = {
     id: 'ref:mirfak',
-    kind: 'reference',
+    kind: 'star',
     name: 'Mirfak',
     description: 'Mirfak (ICRF/J2000) — the brightest star in Perseus and the central beacon of the Alpha Persei association.',
     emoji: '✦',
     meta: {
         color: '#fff0c8',
+        constellationId: 'ref:constellation:per',
         distancePc: 155.2794,
         apparentMagnitude: 1.79,
         properMotionRaMasYr: 24.11,
@@ -25,4 +26,4 @@ export const Mirfak = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

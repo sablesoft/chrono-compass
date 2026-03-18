@@ -1,5 +1,6 @@
 <script lang="ts">
     import { objectLabel, type ObjId } from '../lib/catalog';
+    import type { ConstellationTargetGroup } from '../lib/catalog/constellationGroups';
 
     export let roleLabel = '';
     export let searchId = '';
@@ -11,10 +12,21 @@
     export let showAllOption = false;
     export let allChecked = false;
     export let allLabel = 'All';
+    export let showAllStarsOption = false;
+    export let allStarsChecked = false;
+    export let allStarsLabel = 'All Stars';
+    export let groupOptions: ConstellationTargetGroup[] = [];
     export let maxHeight = 'none';
     export let search = '';
     export let onToggleItem: (id: ObjId) => void = () => {};
     export let onToggleAll: () => void = () => {};
+    export let onToggleAllStars: () => void = () => {};
+    export let onToggleGroup: (groupId: ConstellationTargetGroup['id']) => void = () => {};
+
+    type GroupSection = {
+        group: ConstellationTargetGroup;
+        itemIds: ObjId[];
+    };
 
     function toggleItemById(id: ObjId) {
         if (locked) return;
@@ -26,14 +38,76 @@
         onToggleAll();
     }
 
-    function filteredItems(list: ObjId[], queryRaw: string): ObjId[] {
-        const query = queryRaw.trim().toLowerCase();
-        if (!query) return list;
-        return list.filter((id) => objectLabel(id).toLowerCase().includes(query));
+    function toggleGroupById(groupId: ConstellationTargetGroup['id']) {
+        if (locked) return;
+        onToggleGroup(groupId);
     }
 
-    $: visibleItems = filteredItems(items, search);
+    function toggleAllStarsItems() {
+        if (locked) return;
+        onToggleAllStars();
+    }
+
+    function filteredChecklist(
+        list: ObjId[],
+        groups: ConstellationTargetGroup[],
+        queryRaw: string
+    ): { items: ObjId[]; sections: GroupSection[]; looseItems: ObjId[] } {
+        const listSet = new Set(list);
+        const normalizedGroups = groups
+            .map((group) => ({
+                ...group,
+                itemIds: group.itemIds.filter((id) => listSet.has(id))
+            }))
+            .filter((group) => group.itemIds.length > 0);
+
+        const groupedIds = new Set(normalizedGroups.flatMap((group) => group.itemIds));
+        const looseItemsBase = list
+            .filter((id) => !groupedIds.has(id))
+            .slice()
+            .sort((a, b) => objectLabel(a).localeCompare(objectLabel(b)));
+        const query = queryRaw.trim().toLowerCase();
+        if (!query) {
+            return {
+                items: list,
+                sections: normalizedGroups.map((group) => ({ group, itemIds: group.itemIds })),
+                looseItems: looseItemsBase
+            };
+        }
+
+        const matchedGroups = normalizedGroups.filter((group) => {
+            const haystack = `${group.label} ${group.id}`.toLowerCase();
+            return haystack.includes(query);
+        });
+        const forceVisibleByGroup = new Set(matchedGroups.flatMap((group) => group.itemIds));
+        const starMatches = new Set(
+            list.filter((id) => objectLabel(id).toLowerCase().includes(query))
+        );
+        const visibleStarIds = new Set([...forceVisibleByGroup, ...starMatches]);
+
+        const sections = normalizedGroups.flatMap((group) => {
+            const groupMatched = matchedGroups.some((matched) => matched.id === group.id);
+            const itemIds = group.itemIds.filter((id) => visibleStarIds.has(id));
+            if (!groupMatched && itemIds.length === 0) return [];
+            return [{ group, itemIds }];
+        });
+
+        const looseItems = looseItemsBase.filter((id) => visibleStarIds.has(id));
+        const items = list.filter((id) => visibleStarIds.has(id));
+
+        return { items, sections, looseItems };
+    }
+
+    function isGroupChecked(group: ConstellationTargetGroup, selected: Set<ObjId>): boolean {
+        return group.itemIds.length > 0 && group.itemIds.every((id) => selected.has(id));
+    }
+
     $: selectedSet = new Set(selectedValues);
+    $: filteredChecklistState = filteredChecklist(items, groupOptions, search);
+    $: visibleItems = filteredChecklistState.items;
+    $: visibleSections = filteredChecklistState.sections;
+    $: visibleLooseItems = filteredChecklistState.looseItems;
+    $: groupedMode = groupOptions.length > 0;
 </script>
 
 <div class="checksWrap" role="group" aria-labelledby={groupLabelId}>
@@ -58,20 +132,78 @@
                 <span class="checkText">{allLabel}</span>
             </button>
         {/if}
-        {#each visibleItems as id (id)}
-            {@const checked = selectedSet.has(id)}
-            <button
-                type="button"
-                class="checkItem"
-                class:readonly={locked}
-                disabled={locked}
-                on:click={() => toggleItemById(id)}
-                aria-pressed={checked}
-            >
-                <span class="checkBox" aria-hidden="true"></span>
-                <span class="checkText">{objectLabel(id)}</span>
-            </button>
-        {/each}
+        {#if groupedMode}
+            {#each visibleLooseItems as id (id)}
+                {@const checked = selectedSet.has(id)}
+                <button
+                    type="button"
+                    class="checkItem"
+                    class:readonly={locked}
+                    disabled={locked}
+                    on:click={() => toggleItemById(id)}
+                    aria-pressed={checked}
+                >
+                    <span class="checkBox" aria-hidden="true"></span>
+                    <span class="checkText">{objectLabel(id)}</span>
+                </button>
+            {/each}
+            {#if showAllStarsOption && visibleSections.length > 0}
+                <button
+                    type="button"
+                    class="checkItem checkItemAll"
+                    class:readonly={locked}
+                    disabled={locked}
+                    on:click={toggleAllStarsItems}
+                    aria-pressed={allStarsChecked}
+                >
+                    <span class="checkBox" aria-hidden="true"></span>
+                    <span class="checkText">{allStarsLabel}</span>
+                </button>
+            {/if}
+            {#each visibleSections as section (section.group.id)}
+                {@const checked = isGroupChecked(section.group, selectedSet)}
+                <button
+                    type="button"
+                    class="checkItem checkItemAll"
+                    class:readonly={locked}
+                    disabled={locked}
+                    on:click={() => toggleGroupById(section.group.id)}
+                    aria-pressed={checked}
+                >
+                    <span class="checkBox" aria-hidden="true"></span>
+                    <span class="checkText">{section.group.label}</span>
+                </button>
+                {#each section.itemIds as id (id)}
+                    {@const itemChecked = selectedSet.has(id)}
+                    <button
+                        type="button"
+                        class="checkItem"
+                        class:readonly={locked}
+                        disabled={locked}
+                        on:click={() => toggleItemById(id)}
+                        aria-pressed={itemChecked}
+                    >
+                        <span class="checkBox" aria-hidden="true"></span>
+                        <span class="checkText">{objectLabel(id)}</span>
+                    </button>
+                {/each}
+            {/each}
+        {:else}
+            {#each visibleItems as id (id)}
+                {@const checked = selectedSet.has(id)}
+                <button
+                    type="button"
+                    class="checkItem"
+                    class:readonly={locked}
+                    disabled={locked}
+                    on:click={() => toggleItemById(id)}
+                    aria-pressed={checked}
+                >
+                    <span class="checkBox" aria-hidden="true"></span>
+                    <span class="checkText">{objectLabel(id)}</span>
+                </button>
+            {/each}
+        {/if}
     </div>
 </div>
 

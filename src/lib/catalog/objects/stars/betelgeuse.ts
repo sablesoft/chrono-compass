@@ -1,5 +1,5 @@
 // src/lib/catalog/objects/betelgeuse.ts
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Betelgeuse
 const RA_BETELGEUSE_DEG = hmsToDeg(5, 55, 10.3053);
@@ -7,13 +7,14 @@ const DEC_BETELGEUSE_DEG = dmsToDeg(1, 7, 24, 25.426);
 
 export const Betelgeuse = {
     id: 'ref:betelgeuse',
-    kind: 'reference',
+    kind: 'star',
     name: 'Betelgeuse',
     description: 'Betelgeuse (ICRF/J2000) — a bright red supergiant in Orion that is famously variable in brightness.',
     emoji: '✶',
     emojiScale: 1,
     meta: {
         color: '#ffcc6f',
+        constellationId: 'ref:constellation:ori',
         distancePc: 152.6717,
         apparentMagnitude: 0.45,
         properMotionRaMasYr: 27.33,
@@ -27,4 +28,4 @@ export const Betelgeuse = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

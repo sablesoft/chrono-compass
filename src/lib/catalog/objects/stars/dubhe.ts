@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Dubhe
 const RA_DUBHE_DEG = hmsToDeg(11, 3, 43.7);
@@ -6,12 +6,13 @@ const DEC_DUBHE_DEG = dmsToDeg(1, 61, 45, 3.7);
 
 export const Dubhe = {
     id: 'ref:dubhe',
-    kind: 'reference',
+    kind: 'star',
     name: 'Dubhe',
     description: 'Dubhe (ICRF/J2000) — one of the pointer stars of Ursa Major and a familiar guide toward the north.',
     emoji: '✦',
     meta: {
         color: '#ffd7ab',
+        constellationId: 'ref:constellation:uma',
         distancePc: 37.6789,
         apparentMagnitude: 1.81,
         properMotionRaMasYr: -136.46,
@@ -25,4 +26,4 @@ export const Dubhe = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

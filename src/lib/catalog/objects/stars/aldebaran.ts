@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Aldebaran
 const RA_ALDEBARAN_DEG = hmsToDeg(4, 35, 55.24);
@@ -6,13 +6,14 @@ const DEC_ALDEBARAN_DEG = dmsToDeg(1, 16, 30, 33.5);
 
 export const Aldebaran = {
     id: 'ref:aldebaran',
-    kind: 'reference',
+    kind: 'star',
     name: 'Aldebaran',
     description: 'Aldebaran (ICRF/J2000) — the orange eye of Taurus and one of the best-known bright stars of the zodiac.',
     emoji: '✶',
     emojiScale: 1,
     meta: {
         color: '#ffb46d',
+        constellationId: 'ref:constellation:tau',
         distancePc: 20.4332,
         apparentMagnitude: 0.87,
         properMotionRaMasYr: 62.78,
@@ -26,4 +27,4 @@ export const Aldebaran = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Regulus
 const RA_REGULUS_DEG = hmsToDeg(10, 8, 22.3);
@@ -6,12 +6,13 @@ const DEC_REGULUS_DEG = dmsToDeg(1, 11, 58, 2.0);
 
 export const Regulus = {
     id: 'ref:regulus',
-    kind: 'reference',
+    kind: 'star',
     name: 'Regulus',
     description: 'Regulus (ICRF/J2000) — the heart of Leo and one of the most famous royal stars in historical traditions.',
     emoji: '✦',
     meta: {
         color: '#d6deff',
+        constellationId: 'ref:constellation:leo',
         distancePc: 24.3132,
         apparentMagnitude: 1.36,
         properMotionRaMasYr: -249.4,
@@ -25,4 +26,4 @@ export const Regulus = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

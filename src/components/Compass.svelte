@@ -1244,7 +1244,7 @@
 
     function projectTargetPoint(
         target: Pick<CompassTargetState, 'angleDeg' | 'orbit' | 'altitudeDeg' | 'visible'> & {
-            kind?: 'engine_body' | 'reference' | 'pole';
+            kind?: 'engine_body' | 'reference' | 'star' | 'pole';
             planeDistanceAu?: number;
             planeDistanceRatio?: number;
         },
@@ -1256,7 +1256,7 @@
             return { x: xy.x, y: xy.y, visible: !!target.visible };
         }
 
-        if (target.kind === 'reference' || target.kind === 'pole') {
+        if (target.kind === 'reference' || target.kind === 'star' || target.kind === 'pole') {
             const r = orbitToRadiusVB(target.orbit);
             const xy = polarToXY(r, target.angleDeg);
             return { x: xy.x, y: xy.y, visible: !!target.visible };
@@ -2264,7 +2264,7 @@
                 (item) => {
                     const target = targetByBaseId.get(item.baseId);
                     if (!target) return null;
-                    if (objects?.[target.id]?.kind === 'reference' || objects?.[target.id]?.kind === 'pole') {
+                    if (objects?.[target.id]?.kind === 'reference' || objects?.[target.id]?.kind === 'star' || objects?.[target.id]?.kind === 'pole') {
                         return projectReferenceRingPoint(target.id);
                     }
                     return projectTargetPoint(target, 'side');
@@ -4379,7 +4379,7 @@
                         {@const isCluster = c.count > 1}
                         {@const singleId = clusterSingleBodyId(c)}
                         {@const singleItem = c.count === 1 ? c.items[0] : null}
-                        {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
+                        {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'star' || objects?.[singleId]?.kind === 'pole')}
                         {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                         {@const glyphRotateDeg = (!isCluster && singleItem && Number.isFinite(singleItem.emojiRotationDeg)) ? Number(singleItem.emojiRotationDeg) : 0}
                         {@const o = c.opacity ?? 1}
@@ -4807,7 +4807,7 @@
                             {@const isCluster = c.count > 1}
                             {@const singleId = clusterSingleBodyId(c)}
                             {@const singleItem = c.count === 1 ? c.items[0] : null}
-                            {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'pole')}
+                            {@const isReference = !!singleId && (objects?.[singleId]?.kind === 'reference' || objects?.[singleId]?.kind === 'star' || objects?.[singleId]?.kind === 'pole')}
                             {@const glyphColor = !isCluster && c.color ? c.color : 'currentColor'}
                             {@const glyphRotateDeg = (!isCluster && singleItem && Number.isFinite(singleItem.emojiRotationDeg)) ? Number(singleItem.emojiRotationDeg) : 0}
                             {@const o = c.opacity ?? 1}

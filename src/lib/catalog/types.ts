@@ -21,6 +21,7 @@ export type EngineBodyId = keyof typeof EngineBody;
  * - ref:*       : external reference / synthetic object (GC, GA, CMB dipole, etc.)
  */
 export type ObjId = EngineBodyId | `ref:${string}`;
+export type ConstellationRefId = `ref:constellation:${string}`;
 
 /* =============================================================================
    Localization + Kind
@@ -29,6 +30,7 @@ export type ObjId = EngineBodyId | `ref:${string}`;
 export type ObjKind =
     | 'engine_body'     // exists in astronomy-engine (must use EngineBodyId)
     | 'reference'       // generic inertial/static references (must use ref:*)
+    | 'star'            // stellar inertial references (must use ref:*)
     | 'pole'            // celestial poles (must use ref:*)
     | 'constellation';  // constellation boundary object (must use ref:*)
 
@@ -71,6 +73,10 @@ export type ReferenceMeta = {
     radialVelocityKmS?: number; // line-of-sight velocity, km/s
 };
 
+export type StarMeta = ReferenceMeta & {
+    constellationId: ConstellationRefId;
+};
+
 export type ConstellationBand = 'ecliptic' | 'north' | 'south';
 export type ConstellationPolygonEpoch = 'B1875' | 'J2000';
 export type ConstellationVertex = {
@@ -88,6 +94,7 @@ export type ConstellationMeta = {
 export type ObjMeta =
     | EngineBodyMeta
     | ReferenceMeta
+    | StarMeta
     | ConstellationMeta;
 
 /* =============================================================================
@@ -112,6 +119,12 @@ export type ReferenceObj = ObjBase & {
     id: `ref:${string}`;  // ✅ cannot be EngineBodyId
 };
 
+export type StarObj = ObjBase & {
+    kind: 'star';
+    id: `ref:${string}`;
+    meta: StarMeta & { color?: string };
+};
+
 export type PoleObj = ObjBase & {
     kind: 'pole';
     id: `ref:${string}`;
@@ -123,7 +136,11 @@ export type ConstellationObj = ObjBase & {
     meta: ConstellationMeta & { color?: string };
 };
 
-export type Obj = EngineBodyObj | ReferenceObj | PoleObj | ConstellationObj;
+export type Obj = EngineBodyObj | ReferenceObj | StarObj | PoleObj | ConstellationObj;
+
+export function isReferenceLikeKind(kind: ObjKind | null | undefined): kind is 'reference' | 'star' {
+    return kind === 'reference' || kind === 'star';
+}
 
 /* =============================================================================
    Wheel types + per-type meta
@@ -172,8 +189,6 @@ export type RoleName = 'looker' | 'focus' | 'target';
 
 export const ROLE_NAMES: RoleName[] = ['looker', 'focus', 'target'];
 
-export type PoleRefId = 'ref:north-celestial-pole' | 'ref:south-celestial-pole';
-
 export const REFERENCES: ObjId[] = [
     'ref:galactic-center',
 
@@ -182,49 +197,199 @@ export const REFERENCES: ObjId[] = [
     'ref:acrux',
     'ref:acubens',
     'ref:adhara',
+    'ref:alcyone',
     'ref:aldebaran',
+    'ref:alderamin',
+    'ref:aldhanab',
+    'ref:aldulfin',
     'ref:alfard',
+    'ref:alfirk',
+    'ref:algedi',
+    'ref:algieba',
+    'ref:algol',
+    'ref:algorab',
+    'ref:alhena',
+    'ref:alioth',
+    'ref:aljanah',
+    'ref:alkaid',
+    'ref:alkes',
+    'ref:almach',
     'ref:alnair',
+    'ref:alphecca',
     'ref:alpheratz',
+    'ref:alpherg',
+    'ref:alrescha',
+    'ref:alsciaukat',
+    'ref:alsephina',
     'ref:altair',
+    'ref:ankaa',
+    'ref:anser',
     'ref:antares',
     'ref:arcturus',
+    'ref:arneb',
+    'ref:ascella',
+    'ref:asellus-australis',
+    'ref:ashlesha',
+    'ref:athebyne',
+    'ref:atria',
     'ref:avior',
+    'ref:babcock-s-star',
+    'ref:bellatrix',
     'ref:betelgeuse',
+    'ref:bharani',
+    'ref:bibha',
+    'ref:brachium',
+    'ref:bubup',
+    'ref:canopus',
     'ref:capella',
+    'ref:caph',
     'ref:castor',
+    'ref:ceibo',
+    'ref:cervantes',
+    'ref:chara',
+    'ref:cih',
+    'ref:citala',
+    'ref:cocibolca',
+    'ref:cor-caroli',
+    'ref:cursa',
+    'ref:dabih',
+    'ref:dalim',
+    'ref:deltoton',
     'ref:deneb',
+    'ref:deneb-algedi',
     'ref:deneb-kaitos',
     'ref:denebola',
+    'ref:diadem',
     'ref:dschubba',
     'ref:dubhe',
+    'ref:elkurud',
+    'ref:elnath',
+    'ref:eltanin',
+    'ref:emiw',
+    'ref:enif',
+    'ref:errai',
     'ref:fomalhaut',
     'ref:gacrux',
-    'ref:hadar',
+    'ref:gienah',
+    'ref:gomeisa',
     'ref:graffias',
+    'ref:gudja',
+    'ref:hadar',
     'ref:hamal',
+    'ref:hoerikwaggo',
+    'ref:hunahpu',
+    'ref:illyrian',
     'ref:imai',
+    'ref:inquill',
+    'ref:intan',
+    'ref:izar',
+    'ref:kaffaljidhma',
+    'ref:kamuy',
+    'ref:kapteyn-s-star',
+    'ref:karaka',
     'ref:kaus-australis',
+    'ref:kitalpha',
     'ref:kochab',
+    'ref:kornephoros',
+    'ref:kraz',
+    'ref:la-superba',
+    'ref:lacaille-8760',
+    'ref:lacaille-9352',
+    'ref:lang-exster',
+    'ref:lusitania',
+    'ref:luyten-s-star',
+    'ref:macondo',
+    'ref:mago',
+    'ref:mahasim',
     'ref:markab',
+    'ref:markeb',
+    'ref:maru',
+    'ref:menkalinan',
     'ref:menkar',
+    'ref:meridiana',
+    'ref:miaplacidus',
     'ref:mimosa',
     'ref:mintaka',
+    'ref:mirach',
+    'ref:miram',
     'ref:mirfak',
+    'ref:mothallah',
+    'ref:muphrid',
+    'ref:naos',
+    'ref:nenque',
+    'ref:nihal',
     'ref:nunki',
+    'ref:nusakan',
+    'ref:okab',
+    'ref:paradys',
+    'ref:peacock',
+    'ref:phact',
+    'ref:pherkad',
+    'ref:phyllon-kissinou',
+    'ref:pipit',
+    'ref:poerava',
     'ref:polaris',
+    'ref:polaris-australis',
     'ref:polis',
     'ref:pollux',
+    'ref:porrima',
+    'ref:praecipua',
+    'ref:procyon',
+    'ref:rasalgethi',
     'ref:rasalhague',
+    'ref:rastaban',
+    'ref:red-rectangle',
     'ref:regulus',
+    'ref:rhombus',
+    'ref:rigel',
+    'ref:rigil-kentaurus',
+    'ref:rotanev',
     'ref:sabik',
+    'ref:sadalmelik',
+    'ref:sadalsuud',
+    'ref:sadr',
+    'ref:samaya',
     'ref:sargas',
+    'ref:sarin',
+    'ref:scheat',
+    'ref:schedar',
+    'ref:sham',
     'ref:shaula',
+    'ref:sheliak',
+    'ref:sheratan',
     'ref:sirius',
+    'ref:skat',
     'ref:spica',
+    'ref:stellio',
+    'ref:stribor',
+    'ref:sualocin',
+    'ref:suhail',
+    'ref:sulafat',
+    'ref:tarazed',
+    'ref:tarf',
+    'ref:tengshe',
+    'ref:tiaki',
+    'ref:toliman',
+    'ref:tonatiuh',
+    'ref:torcular',
+    'ref:tupi',
+    'ref:tureis',
+    'ref:ukdah',
+    'ref:unukalhai',
+    'ref:uridim',
+    'ref:uruk',
+    'ref:uuba',
     'ref:vega',
+    'ref:vindemiatrix',
+    'ref:wazn',
+    'ref:wezen',
+    'ref:wurren',
+    'ref:xami',
+    'ref:yed-prior',
+    'ref:zhou',
     'ref:zuben-elakrab',
     'ref:zuben-elschemali',
+    'ref:zubenelgenubi',
 ];
 
 /**

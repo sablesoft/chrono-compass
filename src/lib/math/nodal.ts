@@ -3,7 +3,7 @@ import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
 import { objects } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
-import type { ObjId, ObjKind, ReferenceMeta } from '../catalog';
+import { isReferenceLikeKind, type ObjId, type ObjKind, type ReferenceMeta } from '../catalog';
 import { SPOKES_ORDER } from '../wheel/types';
 import { AU_KM, clamp, DAY_MS, isFiniteNumber, lerp } from './helpers';
 import { refUnitAtTsByKind } from './vector';
@@ -25,7 +25,7 @@ function getObj(id: ObjId): ObjRec {
 
 function isReferenceId(id: ObjId): boolean {
     const rec = getObj(id);
-    return rec?.kind === 'reference';
+    return isReferenceLikeKind(rec?.kind);
 }
 
 function isEngineBodyId(id: ObjId): boolean {
@@ -157,7 +157,7 @@ function resolveNodalModel(looker: ObjId, focus: ObjId): NodalModel | null {
 
 function axisNormalFromReference(axisRef: ObjId, ts: number): Vec | null {
     const rec = getObj(axisRef);
-    if (!rec || rec.kind !== 'reference') return null;
+    if (!rec || !isReferenceLikeKind(rec.kind)) return null;
     const meta = rec.meta as ReferenceMeta | undefined;
     if (!meta) return null;
     const u3 = refUnitAtTsByKind(rec.kind, meta, ts);

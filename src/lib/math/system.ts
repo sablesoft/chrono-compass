@@ -1,5 +1,5 @@
 import * as Astronomy from 'astronomy-engine';
-import { objects } from '../catalog';
+import { isReferenceLikeKind, objects } from '../catalog';
 import type { ObjId, ReferenceMeta } from '../catalog';
 import { type MarkerItem, SPOKES_ORDER, type SpokeKey } from '../wheel/types';
 
@@ -74,7 +74,7 @@ export type SystemTrackPoint = CompassTrackPoint & {
 
 export type SystemTargetState = {
     id: ObjId;
-    kind: 'engine_body' | 'reference';
+    kind: 'engine_body' | 'reference' | 'star';
     azimuthDeg: number;
     altitudeDeg: number;
     angleDeg: number;
@@ -117,8 +117,8 @@ function bodyNameEn(id: ObjId): string {
     return b?.name ?? String(id);
 }
 
-function bodyKind(id: ObjId): 'engine_body' | 'reference' | null {
-    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference' } | undefined;
+function bodyKind(id: ObjId): 'engine_body' | 'reference' | 'star' | null {
+    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference' | 'star' } | undefined;
     return b?.kind ?? null;
 }
 
@@ -163,7 +163,7 @@ function helioVec(id: ObjId, ts: number): { x: number; y: number; z: number } | 
 }
 
 function referenceDirectionVec(id: ObjId, ts: number): { x: number; y: number; z: number } | null {
-    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference'; meta?: ReferenceMeta } | undefined;
+    const b = (objects as any)[id] as { kind?: 'engine_body' | 'reference' | 'star'; meta?: ReferenceMeta } | undefined;
     const unit = b?.meta ? refUnitAtTsByKind(b?.kind, b.meta, ts) : null;
     if (!unit) return null;
     return { x: unit[0], y: unit[1], z: unit[2] };
@@ -209,7 +209,8 @@ function eqdRaDecFromFocusTargetDirection(
     target: ObjId,
     ts: number
 ): { raDeg: number; decDeg: number } | null {
-    if (bodyKind(target) === 'reference') {
+    const targetKind = bodyKind(target);
+    if (isReferenceLikeKind(targetKind)) {
         const dir = referenceDirectionVec(target, ts);
         if (!dir) return null;
         const raDeg = norm360((Math.atan2(dir.y, dir.x) * 180) / Math.PI);
@@ -314,7 +315,8 @@ function dotVec(a: Vec3d, b: Vec3d): number {
 }
 
 function lookerSideBasisVec(looker: ObjId, focus: ObjId, ts: number): Vec3d | null {
-    if (bodyKind(looker) === 'reference') {
+    const lookerKind = bodyKind(looker);
+    if (isReferenceLikeKind(lookerKind)) {
         const dirEq = referenceDirectionVec(looker, ts);
         if (!dirEq) return null;
         return normalizeVec(projectToEclipticPlane(eqToEcl(dirEq)));
@@ -366,7 +368,8 @@ function referenceTargetInstant(
 }
 
 function eclipticLatitudeDegAt(focus: ObjId, target: ObjId, ts: number): number {
-    if (bodyKind(target) === 'reference') {
+    const targetKind = bodyKind(target);
+    if (isReferenceLikeKind(targetKind)) {
         const dirEq = referenceDirectionVec(target, ts);
         if (!dirEq) return NaN;
         const dirEcl = eqToEcl(dirEq);
@@ -1238,7 +1241,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
 
     const raw = await Promise.all(targets.map(async (id): Promise<{
         id: ObjId;
-        kind: 'engine_body' | 'reference';
+        kind: 'engine_body' | 'reference' | 'star';
         angleDeg: number;
         phaseDeg: number;
         distanceAu: number;
@@ -1252,7 +1255,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
     } | null> => {
         const kind = bodyKind(id);
         if (!kind) return null;
-        if (kind === 'reference') {
+        if (isReferenceLikeKind(kind)) {
             const inst = referenceTargetInstant(looker, focus, id, ts);
             if (!inst) return null;
             const distanceAu = referenceDistanceAu(id);
@@ -1331,7 +1334,7 @@ export async function solveSystemWheel(input: WheelInput<'system'>): Promise<Com
     const maxAu = distances.length ? Math.max(...distances) : 1;
 
     const bodies: SystemTargetState[] = rows.map((r) => {
-        const orbit = r.kind === 'reference'
+        const orbit = isReferenceLikeKind(r.kind)
             ? SYSTEM_REFERENCE_RING_ORBIT
             : normalizeOrbit(r.distanceAu, maxAu);
         const eclLat = eclipticLatitudeDegAt(focus, r.id, ts);

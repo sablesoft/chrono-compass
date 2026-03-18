@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Castor
 const RA_CASTOR_DEG = hmsToDeg(7, 34, 36.0);
@@ -6,12 +6,13 @@ const DEC_CASTOR_DEG = dmsToDeg(1, 31, 53, 18.0);
 
 export const Castor = {
     id: 'ref:castor',
-    kind: 'reference',
+    kind: 'star',
     name: 'Castor',
     description: 'Castor (ICRF/J2000) — the second bright twin of Gemini and a famous naked-eye multiple-star system.',
     emoji: '✦',
     meta: {
         color: '#e8ebff',
+        constellationId: 'ref:constellation:gem',
         distancePc: 15.5959,
         apparentMagnitude: 1.58,
         properMotionRaMasYr: -206.33,
@@ -25,4 +26,4 @@ export const Castor = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

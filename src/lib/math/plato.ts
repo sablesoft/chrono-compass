@@ -1,5 +1,5 @@
 import type { CycleSolveResult, CycleSpoke, WheelInput } from '../board/runtime';
-import { objects, type ObjId, type ReferenceMeta } from '../catalog';
+import { isReferenceLikeKind, objects, type ObjId, type ReferenceMeta } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import { debug } from '../debug';
 import { ms } from '../format';
@@ -147,7 +147,7 @@ function getPlatoPhaseRadForLooker(ts: number, lookerUnit: V3) {
 function lookerUnitById(looker: ObjId | undefined): V3 {
     if (!looker) return DEFAULT_LOOKER;
     const rec = (objects as any)?.[looker] as { kind?: string; meta?: ReferenceMeta } | undefined;
-    if (!rec || rec.kind !== 'reference') return DEFAULT_LOOKER;
+    if (!rec || !isReferenceLikeKind(rec.kind as any)) return DEFAULT_LOOKER;
     const u3 = rec.meta ? refUnit(rec.meta) : null;
     if (!u3) return DEFAULT_LOOKER;
     return normalize({ x: u3[0], y: u3[1], z: u3[2] });
@@ -494,7 +494,7 @@ export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<Pl
     }
 
     const lookerObj = (objects as any)?.[looker] as { kind?: string } | undefined;
-    if (!lookerObj || lookerObj.kind !== 'reference') {
+    if (!lookerObj || !isReferenceLikeKind(lookerObj.kind as any)) {
         return fail('Plato wheel: looker must be a reference object');
     }
     if (!isTsWithinWheelTimeframe(ts)) {

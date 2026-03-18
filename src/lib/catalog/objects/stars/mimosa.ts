@@ -1,5 +1,5 @@
 // src/lib/catalog/objects/mimosa.ts
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Mimosa (Beta Crucis)
 const RA_MIMOSA_DEG = hmsToDeg(12, 47, 43.26877);
@@ -7,12 +7,13 @@ const DEC_MIMOSA_DEG = dmsToDeg(-1, 59, 41, 19.5792);
 
 export const Mimosa = {
     id: 'ref:mimosa',
-    kind: 'reference',
+    kind: 'star',
     name: 'Mimosa',
     description: 'Mimosa (ICRF/J2000) — the second-brightest star in the Southern Cross (Crux), a hot B-type star.',
     emoji: '✦',
     meta: {
         color: '#aabfff',
+        constellationId: 'ref:constellation:cru',
         distancePc: 85.3972,
         apparentMagnitude: 1.25,
         properMotionRaMasYr: -48.24,
@@ -26,4 +27,4 @@ export const Mimosa = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

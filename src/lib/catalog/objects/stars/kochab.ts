@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Kochab
 const RA_KOCHAB_DEG = hmsToDeg(14, 50, 42.3);
@@ -6,12 +6,13 @@ const DEC_KOCHAB_DEG = dmsToDeg(1, 74, 9, 20.0);
 
 export const Kochab = {
     id: 'ref:kochab',
-    kind: 'reference',
+    kind: 'star',
     name: 'Kochab',
     description: 'Kochab (ICRF/J2000) — Beta Ursae Minoris, a bright northern star in the Little Dipper and a notable pre-Polaris pole star.',
     emoji: '✦',
     meta: {
         color: '#efe6c8',
+        constellationId: 'ref:constellation:umi',
         distancePc: 40.1446,
         apparentMagnitude: 2.07,
         properMotionRaMasYr: -32.29,
@@ -25,4 +26,4 @@ export const Kochab = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

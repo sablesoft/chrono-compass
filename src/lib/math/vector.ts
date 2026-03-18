@@ -1,7 +1,7 @@
 // src/lib/math/vector.ts
 
 import { AU_KM, AU_PER_LY, deg2rad, isFiniteNumber, norm360 } from "./helpers";
-import type {ObjKind, ReferenceMeta, Vec3} from "../catalog";
+import { isReferenceLikeKind, type ObjKind, type ReferenceMeta, type Vec3 } from "../catalog";
 
 // Obliquity of the ecliptic (J2000), degrees
 export const EPS_DEG_J2000 = 23.439291;
@@ -220,9 +220,9 @@ function applyStellarMotion(meta: ReferenceMeta, base: Vec3, ts: number): Vec3 |
 export function refUnitAtTsByKind(kind: ObjKind | undefined, meta: ReferenceMeta, ts: number): Vec3 | null {
     const base = refUnit(meta);
     if (!base) return null;
-    const moved = kind === 'reference' ? applyStellarMotion(meta, base, ts) : base;
+    const moved = isReferenceLikeKind(kind) ? applyStellarMotion(meta, base, ts) : base;
     if (!moved) return null;
-    if (kind !== 'reference') return moved;
+    if (!isReferenceLikeKind(kind)) return moved;
     const frame = (meta?.direction as any)?.frame as string | undefined;
     if (frame !== 'icrf_j2000') return moved;
     return precessEqJ2000ToDate(moved, ts);

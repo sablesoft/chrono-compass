@@ -57,7 +57,7 @@
 
 import * as Astronomy from 'astronomy-engine';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
-import type { ObjId, ObjKind, ReferenceMeta } from '../catalog';
+import { isReferenceLikeKind, type ObjId, type ObjKind, type ReferenceMeta } from '../catalog';
 import { objects } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import { SPOKES_ORDER } from '../wheel/types';
@@ -180,7 +180,7 @@ function dirFromOriginToEngine(origin: ObjId, obj: ObjId, ts: number): { u: Vec;
 // This ignores parallax from different origins, which is fine at this scale.
 function dirFromOriginToReference(objId: ObjId, ts: number): { u: Vec; distAu: number } | null {
     const o = getObj(objId);
-    if (!o || o.kind !== 'reference') return null;
+    if (!o || !isReferenceLikeKind(o.kind)) return null;
     const meta = o?.meta as ReferenceMeta | undefined;
     if (!meta) return null;
 
@@ -194,10 +194,10 @@ function dirFromOrigin(origin: ObjId, obj: ObjId, ts: number): { u: Vec; distAu:
     // IMPORTANT: focus/origin must be an engine body to define a real vertex position.
     // If origin is a reference, we cannot compute vectors reliably.
     const orec = getObj(origin);
-    if (orec?.kind === 'reference') return null;
+    if (isReferenceLikeKind(orec?.kind)) return null;
 
     const rec = getObj(obj);
-    if (rec?.kind === 'reference') return dirFromOriginToReference(obj, ts);
+    if (isReferenceLikeKind(rec?.kind)) return dirFromOriginToReference(obj, ts);
     return dirFromOriginToEngine(origin, obj, ts);
 }
 
@@ -612,7 +612,7 @@ export function solveSynodWheel(input: WheelInput<'synod'>): CycleSolveResult<Sy
 
     // IMPORTANT: focus must be an engine_body to define the vertex position.
     const focusRec = getObj(focus);
-    if (focusRec?.kind === 'reference') {
+    if (isReferenceLikeKind(focusRec?.kind)) {
         return fail(`Synod wheel: focus (vertex) cannot be a reference: ${String(focus)}`);
     }
 
@@ -907,7 +907,7 @@ export function synodInstantAt(
 ): SynodInstant | null {
     // focus must be an engine_body vertex
     const focusRec = getObj(focus);
-    if (focusRec?.kind === 'reference') return null;
+    if (isReferenceLikeKind(focusRec?.kind)) return null;
 
     const phiRawAt = (t: number) => {
         const r = synodProjectedPhaseAt(looker, focus, target, t);

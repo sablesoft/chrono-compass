@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Fomalhaut
 const RA_FOMALHAUT_DEG = hmsToDeg(22, 57, 39.1);
@@ -6,12 +6,13 @@ const DEC_FOMALHAUT_DEG = dmsToDeg(-1, 29, 37, 20.0);
 
 export const Fomalhaut = {
     id: 'ref:fomalhaut',
-    kind: 'reference',
+    kind: 'star',
     name: 'Fomalhaut',
     description: 'Fomalhaut (ICRF/J2000) — Alpha Piscis Austrini, one of the brightest solitary stars and a major royal star in many traditions.',
     emoji: '✦',
     meta: {
         color: '#dff5ff',
+        constellationId: 'ref:constellation:psa',
         distancePc: 7.7037,
         apparentMagnitude: 1.17,
         properMotionRaMasYr: 329.22,
@@ -25,4 +26,4 @@ export const Fomalhaut = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

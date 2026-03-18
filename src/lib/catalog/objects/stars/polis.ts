@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Polis
 const RA_POLIS_DEG = hmsToDeg(19, 21, 40.4);
@@ -6,12 +6,13 @@ const DEC_POLIS_DEG = dmsToDeg(-1, 21, 1, 11.0);
 
 export const Polis = {
     id: 'ref:polis',
-    kind: 'reference',
+    kind: 'star',
     name: 'Polis',
     description: 'Polis (ICRF/J2000) — Mu Sagittarii, a notable Sagittarius star near the Archer’s head and part of the broader galactic-center region sky lore.',
     emoji: '✦',
     meta: {
         color: '#ffe0ba',
+        constellationId: 'ref:constellation:sgr',
         distancePc: 79.6177,
         apparentMagnitude: 3.84,
         properMotionRaMasYr: 5.29,
@@ -25,4 +26,4 @@ export const Polis = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

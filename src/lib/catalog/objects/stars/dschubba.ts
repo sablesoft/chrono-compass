@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Dschubba
 const RA_DSCHUBBA_DEG = hmsToDeg(16, 0, 20.0);
@@ -6,12 +6,13 @@ const DEC_DSCHUBBA_DEG = dmsToDeg(-1, 22, 37, 18.0);
 
 export const Dschubba = {
     id: 'ref:dschubba',
-    kind: 'reference',
+    kind: 'star',
     name: 'Dschubba',
     description: 'Dschubba (ICRF/J2000) — Delta Scorpii, a prominent star in the Scorpion’s forehead and one of the best-known stars of upper Scorpius.',
     emoji: '✦',
     meta: {
         color: '#d8e5ff',
+        constellationId: 'ref:constellation:sco',
         distancePc: 150.6025,
         apparentMagnitude: 2.29,
         properMotionRaMasYr: -8.67,
@@ -25,4 +26,4 @@ export const Dschubba = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Pollux
 const RA_POLLUX_DEG = hmsToDeg(7, 45, 18.95);
@@ -6,12 +6,13 @@ const DEC_POLLUX_DEG = dmsToDeg(1, 28, 1, 34.3);
 
 export const Pollux = {
     id: 'ref:pollux',
-    kind: 'reference',
+    kind: 'star',
     name: 'Pollux',
     description: 'Pollux (ICRF/J2000) — the brightest star in Gemini and one of the classical twin stars.',
     emoji: '✦',
     meta: {
         color: '#ffd79d',
+        constellationId: 'ref:constellation:gem',
         distancePc: 10.3585,
         apparentMagnitude: 1.16,
         properMotionRaMasYr: -625.69,
@@ -25,4 +26,4 @@ export const Pollux = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

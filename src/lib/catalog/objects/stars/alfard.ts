@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Alfard
 const RA_ALFARD_DEG = hmsToDeg(9, 27, 35.2);
@@ -6,12 +6,13 @@ const DEC_ALFARD_DEG = dmsToDeg(-1, 8, 39, 31.0);
 
 export const Alfard = {
     id: 'ref:alfard',
-    kind: 'reference',
-    name: 'Alfard',
-    description: 'Alfard (ICRF/J2000) — Alpha Hydrae, the solitary bright star of Hydra and a well-known marker of the Water Serpent.',
+    kind: 'star',
+    name: 'Alphard',
+    description: 'Alphard (ICRF/J2000) — Alpha Hydrae, the solitary bright star of Hydra and a well-known marker of the Water Serpent.',
     emoji: '✦',
     meta: {
         color: '#f0d6b5',
+        constellationId: 'ref:constellation:hya',
         distancePc: 55.2791,
         apparentMagnitude: 1.99,
         properMotionRaMasYr: -14.49,
@@ -25,4 +26,4 @@ export const Alfard = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

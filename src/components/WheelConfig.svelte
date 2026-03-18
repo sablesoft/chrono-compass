@@ -17,6 +17,7 @@
     import type { BoardWheelView } from '../lib/board/types';
     import type { WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import RoleChecklist from './RoleChecklist.svelte';
+    import { buildConstellationTargetGroups, type ConstellationTargetGroup } from '../lib/catalog/constellationGroups';
 
     export let type: WheelType;
     export let roles: WheelRolesState = {};
@@ -55,6 +56,8 @@
     $: multiTarget = isMultiTarget(spec);
     let draftTargets: ObjId[] = [];
     let targetAllChecked = false;
+    let targetAllStarsChecked = false;
+    let targetConstellationGroups: ConstellationTargetGroup[] = [];
     let roleOptionsMap: Partial<Record<RoleName, ObjId[]>> = {};
     let selectedValuesMap: Partial<Record<RoleName, ObjId[]>> = {};
 
@@ -216,6 +219,37 @@
         draftRoles = { ...normalized, target: draftRoles.target };
     }
 
+    function toggleDraftTargetConstellationGroup(groupId: string) {
+        if (locked || !multiTarget) return;
+        const group = targetConstellationGroups.find((item) => item.id === groupId);
+        if (!group || group.itemIds.length === 0) return;
+
+        const allChecked = group.itemIds.every((id) => draftTargets.includes(id));
+        const picked = allChecked
+            ? draftTargets.filter((id) => !group.itemIds.includes(id))
+            : Array.from(new Set([...draftTargets, ...group.itemIds]));
+
+        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+        const t = normalized.target;
+        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+        draftRoles = { ...normalized, target: draftRoles.target };
+    }
+
+    function toggleAllDraftTargetStars() {
+        if (locked || !multiTarget) return;
+        const starIds = Array.from(new Set(targetConstellationGroups.flatMap((group) => group.itemIds)));
+        if (starIds.length === 0) return;
+
+        const picked = targetAllStarsChecked
+            ? draftTargets.filter((id) => !starIds.includes(id))
+            : Array.from(new Set([...draftTargets, ...starIds]));
+
+        const normalized = normalizeRolesForType(spec, { ...draftRoles, target: picked });
+        const t = normalized.target;
+        draftTargets = Array.isArray(t) ? (t as ObjId[]) : [];
+        draftRoles = { ...normalized, target: draftRoles.target };
+    }
+
     function updateExisting() {
         if (locked) return;
         if (!canUpdate) return;
@@ -275,6 +309,15 @@
         if (all.length === 0) return false;
         if (draftTargets.length !== all.length) return false;
         return all.every((id) => draftTargets.includes(id));
+    })();
+    $: targetConstellationGroups = multiTarget
+        ? buildConstellationTargetGroups(roleOptionsMap.target ?? [])
+        : [];
+    $: targetAllStarsChecked = (() => {
+        if (!multiTarget) return false;
+        const starIds = Array.from(new Set(targetConstellationGroups.flatMap((group) => group.itemIds)));
+        if (starIds.length === 0) return false;
+        return starIds.every((id) => draftTargets.includes(id));
     })();
 
     let draftSpec = '';
@@ -361,10 +404,15 @@
                                 locked={locked}
                                 showAllOption={multiTarget}
                                 allChecked={targetAllChecked}
+                                showAllStarsOption={multiTarget}
+                                allStarsChecked={targetAllStarsChecked}
+                                groupOptions={targetConstellationGroups}
                                 maxHeight="120px"
                                 bind:search={targetSearch}
                                 onToggleItem={(id) => toggleRoleOption(r, id)}
                                 onToggleAll={toggleAllDraftTargets}
+                                onToggleAllStars={toggleAllDraftTargetStars}
+                                onToggleGroup={toggleDraftTargetConstellationGroup}
                             />
                         {/if}
                     </div>

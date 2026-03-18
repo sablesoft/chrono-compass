@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Vega
 const RA_VEGA_DEG = hmsToDeg(18, 36, 56.336);
@@ -6,13 +6,14 @@ const DEC_VEGA_DEG = dmsToDeg(1, 38, 47, 1.28);
 
 export const Vega = {
     id: 'ref:vega',
-    kind: 'reference',
+    kind: 'star',
     name: 'Vega',
     description: 'Vega (ICRF/J2000) — the brightest star in Lyra and a prominent vertex of the Summer Triangle.',
     emoji: '✶',
     emojiScale: 1,
     meta: {
         color: '#d8e4ff',
+        constellationId: 'ref:constellation:lyr',
         distancePc: 7.6788,
         apparentMagnitude: 0.03,
         properMotionRaMasYr: 201.02,
@@ -26,4 +27,4 @@ export const Vega = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

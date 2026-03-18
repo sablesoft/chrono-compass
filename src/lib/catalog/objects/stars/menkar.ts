@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Menkar
 const RA_MENKAR_DEG = hmsToDeg(3, 2, 16.8);
@@ -6,12 +6,13 @@ const DEC_MENKAR_DEG = dmsToDeg(1, 4, 5, 23.0);
 
 export const Menkar = {
     id: 'ref:menkar',
-    kind: 'reference',
+    kind: 'star',
     name: 'Menkar',
     description: 'Menkar (ICRF/J2000) — a red giant in Cetus traditionally associated with the sea monster’s head.',
     emoji: '✦',
     meta: {
         color: '#ffb27c',
+        constellationId: 'ref:constellation:cet',
         distancePc: 76.3941,
         apparentMagnitude: 2.54,
         properMotionRaMasYr: -11.81,
@@ -25,4 +26,4 @@ export const Menkar = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

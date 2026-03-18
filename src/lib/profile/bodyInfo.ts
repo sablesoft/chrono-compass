@@ -19,7 +19,7 @@ type BodyOverrideMap = Partial<Record<ObjId, BodyUserOverride>>;
 export const DEFAULT_EMOJI_SCALE = 0.7;
 
 function catalogBody(id: ObjId): {
-    kind?: 'engine_body' | 'reference' | 'pole' | 'constellation';
+    kind?: 'engine_body' | 'reference' | 'star' | 'pole' | 'constellation';
     name?: string;
     description?: string;
     emoji?: string;
@@ -27,7 +27,7 @@ function catalogBody(id: ObjId): {
     meta?: { color?: string } & Partial<ReferenceMeta>;
 } | null {
     return ((objects as any)?.[id] ?? null) as {
-        kind?: 'engine_body' | 'reference' | 'pole' | 'constellation';
+        kind?: 'engine_body' | 'reference' | 'star' | 'pole' | 'constellation';
         name?: string;
         description?: string;
         emoji?: string;

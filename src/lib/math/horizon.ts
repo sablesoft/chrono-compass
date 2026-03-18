@@ -33,7 +33,7 @@ import {
     Observer,
 } from 'astronomy-engine';
 
-import type { Obj, ObjId, ReferenceMeta } from '../catalog';
+import { isReferenceLikeKind, type Obj, type ObjId, type ObjKind, type ReferenceMeta } from '../catalog';
 import { objects } from '../catalog';
 import { cycleSpokeTags } from '../catalog/tags';
 import type { WheelInput, CycleSolveResult, CycleSpoke } from '../board/runtime';
@@ -107,7 +107,7 @@ function makeObserver(lat: number, lon: number, heightMeters = 0) {
  */
 function referenceRaDecDeg(id: ObjId, ts: number): { raDeg: number; decDeg: number } | null {
     const obj = (objects as any)[id] as Obj | undefined;
-    if (!obj || (obj.kind !== 'reference' && obj.kind !== 'pole')) return null;
+    if (!obj || (!isReferenceLikeKind(obj.kind) && obj.kind !== 'pole')) return null;
     const meta = obj.meta as ReferenceMeta | undefined;
     const dir = meta?.direction as any;
     if (!dir || dir.frame !== 'icrf_j2000') return null;
@@ -131,7 +131,7 @@ function targetState(ts: number, obs: Observer, target: ObjId): {
         const time = new AstroTime(new Date(ts));
         const obj = (objects as any)[target] as Obj | undefined;
 
-        if (obj?.kind === 'reference' || obj?.kind === 'pole') {
+        if (isReferenceLikeKind(obj?.kind) || obj?.kind === 'pole') {
             const ref = referenceRaDecDeg(target, ts);
             if (!ref) return null;
             const raHours = ref.raDeg / 15;
@@ -187,8 +187,8 @@ function targetAltitudeDeg(ts: number, obs: Observer, target: ObjId): number {
 export type HorizonVisibility = 'crosses' | 'alwaysAbove' | 'alwaysBelow' | 'unknown';
 
 function referenceDeclinationDeg(id: ObjId, ts: number): number | null {
-    const obj = (objects as any)[id] as { kind?: string; meta?: ReferenceMeta } | undefined;
-    if (!obj || (obj.kind !== 'reference' && obj.kind !== 'pole')) return null;
+    const obj = (objects as any)[id] as { kind?: ObjKind; meta?: ReferenceMeta } | undefined;
+    if (!obj || (!isReferenceLikeKind(obj.kind) && obj.kind !== 'pole')) return null;
     const meta = obj.meta;
     const dir = meta?.direction as any;
     if (!dir || dir.frame !== 'icrf_j2000') return null;

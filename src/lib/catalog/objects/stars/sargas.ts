@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Sargas
 const RA_SARGAS_DEG = hmsToDeg(17, 37, 19.1);
@@ -6,12 +6,13 @@ const DEC_SARGAS_DEG = dmsToDeg(-1, 42, 59, 52.0);
 
 export const Sargas = {
     id: 'ref:sargas',
-    kind: 'reference',
+    kind: 'star',
     name: 'Sargas',
     description: 'Sargas (ICRF/J2000) — Theta Scorpii, a bright southern star in the Scorpion often used as a marker of its curving tail region.',
     emoji: '✦',
     meta: {
         color: '#ffe1b8',
+        constellationId: 'ref:constellation:sco',
         distancePc: 92.0811,
         apparentMagnitude: 1.86,
         properMotionRaMasYr: 6.06,
@@ -25,4 +26,4 @@ export const Sargas = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

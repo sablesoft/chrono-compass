@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Sabik
 const RA_SABIK_DEG = hmsToDeg(17, 10, 22.7);
@@ -6,12 +6,13 @@ const DEC_SABIK_DEG = dmsToDeg(-1, 15, 43, 30.0);
 
 export const Sabik = {
     id: 'ref:sabik',
-    kind: 'reference',
+    kind: 'star',
     name: 'Sabik',
     description: 'Sabik (ICRF/J2000) — Eta Ophiuchi, a bright star in Ophiuchus traditionally associated with the Serpent Bearer’s lower figure.',
     emoji: '✦',
     meta: {
         color: '#e6edff',
+        constellationId: 'ref:constellation:oph',
         distancePc: 27.0929,
         apparentMagnitude: 2.43,
         properMotionRaMasYr: 41.16,
@@ -25,4 +26,4 @@ export const Sabik = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;

@@ -1,4 +1,4 @@
-import { dmsToDeg, hmsToDeg, type Obj } from '../../types';
+import { dmsToDeg, hmsToDeg, type StarObj } from '../../types';
 
 // J2000 coordinates for Denebola
 const RA_DENEBOLA_DEG = hmsToDeg(11, 49, 3.6);
@@ -6,12 +6,13 @@ const DEC_DENEBOLA_DEG = dmsToDeg(1, 14, 34, 19.0);
 
 export const Denebola = {
     id: 'ref:denebola',
-    kind: 'reference',
+    kind: 'star',
     name: 'Denebola',
     description: 'Denebola (ICRF/J2000) — the tail star of Leo and a well-known bright marker near the ecliptic.',
     emoji: '✦',
     meta: {
         color: '#f2f3ff',
+        constellationId: 'ref:constellation:leo',
         distancePc: 11,
         apparentMagnitude: 2.14,
         properMotionRaMasYr: -499.02,
@@ -25,4 +26,4 @@ export const Denebola = {
             }
         }
     }
-} satisfies Obj;
+} satisfies StarObj;
