@@ -9,6 +9,7 @@ import {resolveWheel} from '../board/dispatcher';
 import {currentHouseAtTs, toSigned180, trackInMainCycleWindow} from "./helpers";
 import { classifyHorizonVisibility, computeHorizonInstant, orbitFromAltitudeDeg, type HorizonMeta } from './horizon';
 import { compass as compassSpec } from '../catalog/wheels/compass';
+import type { ConstellationCatalogEntry } from './constellation';
 import { constellationEntriesFromObjects, findConstellationByRaDec } from './constellation';
 import { synodProjectedPhaseAt } from './synod';
 
@@ -87,6 +88,18 @@ export type CompassAstroFrameNode = {
 export type CompassAstroFrameLayer = {
     curves: CompassAstroFrameCurve[];
     nodes: CompassAstroFrameNode[];
+};
+
+export type CompassConstellationBoundaryCurve = {
+    id: string;
+    constellationId: ObjId;
+    constellationName: string;
+    polygonIndex: number;
+    track: CompassTrackPoint[];
+};
+
+export type CompassConstellationBoundaryLayer = {
+    curves: CompassConstellationBoundaryCurve[];
 };
 
 const COMPASS_SPOKES = ['E', 'ENE', 'NE', 'NNE', 'N', 'NNW', 'NW', 'WNW', 'W', 'WSW', 'SW', 'SSW', 'S', 'SSE', 'SE', 'ESE'] as const;
@@ -1152,6 +1165,68 @@ export function buildCompassAstroFrameLayer(input: {
         ],
         nodes
     };
+}
+
+export function buildCompassConstellationBoundaryLayer(input: {
+    ts: number;
+    location: WheelInput['location'];
+    constellations?: ConstellationCatalogEntry[];
+}): CompassConstellationBoundaryLayer | null {
+    const ts = Number(input.ts);
+    const lat = Number(input.location?.lat);
+    const lon = Number(input.location?.lon);
+    if (!Number.isFinite(ts) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    const constellations = input.constellations ?? constellationEntriesFromObjects(objects);
+    const curves: CompassConstellationBoundaryCurve[] = [];
+
+    for (const c of constellations) {
+        const layer = c.meta?.boundaryLayers?.spherical;
+        if (!layer || !Array.isArray(layer.polygons) || layer.polygons.length === 0) continue;
+
+        for (let polygonIndex = 0; polygonIndex < layer.polygons.length; polygonIndex++) {
+            const polygon = layer.polygons[polygonIndex];
+            if (!Array.isArray(polygon) || polygon.length < 2) continue;
+
+            const track: CompassTrackPoint[] = [];
+            for (let i = 0; i < polygon.length; i++) {
+                const vertex = polygon[i];
+                const p = raDecToHorizonPoint({
+                    ts,
+                    lat,
+                    lon,
+                    raHours: Number(vertex.raDeg) / 15,
+                    decDeg: Number(vertex.decDeg)
+                });
+                if (!p) continue;
+                track.push({
+                    ...p,
+                    index: i,
+                    code: 'CB'
+                });
+            }
+
+            if (track.length < 2) continue;
+            const first = track[0];
+            const last = track[track.length - 1];
+            if (first.angleDeg !== last.angleDeg || first.orbit !== last.orbit) {
+                track.push({
+                    ...first,
+                    index: track.length
+                });
+            }
+
+            curves.push({
+                id: `${c.id}:poly:${polygonIndex}`,
+                constellationId: c.id,
+                constellationName: c.name,
+                polygonIndex,
+                track
+            });
+        }
+    }
+
+    return { curves };
 }
 
 /**

@@ -52,7 +52,11 @@
     import type { CompassInfoConfig, CompassInfoGroupConfig, CompassInfoTagConfig, WheelObserverState, WheelTimeState } from '../lib/wheel/types';
     import { setSelectedTs } from '../lib/time/store';
 
-    import { buildCompassAstroFrameLayer, compassTargetsToMarkerItems } from '../lib/math/compass';
+    import {
+        buildCompassAstroFrameLayer,
+        buildCompassConstellationBoundaryLayer,
+        compassTargetsToMarkerItems
+    } from '../lib/math/compass';
     import type { CompassAstroFrameLayer, CompassAstroFrameNode, CompassTargetState } from '../lib/math/compass';
     import { constellationEntriesFromObjects, findConstellationByRaDec } from '../lib/math/constellation';
     import { AU_PER_LY, norm360 } from '../lib/math/helpers';
@@ -233,6 +237,7 @@
     let astroFrameLayerDisplay: CompassAstroFrameLayer | null = null;
     let orbitCurves: Array<{ id: ObjId; seg: number; d: string; visible: boolean }> = [];
     let astroFrameCurves: Array<{ id: 'equator' | 'ecliptic'; seg: number; d: string; visible: boolean }> = [];
+    let constellationBoundaryCurves: Array<{ id: string; seg: number; d: string; visible: boolean; title: string }> = [];
     let astroFrameNodes: Array<{
         id: string;
         kind: 'intersection' | 'pole';
@@ -408,6 +413,7 @@
     let hasPinnedNodalNodes = false;
     let showOrbits = true;
     let showAstroFrame = false;
+    let showConstellationBoundaries = false;
     type LiveNorthPermissionState = 'unknown' | 'prompt' | 'granted' | 'denied' | 'unsupported';
     let liveNorthEnabled = false;
     let liveNorthHeadingDeg: number | null = null;
@@ -452,6 +458,7 @@
         }
         if (wheelType !== 'compass') {
             showAstroFrame = false;
+            showConstellationBoundaries = false;
         }
     }
 
@@ -463,6 +470,11 @@
     function toggleAstroFrame() {
         onUserActivity();
         showAstroFrame = !showAstroFrame;
+    }
+
+    function toggleConstellationBoundaries() {
+        onUserActivity();
+        showConstellationBoundaries = !showConstellationBoundaries;
     }
 
     function shortestSignedAngleDeg(fromDeg: number, toDeg: number): number {
@@ -2324,6 +2336,39 @@
                         tip: astroFrameNodeTip(node)
                     }];
                 });
+            }
+        }
+    }
+
+    $: {
+        if (wheel?.wheelType !== 'compass' || !showConstellationBoundaries) {
+            constellationBoundaryCurves = [];
+        } else {
+            const layer = buildCompassConstellationBoundaryLayer({
+                ts: effTs,
+                location: wheelLoc,
+                constellations: CONSTELLATION_ENTRIES
+            });
+            if (!layer) {
+                constellationBoundaryCurves = [];
+            } else {
+                constellationBoundaryCurves = layer.curves
+                    .flatMap((curve) => {
+                        if (!curve.track || curve.track.length < 2) return [];
+                        const segments = splitTrackByVisibility(curve.track);
+                        return segments.flatMap((s, idx) => {
+                            if (!s.visible || !s.pts || s.pts.length < 2) return [];
+                            const d = trackPathD(s.pts);
+                            if (!d) return [];
+                            return [{
+                                id: curve.id,
+                                seg: idx,
+                                d,
+                                visible: true,
+                                title: curve.constellationName
+                            }];
+                        });
+                    });
             }
         }
     }
@@ -4203,6 +4248,14 @@
                         <path d={pieSectorPath(-315, -405, rHorizon)} class="q q-gold" />
                     </g>
 
+                    {#if wheel?.wheelType === 'compass' && showConstellationBoundaries}
+                        {#each constellationBoundaryCurves as c (`constellation-boundary:${c.id}:${c.seg}`)}
+                            <path class="constellationBoundaryCurve" d={c.d} data-keep-pin="1">
+                                <title>{c.title}</title>
+                            </path>
+                        {/each}
+                    {/if}
+
                     {#each labels as label, i (label)}
                         {@const a = spokeAngleDeg(i)}
                         {@const p1 = { x: cx, y: cy }}
@@ -4483,6 +4536,17 @@
                                 on:click={toggleAstroFrame}
                         >
                             AF
+                        </button>
+                        <button
+                                class="nodeToggle navBtn constellationBoundaryToggle"
+                                class:off={!showConstellationBoundaries}
+                                type="button"
+                                title={showConstellationBoundaries ? 'Hide constellation boundaries' : 'Show constellation boundaries'}
+                                aria-label={showConstellationBoundaries ? 'Hide constellation boundaries' : 'Show constellation boundaries'}
+                                aria-pressed={showConstellationBoundaries}
+                                on:click={toggleConstellationBoundaries}
+                        >
+                            CB
                         </button>
                     {/if}
                     <button
@@ -4887,6 +4951,19 @@
 
                     {#if controlsPaneMode === 'side'}
                         <div class="compassNav">
+                            {#if wheel?.wheelType === 'compass'}
+                                <button
+                                        class="nodeToggle navBtn constellationBoundaryToggle"
+                                        class:off={!showConstellationBoundaries}
+                                        type="button"
+                                        title={showConstellationBoundaries ? 'Hide constellation boundaries' : 'Show constellation boundaries'}
+                                        aria-label={showConstellationBoundaries ? 'Hide constellation boundaries' : 'Show constellation boundaries'}
+                                        aria-pressed={showConstellationBoundaries}
+                                        on:click={toggleConstellationBoundaries}
+                                >
+                                    CB
+                                </button>
+                            {/if}
                             <button
                                     class="orbitToggle navBtn"
                                     class:off={!showOrbits}
@@ -5654,6 +5731,9 @@
     .nodeToggle.astroFrameToggle {
         color: color-mix(in oklab, #7bdff2, white 8%);
     }
+    .nodeToggle.constellationBoundaryToggle {
+        color: color-mix(in oklab, #9ad18f, white 10%);
+    }
     .liveNorthArrow {
         pointer-events: none;
     }
@@ -5690,6 +5770,15 @@
     }
     .astroFrameCurve.dim {
         stroke-opacity: 0.18;
+    }
+    .constellationBoundaryCurve {
+        fill: none;
+        stroke: color-mix(in oklab, #9ad18f, white 8%);
+        stroke-width: 1.25;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        stroke-opacity: 0.34;
+        pointer-events: none;
     }
     .astroFrameNode {
         cursor: pointer;
