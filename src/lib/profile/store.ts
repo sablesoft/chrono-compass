@@ -25,22 +25,7 @@ function now(): number {
 }
 
 function preferredLangChain2(): string[] {
-    if (typeof navigator === 'undefined') return ['en'];
-    const list = (navigator.languages && navigator.languages.length)
-        ? navigator.languages
-        : [navigator.language || 'en'];
-
-    const out: string[] = [];
-    for (const raw of list) {
-        const lang2 = String(raw || '')
-            .toLowerCase()
-            .split('-')[0]
-            ?.slice(0, 2) || '';
-        if (!/^[a-z]{2}$/.test(lang2)) continue;
-        if (!out.includes(lang2)) out.push(lang2);
-    }
-    if (!out.includes('en')) out.push('en');
-    return out.length ? out : ['en'];
+    return ['en'];
 }
 
 const DEFAULT_OBSERVER: WheelObserverState = { locationId: DEFAULT_LOCATION_ID, locked: false };

@@ -83,7 +83,7 @@
             The application is ready for offline use.
         </div>
         <div class="sw-toast__actions">
-            <button on:click={close}>Ок</button>
+            <button on:click={close}>OK</button>
         </div>
     </div>
 {/if}

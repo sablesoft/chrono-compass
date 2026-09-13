@@ -3,6 +3,8 @@
   import { onMount, onDestroy } from 'svelte';
   import Header from './components/Header.svelte';
   import Board from './components/Board.svelte';
+  import Calendar from './components/Calendar.svelte';
+  import { CALENDAR_EPOCH_DAY } from './lib/calendar/epoch';
 
   import { currentLocation } from './lib/location/store';
   import { selectedTs as selectedTsStore } from './lib/time/store';
@@ -11,11 +13,16 @@
 
   let resetUiId = 0;
   let unsubLoc: (() => void) | null = null;
+  let section = typeof window !== 'undefined' ? window.location.hash.slice(1) || 'calendar' : 'calendar';
+  $: calendarMode = section === 'calendar' || section === 'gregorian';
 
   onMount(() => {
+    const updatePage = () => section = window.location.hash.slice(1) || 'calendar';
+    window.addEventListener('hashchange', updatePage);
     unsubLoc = currentLocation.subscribe((v) => {
       resetUiId += 1;
     });
+    return () => window.removeEventListener('hashchange', updatePage);
   });
 
   onDestroy(() => {
@@ -27,21 +34,29 @@
 </script>
 
 <svelte:head>
-  <title>ChronoCompass{isDev ? ' — DEV' : ''}</title>
+  <title>{section === 'calendar' ? 'Epoch Calendar · ' : section === 'gregorian' ? 'Gregorian Calendar · ' : ''}ChronoCompass{isDev ? ' — DEV' : ''}</title>
 </svelte:head>
 
 <SwUpdateToast />
 
-<main>
+<main class:calendarMode>
   <div class="container">
-    <Header />
+    <Header {calendarMode} {section} />
     <div class="boardSlot">
-      <Board selectedTs={$selectedTsStore} />
+      {#if section === 'calendar'}
+        <Calendar epochDay={CALENDAR_EPOCH_DAY} />
+      {:else if section === 'gregorian'}
+        <section class="placeholder"><h1>Gregorian Calendar</h1><p>This section is coming soon.</p></section>
+      {:else}
+        <Board selectedTs={$selectedTsStore} />
+      {/if}
     </div>
   </div>
 </main>
 
 <style>
+  .placeholder { margin: 48px auto; text-align: center; padding: 24px; }
+  .placeholder p { color: var(--muted); }
   main {
     padding: var(--app-main-pad, 16px);
     background: var(--bg);
@@ -80,6 +95,9 @@
       overflow: hidden;
       display: grid;
     }
+    main.calendarMode { height: auto; overflow: visible; }
+    .calendarMode .container { height: auto; display: block; overflow: visible; }
+    .calendarMode .boardSlot { display: block; overflow: visible; }
   }
 
 </style>

@@ -97,7 +97,7 @@ export function resolveBodyDescriptionLabel(
     if (shared) return shared;
     const custom = trimText(bodyOverrideRecord(overrides, id)?.descriptionLabel);
     if (custom) return custom;
-    return lang === 'ru' ? 'Описание' : 'Description';
+    return 'Description';
 }
 
 export function resolveBodyDistanceLy(id: ObjId): number {
@@ -116,7 +116,7 @@ export function resolveBodyDistancePc(id: ObjId): number {
 export function resolveBodyDistanceLyLabel(id: ObjId, overrides: BodyOverrideMap | null | undefined, lang = 'en'): string {
     const custom = trimText(bodyOverrideRecord(overrides, id)?.distanceLyLabel);
     if (custom) return custom;
-    return lang === 'ru' ? 'Расстояние' : 'Distance';
+    return 'Distance';
 }
 
 function bodyInfoOverrideItems(overrides: BodyOverrideMap | null | undefined, id: ObjId): Map<string, BodyUserInfoItem> {

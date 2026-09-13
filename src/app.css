@@ -384,3 +384,17 @@ button:focus-visible {
 @keyframes wheel-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Shared calendar palette for week rows and correction-wheel sectors. */
+:root {
+  --calendar-red: color-mix(in oklab, var(--accent-red) 28%, var(--panel));
+  --calendar-white: color-mix(in oklab, var(--accent-white) 22%, var(--panel));
+  --calendar-blue: color-mix(in oklab, var(--accent-blue) 28%, var(--panel));
+  --calendar-gold: color-mix(in oklab, var(--accent-gold) 28%, var(--panel));
+}
+html[data-theme="light"] {
+  --calendar-red: color-mix(in oklab, var(--accent-red) 22%, var(--panel));
+  --calendar-white: var(--accent-white);
+  --calendar-blue: color-mix(in oklab, var(--accent-blue) 22%, var(--panel));
+  --calendar-gold: color-mix(in oklab, var(--accent-gold) 30%, var(--panel));
+}

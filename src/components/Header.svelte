@@ -6,11 +6,14 @@
     import ProfilePicker from './ProfilePicker.svelte';
     import TimePicker from './TimePicker.svelte';
     import ThemeSwitcher from './ThemeSwitcher.svelte';
+    import SectionSwitcher from './SectionSwitcher.svelte';
     import { upsertSavedLocation, currentLocationId } from "../lib/location/store";
     import { phoneCarouselState, requestPhoneCarouselStep } from '../lib/app/phoneCarousel';
     import type { Location } from '../lib/location/types';
     let mobileMenuOpen = false;
-    $: hasPhoneNav = $phoneCarouselState.enabled && $phoneCarouselState.total > 1;
+    export let calendarMode = false;
+    export let section = 'calendar';
+    $: hasPhoneNav = !calendarMode && $phoneCarouselState.enabled && $phoneCarouselState.total > 1;
 
     function handleGlobalLocationChange(
         loc: Location
@@ -31,12 +34,12 @@
     }
 </script>
 
-<header class="bar">
+<header class="bar" class:calendarMode>
     <div class="row rowTop" class:rowTopNoNav={!hasPhoneNav}>
         <div class="logo">{@html logo}</div>
         <div class="title">Chrono Compass</div>
         <div class="slot time">
-            <TimePicker />
+            {#if !calendarMode}<TimePicker />{/if}
         </div>
         <div class="phoneNavWrap">
             {#if hasPhoneNav}
@@ -60,7 +63,7 @@
     </div>
     <div id="header-mobile-row-bottom" class="row rowBottom" class:mobileCollapsed={!mobileMenuOpen}>
         <div class="slot profile">
-            <ProfilePicker />
+            {#if !calendarMode}<ProfilePicker />{/if}
         </div>
         <div class="slot loc">
             <LocationPicker
@@ -69,6 +72,7 @@
                     onChange={handleGlobalLocationChange}/>
         </div>
         <div class="actions themeActions">
+            <SectionSwitcher {section} />
             <ThemeSwitcher />
         </div>
     </div>
@@ -130,6 +134,8 @@
         margin-bottom: 4px;
     }
 
+    .bar.calendarMode { grid-template-columns: auto auto 1fr auto; grid-template-areas: "logo title loc actions"; }
+    .calendarMode .profile, .calendarMode .time { display: none; }
     .slot {
         min-width: 0;
     }
@@ -213,6 +219,9 @@
             gap: var(--sp-4);
             width: 100%;
         }
+        .calendarMode .rowTop.rowTopNoNav { grid-template-areas: "logo title actions"; }
+        .calendarMode .title { display: block; }
+        .calendarMode .rowBottom { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "loc actions"; }
         .rowBottom.mobileCollapsed {
             display: none;
         }
@@ -271,7 +280,7 @@
             min-width: 0;
         }
         .menuActions { display: flex; }
-        .themeActions { display: flex; }
+        .themeActions { display: flex; gap: var(--sp-6); }
         .actions :global(button.icon) {
             width: var(--wheel-header-btn-size, 22px);
             height: var(--wheel-header-btn-size, 22px);

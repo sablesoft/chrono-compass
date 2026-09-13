@@ -16,7 +16,8 @@ export default defineConfig({
         'favicon.ico',
         'favicon.svg',
         'apple-touch-icon-180x180.png',
-        'robots.txt'
+        'robots.txt',
+        'docs/en/calendars/epoch-calendar.md'
       ],
 
       manifest: {

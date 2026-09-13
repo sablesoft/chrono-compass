@@ -10,16 +10,7 @@ export type DocsState = {
 };
 
 export function getPreferredLang2(): string {
-    if (typeof navigator === 'undefined') return 'en';
-
-    const list = (navigator.languages && navigator.languages.length)
-        ? navigator.languages
-        : [navigator.language || 'en'];
-
-    const first = (list[0] || 'en').toLowerCase();
-    const lang2 = first.split('-')[0]?.slice(0, 2) || 'en';
-
-    return /^[a-z]{2}$/.test(lang2) ? lang2 : 'en';
+    return 'en';
 }
 
 async function fetchText(url: string): Promise<string> {
