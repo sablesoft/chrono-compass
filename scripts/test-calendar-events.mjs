@@ -112,6 +112,9 @@ try {
     const grid = gregorianMonth({year: y, month: m}, 0);
     assert.equal(grid.days.length, new Date(Date.UTC(y, m, 0)).getUTCDate());
     assert.equal(grid.offset, (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7);
+    const sundayGrid = gregorianMonth({year: y, month: m}, 0, 'Sun');
+    assert.equal(sundayGrid.offset, new Date(Date.UTC(y, m - 1, 1)).getUTCDay());
+    assert.deepEqual(sundayGrid.days, grid.days);
     assert.equal(grid.days[0].absolute, Date.UTC(y, m - 1, 1) / 86400000);
     assert.deepEqual(moveGregorianMonth(moveGregorianMonth({year: y, month: m}, 1), -1), {year: y, month: m});
   }

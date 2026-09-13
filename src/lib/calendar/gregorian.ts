@@ -4,7 +4,7 @@ export const GREGORIAN_MONTHS = ['January', 'February', 'March', 'April', 'May',
 export type GregorianPage = { year: number; month: number };
 
 /** Reuse the core's civil-day conversions so both calendars share one day axis. */
-export function gregorianMonth(page: GregorianPage, epoch: number) {
+export function gregorianMonth(page: GregorianPage, epoch: number, weekStart: 'Mon' | 'Sun' = 'Mon') {
   if (!Number.isInteger(page.year) || page.year < -9999 || page.year > 9999 ||
       !Number.isInteger(page.month) || page.month < 1 || page.month > 12) {
     throw new RangeError('Choose a year from 10000 BCE to 9999 CE and a valid month.');
@@ -12,8 +12,8 @@ export function gregorianMonth(page: GregorianPage, epoch: number) {
   const start = gregorianDay(page.year, page.month, 1);
   const next = gregorianDay(page.year + (page.month === 12 ? 1 : 0), page.month === 12 ? 1 : page.month + 1, 1);
   return {
-    // 1970-01-01 was Thursday; Monday is column zero.
-    offset: ((start + 3) % 7 + 7) % 7,
+    // 1970-01-01 was Thursday; shift columns to the selected week start.
+    offset: ((start + (weekStart === 'Mon' ? 3 : 4)) % 7 + 7) % 7,
     days: Array.from({length: next - start}, (_, i) => ({
       number: i + 1, absolute: start + i - epoch, address: notation(fromDay(start + i - epoch))
     }))

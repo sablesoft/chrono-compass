@@ -26,6 +26,8 @@
   let gregorianPage: GregorianPage | null = null;
   let civilYear = 2026, civilMonth = 1;
   let era = 'CE';
+  let weekStart: 'Mon' | 'Sun' = 'Mon';
+  $: weekdays = weekStart === 'Mon' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let error = '';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   $: timezone = $currentLocation?.tz || 'UTC';
@@ -34,7 +36,7 @@
   $: if (!page) selectPage(today);
   $: civilToday = fromGregorianDay(epochDay + todayDay);
   $: if (!gregorianPage) selectGregorian(civilToday);
-  $: gregorianGrid = gregorianPage ? gregorianMonth(gregorianPage, epochDay) : {days: [], offset: 0};
+  $: gregorianGrid = gregorianPage ? gregorianMonth(gregorianPage, epochDay, weekStart) : {days: [], offset: 0};
   $: showEpoch = gregorian && displayOptions.includes('epoch');
   $: count = gregorian ? gregorianGrid.days.length : page ? (page.moon === 14 ? correctionDays(page) : 28) : 0;
   $: days = gregorian ? gregorianGrid.days : page ? Array.from({ length: count }, (_, i) => ({
@@ -89,7 +91,14 @@
     displayOptions = next;
     try { saveDisplayOptions(localStorage, next, options); } catch {}
   }
+  function saveWeekStart(event: Event) {
+    const select = event.currentTarget;
+    if (!(select instanceof HTMLSelectElement)) return;
+    weekStart = select.value === 'Sun' ? 'Sun' : 'Mon';
+    try { localStorage.setItem('chrono-gregorian-week-start', weekStart); } catch {}
+  }
   onMount(() => {
+    try { weekStart = localStorage.getItem('chrono-gregorian-week-start') === 'Sun' ? 'Sun' : 'Mon'; } catch {}
     try { displayOptions = readDisplayOptions(localStorage, options); } catch {}
     const timer = setInterval(() => clock = Date.now(), 1000);
     return () => clearInterval(timer);
@@ -114,6 +123,7 @@
         <label>Era<select aria-label="Gregorian era" bind:value={era}><option value="CE">CE</option><option value="BCE">BCE</option></select></label>
         <label>Year<input aria-label="Gregorian year" type="number" min="1" max={era === 'BCE' ? 10000 : 9999} step="1" required bind:value={civilYear} /></label>
         <label>Month<select aria-label="Gregorian month" bind:value={civilMonth}>{#each GREGORIAN_MONTHS as name, i}<option value={i + 1}>{name}</option>{/each}</select></label>
+        <label>Week starts<select aria-label="First day of week" bind:value={weekStart} on:change={saveWeekStart}><option value="Mon">Mon</option><option value="Sun">Sun</option></select></label>
       {:else}
       <label>Great Cycle<input aria-label="Great Cycle GC" type="number" min="-1000" max="1000" step="1" required bind:value={gc} /></label>
       <label>Age<select aria-label="Age A" bind:value={phrase}>{#each PHRASES as type, i}<option value={i + 1}>{i + 1} ({type})</option>{/each}</select></label>
@@ -136,7 +146,7 @@
     {:else}
       <div class="days" aria-label={title}>
         {#if gregorian}
-          {#each ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as weekday}<div class="weekday">{weekday}</div>{/each}
+          {#each weekdays as weekday}<div class="weekday">{weekday}</div>{/each}
           {#each Array.from({length: gregorianGrid.offset}) as _}<div aria-hidden="true"></div>{/each}
         {/if}
         {#each days as day}
@@ -214,7 +224,7 @@
   button:hover { border-color: var(--fg); }
   :is(button, select, input):focus-visible { outline: 2px solid #709be8; outline-offset: 3px; }
   .selectors { display: grid; grid-template-columns: 1.2fr 1fr 1fr .8fr 1.5fr auto; gap: 10px; align-items: end; }
-  .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.5fr auto; }
+  .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.5fr 1fr auto; }
   .weekday { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
   .epochRange { overflow-wrap: anywhere; }
   .selectors label { display: grid; gap: 6px; font-size: 14px; min-width: 0; }
