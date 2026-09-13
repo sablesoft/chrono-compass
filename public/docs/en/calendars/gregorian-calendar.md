@@ -6,7 +6,7 @@ Browse Gregorian months on the same calendar surface as Epoch Calendar, with the
 
 - **Today** opens the current month in the selected location’s time zone.
 - **← / →** move to the previous or next month, including across year boundaries.
-- Choose **Month, Year and Era**, then press **Go**. CE and BCE years are numbered from 1; there is no displayed year zero.
+- Choose **Era, Year and Month**, then press **Go**. CE and BCE years are numbered from 1; there is no displayed year zero.
 - Weeks run from **Monday to Sunday**. Each month has its usual Gregorian length, including February 29 in leap years.
 - Dates before the historical adoption of the Gregorian calendar use its rules extended backward: the **proleptic Gregorian calendar**.
 

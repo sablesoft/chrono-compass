@@ -111,9 +111,9 @@
     {/if}
     <form class="selectors" class:gregorianSelectors={gregorian} on:submit|preventDefault={applySelection}>
       {#if gregorian}
-        <label>Month<select aria-label="Gregorian month" bind:value={civilMonth}>{#each GREGORIAN_MONTHS as name, i}<option value={i + 1}>{name}</option>{/each}</select></label>
-        <label>Year<input aria-label="Gregorian year" type="number" min="1" max={era === 'BCE' ? 10000 : 9999} step="1" required bind:value={civilYear} /></label>
         <label>Era<select aria-label="Gregorian era" bind:value={era}><option value="CE">CE</option><option value="BCE">BCE</option></select></label>
+        <label>Year<input aria-label="Gregorian year" type="number" min="1" max={era === 'BCE' ? 10000 : 9999} step="1" required bind:value={civilYear} /></label>
+        <label>Month<select aria-label="Gregorian month" bind:value={civilMonth}>{#each GREGORIAN_MONTHS as name, i}<option value={i + 1}>{name}</option>{/each}</select></label>
       {:else}
       <label>Great Cycle<input aria-label="Great Cycle GC" type="number" min="-1000" max="1000" step="1" required bind:value={gc} /></label>
       <label>Age<select aria-label="Age A" bind:value={phrase}>{#each PHRASES as type, i}<option value={i + 1}>{i + 1} ({type})</option>{/each}</select></label>
@@ -214,7 +214,7 @@
   button:hover { border-color: var(--fg); }
   :is(button, select, input):focus-visible { outline: 2px solid #709be8; outline-offset: 3px; }
   .selectors { display: grid; grid-template-columns: 1.2fr 1fr 1fr .8fr 1.5fr auto; gap: 10px; align-items: end; }
-  .selectors.gregorianSelectors { grid-template-columns: 1.5fr 1fr .8fr auto; }
+  .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.5fr auto; }
   .weekday { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
   .epochRange { overflow-wrap: anywhere; }
   .selectors label { display: grid; gap: 6px; font-size: 14px; min-width: 0; }
@@ -238,7 +238,7 @@
     .todayButton { grid-column: 2; grid-row: 1; }
     .calendar { margin: 10px auto; padding: 14px; }
     .selectors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .selectors.gregorianSelectors { grid-template-columns: 1.4fr 1fr .8fr; }
+    .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.4fr; }
     .selectors.gregorianSelectors button { grid-column: 1 / -1; }
     .selectors :is(select,input,button) { padding: 8px 6px; }
     .days { gap: 4px; }
