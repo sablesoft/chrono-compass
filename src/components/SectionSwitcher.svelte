@@ -16,7 +16,7 @@
   <nav aria-label="Sections">
     <a href="#calendar" aria-current={section === 'calendar' ? 'page' : undefined} on:click={close}>Epoch Calendar</a>
     <a href="#wheels" aria-current={section === 'wheels' ? 'page' : undefined} on:click={close}>Wheels Dashboard</a>
-    <a href="#gregorian" aria-current={section === 'gregorian' ? 'page' : undefined} on:click={close}>Gregorian Calendar <small>Coming soon</small></a>
+    <a href="#gregorian" aria-current={section === 'gregorian' ? 'page' : undefined} on:click={close}>Gregorian Calendar</a>
   </nav>
 </details>
 
@@ -29,6 +29,5 @@
   a { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 12px; color: var(--fg); text-decoration: none; border-radius: var(--radius-8); font-size: var(--fs-14, 14px); }
   a:hover, a[aria-current] { background: var(--btn-bg); }
   a[aria-current] { box-shadow: inset 3px 0 var(--accent-blue); }
-  small { opacity: .55; }
   @media (max-width: 640px) { summary { padding: 0; width: var(--wheel-header-btn-size, 22px); height: var(--wheel-header-btn-size, 22px); box-sizing: border-box; border-radius: var(--radius-8); } summary svg { width: 14px; height: 14px; } }
 </style>

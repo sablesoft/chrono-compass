@@ -46,7 +46,7 @@
       {#if section === 'calendar'}
         <Calendar epochDay={CALENDAR_EPOCH_DAY} />
       {:else if section === 'gregorian'}
-        <section class="placeholder"><h1>Gregorian Calendar</h1><p>This section is coming soon.</p></section>
+        <Calendar epochDay={CALENDAR_EPOCH_DAY} gregorian={true} />
       {:else}
         <Board selectedTs={$selectedTsStore} />
       {/if}
@@ -55,8 +55,6 @@
 </main>
 
 <style>
-  .placeholder { margin: 48px auto; text-align: center; padding: 24px; }
-  .placeholder p { color: var(--muted); }
   main {
     padding: var(--app-main-pad, 16px);
     background: var(--bg);

@@ -82,7 +82,7 @@ try {
     outDir: dir, emptyOutDir: false, minify: false,
     lib: {entry: 'src/lib/calendar/layers.ts', formats: ['es'], fileName: () => 'layers.mjs'}
   }});
-  const {DISPLAY_OPTIONS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers} = await import(pathToFileURL(join(dir, 'layers.mjs')).href);
+  const {DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers} = await import(pathToFileURL(join(dir, 'layers.mjs')).href);
   const values = new Map([['chrono-calendar-gregorian', 'true'], ['chrono-calendar-bind', 'true']]);
   const storage = {getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value)};
   assert.deepEqual(readDisplayOptions(storage), ['gregorian', 'bind']);
@@ -96,6 +96,39 @@ try {
   assert.equal(combined.events.length, 5);
   assert.ok(combined.events.filter(e => e.layerId === 'lunar').every(e => e.corner === 'top-left'));
   assert.ok(combined.events.filter(e => e.layerId === 'season').every(e => e.corner === 'top-right'));
+  saveDisplayOptions(storage, ['epoch', 'bind'], GREGORIAN_DISPLAY_OPTIONS);
+  assert.deepEqual(readDisplayOptions(storage, GREGORIAN_DISPLAY_OPTIONS), ['epoch', 'bind']);
+  assert.deepEqual(readDisplayOptions(storage), ['bind']);
+  saveDisplayOptions(storage, ['gregorian', 'season']);
+  assert.deepEqual(readDisplayOptions(storage, GREGORIAN_DISPLAY_OPTIONS), ['epoch', 'season']);
+
+  await build({ configFile: false, logLevel: 'silent', build: {
+    outDir: dir, emptyOutDir: false, minify: false,
+    lib: {entry: 'src/lib/calendar/gregorian.ts', formats: ['es'], fileName: () => 'gregorian.mjs'}
+  }});
+  const {gregorianMonth, moveGregorianMonth, epochDayLabel} = await import(pathToFileURL(join(dir, 'gregorian.mjs')).href);
+  // Compare every month in a full Gregorian leap cycle against the platform date implementation.
+  for (let y = 1600; y < 2000; y++) for (let m = 1; m <= 12; m++) {
+    const grid = gregorianMonth({year: y, month: m}, 0);
+    assert.equal(grid.days.length, new Date(Date.UTC(y, m, 0)).getUTCDate());
+    assert.equal(grid.offset, (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7);
+    assert.equal(grid.days[0].absolute, Date.UTC(y, m - 1, 1) / 86400000);
+    assert.deepEqual(moveGregorianMonth(moveGregorianMonth({year: y, month: m}, 1), -1), {year: y, month: m});
+  }
+  assert.deepEqual(moveGregorianMonth({year: 1, month: 1}, -1), {year: 0, month: 12});
+  assert.deepEqual(moveGregorianMonth({year: 0, month: 12}, 1), {year: 1, month: 1});
+  assert.equal(gregorianMonth({year: 0, month: 2}, 0).days.length, 29);
+  assert.throws(() => gregorianMonth({year: 10000, month: 1}, 0));
+  assert.throws(() => gregorianMonth({year: 2026, month: 13}, 0));
+  assert.equal(epochDayLabel(0), 'S1');
+  assert.equal(epochDayLabel(3), 'S4');
+  assert.equal(epochDayLabel(4), 'M1 · 1');
+  assert.equal(epochDayLabel(368), 'S');
+  const gregorianMarch = gregorianMonth({year: 2026, month: 3}, 1234);
+  const gregorianEvents = resolveCalendarLayers(['season', 'lunar'], gregorianMarch.days[0].absolute, gregorianMarch.days.at(-1).absolute, 1234, 'UTC');
+  assert.deepEqual(gregorianEvents.events.map(e => e.id), combined.events.map(e => e.id));
+  assert.deepEqual(gregorianEvents.events.map(e => e.day), combined.events.map(e => e.day - 1234));
+  console.log('Gregorian checks passed: 400-year weekday/leap cycle, BCE navigation, Epoch labels, shared layers and independent date preferences.');
   console.log('Layer registry checks passed: legacy preferences, independent selection and marker positions.');
   console.log('Lunar adapter checks passed: four phases, minute precision, stable page boundaries, time zones and marker icons.');
   console.log('Bind adapter checks passed: four primary events, Earth icons, perihelion/aphelion, date boundaries and offsets.');

@@ -30,7 +30,7 @@ To show today, the application reads the device’s clock and uses the selected 
 - **← / →** move one period backward or forward, including the free days between Month 13 and the following Month 1.
 - Choose **Great Cycle, Age, Wave, Year and Period**, then press **Go** to open a specific date.
 - Open **Display options** at the top of the calendar to choose date labels and wheel layers. Multiple options can be enabled together; your selections are saved.
-- Enable **Gregorian dates** to show civil dates in the cells and the period’s date range. This preference is saved on your device.
+- Enable **Gregorian dates** to show civil dates with abbreviated weekdays in the cells (for example, **13 Sep, Mon**) and the period’s date range. This preference is saved on your device.
 
 Each Month contains **28 days**, arranged as four weeks of seven days. The week backgrounds repeat in this order: **red, white, blue, yellow**. The same palette adapts to light and dark themes.
 

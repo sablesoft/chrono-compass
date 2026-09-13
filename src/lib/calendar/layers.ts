@@ -21,13 +21,17 @@ export const DISPLAY_OPTIONS = [
   {value: 'gregorian', label: 'Gregorian dates', storageKey: 'chrono-calendar-gregorian'},
   ...CALENDAR_LAYERS.map(layer => ({value: layer.id, label: layer.label, storageKey: layer.storageKey}))
 ];
+export const GREGORIAN_DISPLAY_OPTIONS = [
+  {value: 'epoch', label: 'Epoch dates', storageKey: 'chrono-gregorian-epoch'},
+  ...CALENDAR_LAYERS.map(layer => ({value: layer.id, label: layer.label, storageKey: layer.storageKey}))
+];
 export const EVENT_CORNERS: readonly EventCorner[] = ['top-left', 'top-right', 'bottom-right'];
 
-export function readDisplayOptions(storage: Pick<Storage, 'getItem'>): string[] {
-  return DISPLAY_OPTIONS.filter(option => storage.getItem(option.storageKey) === 'true').map(option => option.value);
+export function readDisplayOptions(storage: Pick<Storage, 'getItem'>, options = DISPLAY_OPTIONS): string[] {
+  return options.filter(option => storage.getItem(option.storageKey) === 'true').map(option => option.value);
 }
-export function saveDisplayOptions(storage: Pick<Storage, 'setItem'>, selected: string[]): void {
-  for (const option of DISPLAY_OPTIONS) storage.setItem(option.storageKey, String(selected.includes(option.value)));
+export function saveDisplayOptions(storage: Pick<Storage, 'setItem'>, selected: string[], options = DISPLAY_OPTIONS): void {
+  for (const option of options) storage.setItem(option.storageKey, String(selected.includes(option.value)));
 }
 export function resolveCalendarLayers(selected: string[], start: number, end: number, epoch: number, timezone: string) {
   const layers = CALENDAR_LAYERS.filter(layer => selected.includes(layer.id)).map(layer => ({
