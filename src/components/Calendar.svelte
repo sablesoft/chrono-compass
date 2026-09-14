@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { dreamspellSuffix, harmonicSuffix, dreamspellYearSuffix, HEPTAD_DAYS } from '../lib/calendar/dreamspell';
+  import { CHAKRAS } from '../lib/calendar/chakras';
+  import { dreamspellSuffix, harmonicSuffix, dreamspellYearSuffix, HARMONIC_ACTIONS } from '../lib/calendar/dreamspell';
   import DocsModal from './DocsModal.svelte';
   import DropdownButton from './DropdownButton.svelte';
   import { DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, EVENT_CORNERS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers } from '../lib/calendar/layers';
@@ -22,6 +23,7 @@
   let clock = Date.now();
   let page: CalendarPage | null = null;
   let displayOptions: string[] = [];
+  $: showChakras = !gregorian && displayOptions.includes('chakras');
   $: showDreamspell = !gregorian && displayOptions.includes('dreamspell');
   $: showGregorian = displayOptions.includes('gregorian');
   let gc = 1, phrase = 1, wave = 1, year = 1, moon = 1;
@@ -168,12 +170,16 @@
         {/each}
       </div>
     {/if}
-    {#if showDreamspell && page.moon !== 14}
-      <section class="seasonEvents eventGroup" aria-label="Weeks and weekdays">
-        <h2>Weeks · Harmonic</h2>
-        <ul>{#each [1, 2, 3, 4] as week}<li><span class="weekBullet" style:background={`var(--calendar-${['red', 'white', 'blue', 'gold'][week - 1]})`} aria-hidden="true"></span><span>Week {week}{harmonicSuffix(week, true)} · Days {(week - 1) * 7 + 1}–{week * 7}</span></li>{/each}</ul>
-        <h2>Days of the week · Heptad</h2>
-        <ul>{#each HEPTAD_DAYS as name, i}<li><span class="eventBullet">Day {i + 1}</span><span><strong>{name}</strong> · Month days {i + 1}, {i + 8}, {i + 15}, {i + 22}</span></li>{/each}</ul>
+    {#if showDreamspell || showChakras}
+      <section class="seasonEvents eventGroup" aria-label="Today" aria-live="polite">
+        <h2>Today</h2>
+        <p> {civilLabel(todayDay, true)} · {timezone}</p>
+        {#if showDreamspell}
+            <p><strong>Week</strong> — {today.moon === 14 ? 'Free Days · outside the weekly cycle' : `${['East', 'North', 'West', 'South'][Math.floor((today.day - 1) / 7)]}, ${HARMONIC_ACTIONS[Math.floor((today.day - 1) / 7)]}`}</p>
+        {/if}
+        {#if showChakras}
+            <p><strong>Day of Week</strong> — {today.moon === 14 ? 'Free Days · outside the weekly cycle' : `${CHAKRAS[(today.day - 1) % 7].name}, ${CHAKRAS[(today.day - 1) % 7].color}`}</p>
+        {/if}
       </section>
     {/if}
     {#if layerData.layers.length}
@@ -235,7 +241,6 @@
   :is(button, select, input):focus-visible { outline: 2px solid #709be8; outline-offset: 3px; }
   .selectors { display: grid; grid-template-columns: 1.2fr 1fr 1fr .8fr 1.5fr auto; gap: 10px; align-items: end; }
   .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.5fr 1fr auto; }
-  .weekBullet { display: inline-block; width: 12px; height: 12px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--panel-border); }
   .weekday { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
   .epochRange { overflow-wrap: anywhere; }
   .selectors label { display: grid; gap: 6px; font-size: 14px; min-width: 0; }

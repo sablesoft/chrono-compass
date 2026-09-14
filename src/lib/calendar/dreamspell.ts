@@ -19,5 +19,3 @@ export function dreamspellYearSuffix(year: number, wave: number, ageType: number
   return wave !== 0 ? dreamspellSuffix(year, enabled) : harmonicSuffix(year, enabled && ageType === 4);
 }
 
-/** Seven radial plasma names, repeated within each seven-day heptad. */
-export const HEPTAD_DAYS = ['Dali', 'Seli', 'Gamma', 'Kali', 'Alpha', 'Limi', 'Silio'] as const;
