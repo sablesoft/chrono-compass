@@ -74,7 +74,7 @@ There is a simple symmetry in these numbers: **4 is the middle position of the s
 
 ## Dreamspell Names
 
-Enable **Dreamspell Names** in **Display options** to add the names of the thirteen galactic tones to Epoch Calendar’s Months and Waves. Month 1 and Wave 1 are **Magnetic**, Month 2 and Wave 2 are **Lunar**, and so on. Names appear in parentheses after the numbered Month or Wave, including in both selectors. Your preference is saved on this device.
+Enable **Dreamspell Names** in **Display options** to add the names of the thirteen galactic tones to Epoch Calendar’s Months, Waves and the thirteen Years within each Wave. Month 1 and Wave 1 are **Magnetic**, Month 2 and Wave 2 are **Lunar**, and so on. Names appear in parentheses after the numbered Month, Wave or Year, including in all three selectors. Year 1 of every Wave is Magnetic and Year 13 is Cosmic; numbering restarts in each Wave. Years in the short X interval retain numeric labels. Your preference is saved on this device.
 
 | Number | Tone |
 | --- | --- |
@@ -94,7 +94,7 @@ Enable **Dreamspell Names** in **Display options** to add the names of the thirt
 
 These names come from the modern **Dreamspell** system developed by **José and Lloydine Argüelles**, and the associated 13 Moon calendar tradition. The Foundation for the Law of Time lists the [thirteen tones](https://lawoftime.org/infobooth/sealsandtones.html) and their [use as month names](https://www.lawoftime.org/thirteenmoon/basics.html).
 
-The four color-direction associations are **East / Red — Initiates**, **North / White — Refines**, **West / Blue — Transforms**, and **South / Yellow — Ripens**. The corresponding descriptive forms are *Initiating, Refining, Transforming* and *Ripening*. These describe the four positions within a harmonic sequence; they should not be confused with Dreamspell’s five Time Cell categories: Input, Store, Process, Output and Matrix. See the Foundation’s [Thirteen Moons in Motion](https://www.lawoftime.org/pdfs/ThirteenMoonsinMotion.pdf).
+The four color-direction associations are **East / Red — Initiates**, **North / White — Refines**, **West / Blue — Transforms**, and **South / Yellow — Ripens**. The corresponding descriptive forms are *Initiating, Refining, Transforming* and *Ripening*. A four-color sequence is called a **Harmonic** (red, white, blue, yellow). Its individual positions carry the color and action names above. The Foundation explicitly describes this in its [Harmonics and Chromatics guide](https://www.lawoftime.org/pdfs/OvertoneMoon.pdf). These describe the four positions within a harmonic sequence; they should not be confused with Dreamspell’s five Time Cell categories: Input, Store, Process, Output and Matrix. See the Foundation’s [Thirteen Moons in Motion](https://www.lawoftime.org/pdfs/ThirteenMoonsinMotion.pdf).
 
 In Epoch Calendar these are optional symbolic names applied by position, not a calculation of a Dreamspell date or a traditional Maya calendar conversion. They do not change calendar arithmetic, the epoch, astronomical events or numeric coordinates. X intervals, Free Day and Free Circle retain their existing names.
 

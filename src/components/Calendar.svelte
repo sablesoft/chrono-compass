@@ -118,7 +118,7 @@
       <p class="coordinate">{gregorianPage.year <= 0 ? `${1 - gregorianPage.year} BCE` : `${gregorianPage.year} CE`}</p>
     {:else}
     <p class="coordinate">GC {page.gc} / A {page.phrase}({PHRASES[page.phrase - 1]}) /
-      {page.wave === 0 ? 'X' : `W ${page.wave}${dreamspellSuffix(page.wave, showDreamspell)}`} / Y {page.year}</p>
+      {page.wave === 0 ? 'X' : `W ${page.wave}${dreamspellSuffix(page.wave, showDreamspell)}`} / Y {page.year}{dreamspellSuffix(page.year, showDreamspell && page.wave !== 0)}</p>
     {/if}
     <form class="selectors" class:gregorianSelectors={gregorian} on:submit|preventDefault={applySelection}>
       {#if gregorian}
@@ -130,7 +130,7 @@
       <label>Great Cycle<input aria-label="Great Cycle GC" type="number" min="-1000" max="1000" step="1" required bind:value={gc} /></label>
       <label>Age<select aria-label="Age A" bind:value={phrase}>{#each PHRASES as type, i}<option value={i + 1}>{i + 1} ({type})</option>{/each}</select></label>
       <label>Wave<select aria-label="Wave W or interval X" bind:value={wave}>{#each waves as w}<option value={w}>{w === 0 ? `X · ${PHRASES[phrase - 1]} yr` : `${w}${dreamspellSuffix(w, showDreamspell)}`}</option>{/each}</select></label>
-      <label>Year<select aria-label="Year Y" bind:value={year}>{#each Array.from({length: maxYear}, (_, i) => i + 1) as y}<option value={y}>{y}</option>{/each}</select></label>
+      <label>Year<select aria-label="Year Y" bind:value={year}>{#each Array.from({length: maxYear}, (_, i) => i + 1) as y}<option value={y}>{y}{dreamspellSuffix(y, showDreamspell && wave !== 0)}</option>{/each}</select></label>
       <label>Month<select aria-label="Month or free days" bind:value={moon}><option value={14}>Free Days</option>{#each Array.from({length: 13}, (_, i) => i + 1) as m}<option value={m}>Month {m}{dreamspellSuffix(m, showDreamspell)}</option>{/each}</select></label>
       {/if}
       <button type="submit">Go</button>
