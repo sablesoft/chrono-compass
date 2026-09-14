@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { dreamspellSuffix } from '../lib/calendar/dreamspell';
+  import { dreamspellSuffix, harmonicSuffix, dreamspellYearSuffix, HEPTAD_DAYS } from '../lib/calendar/dreamspell';
   import DocsModal from './DocsModal.svelte';
   import DropdownButton from './DropdownButton.svelte';
   import { DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, EVENT_CORNERS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers } from '../lib/calendar/layers';
@@ -118,7 +118,7 @@
       <p class="coordinate">{gregorianPage.year <= 0 ? `${1 - gregorianPage.year} BCE` : `${gregorianPage.year} CE`}</p>
     {:else}
     <p class="coordinate">GC {page.gc} / A {page.phrase}({PHRASES[page.phrase - 1]}) /
-      {page.wave === 0 ? 'X' : `W ${page.wave}${dreamspellSuffix(page.wave, showDreamspell)}`} / Y {page.year}{dreamspellSuffix(page.year, showDreamspell && page.wave !== 0)}</p>
+      {page.wave === 0 ? 'X' : `W ${page.wave}${dreamspellSuffix(page.wave, showDreamspell)}`} / Y {page.year}{dreamspellYearSuffix(page.year, page.wave, PHRASES[page.phrase - 1], showDreamspell)}</p>
     {/if}
     <form class="selectors" class:gregorianSelectors={gregorian} on:submit|preventDefault={applySelection}>
       {#if gregorian}
@@ -130,7 +130,7 @@
       <label>Great Cycle<input aria-label="Great Cycle GC" type="number" min="-1000" max="1000" step="1" required bind:value={gc} /></label>
       <label>Age<select aria-label="Age A" bind:value={phrase}>{#each PHRASES as type, i}<option value={i + 1}>{i + 1} ({type})</option>{/each}</select></label>
       <label>Wave<select aria-label="Wave W or interval X" bind:value={wave}>{#each waves as w}<option value={w}>{w === 0 ? `X · ${PHRASES[phrase - 1]} yr` : `${w}${dreamspellSuffix(w, showDreamspell)}`}</option>{/each}</select></label>
-      <label>Year<select aria-label="Year Y" bind:value={year}>{#each Array.from({length: maxYear}, (_, i) => i + 1) as y}<option value={y}>{y}{dreamspellSuffix(y, showDreamspell && wave !== 0)}</option>{/each}</select></label>
+      <label>Year<select aria-label="Year Y" bind:value={year}>{#each Array.from({length: maxYear}, (_, i) => i + 1) as y}<option value={y}>{y}{dreamspellYearSuffix(y, wave, PHRASES[phrase - 1], showDreamspell)}</option>{/each}</select></label>
       <label>Month<select aria-label="Month or free days" bind:value={moon}><option value={14}>Free Days</option>{#each Array.from({length: 13}, (_, i) => i + 1) as m}<option value={m}>Month {m}{dreamspellSuffix(m, showDreamspell)}</option>{/each}</select></label>
       {/if}
       <button type="submit">Go</button>
@@ -144,7 +144,7 @@
       <button aria-label={gregorian ? "Next month" : "Next period"} on:click={() => navigate(1)}>→</button>
     </div>
     {#if !gregorian && page.moon === 14}
-      <CorrectionWheel {events} {timezone} {days} {todayDay} {showGregorian} {civilLabel} />
+      <CorrectionWheel {showDreamspell} {events} {timezone} {days} {todayDay} {showGregorian} {civilLabel} />
     {:else}
       <div class="days" aria-label={title}>
         {#if gregorian}
@@ -167,6 +167,14 @@
           </div>
         {/each}
       </div>
+    {/if}
+    {#if showDreamspell && page.moon !== 14}
+      <section class="seasonEvents eventGroup" aria-label="Weeks and weekdays">
+        <h2>Weeks · Harmonic</h2>
+        <ul>{#each [1, 2, 3, 4] as week}<li><span class="weekBullet" style:background={`var(--calendar-${['red', 'white', 'blue', 'gold'][week - 1]})`} aria-hidden="true"></span><span>Week {week}{harmonicSuffix(week, true)} · Days {(week - 1) * 7 + 1}–{week * 7}</span></li>{/each}</ul>
+        <h2>Days of the week · Heptad</h2>
+        <ul>{#each HEPTAD_DAYS as name, i}<li><span class="eventBullet">Day {i + 1}</span><span><strong>{name}</strong> · Month days {i + 1}, {i + 8}, {i + 15}, {i + 22}</span></li>{/each}</ul>
+      </section>
     {/if}
     {#if layerData.layers.length}
       <div class="seasonEvents" aria-live="polite">
@@ -227,6 +235,7 @@
   :is(button, select, input):focus-visible { outline: 2px solid #709be8; outline-offset: 3px; }
   .selectors { display: grid; grid-template-columns: 1.2fr 1fr 1fr .8fr 1.5fr auto; gap: 10px; align-items: end; }
   .selectors.gregorianSelectors { grid-template-columns: .8fr 1fr 1.5fr 1fr auto; }
+  .weekBullet { display: inline-block; width: 12px; height: 12px; flex-shrink: 0; border-radius: 50%; border: 1px solid var(--panel-border); }
   .weekday { text-align: center; font-size: 13px; color: var(--muted); padding-bottom: 4px; }
   .epochRange { overflow-wrap: anywhere; }
   .selectors label { display: grid; gap: 6px; font-size: 14px; min-width: 0; }

@@ -74,7 +74,7 @@ There is a simple symmetry in these numbers: **4 is the middle position of the s
 
 ## Dreamspell Names
 
-Enable **Dreamspell Names** in **Display options** to add the names of the thirteen galactic tones to Epoch Calendar’s Months, Waves and the thirteen Years within each Wave. Month 1 and Wave 1 are **Magnetic**, Month 2 and Wave 2 are **Lunar**, and so on. Names appear in parentheses after the numbered Month, Wave or Year, including in all three selectors. Year 1 of every Wave is Magnetic and Year 13 is Cosmic; numbering restarts in each Wave. Years in the short X interval retain numeric labels. Your preference is saved on this device.
+Enable **Dreamspell Names** in **Display options** to add the names of the thirteen galactic tones to Epoch Calendar’s Months, Waves and the thirteen Years within each Wave. Month 1 and Wave 1 are **Magnetic**, Month 2 and Wave 2 are **Lunar**, and so on. Names appear in parentheses after the numbered Month, Wave or Year, including in all three selectors. Year 1 of every Wave is Magnetic and Year 13 is Cosmic; numbering restarts in each Wave. In an Age of type 4, the four X years use harmonic action names instead. Your preference is saved on this device.
 
 | Number | Tone |
 | --- | --- |
@@ -96,7 +96,13 @@ These names come from the modern **Dreamspell** system developed by **José and 
 
 The four color-direction associations are **East / Red — Initiates**, **North / White — Refines**, **West / Blue — Transforms**, and **South / Yellow — Ripens**. The corresponding descriptive forms are *Initiating, Refining, Transforming* and *Ripening*. A four-color sequence is called a **Harmonic** (red, white, blue, yellow). Its individual positions carry the color and action names above. The Foundation explicitly describes this in its [Harmonics and Chromatics guide](https://www.lawoftime.org/pdfs/OvertoneMoon.pdf). These describe the four positions within a harmonic sequence; they should not be confused with Dreamspell’s five Time Cell categories: Input, Store, Process, Output and Matrix. See the Foundation’s [Thirteen Moons in Motion](https://www.lawoftime.org/pdfs/ThirteenMoonsinMotion.pdf).
 
-In Epoch Calendar these are optional symbolic names applied by position, not a calculation of a Dreamspell date or a traditional Maya calendar conversion. They do not change calendar arithmetic, the epoch, astronomical events or numeric coordinates. X intervals, Free Day and Free Circle retain their existing names.
+In Epoch Calendar these are optional symbolic names applied by position, not a calculation of a Dreamspell date or a traditional Maya calendar conversion. They do not change calendar arithmetic, the epoch, astronomical events or numeric coordinates. The four weeks of each Month, the four days S1–S4 of a Free Circle, and the four X years at the end of an Age of type 4 are labelled **Initiate, Refine, Transform, Ripen**, in order. Week names and their day ranges appear in a dedicated list below the grid. The same block lists named days of the week. These are Epoch Calendar’s applications of the four-part harmonic pattern. A single Free Day and X years in Ages of type 1 or 7 keep their existing labels.
+
+### Seven days: the Heptad
+
+The seven-day week is called a **Heptad** in the 13 Moon / Law of Time tradition. Its day names are the **Seven Radial Plasmas**: **Dali, Seli, Gamma, Kali, Alpha, Limi, Silio**, in that order. These are symbolic names from that tradition, not physical plasma classifications.
+
+With Dreamspell Names enabled, the list below the grid shows Day 1 (Dali) through Day 7 (Silio), alongside their recurring dates within the Month. Dali corresponds to Month days 1, 8, 15 and 22; Silio to 7, 14, 21 and 28. This sequence follows the Epoch Month, independently of Gregorian weekdays. Free days are outside it. See [Introduction to Galactic Consciousness, Lesson 10](https://lawoftime.org/wp-content/uploads/Introduction-to-Galactic-Consciousness.pdf).
 
 ## Reading a calendar coordinate
 

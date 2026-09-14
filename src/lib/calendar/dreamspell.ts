@@ -9,3 +9,15 @@ export function dreamspellSuffix(index: number, enabled: boolean): string {
   const name = DREAMSPELL_TONES[index - 1];
   return enabled && name ? ` (${name})` : '';
 }
+
+export const HARMONIC_ACTIONS = ['Initiate', 'Refine', 'Transform', 'Ripen'] as const;
+export function harmonicSuffix(index: number, enabled: boolean): string {
+  const name = HARMONIC_ACTIONS[index - 1];
+  return enabled && name ? ` (${name})` : '';
+}
+export function dreamspellYearSuffix(year: number, wave: number, ageType: number, enabled: boolean): string {
+  return wave !== 0 ? dreamspellSuffix(year, enabled) : harmonicSuffix(year, enabled && ageType === 4);
+}
+
+/** Seven radial plasma names, repeated within each seven-day heptad. */
+export const HEPTAD_DAYS = ['Dali', 'Seli', 'Gamma', 'Kali', 'Alpha', 'Limi', 'Silio'] as const;
