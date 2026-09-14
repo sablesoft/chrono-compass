@@ -19,6 +19,7 @@ export const CALENDAR_LAYERS: readonly CalendarLayer[] = [
 ];
 export const DISPLAY_OPTIONS = [
   {value: 'gregorian', label: 'Gregorian dates', storageKey: 'chrono-calendar-gregorian'},
+  {value: 'dreamspell', label: 'Dreamspell Names', storageKey: 'chrono-calendar-dreamspell'},
   ...CALENDAR_LAYERS.map(layer => ({value: layer.id, label: layer.label, storageKey: layer.storageKey}))
 ];
 export const GREGORIAN_DISPLAY_OPTIONS = [

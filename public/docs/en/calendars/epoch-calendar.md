@@ -28,7 +28,7 @@ To show today, the application reads the device’s clock and uses the selected 
 
 - **Today** opens the current period. The selected location’s time zone determines today’s civil date.
 - **← / →** move one period backward or forward, including the free days between Month 13 and the following Month 1.
-- Choose **Great Cycle, Age, Wave, Year and Period**, then press **Go** to open a specific date.
+- Choose **Great Cycle, Age, Wave, Year and Month**, then press **Go** to open a specific date.
 - Open **Display options** at the top of the calendar to choose date labels and wheel layers. Multiple options can be enabled together; your selections are saved.
 - Enable **Gregorian dates** to show civil dates with abbreviated weekdays in the cells (for example, **13 Sep, Mon**) and the period’s date range. This preference is saved on your device.
 
@@ -65,6 +65,38 @@ We deliberately use only **one or four free days**, considering these two length
 The intention is to make this pause meaningful across society—from individuals and households to businesses and public institutions. That includes people whose work cannot stop: essential services continue, while fair scheduling and alternative time off can help extend the opportunity to rest and participate to everyone.
 
 Each person and organization remains free to choose their own schedules and days of rest. Still, we believe that **shared free days built into the calendar itself** can benefit the whole community: a common opportunity to pause, reconnect and spend time together, while respecting different ways of life. We see this as a small but tangible step toward bringing us closer together as one humanity.
+
+## The numbers 4, 7 and 13
+
+Epoch Calendar is organized around **4, 7 and 13**. Its other structural counts are built from these numbers and the basic unit of one day: four seven-day weeks make a 28-day Month, thirteen Months make the regular year, and thirteen-year Waves form the larger age structure. The correction pattern combines age types with short intervals of one, four or seven years.
+
+There is a simple symmetry in these numbers: **4 is the middle position of the sequence 1–7, and 7 is the middle position of the sequence 1–13**. Equivalently, 7 = 2 × 4 − 1 and 13 = 2 × 7 − 1. This relationship is part of the calendar’s organizing idea, connecting its smaller and larger scales. It is a mathematical and design relationship, not by itself evidence of astronomical accuracy.
+
+## Dreamspell Names
+
+Enable **Dreamspell Names** in **Display options** to add the names of the thirteen galactic tones to Epoch Calendar’s Months and Waves. Month 1 and Wave 1 are **Magnetic**, Month 2 and Wave 2 are **Lunar**, and so on. Names appear in parentheses after the numbered Month or Wave, including in both selectors. Your preference is saved on this device.
+
+| Number | Tone |
+| --- | --- |
+| 1 | Magnetic |
+| 2 | Lunar |
+| 3 | Electric |
+| 4 | Self-Existing |
+| 5 | Overtone |
+| 6 | Rhythmic |
+| 7 | Resonant |
+| 8 | Galactic |
+| 9 | Solar |
+| 10 | Planetary |
+| 11 | Spectral |
+| 12 | Crystal |
+| 13 | Cosmic |
+
+These names come from the modern **Dreamspell** system developed by **José and Lloydine Argüelles**, and the associated 13 Moon calendar tradition. The Foundation for the Law of Time lists the [thirteen tones](https://lawoftime.org/infobooth/sealsandtones.html) and their [use as month names](https://www.lawoftime.org/thirteenmoon/basics.html).
+
+The four color-direction associations are **East / Red — Initiates**, **North / White — Refines**, **West / Blue — Transforms**, and **South / Yellow — Ripens**. The corresponding descriptive forms are *Initiating, Refining, Transforming* and *Ripening*. These describe the four positions within a harmonic sequence; they should not be confused with Dreamspell’s five Time Cell categories: Input, Store, Process, Output and Matrix. See the Foundation’s [Thirteen Moons in Motion](https://www.lawoftime.org/pdfs/ThirteenMoonsinMotion.pdf).
+
+In Epoch Calendar these are optional symbolic names applied by position, not a calculation of a Dreamspell date or a traditional Maya calendar conversion. They do not change calendar arithmetic, the epoch, astronomical events or numeric coordinates. X intervals, Free Day and Free Circle retain their existing names.
 
 ## Reading a calendar coordinate
 

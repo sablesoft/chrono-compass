@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { dreamspellSuffix } from '../lib/calendar/dreamspell';
   import DocsModal from './DocsModal.svelte';
   import DropdownButton from './DropdownButton.svelte';
   import { DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, EVENT_CORNERS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers } from '../lib/calendar/layers';
@@ -21,12 +22,13 @@
   let clock = Date.now();
   let page: CalendarPage | null = null;
   let displayOptions: string[] = [];
+  $: showDreamspell = !gregorian && displayOptions.includes('dreamspell');
   $: showGregorian = displayOptions.includes('gregorian');
   let gc = 1, phrase = 1, wave = 1, year = 1, moon = 1;
   let gregorianPage: GregorianPage | null = null;
   let civilYear = 2026, civilMonth = 1;
   let era = 'CE';
-  let weekStart: 'Mon' | 'Sun' = 'Mon';
+  let weekStart: 'Mon' | 'Sun' = 'Sun';
   $: weekdays = weekStart === 'Mon' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let error = '';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -45,7 +47,7 @@
   })) : [];
   $: layerData = days.length ? resolveCalendarLayers(displayOptions, days[0].absolute, days[days.length - 1].absolute, epochDay, timezone) : {layers: [], events: []};
   $: events = layerData.events;
-  $: title = gregorian && gregorianPage ? GREGORIAN_MONTHS[gregorianPage.month - 1] : page?.moon === 14 ? (count === 1 ? 'Free Day' : 'Free Circle') : `Month ${page?.moon}`;
+  $: title = gregorian && gregorianPage ? GREGORIAN_MONTHS[gregorianPage.month - 1] : page?.moon === 14 ? (count === 1 ? 'Free Day' : 'Free Circle') : `Month ${page?.moon}${dreamspellSuffix(page?.moon ?? 0, showDreamspell)}`;
   $: waves = waveOptions(phrase);
   $: if (!waves.includes(wave)) wave = waves[0] ?? 1;
   $: maxYear = yearCount(phrase, wave);
@@ -98,7 +100,7 @@
     try { localStorage.setItem('chrono-gregorian-week-start', weekStart); } catch {}
   }
   onMount(() => {
-    try { weekStart = localStorage.getItem('chrono-gregorian-week-start') === 'Sun' ? 'Sun' : 'Mon'; } catch {}
+    try { weekStart = localStorage.getItem('chrono-gregorian-week-start') === 'Mon' ? 'Mon' : 'Sun'; } catch {}
     try { displayOptions = readDisplayOptions(localStorage, options); } catch {}
     const timer = setInterval(() => clock = Date.now(), 1000);
     return () => clearInterval(timer);
@@ -116,7 +118,7 @@
       <p class="coordinate">{gregorianPage.year <= 0 ? `${1 - gregorianPage.year} BCE` : `${gregorianPage.year} CE`}</p>
     {:else}
     <p class="coordinate">GC {page.gc} / A {page.phrase}({PHRASES[page.phrase - 1]}) /
-      {page.wave === 0 ? 'X' : `W ${page.wave}`} / Y {page.year}</p>
+      {page.wave === 0 ? 'X' : `W ${page.wave}${dreamspellSuffix(page.wave, showDreamspell)}`} / Y {page.year}</p>
     {/if}
     <form class="selectors" class:gregorianSelectors={gregorian} on:submit|preventDefault={applySelection}>
       {#if gregorian}
@@ -127,9 +129,9 @@
       {:else}
       <label>Great Cycle<input aria-label="Great Cycle GC" type="number" min="-1000" max="1000" step="1" required bind:value={gc} /></label>
       <label>Age<select aria-label="Age A" bind:value={phrase}>{#each PHRASES as type, i}<option value={i + 1}>{i + 1} ({type})</option>{/each}</select></label>
-      <label>Wave<select aria-label="Wave W or interval X" bind:value={wave}>{#each waves as w}<option value={w}>{w === 0 ? `X · ${PHRASES[phrase - 1]} yr` : w}</option>{/each}</select></label>
+      <label>Wave<select aria-label="Wave W or interval X" bind:value={wave}>{#each waves as w}<option value={w}>{w === 0 ? `X · ${PHRASES[phrase - 1]} yr` : `${w}${dreamspellSuffix(w, showDreamspell)}`}</option>{/each}</select></label>
       <label>Year<select aria-label="Year Y" bind:value={year}>{#each Array.from({length: maxYear}, (_, i) => i + 1) as y}<option value={y}>{y}</option>{/each}</select></label>
-      <label>Period<select aria-label="Month or free days" bind:value={moon}><option value={14}>Free Days</option>{#each Array.from({length: 13}, (_, i) => i + 1) as m}<option value={m}>Month {m}</option>{/each}</select></label>
+      <label>Month<select aria-label="Month or free days" bind:value={moon}><option value={14}>Free Days</option>{#each Array.from({length: 13}, (_, i) => i + 1) as m}<option value={m}>Month {m}{dreamspellSuffix(m, showDreamspell)}</option>{/each}</select></label>
       {/if}
       <button type="submit">Go</button>
     </form>
