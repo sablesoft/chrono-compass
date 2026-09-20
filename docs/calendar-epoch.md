@@ -25,6 +25,38 @@ A1 begins with its one-year X interval, followed by thirteen 13-year waves. A4 a
 
 GC consists of A1, nine A4, the palindrome P1/P2/P4/P7/P7/P4/P2/P1, and eight A4. Each P contains thirteen ages; its A7 positions are P1: 7; P2: 4,10; P4: 3,6,8,11; P7: 1,3,5,7,9,11,13. Other positions are A4. These are explicit calendar design conventions, not astronomical discoveries. Totals: 122 ages, 21,187 years, 7,738,379 days. Earlier modern-date examples are superseded: 2026-09-11 maps to `1.15(4).13.5.10.13` under this epoch.
 
+## Four-part process semantics
+
+In Chrono Compass, the number **4** is not only a count of four directions or four colors. It is a coherent four-part semantic series used by the Epoch Calendar and related visual structures.
+
+| Stage | Color | Direction | Element | Process meaning |
+| --- | --- | --- | --- | --- |
+| 1 | Red | East | Earth | Initiation: impulse, intention, desire, goal, plan, seed structure, the first push that gives a process something to become. |
+| 2 | White | North | Air | Purification: effort, testing, refinement, spiritual work, movement and mediation; the connective medium through which separation becomes relation. |
+| 3 | Blue | West | Water | Transformation: change, conversion, instability, experience, plot, event and continual becoming; a fluid and inexhaustible source of new configurations. |
+| 4 | Yellow / Gold | South | Fire | Completion and evolution: synthesis of what came before, maturation, fulfillment and the transition into a new turn of the process. |
+
+The four rows are meant to describe one cyclic process, not four unrelated symbolic labels.
+
+**Earth / East / Red / Stage 1** is the grounding impulse. It establishes the initial structure of possibility: a wish, aim, plan, intention or first decisive movement. Earth is therefore not merely static matter here; it is the first condition that gives the process a place and a direction.
+
+**Air / North / White / Stage 2** is the refining and connecting phase. Air moves, crosses space and links what is separate. Symbolically it is the more spiritual element of the sequence: progress requires effort, trial, purification and the willingness to pass through resistance. This stage tests and clarifies the initial impulse.
+
+**Water / West / Blue / Stage 3** is transformation. Water changes shape, carries things into new relations and generates an open field of experience. It represents the unstable but fertile middle of becoming: events, encounters, emotional or experiential movement, and the conversion of one form into another.
+
+**Fire / South / Yellow / Stage 4** is synthesis and completion. Fire gathers the previous stages into a mature result, completes the current form and makes possible a new evolutionary turn. Completion is therefore not a dead end; it is the threshold at which the finished cycle becomes fuel for the next one.
+
+For the 28-day Month, the same sequence applies to its four seven-day weeks:
+
+```text
+Week 1 -> Red   -> East  -> Earth -> Initiation
+Week 2 -> White -> North -> Air   -> Purification
+Week 3 -> Blue  -> West  -> Water -> Transformation
+Week 4 -> Gold  -> South -> Fire  -> Completion / Evolution
+```
+
+This four-part row is a **Chrono Compass interpretive convention**. It should be treated as an internal semantic layer of the calendar, not as a claim that this exact element mapping is inherited unchanged from Dreamspell or from a single historical Maya tradition.
+
 ## Architecture and scope
 
 `src/lib/calendar/core.ts` converts integer civil days to and from GC coordinates. Existing wheel angle/astronomy calculations do not encode GC ages, X intervals or correction days, so this requires a separate small pure module. Gregorian arithmetic supports BCE dates without JavaScript's year 0–99 constructor ambiguity. `epoch.ts` supplies the fixed origin. Runtime conversion needs no network or ephemeris.
