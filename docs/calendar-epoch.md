@@ -33,8 +33,8 @@ In Chrono Compass, the number **4** is not only a count of four directions or fo
 | --- | --- | --- | --- | --- |
 | 1 | Red | East | Earth | Initiation: impulse, intention, desire, goal, plan, seed structure, the first push that gives a process something to become. |
 | 2 | White | North | Air | Purification: effort, testing, refinement, spiritual work, movement and mediation; the connective medium through which separation becomes relation. |
-| 3 | Blue | West | Water | Transformation: change, conversion, instability, experience, plot, event and continual becoming; a fluid and inexhaustible source of new configurations. |
-| 4 | Yellow / Gold | South | Fire | Completion and evolution: synthesis of what came before, maturation, fulfillment and the transition into a new turn of the process. |
+| 3 | Blue | West | Water | Transformation and crisis: instability, lived sensation, events, encounter with the unknown, resonance with a larger reality, and accumulation of the energy of a new state. |
+| 4 | Yellow / Gold | South | Fire | Completion, knowledge and evolution: stabilization of the new state into embodied or silent knowledge, synthesis of what came before, and the transition into a new turn of the process. |
 
 The four rows are meant to describe one cyclic process, not four unrelated symbolic labels.
 
@@ -42,9 +42,15 @@ The four rows are meant to describe one cyclic process, not four unrelated symbo
 
 **Air / North / White / Stage 2** is the refining and connecting phase. Air moves, crosses space and links what is separate. Symbolically it is the more spiritual element of the sequence: progress requires effort, trial, purification and the willingness to pass through resistance. This stage tests and clarifies the initial impulse.
 
-**Water / West / Blue / Stage 3** is transformation. Water changes shape, carries things into new relations and generates an open field of experience. It represents the unstable but fertile middle of becoming: events, encounters, emotional or experiential movement, and the conversion of one form into another.
+**Water / West / Blue / Stage 3** is transformation and crisis. Water changes shape and carries the process into an unstable domain where the intended change begins to become real. This is the phase of lived sensation, events, encounters and plots rather than settled knowledge. West also represents the unknown or indescribable reality beyond the initial concepts and descriptions of East. When intention and effort become strong enough, the process enters into resonance with that larger reality and begins to receive direct confirmation through events: something that previously existed only as an idea suddenly starts to happen. This can feel vivid, surprising or dreamlike because the new state is real but not yet stable.
 
-**Fire / South / Yellow / Stage 4** is synthesis and completion. Fire gathers the previous stages into a mature result, completes the current form and makes possible a new evolutionary turn. Completion is therefore not a dead end; it is the threshold at which the finished cycle becomes fuel for the next one.
+Crisis is therefore a normal and necessary part of development in this model, not a defect. A process that never enters crisis never truly exposes itself to transformation. During the Western phase, the new state must accumulate enough **energy** to sustain itself. If that energy is insufficient, the process can fall back toward an earlier phase and the transformation must be approached again. Water is therefore inexhaustible and generative, but also unstable.
+
+**Fire / South / Yellow / Stage 4** is synthesis, completion, knowledge and evolution. Fire stabilizes what was only intermittently available in the Western phase. The result is no longer merely an event or sensation but an acquired capacity: the organism, person or system now **knows** the new state. This is especially important as a distinction between **understanding** and **knowledge**. Conceptual understanding, models and explanations belong primarily to the Eastern side of the cycle; Southern knowledge can be silent, embodied and operational. It may function correctly even when the person cannot fully explain how it functions.
+
+In this sense, **experience** should be used carefully in Chrono Compass terminology. Water provides lived events, sensations and transformative encounters. Fire is where those events become consolidated experience in the stronger sense: stable knowledge, skill, wisdom or a new reality that can be inhabited reliably.
+
+Completion is therefore not a dead end. Once knowledge has stabilized in the South, it can become the seed for another Eastern phase: new concepts, instructions, systems, plans or teachings can grow from the acquired silent knowledge. The cycle closes by generating the conditions for its own next beginning.
 
 For the 28-day Month, the same sequence applies to its four seven-day weeks:
 
@@ -56,6 +62,18 @@ Week 4 -> Gold  -> South -> Fire  -> Completion / Evolution
 ```
 
 This four-part row is a **Chrono Compass interpretive convention**. It should be treated as an internal semantic layer of the calendar, not as a claim that this exact element mapping is inherited unchanged from Dreamspell or from a single historical Maya tradition.
+
+### Example: learning to ride a bicycle
+
+Learning to ride a bicycle is a simple model of the full four-part process.
+
+**East / Earth / Initiation.** A person first has the idea or desire to ride. There is not yet skill or embodied knowledge. There is only an intention, image, goal or plan: the seed of a possible new reality.
+
+**North / Air / Purification.** The person begins to practice. Balance fails, attempts are repeated, falls happen, concentration is required, and both physical and psychological resistance must be overcome. This phase demands attention, effort and strength of spirit. Air is the movement and mediation that carries the initial intention through resistance.
+
+**West / Water / Transformation and crisis.** After enough effort, something qualitatively changes: the person suddenly finds themselves actually riding. The new reality is no longer merely imagined; it is being lived directly. Yet it remains unstable. The rider may hold the state briefly, lose it, regain it and fall out of it again. This is the crisis phase: the process has crossed into the unknown and is accumulating the energy required to stabilize a new mode of being.
+
+**South / Fire / Knowledge.** Eventually enough of that new-state energy has accumulated that riding is no longer exceptional. The body simply knows how to ride. The person does not need to verbally calculate balance, steering and compensation moment by moment. The knowledge is embodied and can operate without conceptual explanation. Only afterward, from this stable knowledge, can the rider formulate new instructions, teach another person or build a more explicit theory of what they are doing. In that way the Southern result can seed a new Eastern beginning.
 
 ## Architecture and scope
 
