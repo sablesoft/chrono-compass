@@ -7,6 +7,70 @@ const DOCS_ROOT = path.join(ROOT, 'public', 'docs');
 const DIST_ROOT = path.join(ROOT, 'dist');
 const HELP_ROOT = path.join(DIST_ROOT, 'help');
 const LABELS = { en: 'English', ru: 'Русский' };
+const CATEGORY_LABELS = {
+  en: {
+    overview: 'Project & concepts',
+    calendars: 'Calendars',
+    cycles: 'Astronomical cycles',
+    wheels: 'Wheel concepts',
+    dev: 'Developer documentation'
+  },
+  ru: {
+    overview: 'О проекте и концепции',
+    calendars: 'Календари',
+    cycles: 'Астрономические циклы',
+    wheels: 'Концепции колёс',
+    dev: 'Документация для разработчиков'
+  }
+};
+
+function categoryFor(relativePath) {
+  if (relativePath.startsWith('calendars/')) return 'calendars';
+  if (relativePath.startsWith('cycles/')) return 'cycles';
+  if (relativePath.startsWith('concept/')) return 'wheels';
+  if (relativePath.startsWith('dev/')) return 'dev';
+  return 'overview';
+}
+
+function categoryOrder(category) {
+  return ['overview', 'calendars', 'cycles', 'wheels', 'dev'].indexOf(category);
+}
+
+function categoryLabel(lang, category) {
+  return CATEGORY_LABELS[lang]?.[category] || CATEGORY_LABELS.en[category] || category;
+}
+
+function renderCategorySections(items, lang, includePaths = true) {
+  const groups = new Map();
+  for (const item of items) {
+    const category = categoryFor(item.relativePath);
+    const bucket = groups.get(category) || [];
+    bucket.push(item);
+    groups.set(category, bucket);
+  }
+
+  return Array.from(groups.entries())
+    .sort((a, b) => categoryOrder(a[0]) - categoryOrder(b[0]))
+    .map(([category, group]) => {
+      const cards = group.map(item => {
+        const pathLine = includePaths
+          ? '<div class="docPath">' + escapeHtml(item.relativePath) + '</div>'
+          : '';
+        return '<li class="docCard"><a href="' + helpUrl(lang, item.relativePath) + '">' +
+          escapeHtml(item.title) + '</a>' + pathLine + '</li>';
+      }).join('');
+      return '<section class="docCategory' + (category === 'dev' ? ' devCategory' : '') + '">' +
+        '<h2>' + escapeHtml(categoryLabel(lang, category)) + '</h2>' +
+        (category === 'dev'
+          ? '<p class="categoryNote">' + escapeHtml(lang === 'ru'
+              ? 'Рабочие заметки, планы и внутренняя техническая документация.'
+              : 'Working notes, plans, and internal technical documentation.') + '</p>'
+          : '') +
+        '<ul class="docCards">' + cards + '</ul></section>';
+    })
+    .join('\n');
+}
+
 const SITE_ORIGIN = normalizeOrigin(
   process.env.CHRONO_SITE_ORIGIN ||
   process.env.SITE_ORIGIN ||
@@ -139,7 +203,7 @@ function head(options) {
     'article h1{font-size:clamp(2rem,5vw,3.2rem);line-height:1.12}article h2{margin-top:2.2em}article h3{margin-top:1.7em}',
     'article img{max-width:100%;height:auto}article pre{overflow-x:auto;padding:16px;border:1px solid var(--btn-border);border-radius:10px;background:var(--panel)}',
     'article code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}article table{width:100%;border-collapse:collapse;display:block;overflow-x:auto}',
-    'article th,article td{padding:8px 10px;border:1px solid var(--btn-border);vertical-align:top}.docIndex ul{padding-left:1.25rem}.docIndex li{margin:.35rem 0}',
+    'article th,article td{padding:8px 10px;border:1px solid var(--btn-border);vertical-align:top}.docIndex{max-width:1100px}.docCategory{margin:0 0 34px}.docCategory h2{margin-bottom:12px}.docCards{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}.docCard{margin:0;padding:14px 16px;border:1px solid var(--panel-border);border-radius:12px;background:var(--panel)}.docCard>a{font-weight:700;text-decoration:none}.docPath{margin-top:5px;color:var(--muted);font-size:.78rem;overflow-wrap:anywhere}.devCategory{margin-top:48px;padding-top:28px;border-top:1px dashed var(--panel-border)}.devCategory .docCard{background:color-mix(in oklab,var(--panel),var(--bg) 35%)}.categoryNote{color:var(--muted);margin-top:-4px}',
     'footer{border-top:1px solid var(--panel-border);color:var(--muted);padding:24px 20px 40px;text-align:center}',
     '@media(max-width:640px){:root{--header-logo-size:24px}.appHeader{padding:7px 7px 4px}.headerBar{grid-template-columns:auto 1fr auto;grid-template-areas:"logo title actions";gap:4px;padding:8px}.title{font-size:20px;margin:0}.sectionMenu summary,.themeButton{width:28px;height:28px;padding:0}.sectionMenu summary svg{width:14px;height:14px}}',
     '</style>',
@@ -246,20 +310,20 @@ async function main() {
 
   for (const lang of languageDirs) {
     const items = entries.filter(function (entry) { return entry.lang === lang; });
-    const list = items.map(function (entry) {
-      return '<li><a href="' + helpUrl(lang, entry.relativePath) + '">' + escapeHtml(entry.title) + '</a><br><small>' + escapeHtml(entry.relativePath) + '</small></li>';
-    }).join('\n');
+    const pageTitle = 'Documentation — ' + (LABELS[lang] || lang.toUpperCase());
     const html = [
       head({
-        title: (LABELS[lang] || lang.toUpperCase()) + ' documentation',
+        title: pageTitle,
         description: 'ChronoCompass documentation index.',
         lang,
         canonical: '/help/' + lang + '/',
         alternates: languageDirs.map(function (code) { return { lang: code, href: '/help/' + code + '/' }; })
       }),
       '<body>', nav(),
-      '<main class="docIndex"><h1>' + escapeHtml(LABELS[lang] || lang.toUpperCase()) + ' documentation</h1>',
-      '<p><a href="/help/">All languages</a></p><ul>' + list + '</ul></main>',
+      '<main class="docIndex"><h1>' + escapeHtml(pageTitle) + '</h1>',
+      '<p><a href="/help/">All languages</a></p>',
+      renderCategorySections(items, lang, true),
+      '</main>',
       '<footer>ChronoCompass documentation</footer></body></html>'
     ].join('\n');
     const output = path.join(HELP_ROOT, lang, 'index.html');
@@ -269,10 +333,9 @@ async function main() {
 
   const sections = languageDirs.map(function (lang) {
     const items = entries.filter(function (entry) { return entry.lang === lang; });
-    const list = items.map(function (entry) {
-      return '<li><a href="' + helpUrl(lang, entry.relativePath) + '">' + escapeHtml(entry.title) + '</a></li>';
-    }).join('');
-    return '<section><h2><a href="/help/' + lang + '/">' + escapeHtml(LABELS[lang] || lang.toUpperCase()) + '</a></h2><ul>' + list + '</ul></section>';
+    return '<section class="languageSection"><h2><a href="/help/' + lang + '/">Documentation — ' +
+      escapeHtml(LABELS[lang] || lang.toUpperCase()) + '</a></h2>' +
+      renderCategorySections(items, lang, false) + '</section>';
   }).join('\n');
 
   const helpIndex = [
