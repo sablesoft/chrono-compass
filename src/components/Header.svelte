@@ -39,7 +39,7 @@
         <div class="logo">{@html logo}</div>
         <div class="title">Chrono Compass</div>
         <div class="slot time">
-            {#if !calendarMode}<TimePicker />{/if}
+            <TimePicker />
         </div>
         <div class="phoneNavWrap">
             {#if hasPhoneNav}
@@ -66,10 +66,12 @@
             {#if !calendarMode}<ProfilePicker />{/if}
         </div>
         <div class="slot loc">
-            <LocationPicker
-                    value={null}
-                    locked={false}
-                    onChange={handleGlobalLocationChange}/>
+            {#if !calendarMode}
+                <LocationPicker
+                        value={null}
+                        locked={false}
+                        onChange={handleGlobalLocationChange}/>
+            {/if}
         </div>
         <div class="actions themeActions">
             <SectionSwitcher {section} />
@@ -134,8 +136,8 @@
         margin-bottom: 4px;
     }
 
-    .bar.calendarMode { grid-template-columns: auto auto 1fr auto; grid-template-areas: "logo title loc actions"; }
-    .calendarMode .profile, .calendarMode .time { display: none; }
+    .bar.calendarMode { grid-template-columns: auto auto minmax(220px, 1fr) auto; grid-template-areas: "logo title time actions"; }
+    .calendarMode .profile, .calendarMode .loc { display: none; }
     .slot {
         min-width: 0;
     }
@@ -219,9 +221,9 @@
             gap: var(--sp-4);
             width: 100%;
         }
-        .calendarMode .rowTop.rowTopNoNav { grid-template-areas: "logo title actions"; }
-        .calendarMode .title { display: block; }
-        .calendarMode .rowBottom { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "loc actions"; }
+        .calendarMode .rowTop.rowTopNoNav { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "logo time actions"; }
+        .calendarMode .title { display: none; }
+        .calendarMode .rowBottom { grid-template-columns: 1fr auto; grid-template-areas: ". actions"; }
         .rowBottom.mobileCollapsed {
             display: none;
         }
