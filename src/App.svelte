@@ -44,9 +44,9 @@
     <Header {calendarMode} {section} />
     <div class="boardSlot">
       {#if section === 'calendar'}
-        <Calendar epochDay={CALENDAR_EPOCH_DAY} />
+        <Calendar epochDay={CALENDAR_EPOCH_DAY} selectedTs={$selectedTsStore} />
       {:else if section === 'gregorian'}
-        <Calendar epochDay={CALENDAR_EPOCH_DAY} gregorian={true} />
+        <Calendar epochDay={CALENDAR_EPOCH_DAY} gregorian={true} selectedTs={$selectedTsStore} />
       {:else}
         <Board selectedTs={$selectedTsStore} />
       {/if}
