@@ -17,7 +17,10 @@ export default defineConfig({
         'favicon.svg',
         'apple-touch-icon-180x180.png',
         'robots.txt',
-        'docs/en/calendars/epoch-calendar.md', 'docs/en/calendars/gregorian-calendar.md'
+        'docs/en/calendars/epoch-calendar.md',
+        'docs/en/calendars/gregorian-calendar.md',
+        'docs/ru/calendars/epoch-calendar.md',
+        'docs/ru/calendars/gregorian-calendar.md'
       ],
 
       manifest: {
