@@ -3,11 +3,9 @@ import { mount } from 'svelte';
 import './app.css';
 import App from './App.svelte';
 
-import { registerSW } from 'virtual:pwa-register';
 import { bootstrap } from './lib/bootstrap';
 
 async function main() {
-  registerSW({ immediate: true });
 
   // важно: дождаться initLocation + registerWheels
   await bootstrap();
