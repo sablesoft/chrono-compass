@@ -26,6 +26,8 @@ To show today, the application reads the device’s clock and uses the selected 
 
 ## Finding a date
 
+The shared header includes the Gregorian date/time picker in both Epoch Calendar and Gregorian Calendar. Choosing a date there moves the open calendar to the period containing that civil day and marks the selected date. The calendar header intentionally omits the location picker; location remains a background setting for timezone-sensitive astronomical layers.
+
 - **Today** opens the current period. The selected location’s time zone determines today’s civil date.
 - **← / →** move one period backward or forward, including the free days between Month 13 and the following Month 1.
 - Choose **Great Cycle, Age, Wave, Year and Month**, then press **Go** to open a specific date.
