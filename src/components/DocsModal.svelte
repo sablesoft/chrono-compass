@@ -2,11 +2,15 @@
 <script lang="ts">
     import { onMount, onDestroy } from 'svelte';
     import MarkdownIt from 'markdown-it';
+    import type { DocLanguage } from '../lib/docs';
 
     export let open = false;
     export let title = 'Docs';
     export let md = '';
     export let url = '';
+    export let lang = 'en';
+    export let languages: DocLanguage[] = [];
+    export let onLanguageChange: (lang: string) => void = () => {};
     export let onClose: () => void = () => {};
 
     const mdIt = new MarkdownIt({
@@ -45,7 +49,19 @@
                     <div class="hurl">{url}</div>
                 {/if}
             </div>
-            <button class="x" type="button" on:click={close} aria-label="Close">✕</button>
+            <div class="headActions">
+                {#if languages.length > 1}
+                    <label class="languagePicker">
+                        <span>Language</span>
+                        <select value={lang} on:change={(event) => onLanguageChange((event.currentTarget as HTMLSelectElement).value)}>
+                            {#each languages as language}
+                                <option value={language.code}>{language.label}</option>
+                            {/each}
+                        </select>
+                    </label>
+                {/if}
+                <button class="x" type="button" on:click={close} aria-label="Close">✕</button>
+            </div>
         </header>
 
         <div class="body">
@@ -93,6 +109,28 @@
     }
     .htitle { font-size: var(--fs-18); font-weight: 800; }
     .hurl { opacity: 0.55; font-size: var(--fs-12); font-variant-numeric: tabular-nums; }
+    .headActions {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-10);
+        flex: 0 0 auto;
+    }
+    .languagePicker {
+        display: flex;
+        align-items: center;
+        gap: var(--sp-8);
+        font-size: var(--fs-12);
+        opacity: 0.9;
+    }
+    .languagePicker select {
+        min-height: 34px;
+        padding: 4px 28px 4px 8px;
+        border: 1px solid var(--btn-border);
+        background: var(--btn-bg);
+        color: inherit;
+        border-radius: var(--radius-8);
+        font: inherit;
+    }
     .x {
         border: 1px solid var(--btn-border);
         background: var(--btn-bg);
@@ -151,6 +189,13 @@
         }
         .head {
             padding-top: calc(var(--sp-12) + env(safe-area-inset-top));
+            align-items: flex-start;
+        }
+        .headActions {
+            gap: var(--sp-6);
+        }
+        .languagePicker span {
+            display: none;
         }
         .foot {
             padding-bottom: calc(var(--sp-12) + env(safe-area-inset-bottom));
