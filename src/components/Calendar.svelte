@@ -206,7 +206,11 @@
 
 <DocsModal open={$docsState.open} title={$docsState.title}
   md={$docsState.loading ? '# Loading…' : $docsState.md}
-  url={$docsState.url} onClose={docs.closeDocs} />
+  url={$docsState.url}
+  lang={$docsState.lang}
+  languages={$docsState.languages}
+  onLanguageChange={docs.selectLanguage}
+  onClose={docs.closeDocs} />
 
 <style>
   .eventMarkers { position: absolute; top: 3px; right: 4px; display: flex; flex-direction: column; gap: 1px; }
