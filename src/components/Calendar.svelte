@@ -165,7 +165,7 @@
           {#each Array.from({length: gregorianGrid.offset}) as _}<div aria-hidden="true"></div>{/each}
         {/if}
         {#each days as day}
-          <div class="day" class:today={day.absolute === todayDay} style:--day-color={gregorian ? 'var(--btn-bg)' : `var(--calendar-${['red', 'white', 'blue', 'gold'][Math.floor((day.number - 1) / 7) % 4]})`} aria-current={day.absolute === todayDay ? 'date' : undefined} title={day.address}>
+          <div class="day" class:today={day.absolute === todayDay} class:selectedDate={day.absolute === selectedDay} style:--day-color={gregorian ? 'var(--btn-bg)' : `var(--calendar-${['red', 'white', 'blue', 'gold'][Math.floor((day.number - 1) / 7) % 4]})`} aria-current={day.absolute === todayDay ? 'date' : undefined} title={day.address}>
             <span class="dayNumber">{day.number}</span>
             {#if !gregorian && showGregorian}<span class="civil">{civilLabel(day.absolute)}</span>{/if}
             {#if showEpoch}<span class="civil" title={day.address}>{epochDayLabel(day.absolute)}</span>{/if}
@@ -269,6 +269,8 @@
   .dayNumber { font-size: 24px; font-variant-numeric: tabular-nums; }
   .civil { font-size: 13px; opacity: .7; }
   .today { border: 2px solid #709be8; box-shadow: inset 0 0 0 1px var(--fg); }
+  .selectedDate { outline: 2px solid var(--accent-gold); outline-offset: -4px; }
+  .today.selectedDate { outline-offset: -6px; }
   .todayDot { width: 5px; height: 5px; border-radius: 50%; background: #709be8; position: absolute; bottom: 8px; }
   footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 24px; flex-wrap: wrap; font-size: 14px; }
   .timezone { opacity: .6; font-size: 12px; }
