@@ -93,6 +93,114 @@ These directions tend to represent:
 
 Within ChronoCompass, **East is the canonical entry and exit point of every cycle**, defining its temporal origin and closure.
 
+### Chakruna: symbolic layer of the four directions
+
+The deep symbolic interpretation of the four directions in ChronoCompass belongs to **Chakruna**. It is a distinct interpretive layer of the project, not part of the astronomical calculations, Dreamspell, or a single historical Maya tradition.
+
+Chakruna treats the four directions as living qualities of manifested reality. Different cultures, myths, and psychological systems may be understood as partial maps of these qualities. The application should preserve a clear distinction between:
+- physical geometry and computed astronomical events;
+- Chakruna symbolic interpretation.
+
+Core map:
+
+| Direction | Color | Element | Process | Consciousness / psyche | Archetype |
+| --- | --- | --- | --- | --- | --- |
+| **E — East** | Red | Earth | Initiation / manifestation | Conscious mind | Ego |
+| **N — North** | White | Air | Purification / effort / ascent | Awareness | Spirit |
+| **W — West** | Blue | Water | Transformation / crisis / mystery | Subconscious | Soul |
+| **S — South** | Yellow / Gold | Creative Fire | Completion / integration / evolution | Unconscious capable of integration into superconsciousness | Divine spark |
+
+The cycle can be read as:
+
+```text
+South -> East -> North -> West -> South
+seed -> sprout -> tree / axis -> crisis / mystery -> new seed
+latent unity -> manifestation -> unfolding -> transformation -> integrated unity
+```
+
+#### East — Earth — sprout
+
+East is the first manifested form of a new cycle: an idea, desire, plan, goal, image, or initial impulse. Its red color is associated with clay and living earth — matter in which form begins to appear.
+
+Psychologically, East is associated with the conscious mind, ego, conceptual descriptions, and ordinary human reality. Conceptual **understanding** belongs strongly here.
+
+A characteristic trap of East is **fear**, which can bind a person to the already-known world and prevent movement into the next phase.
+
+#### North — Air — Tree / World Axis
+
+North is ascent, purification, effort, discipline, and connection. Its principal image is the **Tree of Life / World Axis**, connecting different levels of reality.
+
+Air is the moving and mediating element. Psychologically, North is associated with awareness, spirit, attention, and spiritual effort.
+
+North is also associated with **clarity**. Clarity can become a second trap when it is mistaken for final truth and spiritual certainty becomes a stopping point.
+
+In many wheels, North appears as maximum height, visibility, extension, exposure, or polarity.
+
+#### West — Water — Mystery
+
+West is transformation and the necessary phase of **crisis**. Crisis is not an error in the process; it is the stage at which the new state becomes real but is not yet stable.
+
+The primary Western principle is **Mystery**: reality is inexhaustible and cannot be reduced to a final description. West is associated with the subconscious, dream, alternative world-descriptions, lived sensation, and direct encounter with the unknown.
+
+During the Western phase, the **energy of the new state** accumulates. If it is insufficient, the system may fall back into an earlier phase. If sufficient, the process can stabilize in the South.
+
+West also carries the third trap: **power**. A person may discover the force of the subconscious, magical description, or unusual states and become attached to power itself rather than continuing toward integration.
+
+#### South — Creative Fire — seed / egg
+
+Southern Fire in Chakruna is **creative, generative, and life-giving**, not destructive. Its color is yellow / gold: solar, luminous fire of maturity and life.
+
+South completes and integrates the process. What was an unstable experience in the West becomes stable **knowledge** here, including embodied or silent knowledge that does not require verbal explanation.
+
+A key distinction:
+- East is associated primarily with **understanding** and description;
+- South is associated with **knowledge** already integrated into the being or system.
+
+The primary Southern image is the **seed** or **cosmic egg**. It appears small, still, and unmanifest, yet contains the future whole in latent form. The Southern ending is therefore simultaneously the hidden source of the next cycle.
+
+South is also associated with **binding and unity**: multiple parts are held together as one system. At the physical level, **gravity** is an important correspondence to this principle because it binds material structures and maintains their coherence.
+
+This creates a stable polarity:
+
+```text
+South -> concentration / binding / unity / inward gathering
+North -> extension / polarity / separation / axial unfolding
+```
+
+In distance cycles the correspondence becomes concrete:
+- perigee / perihelion occur at South;
+- apogee / aphelion occur at North.
+
+The physical fact and symbolic interpretation must remain distinct: Chakruna reads gravitational geometry as an expression of unity, but does not replace physical models with metaphysical claims.
+
+#### Common wheel grammar
+
+Existing ChronoCompass wheels repeatedly express the same fourfold geometry:
+
+| Direction | Recurrent geometry | Chakruna reading |
+| --- | --- | --- |
+| **S** | conjunction, minimum distance, minimum altitude, lower extremum, south solstice | concentration, latent whole, seed, binding |
+| **E** | rising, first quarter, ascending node, transition toward growth | manifestation, sprout, initiation |
+| **N** | opposition, maximum distance, altitude, or positive offset | unfolding, axis, clarity, maximum differentiation |
+| **W** | setting, last quarter, descending node, transition toward South | transformation, crisis, Mystery, dissolution of achieved form |
+
+For the lunar synodic cycle:
+```text
+S New Moon -> E First Quarter -> N Full Moon -> W Last Quarter -> S New Moon
+```
+
+For the daily horizon cycle:
+```text
+S Midnight -> E Sunrise -> N Noon -> W Sunset -> S Midnight
+```
+
+For distance cycles:
+```text
+S Minimum -> E Distance rising -> N Maximum -> W Distance falling -> S Minimum
+```
+
+Chakruna therefore describes not a loose collection of metaphors but a common fourfold language through which different physical cycles can be read as different projections of one process.
+
 ### Consistency Across Cycles
 
 By carefully aligning focal points with directions:
