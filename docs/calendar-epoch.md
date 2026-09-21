@@ -27,7 +27,7 @@ GC consists of A1, nine A4, the palindrome P1/P2/P4/P7/P7/P4/P2/P1, and eight A4
 
 ## Chakruna four-part process semantics
 
-The deep symbolic interpretation of the four directions used here belongs to **Chakruna**, a distinct interpretive layer within Chrono Compass. See `docs/chakruna-four-directions.md` for the canonical Chakruna map and its broader psychological, mythological and process symbolism.
+The deep symbolic interpretation of the four directions used here belongs to **Chakruna**, a distinct interpretive layer within Chrono Compass. Its broader psychological, mythological and process symbolism is documented in the project concept documentation under `public/docs/ru/CONCEPT.md` and `public/docs/en/CONCEPT.md`.
 
 In Chrono Compass, the number **4** is not only a count of four directions or four colors. It is a coherent four-part semantic series used by the Epoch Calendar and related visual structures.
 
