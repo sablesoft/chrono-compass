@@ -25,7 +25,9 @@ A1 begins with its one-year X interval, followed by thirteen 13-year waves. A4 a
 
 GC consists of A1, nine A4, the palindrome P1/P2/P4/P7/P7/P4/P2/P1, and eight A4. Each P contains thirteen ages; its A7 positions are P1: 7; P2: 4,10; P4: 3,6,8,11; P7: 1,3,5,7,9,11,13. Other positions are A4. These are explicit calendar design conventions, not astronomical discoveries. Totals: 122 ages, 21,187 years, 7,738,379 days. Earlier modern-date examples are superseded: 2026-09-11 maps to `1.15(4).13.5.10.13` under this epoch.
 
-## Four-part process semantics
+## Chakruna four-part process semantics
+
+The deep symbolic interpretation of the four directions used here belongs to **Chakruna**, a distinct interpretive layer within Chrono Compass. See `docs/chakruna-four-directions.md` for the canonical Chakruna map and its broader psychological, mythological and process symbolism.
 
 In Chrono Compass, the number **4** is not only a count of four directions or four colors. It is a coherent four-part semantic series used by the Epoch Calendar and related visual structures.
 
@@ -63,7 +65,7 @@ Week 3 -> Blue  -> West  -> Water -> Transformation
 Week 4 -> Gold  -> South -> Fire  -> Completion / Evolution
 ```
 
-This four-part row is a **Chrono Compass interpretive convention**. It should be treated as an internal semantic layer of the calendar, not as a claim that this exact element mapping is inherited unchanged from Dreamspell or from a single historical Maya tradition.
+This four-part row is specifically a **Chakruna interpretive convention** used by Chrono Compass. It is not a claim that this exact element mapping is inherited unchanged from Dreamspell, from a single historical Maya tradition, or from any one historical culture.
 
 ### Example: learning to ride a bicycle
 
