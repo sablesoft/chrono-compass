@@ -17,6 +17,7 @@
     <a href="#calendar" aria-current={section === 'calendar' ? 'page' : undefined} on:click={close}>Epoch Calendar</a>
     <a href="#wheels" aria-current={section === 'wheels' ? 'page' : undefined} on:click={close}>Wheels Dashboard</a>
     <a href="#gregorian" aria-current={section === 'gregorian' ? 'page' : undefined} on:click={close}>Gregorian Calendar</a>
+    <a href="/help/" on:click={close}>Documentation</a>
   </nav>
 </details>
 
