@@ -38,7 +38,10 @@ export default defineConfig({
 
       workbox: {
         cleanupOutdatedCaches: true,
-        navigateFallback: '/index.html'
+        navigateFallback: '/index.html',
+        navigateFallbackDenylist: [
+          /^\/help(?:\/|$)/
+        ]
       }
     })
   ]
