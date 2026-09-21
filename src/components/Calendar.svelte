@@ -14,6 +14,7 @@
 
   import { GREGORIAN_MONTHS, gregorianMonth, moveGregorianMonth, epochDayLabel, type GregorianPage } from '../lib/calendar/gregorian';
   export let gregorian = false;
+  export let selectedTs = Date.now();
   $: calendarName = gregorian ? 'Gregorian Calendar' : 'Epoch Calendar';
   $: options = gregorian ? GREGORIAN_DISPLAY_OPTIONS : DISPLAY_OPTIONS;
   const docs = useDocs(() => gregorian ? 'calendars/gregorian-calendar.md' : 'calendars/epoch-calendar.md', { getTitle: () => calendarName });
@@ -36,10 +37,20 @@
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   $: timezone = $currentLocation?.tz || 'UTC';
   $: todayDay = civilDayAt(clock, timezone) - epochDay;
+  $: selectedDay = civilDayAt(selectedTs, timezone) - epochDay;
   $: today = fromDay(todayDay);
   $: if (!page) selectPage(today);
   $: civilToday = fromGregorianDay(epochDay + todayDay);
   $: if (!gregorianPage) selectGregorian(civilToday);
+
+  let lastSelectedDay: number | null = null;
+  $: if (Number.isFinite(selectedDay) && selectedDay !== lastSelectedDay) {
+    lastSelectedDay = selectedDay;
+    const selectedEpoch = fromDay(selectedDay);
+    const selectedGregorian = fromGregorianDay(epochDay + selectedDay);
+    if (gregorian) selectGregorian(selectedGregorian);
+    else selectPage(selectedEpoch);
+  }
   $: gregorianGrid = gregorianPage ? gregorianMonth(gregorianPage, epochDay, weekStart) : {days: [], offset: 0};
   $: showEpoch = gregorian && displayOptions.includes('epoch');
   $: count = gregorian ? gregorianGrid.days.length : page ? (page.moon === 14 ? correctionDays(page) : 28) : 0;
