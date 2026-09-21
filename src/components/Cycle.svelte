@@ -2309,6 +2309,9 @@
         title={$docsState.title}
         md={$docsState.loading ? '# Loading…' : $docsState.md}
         url={$docsState.url}
+        lang={$docsState.lang}
+        languages={$docsState.languages}
+        onLanguageChange={docs.selectLanguage}
         onClose={docs.closeDocs}
 />
 
