@@ -283,7 +283,7 @@ async function main() {
   ].join('\n');
   await fs.writeFile(path.join(HELP_ROOT, 'index.html'), helpIndex);
 
-  const robotsLines = ['User-agent: *', 'Allow: /'];
+  const robotsLines = ['User-agent: *', 'Allow: /', 'Disallow: /docs/'];
   if (SITE_ORIGIN) robotsLines.push('Sitemap: ' + SITE_ORIGIN + '/sitemap.xml');
   robotsLines.push('');
   await fs.writeFile(path.join(DIST_ROOT, 'robots.txt'), robotsLines.join('\n'));
