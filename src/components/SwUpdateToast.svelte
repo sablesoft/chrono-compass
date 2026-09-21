@@ -21,6 +21,7 @@
         }, CACHE_CHECK_INTERVAL_MS)
 
         updateSW = registerSW({
+            immediate: true,
             onNeedRefresh() {
                 runCycleCacheVersionCheck()
                 needRefresh = true
