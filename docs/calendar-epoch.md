@@ -38,7 +38,7 @@ In Chrono Compass, the number **4** is not only a count of four directions or fo
 
 The four rows are meant to describe one cyclic process, not four unrelated symbolic labels.
 
-**Earth / East / Red / Stage 1** is the grounding impulse. It establishes the initial structure of possibility: a wish, aim, plan, intention or first decisive movement. Earth is therefore not merely static matter here; it is the first condition that gives the process a place and a direction.
+**Earth / East / Red / Stage 1** is the grounding impulse. It establishes the initial structure of possibility: a wish, aim, plan, intention or first decisive movement. Earth is therefore not merely static matter here; it is the first condition that gives the process a place and a direction. Its red color is intentional: in Chrono Compass symbolism this is the red of clay and living soil, the visible matter from which form can begin.
 
 **Air / North / White / Stage 2** is the refining and connecting phase. Air moves, crosses space and links what is separate. Symbolically it is the more spiritual element of the sequence: progress requires effort, trial, purification and the willingness to pass through resistance. This stage tests and clarifies the initial impulse.
 
@@ -46,7 +46,9 @@ The four rows are meant to describe one cyclic process, not four unrelated symbo
 
 Crisis is therefore a normal and necessary part of development in this model, not a defect. A process that never enters crisis never truly exposes itself to transformation. During the Western phase, the new state must accumulate enough **energy** to sustain itself. If that energy is insufficient, the process can fall back toward an earlier phase and the transformation must be approached again. Water is therefore inexhaustible and generative, but also unstable.
 
-**Fire / South / Yellow / Stage 4** is synthesis, completion, knowledge and evolution. Fire stabilizes what was only intermittently available in the Western phase. The result is no longer merely an event or sensation but an acquired capacity: the organism, person or system now **knows** the new state. This is especially important as a distinction between **understanding** and **knowledge**. Conceptual understanding, models and explanations belong primarily to the Eastern side of the cycle; Southern knowledge can be silent, embodied and operational. It may function correctly even when the person cannot fully explain how it functions.
+**Fire / South / Yellow / Stage 4** is synthesis, completion, knowledge and evolution. The Fire of this system is specifically **creative, generative and life-giving**, not destructive fire. It is the fire that integrates, ripens, illuminates and gives a completed form the power to become the seed of a new cycle. This is why its color is **yellow / gold** rather than red: Chrono Compass associates Southern Fire with solar, luminous, generative flame.
+
+Fire stabilizes what was only intermittently available in the Western phase. The result is no longer merely an event or sensation but an acquired capacity: the organism, person or system now **knows** the new state. This is especially important as a distinction between **understanding** and **knowledge**. Conceptual understanding, models and explanations belong primarily to the Eastern side of the cycle; Southern knowledge can be silent, embodied and operational. It may function correctly even when the person cannot fully explain how it functions.
 
 In this sense, **experience** should be used carefully in Chrono Compass terminology. Water provides lived events, sensations and transformative encounters. Fire is where those events become consolidated experience in the stronger sense: stable knowledge, skill, wisdom or a new reality that can be inhabited reliably.
 
