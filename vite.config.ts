@@ -40,7 +40,10 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [
-          /^\/help(?:\/|$)/
+          /^\/help(?:\/|$)/,
+          /^\/sitemap\.xml$/,
+          /^\/robots\.txt$/,
+          /^\/docs(?:\/|$)/
         ]
       }
     })
