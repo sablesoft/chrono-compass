@@ -4,6 +4,8 @@ Browse Gregorian months on the same calendar surface as Epoch Calendar, with the
 
 ## Finding a date
 
+The shared header includes the Gregorian date/time picker in both Epoch Calendar and Gregorian Calendar. Choosing a date there moves the open calendar to the period containing that civil day and marks the selected date. The calendar header intentionally omits the location picker; location remains a background setting for timezone-sensitive astronomical layers.
+
 - **Today** opens the current month in the selected location’s time zone.
 - **← / →** move to the previous or next month, including across year boundaries.
 - Choose **Era, Year and Month**, then press **Go**. CE and BCE years are numbered from 1; there is no displayed year zero.
