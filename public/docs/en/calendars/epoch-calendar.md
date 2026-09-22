@@ -144,3 +144,13 @@ Calendar dates are calculated locally. The calendar and this guide are available
 Enable **Lunar phases** for the four principal phases from the Synod wheel (Sun looker, Earth focus, Moon target): **🌑 New Moon, 🌓 First quarter, 🌕 Full Moon, 🌗 Last quarter**. These mark phase events rather than assign a phase icon to every calendar day. The wheel rounds its output to the nearest minute. Phase symbols are conventional and do not depict the Moon’s local orientation in your sky.
 
 The three layers use separate corners: lunar phases at the **upper left**, Season events at the **upper right**, and Sun Bind: Earth at the **lower right**. Events below the grid are grouped by wheel, with each wheel’s heading followed by its own events in time order. Each item repeats its marker before the description. Each layer can be switched independently.
+
+## Print or export a year
+
+Select a year and press **Go**, then **Print / Export year**. The preview uses the displayed Epoch year, your enabled **Display options**, and your location's time zone. Choose English or Russian (initially the documentation language), then **Print / Save as PDF**. Generation runs on your device, including offline once the app's resources have been cached. Gregorian Calendar export is not included.
+
+The calendar always uses **A4 landscape**: a cover with a blank reverse, thirteen month sheets and one separate Free Days sheet — **15 sheets / 30 sides**. Each period has its grid on the front and its legend on the back. The legend includes selected Gregorian dates, Dreamspell names, chakras and astronomical layers. Unsupported dates or periods with no events are identified explicitly. Event times retain the calendar's existing approximations.
+
+**Free Days at end** is the default. Choose **At start** to place them directly after the cover. This changes only the order of sheets: these Free Days still belong to the beginning of the selected year, and their dates do not change.
+
+There is **24 mm of clear space for rings** at the top of fronts and bottom of backs. Print double-sided with **flip on long edge**, at **100%**, without added margins or browser headers/footers. Preserve the blank cover reverse. Test one sheet first: lifting it around the top rings should reveal an upright legend. The browser/printer may override paper settings, so verify A4 landscape in its dialog. Choose **Save as PDF** there to download a document. If preview content exceeds a page, printing is blocked with a message rather than losing text. Additional document sheets may be added in a future version.

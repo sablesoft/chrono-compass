@@ -12,7 +12,8 @@
     "test:constellation:spherical:chart-old": "node scripts/validate-constellation-spherical.mjs --layer=spherical --algo=chart-old",
     "test:constellation:spherical": "node scripts/validate-constellation-spherical.mjs",
     "test:calendar": "node --experimental-strip-types scripts/test-calendar.mjs",
-    "test:calendar:events": "node scripts/test-calendar-events.mjs"
+    "test:calendar:events": "node scripts/test-calendar-events.mjs",
+    "test:calendar:print": "node scripts/test-calendar-print.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.1",

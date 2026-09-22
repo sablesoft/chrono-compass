@@ -6,6 +6,7 @@
   import DropdownButton from './DropdownButton.svelte';
   import { DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, EVENT_CORNERS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers } from '../lib/calendar/layers';
   import { civilDayAt, calendarEventDetails, calendarEventMarker } from '../lib/calendar/events';
+  import CalendarPrint from './CalendarPrint.svelte';
   import { useDocs } from '../lib/docs';
   import CorrectionWheel from './CorrectionWheel.svelte';
   import { currentLocation } from '../lib/location/store';
@@ -34,6 +35,7 @@
   let weekStart: 'Mon' | 'Sun' = 'Sun';
   $: weekdays = weekStart === 'Mon' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let error = '';
+  let printOpen = false;
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   $: timezone = $currentLocation?.tz || 'UTC';
   $: todayDay = civilDayAt(clock, timezone) - epochDay;
@@ -124,7 +126,8 @@
   <div class="heading">
     <div><div class="calendarTitle"><p class="eyebrow">{calendarName.toUpperCase()}</p><button class="infoButton" type="button" aria-label={`About ${calendarName}`} title={`About ${calendarName}`} on:click={docs.openDocs}>i</button></div><h1 aria-live="polite">{title}</h1></div>
     <div class="displayOptions"><DropdownButton label="Display options" items={options} value={displayOptions} onChange={changeDisplayOptions} buttonClass="calendarOptionsButton" /></div>
-    <button class="todayButton" on:click={selectToday}>Today</button>
+    <div class="todayButton">{#if !gregorian && page}<button on:click={() => printOpen = true}>{$docsState.lang === 'ru' ? 'Печать / Экспорт года' : 'Print / Export year'}</button>{/if}
+    <button on:click={selectToday}>Today</button></div>
   </div>
   {#if page}
     {#if gregorian && gregorianPage}
@@ -215,6 +218,10 @@
   {/if}
 </section>
 
+{#if printOpen && page && !gregorian}
+  <CalendarPrint year={page} epoch={epochDay} {timezone} selected={displayOptions} language={$docsState.lang === 'ru' ? 'ru' : 'en'} onClose={() => printOpen = false} />
+{/if}
+
 <DocsModal open={$docsState.open} title={$docsState.title}
   md={$docsState.loading ? '# Loading…' : $docsState.md}
   url={$docsState.url}
@@ -241,7 +248,7 @@
 
   .calendar { max-width: 1000px; margin: 24px auto; padding: clamp(16px, 3vw, 32px); border: 1px solid var(--panel-border); border-radius: 20px; background: var(--panel); }
   .heading { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 16px; }
-  .todayButton { justify-self: end; }
+  .todayButton { justify-self: end; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
   .displayOptions { justify-self: center; }
   .displayOptions :global(.calendarOptionsButton) { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; font: inherit; color: var(--fg); background: var(--btn-bg); border: 1px solid var(--btn-border); border-radius: 9px; cursor: pointer; }
   .displayOptions :global(.calendarOptionsButton:focus-visible) { outline: 2px solid var(--accent-blue); outline-offset: 3px; }
