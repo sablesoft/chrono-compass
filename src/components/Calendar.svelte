@@ -219,7 +219,7 @@
 </section>
 
 {#if printOpen && page && !gregorian}
-  <CalendarPrint year={page} epoch={epochDay} {timezone} selected={displayOptions} language={$docsState.lang === 'ru' ? 'ru' : 'en'} onClose={() => printOpen = false} />
+  <CalendarPrint year={page} epoch={epochDay} {timezone} latitude={$currentLocation?.lat ?? 0} selected={displayOptions} language={$docsState.lang === 'ru' ? 'ru' : 'en'} onClose={() => printOpen = false} />
 {/if}
 
 <DocsModal open={$docsState.open} title={$docsState.title}
