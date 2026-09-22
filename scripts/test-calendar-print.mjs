@@ -42,6 +42,10 @@ try {
     const ru = buildPrintDocument({...opts,language:'ru',selected:['gregorian','chakras','dreamspell','season','bind','lunar']});
     for (const label of ['Гармоничный Календарь','Григорианские даты','Dreamspell','Сезонные события','Расстояние Земля–Солнце','Фазы Луны','Недоступно']) assert.ok(ru.includes(label),label);
     assert.ok(!ru.includes('<h2>Чакры</h2>'));
+    if (year.wave === 1 && year.year === 1) {
+      assert.ok(ru.includes('Год Магнитный'));
+      assert.ok(buildPrintDocument({...opts,selected:['dreamspell']}).includes('Magnetic Year'));
+    }
     const bothHtml = buildPrintDocument({...opts,freeDays:'both'});
     assert.equal((bothHtml.match(/class="page /g)||[]).length,32);
     const appendix = buildPrintDocument({...opts,appendices:[{title:'<script>',front:['<img onerror="bad">']}]});
@@ -63,5 +67,8 @@ try {
   const fourDays = buildPrintDocument({year:{gc:1,phrase:1,wave:1,year:13},epoch,timezone:'UTC',latitude:0,selected:[],language:'en',freeDays:'start'});
   assert.ok(fourDays.includes('Correction days outside the calendar grid.'));
   assert.ok(fourDays.includes('stroke="#dff3df"'));
+  const overtoneYear = {gc:1,phrase:1,wave:1,year:5};
+  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'en',freeDays:'end'}).includes('Overtone Year'));
+  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'ru',freeDays:'end'}).includes('Год Обертонный'));
   console.log('Print calendar: chronology, three order modes, circular Free Days, locales, descriptions, layers and appendices passed.');
 } finally { await rm(dir,{recursive:true,force:true}); }

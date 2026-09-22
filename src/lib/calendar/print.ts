@@ -99,6 +99,7 @@ export function buildPrintDocument(options: PrintOptions): string {
   const yearCoordinate = (value: CalendarYear) => `GC ${value.gc} · A ${value.phrase}(${PHRASES[value.phrase - 1]}) · ${value.wave === 0 ? 'X' : `W ${value.wave}`} · Y ${value.year}`;
   const coordinate = yearCoordinate(year);
   const yearName = has('dreamspell') ? (year.wave ? tone(year.year) : PHRASES[year.phrase - 1] === 4 ? actions[year.year - 1] : '') : '';
+  const coverYearName = yearName ? (year.wave ? t(`${yearName} Year`, `Год ${yearName}`) : t(`${yearName} Year`, `Год · ${yearName}`)) : '';
   const civil = (absolute: number) => {
     const d = fromGregorianDay(epoch + absolute);
     return `${d.day}.${String(d.month).padStart(2,'0')}.${d.year <= 0 ? `${1-d.year} ${t('BCE','до н. э.')}` : d.year}`;
@@ -106,7 +107,7 @@ export function buildPrintDocument(options: PrintOptions): string {
   const sheets: string[] = [];
   const page = (content: string, back = false, blank = false) => `<section class="page ${back ? 'back' : 'front'}${blank ? ' blank' : ''}">${content}</section>`;
   const heading = (title: string, value: CalendarYear = year) => `<header><h1>${escape(title)}</h1><p>${escape(yearCoordinate(value))}${value === year && yearName ? ` · ${escape(yearName)}` : ''}</p></header>`;
-  sheets.push(page(`<div class="cover"><p>CHRONO COMPASS</p><h1>${t('Harmonic Calendar','Гармоничный Календарь')}</h1><h2>${escape(coordinate)}</h2><p>${escape(yearName)}</p><p>${escape(timezone)}</p><p><a href="https://chrono-compass.app">https://chrono-compass.app</a></p></div>`), page('', true, true));
+  sheets.push(page(`<div class="cover"><p>CHRONO COMPASS</p><h1>${t('Harmonic Calendar','Гармоничный Календарь')}</h1><h2>${escape(coordinate)}</h2><p>${escape(coverYearName)}</p><p>${escape(timezone)}</p><p><a href="https://chrono-compass.app">https://chrono-compass.app</a></p></div>`), page('', true, true));
   for (const period of printPeriods(year, freeDays)) {
     const free = period.moon === 14;
     const title = free ? (period.days.length === 1 ? t('Free Day','День Свободы') : t('Free Days','Дни Свободы')) : `${t('Month','Месяц')} ${period.moon}${has('dreamspell') ? ` · ${tone(period.moon)}` : ''}`;
