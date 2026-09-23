@@ -39,6 +39,7 @@ try {
     assert.ok(!html.includes('Special days &amp; reading the grid'));
     assert.ok(!html.includes('Weeks 1–4'));
     assert.ok(!html.includes('Grid dates: day.month.year'));
+    assert.match(html, /<title>Harmonic Calendar - (?:W\d+|X)-Y\d+ - EN<\/title>/);
     assert.equal((html.match(/class="supplement-section"/g)||[]).length,7);
     for (const title of ['Contents','About','Free Days: Time Outside the Matrix','The Number 4: Space Becoming Time','The Number 7: The Measure of a Human Step','The Number 13: Restoring Its Greatness','Practice: How to Reclaim Your Time']) assert.ok(html.includes(title),title);
     assert.ok(html.includes('@page supplement:right { size: A4 landscape; margin: 24mm 12mm 12mm; }'));
@@ -50,9 +51,13 @@ try {
     for (const label of ['Гармоничный Календарь','Григорианские даты','Dreamspell','Сезонные события','Расстояние Земля–Солнце','Фазы Луны','Недоступно']) assert.ok(ru.includes(label),label);
     for (const title of ['Содержание','Описание','Дни Свободы: Время вне матрицы','Число 4: Пространство, ставшее временем','Число 7: Масштаб человеческого шага','Число 13: Возвращение величия','Практика: Как вернуть себе время']) assert.ok(ru.includes(title),title);
     assert.ok(!ru.includes('<h2>Чакры</h2>'));
+    const pt = buildPrintDocument({...opts,language:'pt',selected:['gregorian','dreamspell','season','bind','lunar']});
+    assert.match(pt, /<title>Harmonic Calendar - (?:W\d+|X)-Y\d+ - PT<\/title>/);
+    for (const label of ['Calendário Harmônico','Mês 1','Legenda','Datas gregorianas','Eventos sazonais','Distância Terra–Sol','Fases da Lua','Conteúdo','Sobre','Dias Livres: Tempo fora da matriz','Prática: Como recuperar seu tempo']) assert.ok(pt.includes(label),label);
     if (year.wave === 1 && year.year === 1) {
       assert.ok(ru.includes('Год Магнитный'));
       assert.ok(buildPrintDocument({...opts,selected:['dreamspell']}).includes('Magnetic Year'));
+      assert.ok(pt.includes('Ano Magnético'));
     }
     const bothHtml = buildPrintDocument({...opts,freeDays:'both'});
     assert.equal((bothHtml.match(/class="page /g)||[]).length,32);
@@ -78,5 +83,6 @@ try {
   const overtoneYear = {gc:1,phrase:1,wave:1,year:5};
   assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'en',freeDays:'end'}).includes('Overtone Year'));
   assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'ru',freeDays:'end'}).includes('Год Обертонный'));
+  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'pt',freeDays:'end'}).includes('Ano Entonado'));
   console.log('Print calendar: chronology, three order modes, circular Free Days, locales, descriptions, layers and appendices passed.');
 } finally { await rm(dir,{recursive:true,force:true}); }

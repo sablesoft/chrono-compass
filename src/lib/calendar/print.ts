@@ -5,25 +5,33 @@ import { DREAMSPELL_TONES, HARMONIC_ACTIONS } from './dreamspell';
 import MarkdownIt from 'markdown-it';
 import printSupplementEn from '../../../public/docs/en/calendars/harmonic-calendar-print-supplement.md?raw';
 import printSupplementRu from '../../../public/docs/ru/calendars/harmonic-calendar-print-supplement.md?raw';
+import printSupplementPt from '../../../public/docs/pt/calendars/harmonic-calendar-print-supplement.md?raw';
 
-export type PrintLanguage = 'en' | 'ru';
+export type PrintLanguage = 'en' | 'ru' | 'pt';
 export type FreeDaysOrder = 'end' | 'start' | 'both';
 export type PrintAppendix = { title: string; front: string[]; back?: string[] };
 export type PrintOptions = { year: CalendarYear; epoch: number; timezone: string; latitude: number; selected: string[]; language: PrintLanguage; freeDays: FreeDaysOrder; appendices?: PrintAppendix[] };
-export const printText = (lang: PrintLanguage, en: string, ru: string) => lang === 'ru' ? ru : en;
+export const printText = (lang: PrintLanguage, en: string, ru: string, pt = en) => lang === 'ru' ? ru : lang === 'pt' ? pt : en;
 const escape = (value: unknown) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]!));
 const ruTones = ['Магнитный','Лунный','Электрический','Самосущный','Обертонный','Ритмический','Резонансный','Галактический','Солнечный','Планетарный','Спектральный','Кристаллический','Космический'];
 const ruActions = ['Инициировать','Очищать','Преобразовывать','Созревать'];
+const ptTones = ['Magnético','Lunar','Elétrico','Autoexistente','Entonado','Rítmico','Ressonante','Galáctico','Solar','Planetário','Espectral','Cristal','Cósmico'];
+const ptActions = ['Iniciar','Purificar','Transformar','Amadurecer'];
 const ruEvents: Record<string, string[]> = {
   season: ['Мартовское равноденствие','Июньское солнцестояние','Сентябрьское равноденствие','Декабрьское солнцестояние'],
   bind: ['Среднее расстояние Земля–Солнце: удаление','Афелий Земли','Среднее расстояние Земля–Солнце: сближение','Перигелий Земли'],
   lunar: ['Первая четверть Луны','Полнолуние','Последняя четверть Луны','Новолуние']
 };
+const ptEvents: Record<string, string[]> = {
+  season: ['Equinócio de março','Solstício de junho','Equinócio de setembro','Solstício de dezembro'],
+  bind: ['Distância média Terra–Sol: afastamento','Afélio da Terra','Distância média Terra–Sol: aproximação','Periélio da Terra'],
+  lunar: ['Quarto crescente','Lua cheia','Quarto minguante','Lua nova']
+};
 
 function supplementMarkdown(language: PrintLanguage): string[] {
-  const source = language === 'ru' ? printSupplementRu : printSupplementEn;
+  const source = language === 'ru' ? printSupplementRu : language === 'pt' ? printSupplementPt : printSupplementEn;
   const headings = [...source.matchAll(/^##\s+(.+)$/gm)];
-  const contentsTitle = language === 'ru' ? 'Содержание' : 'Contents';
+  const contentsTitle = language === 'ru' ? 'Содержание' : language === 'pt' ? 'Conteúdo' : 'Contents';
   const contents = headings.findIndex(match => match[1].trim() === contentsTitle);
   const firstSection = contents >= 0 ? contents + 1 : 0;
   if (!headings[firstSection]?.index) return [source];
@@ -87,33 +95,33 @@ export function printPeriods(year: CalendarYear, order: FreeDaysOrder) {
 }
 
 function seasonDescription(direction: string, latitude: number, language: PrintLanguage): string {
-  const t = (en: string, ru: string) => printText(language, en, ru);
+  const t = (en: string, ru: string, pt: string) => printText(language, en, ru, pt);
   const equatorial = Math.abs(latitude) < 0.5;
   const north = latitude >= 0;
   if (direction === 'E') return equatorial
-    ? t('Day and night are approximately equal. The Sun crosses the equator northward.', 'День и ночь приблизительно равны. Солнце пересекает экватор в северном направлении.')
-    : north ? t('Day and night are equal in length; daylight continues to grow. The Sun crosses the equator northward.', 'День сравнялся по длине с ночью и продолжает расти. Солнце пересекает экватор в северном направлении.')
-      : t('Day and night are equal in length; night continues to grow. The Sun crosses the equator northward.', 'День сравнялся по длине с ночью, ночь продолжает расти. Солнце пересекает экватор в северном направлении.');
+    ? t('Day and night are approximately equal. The Sun crosses the equator northward.', 'День и ночь приблизительно равны. Солнце пересекает экватор в северном направлении.', 'O dia e a noite têm aproximadamente a mesma duração. O Sol cruza o equador em direção ao norte.')
+    : north ? t('Day and night are equal in length; daylight continues to grow. The Sun crosses the equator northward.', 'День сравнялся по длине с ночью и продолжает расти. Солнце пересекает экватор в северном направлении.', 'O dia e a noite têm a mesma duração; o período de luz continua aumentando. O Sol cruza o equador em direção ao norte.')
+      : t('Day and night are equal in length; night continues to grow. The Sun crosses the equator northward.', 'День сравнялся по длине с ночью, ночь продолжает расти. Солнце пересекает экватор в северном направлении.', 'O dia e a noite têm a mesma duração; a noite continua aumentando. O Sol cruza o equador em direção ao norte.');
   if (direction === 'N') return equatorial
-    ? t('The North Pole is tilted most directly toward the Sun; the Sun reaches its northernmost declination.', 'Северный полюс максимально направлен к Солнцу; Солнце достигает самого северного склонения.')
-    : north ? t('The longest day of the year. The North Pole is tilted most directly toward the Sun.', 'Самый длинный день в году. Северный полюс максимально направлен к Солнцу.')
-      : t('The longest night of the year. The North Pole is tilted most directly toward the Sun.', 'Самая долгая ночь в году. Северный полюс максимально направлен к Солнцу.');
+    ? t('The North Pole is tilted most directly toward the Sun; the Sun reaches its northernmost declination.', 'Северный полюс максимально направлен к Солнцу; Солнце достигает самого северного склонения.', 'O Polo Norte está inclinado ao máximo em direção ao Sol; o Sol atinge sua declinação mais ao norte.')
+    : north ? t('The longest day of the year. The North Pole is tilted most directly toward the Sun.', 'Самый длинный день в году. Северный полюс максимально направлен к Солнцу.', 'O dia mais longo do ano. O Polo Norte está inclinado ao máximo em direção ao Sol.')
+      : t('The longest night of the year. The North Pole is tilted most directly toward the Sun.', 'Самая долгая ночь в году. Северный полюс максимально направлен к Солнцу.', 'A noite mais longa do ano. O Polo Norte está inclinado ao máximo em direção ao Sol.');
   if (direction === 'W') return equatorial
-    ? t('Day and night are approximately equal. The Sun crosses the equator southward.', 'День и ночь приблизительно равны. Солнце пересекает экватор в южном направлении.')
-    : north ? t('Night and day are equal in length; night continues to grow. The Sun crosses the equator southward.', 'Ночь сравнялась по длине с днём и продолжает расти. Солнце пересекает экватор в южном направлении.')
-      : t('Night and day are equal in length; daylight continues to grow. The Sun crosses the equator southward.', 'Ночь сравнялась по длине с днём, день продолжает расти. Солнце пересекает экватор в южном направлении.');
+    ? t('Day and night are approximately equal. The Sun crosses the equator southward.', 'День и ночь приблизительно равны. Солнце пересекает экватор в южном направлении.', 'O dia e a noite têm aproximadamente a mesma duração. O Sol cruza o equador em direção ao sul.')
+    : north ? t('Night and day are equal in length; night continues to grow. The Sun crosses the equator southward.', 'Ночь сравнялась по длине с днём и продолжает расти. Солнце пересекает экватор в южном направлении.', 'A noite e o dia têm a mesma duração; a noite continua aumentando. O Sol cruza o equador em direção ao sul.')
+      : t('Night and day are equal in length; daylight continues to grow. The Sun crosses the equator southward.', 'Ночь сравнялась по длине с днём, день продолжает расти. Солнце пересекает экватор в южном направлении.', 'A noite e o dia têm a mesma duração; o período de luz continua aumentando. O Sol cruza o equador em direção ao sul.');
   return equatorial
-    ? t('The South Pole is tilted most directly toward the Sun; the Sun reaches its southernmost declination.', 'Южный полюс максимально направлен к Солнцу; Солнце достигает самого южного склонения.')
-    : north ? t('The longest night of the year. The South Pole is tilted most directly toward the Sun.', 'Самая долгая ночь в году. Южный полюс максимально направлен к Солнцу.')
-      : t('The longest day of the year. The South Pole is tilted most directly toward the Sun.', 'Самый длинный день в году. Южный полюс максимально направлен к Солнцу.');
+    ? t('The South Pole is tilted most directly toward the Sun; the Sun reaches its southernmost declination.', 'Южный полюс максимально направлен к Солнцу; Солнце достигает самого южного склонения.', 'O Polo Sul está inclinado ao máximo em direção ao Sol; o Sol atinge sua declinação mais ao sul.')
+    : north ? t('The longest night of the year. The South Pole is tilted most directly toward the Sun.', 'Самая долгая ночь в году. Южный полюс максимально направлен к Солнцу.', 'A noite mais longa do ano. O Polo Sul está inclinado ao máximo em direção ao Sol.')
+      : t('The longest day of the year. The South Pole is tilted most directly toward the Sun.', 'Самый длинный день в году. Южный полюс максимально направлен к Солнцу.', 'O dia mais longo do ano. O Polo Sul está inclinado ao máximo em direção ao Sol.');
 }
 
 function bindDescription(direction: string, language: PrintLanguage): string {
-  const t = (en: string, ru: string) => printText(language, en, ru);
-  if (direction === 'E') return t('The Earth–Sun distance reaches the midpoint between its annual minimum and maximum and continues to increase.', 'Расстояние между Землёй и Солнцем достигает середины между годовым минимумом и максимумом и продолжает увеличиваться.');
-  if (direction === 'N') return t('The maximum distance between Earth and the Sun.', 'Максимальное расстояние между Землёй и Солнцем.');
-  if (direction === 'W') return t('The Earth–Sun distance reaches the midpoint between its annual maximum and minimum and continues to decrease.', 'Расстояние между Землёй и Солнцем достигает середины между годовым максимумом и минимумом и продолжает уменьшаться.');
-  return t('The minimum distance between Earth and the Sun.', 'Минимальное расстояние между Землёй и Солнцем.');
+  const t = (en: string, ru: string, pt: string) => printText(language, en, ru, pt);
+  if (direction === 'E') return t('The Earth–Sun distance reaches the midpoint between its annual minimum and maximum and continues to increase.', 'Расстояние между Землёй и Солнцем достигает середины между годовым минимумом и максимумом и продолжает увеличиваться.', 'A distância entre a Terra e o Sol atinge o ponto médio entre o mínimo e o máximo anuais e continua aumentando.');
+  if (direction === 'N') return t('The maximum distance between Earth and the Sun.', 'Максимальное расстояние между Землёй и Солнцем.', 'A distância máxima entre a Terra e o Sol.');
+  if (direction === 'W') return t('The Earth–Sun distance reaches the midpoint between its annual maximum and minimum and continues to decrease.', 'Расстояние между Землёй и Солнцем достигает середины между годовым максимумом и минимумом и продолжает уменьшаться.', 'A distância entre a Terra e o Sol atinge o ponto médio entre o máximo e o mínimo anuais e continua diminuindo.');
+  return t('The minimum distance between Earth and the Sun.', 'Минимальное расстояние между Землёй и Солнцем.', 'A distância mínima entre a Terra e o Sol.');
 }
 
 function freeCircle(days: PrintPeriod['days'], events: ReturnType<typeof resolveCalendarLayers>['events'], civil: (day: number) => string, showGregorian: boolean): string {
@@ -140,51 +148,53 @@ function freeCircle(days: PrintPeriod['days'], events: ReturnType<typeof resolve
  */
 export function buildPrintDocument(options: PrintOptions): string {
   const {year, epoch, timezone, latitude, selected, language, freeDays} = options;
-  const t = (en: string, ru: string) => printText(language, en, ru);
+  const t = (en: string, ru: string, pt: string) => printText(language, en, ru, pt);
   const has = (id: string) => selected.includes(id);
-  const tone = (n: number) => (language === 'ru' ? ruTones : DREAMSPELL_TONES)[n - 1] || '';
-  const actions = language === 'ru' ? ruActions : HARMONIC_ACTIONS;
+  const tone = (n: number) => (language === 'ru' ? ruTones : language === 'pt' ? ptTones : DREAMSPELL_TONES)[n - 1] || '';
+  const actions = language === 'ru' ? ruActions : language === 'pt' ? ptActions : HARMONIC_ACTIONS;
   const yearCoordinate = (value: CalendarYear) => `GC ${value.gc} · A ${value.phrase}(${PHRASES[value.phrase - 1]}) · ${value.wave === 0 ? 'X' : `W ${value.wave}`} · Y ${value.year}`;
   const coordinate = yearCoordinate(year);
   const yearName = has('dreamspell') ? (year.wave ? tone(year.year) : PHRASES[year.phrase - 1] === 4 ? actions[year.year - 1] : '') : '';
-  const coverYearName = yearName ? (year.wave ? t(`${yearName} Year`, `Год ${yearName}`) : t(`${yearName} Year`, `Год · ${yearName}`)) : '';
+  const yearCode = `${year.wave === 0 ? 'X' : `W${year.wave}`}-Y${year.year}`;
+  const documentTitle = `Harmonic Calendar - ${yearCode} - ${language.toUpperCase()}`;
+  const coverYearName = yearName ? (year.wave ? t(`${yearName} Year`, `Год ${yearName}`, `Ano ${yearName}`) : t(`${yearName} Year`, `Год · ${yearName}`, `Ano · ${yearName}`)) : '';
   const civil = (absolute: number) => {
     const d = fromGregorianDay(epoch + absolute);
-    return `${d.day}.${String(d.month).padStart(2,'0')}.${d.year <= 0 ? `${1-d.year} ${t('BCE','до н. э.')}` : d.year}`;
+    return `${d.day}.${String(d.month).padStart(2,'0')}.${d.year <= 0 ? `${1-d.year} ${t('BCE','до н. э.','a.C.')}` : d.year}`;
   };
   const sheets: string[] = [];
   const page = (content: string, back = false, blank = false) => `<section class="page ${back ? 'back' : 'front'}${blank ? ' blank' : ''}">${content}</section>`;
   const heading = (title: string, value: CalendarYear = year) => `<header><h1>${escape(title)}</h1><p>${escape(yearCoordinate(value))}${value === year && yearName ? ` · ${escape(yearName)}` : ''}</p></header>`;
-  sheets.push(page(`<div class="cover"><p>CHRONO COMPASS</p><h1>${t('Harmonic Calendar','Гармоничный Календарь')}</h1><h2>${escape(coordinate)}</h2><p>${escape(coverYearName)}</p><p>${escape(timezone)}</p><p><a href="https://chrono-compass.app">https://chrono-compass.app</a></p></div>`), page('', true, true));
+  sheets.push(page(`<div class="cover"><p>CHRONO COMPASS</p><h1>${t('Harmonic Calendar','Гармоничный Календарь','Calendário Harmônico')}</h1><h2>${escape(coordinate)}</h2><p>${escape(coverYearName)}</p><p>${escape(timezone)}</p><p><a href="https://chrono-compass.app">https://chrono-compass.app</a></p></div>`), page('', true, true));
   for (const period of printPeriods(year, freeDays)) {
     const free = period.moon === 14;
-    const title = free ? (period.days.length === 1 ? t('Free Day','День Свободы') : t('Free Days','Дни Свободы')) : `${t('Month','Месяц')} ${period.moon}${has('dreamspell') ? ` · ${tone(period.moon)}` : ''}`;
+    const title = free ? (period.days.length === 1 ? t('Free Day','День Свободы','Dia Livre') : t('Free Days','Дни Свободы','Dias Livres')) : `${t('Month','Месяц','Mês')} ${period.moon}${has('dreamspell') ? ` · ${tone(period.moon)}` : ''}`;
     const data = resolveCalendarLayers(selected, period.days[0].absolute, period.days.at(-1)!.absolute, epoch, timezone);
     const dayName = (n: number) => free ? (period.days.length === 1 ? 'S' : `S${n}`) : String(n);
     const cells = period.days.map(day => `<div class="cell week${free ? day.number - 1 : Math.floor((day.number-1)/7)}"><strong>${dayName(day.number)}</strong>${has('gregorian') ? `<span>${escape(civil(day.absolute))}</span>` : ''}<small>${escape(data.events.filter(e => e.day === day.absolute).map(calendarEventMarker).join(' '))}</small></div>`).join('');
     sheets.push(page(`${heading(title, period.year)}${free ? freeCircle(period.days, data.events, civil, has('gregorian')) : `<div class="grid">${cells}</div>`}`));
     const sections: string[] = [];
-    if (free) sections.push(`<section><p>${period.days.length === 1 ? t('A correction day outside the calendar grid. It lies between adjacent calendar years.', 'Корректирующий день вне календарной сетки. Находится между соседними календарными годами.') : t('Correction days outside the calendar grid. They lie between adjacent calendar years.', 'Корректирующие дни вне календарной сетки. Находятся между соседними календарными годами.')}</p></section>`);
-    if (has('gregorian')) sections.push(`<section><h2>${t('Gregorian dates','Григорианские даты')}</h2><p>${escape(civil(period.days[0].absolute))} — ${escape(civil(period.days.at(-1)!.absolute))}</p></section>`);
-    if (has('dreamspell') && !free) sections.push(`<section><h2>Dreamspell</h2><p>${t('Wave','Волна')}: ${year.wave ? escape(tone(year.wave)) : 'X'} · ${t('Year','Год')}: ${escape(yearName || 'X')}</p><p>${t('Month','Месяц')}: ${escape(tone(period.moon))}</p></section>`);
+    if (free) sections.push(`<section><p>${period.days.length === 1 ? t('A correction day outside the calendar grid. It lies between adjacent calendar years.', 'Корректирующий день вне календарной сетки. Находится между соседними календарными годами.', 'Um dia de correção fora da grade do calendário. Ele fica entre dois anos consecutivos.') : t('Correction days outside the calendar grid. They lie between adjacent calendar years.', 'Корректирующие дни вне календарной сетки. Находятся между соседними календарными годами.', 'Dias de correção fora da grade do calendário. Eles ficam entre dois anos consecutivos.')}</p></section>`);
+    if (has('gregorian')) sections.push(`<section><h2>${t('Gregorian dates','Григорианские даты','Datas gregorianas')}</h2><p>${escape(civil(period.days[0].absolute))} — ${escape(civil(period.days.at(-1)!.absolute))}</p></section>`);
+    if (has('dreamspell') && !free) sections.push(`<section><h2>Dreamspell</h2><p>${t('Wave','Волна','Onda')}: ${year.wave ? escape(tone(year.wave)) : 'X'} · ${t('Year','Год','Ano')}: ${escape(yearName || 'X')}</p><p>${t('Month','Месяц','Mês')}: ${escape(tone(period.moon))}</p></section>`);
     for (const layer of data.layers) {
-      const label = language === 'ru' ? ({season:'Сезонные события',bind:'Расстояние Земля–Солнце',lunar:'Фазы Луны'}[layer.id] || layer.label) : layer.label;
+      const label = language === 'ru' ? ({season:'Сезонные события',bind:'Расстояние Земля–Солнце',lunar:'Фазы Луны'}[layer.id] || layer.label) : language === 'pt' ? ({season:'Eventos sazonais',bind:'Distância Terra–Sol',lunar:'Fases da Lua'}[layer.id] || layer.label) : layer.label;
       const entries = layer.events.map(event => {
-        const name = language === 'ru' ? ruEvents[layer.id]?.[['E','N','W','S'].indexOf(event.direction)] || event.label : event.label;
+        const name = language === 'ru' ? ruEvents[layer.id]?.[['E','N','W','S'].indexOf(event.direction)] || event.label : language === 'pt' ? ptEvents[layer.id]?.[['E','N','W','S'].indexOf(event.direction)] || event.label : event.label;
         const n = event.day - period.days[0].absolute + 1;
-        const time = new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : 'en-GB', {timeZone:timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(event.ts);
+        const time = new Intl.DateTimeFormat(language === 'ru' ? 'ru-RU' : language === 'pt' ? 'pt-BR' : 'en-GB', {timeZone:timezone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(event.ts);
         const description = layer.id === 'season' ? seasonDescription(event.direction, latitude, language) : layer.id === 'bind' ? bindDescription(event.direction, language) : '';
         return `<li><div><b>${escape(dayName(n))}</b> · ${escape(calendarEventMarker(event))} ${escape(name)} · ≈ ${time}${has('gregorian') ? ` · ${escape(civil(event.day))}` : ''}</div>${description ? `<div class="event-description">${escape(description)}</div>` : ''}</li>`;
       }).join('');
-      sections.push(`<section><h2>${escape(label)}</h2>${!layer.available ? `<p>${t('Unavailable. Supported Gregorian years:','Недоступно. Поддерживаются григорианские годы:')} ${layer.supportedYears.join('–')}.</p>` : entries ? `<ul>${entries}</ul>` : `<p>${t('No events in this period.','В этом периоде нет событий.')}</p>`}</section>`);
+      sections.push(`<section><h2>${escape(label)}</h2>${!layer.available ? `<p>${t('Unavailable. Supported Gregorian years:','Недоступно. Поддерживаются григорианские годы:','Indisponível. Anos gregorianos compatíveis:')} ${layer.supportedYears.join('–')}.</p>` : entries ? `<ul>${entries}</ul>` : `<p>${t('No events in this period.','В этом периоде нет событий.','Não há eventos neste período.')}</p>`}</section>`);
     }
-    sheets.push(page(`${heading(`${title} · ${t('Legend','Легенда')}`, period.year)}<p class="zone">${escape(timezone)} · ${t('Event times are approximate; lunar times rounded to the nearest minute.','Время событий приблизительное; лунные события округлены до минуты.')}</p><div class="legend">${sections.join('')}</div>`, true));
+    sheets.push(page(`${heading(`${title} · ${t('Legend','Легенда','Legenda')}`, period.year)}<p class="zone">${escape(timezone)} · ${t('Event times are approximate; lunar times rounded to the nearest minute.','Время событий приблизительное; лунные события округлены до минуты.','Os horários dos eventos são aproximados; os horários lunares são arredondados para o minuto mais próximo.')}</p><div class="legend">${sections.join('')}</div>`, true));
   }
   for (const appendix of options.appendices || []) {
     const content = (lines: string[]) => `${heading(appendix.title)}${lines.map(line=>`<p>${escape(line)}</p>`).join('')}`;
     sheets.push(page(content(appendix.front)), page(appendix.back ? content(appendix.back) : '', true, !appendix.back));
   }
-  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>${escape(coordinate)} · ${t('Harmonic Calendar','Гармоничный Календарь')}</title><style>
+  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>${escape(documentTitle)}</title><style>
     @page { size: A4 landscape; margin: 0; }
     @page supplement:right { size: A4 landscape; margin: 24mm 12mm 12mm; }
     @page supplement:left { size: A4 landscape; margin: 12mm 12mm 24mm; }

@@ -6,7 +6,7 @@ const ROOT = process.cwd();
 const DOCS_ROOT = path.join(ROOT, 'public', 'docs');
 const DIST_ROOT = path.join(ROOT, 'dist');
 const HELP_ROOT = path.join(DIST_ROOT, 'help');
-const LABELS = { en: 'English', ru: 'Русский' };
+const LABELS = { en: 'English', ru: 'Русский', pt: 'Português' };
 const CATEGORY_LABELS = {
   en: {
     overview: 'Project & concepts',
@@ -21,6 +21,13 @@ const CATEGORY_LABELS = {
     cycles: 'Астрономические циклы',
     wheels: 'Концепции колёс',
     dev: 'Документация для разработчиков'
+  },
+  pt: {
+    overview: 'Projeto e conceitos',
+    calendars: 'Calendários',
+    cycles: 'Ciclos astronômicos',
+    wheels: 'Conceitos das rodas',
+    dev: 'Documentação para desenvolvedores'
   }
 };
 

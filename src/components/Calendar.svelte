@@ -7,6 +7,7 @@
   import { DISPLAY_OPTIONS, GREGORIAN_DISPLAY_OPTIONS, EVENT_CORNERS, readDisplayOptions, saveDisplayOptions, resolveCalendarLayers } from '../lib/calendar/layers';
   import { civilDayAt, calendarEventDetails, calendarEventMarker } from '../lib/calendar/events';
   import CalendarPrint from './CalendarPrint.svelte';
+  import type { PrintLanguage } from '../lib/calendar/print';
   import { useDocs } from '../lib/docs';
   import CorrectionWheel from './CorrectionWheel.svelte';
   import { currentLocation } from '../lib/location/store';
@@ -36,6 +37,7 @@
   $: weekdays = weekStart === 'Mon' ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   let error = '';
   let printOpen = false;
+  let printLanguage: PrintLanguage = 'en';
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   $: timezone = $currentLocation?.tz || 'UTC';
   $: todayDay = civilDayAt(clock, timezone) - epochDay;
@@ -117,6 +119,10 @@
   onMount(() => {
     try { weekStart = localStorage.getItem('chrono-gregorian-week-start') === 'Mon' ? 'Mon' : 'Sun'; } catch {}
     try { displayOptions = readDisplayOptions(localStorage, options); } catch {}
+    try {
+      const saved = localStorage.getItem('chrono-print-language');
+      printLanguage = saved === 'ru' || saved === 'pt' ? saved : $docsState.lang === 'ru' ? 'ru' : 'en';
+    } catch { printLanguage = $docsState.lang === 'ru' ? 'ru' : 'en'; }
     const timer = setInterval(() => clock = Date.now(), 1000);
     return () => clearInterval(timer);
   });
@@ -126,7 +132,7 @@
   <div class="heading">
     <div><div class="calendarTitle"><p class="eyebrow">{calendarName.toUpperCase()}</p><button class="infoButton" type="button" aria-label={`About ${calendarName}`} title={`About ${calendarName}`} on:click={docs.openDocs}>i</button></div><h1 aria-live="polite">{title}</h1></div>
     <div class="displayOptions"><DropdownButton label="Display options" items={options} value={displayOptions} onChange={changeDisplayOptions} buttonClass="calendarOptionsButton" /></div>
-    <div class="todayButton">{#if !gregorian && page}<button on:click={() => printOpen = true}>{$docsState.lang === 'ru' ? 'Печать / Экспорт года' : 'Print / Export year'}</button>{/if}
+    <div class="todayButton">{#if !gregorian && page}<button on:click={() => printOpen = true}>{printLanguage === 'ru' ? 'Печать / Экспорт года' : printLanguage === 'pt' ? 'Imprimir / Exportar ano' : 'Print / Export year'}</button>{/if}
     <button on:click={selectToday}>Today</button></div>
   </div>
   {#if page}
@@ -219,7 +225,7 @@
 </section>
 
 {#if printOpen && page && !gregorian}
-  <CalendarPrint year={page} epoch={epochDay} {timezone} latitude={$currentLocation?.lat ?? 0} selected={displayOptions} language={$docsState.lang === 'ru' ? 'ru' : 'en'} onClose={() => printOpen = false} />
+  <CalendarPrint year={page} epoch={epochDay} {timezone} latitude={$currentLocation?.lat ?? 0} selected={displayOptions} bind:language={printLanguage} onClose={() => printOpen = false} />
 {/if}
 
 <DocsModal open={$docsState.open} title={$docsState.title}

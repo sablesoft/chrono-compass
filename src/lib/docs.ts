@@ -9,6 +9,7 @@ export type DocLanguage = {
 export const DOC_LANGUAGES: DocLanguage[] = [
     { code: 'en', label: 'English' },
     { code: 'ru', label: 'Русский' },
+    { code: 'pt', label: 'Português' },
 ];
 
 export type DocsState = {
@@ -37,9 +38,9 @@ export function getPreferredLang2(): string {
         ? navigator.languages
         : [navigator.language];
 
-    return languages.some(lang => lang?.toLowerCase().startsWith('ru'))
-        ? 'ru'
-        : 'en';
+    if (languages.some(lang => lang?.toLowerCase().startsWith('ru'))) return 'ru';
+    if (languages.some(lang => lang?.toLowerCase().startsWith('pt'))) return 'pt';
+    return 'en';
 }
 
 function savePreferredLang2(lang: string) {
