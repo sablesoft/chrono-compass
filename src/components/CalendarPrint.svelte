@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick, onMount } from 'svelte';
-  import { buildPrintDocument, printText, type PrintLanguage, type FreeDaysOrder } from '../lib/calendar/print';
+  import { buildPrintDocument, printDocumentTitle, printText, type PrintLanguage, type FreeDaysOrder } from '../lib/calendar/print';
   import type { CalendarYear } from '../lib/calendar/core';
   export let year: CalendarYear;
   export let epoch: number;
@@ -12,18 +12,27 @@
   let order: FreeDaysOrder = 'end';
   let frame: HTMLIFrameElement;
   let dialog: HTMLDialogElement;
+  let mounted = false;
+  let applicationTitle = '';
   const PRINT_LANGUAGE_KEY = 'chrono-print-language';
   onMount(() => {
+    applicationTitle = document.title;
+    mounted = true;
     try {
       const saved = localStorage.getItem(PRINT_LANGUAGE_KEY);
       if (saved === 'en' || saved === 'ru' || saved === 'pt') language = saved;
     } catch {}
     dialog.showModal();
+    return () => {
+      mounted = false;
+      document.title = applicationTitle;
+    };
   });
   let ready = false;
   let error = '';
   $: t = (en: string, ru: string, pt: string) => printText(language, en, ru, pt);
   $: calendarSheetCount = order === 'both' ? 16 : 15;
+  $: if (mounted) document.title = printDocumentTitle(year, language);
   $: html = buildPrintDocument({year, epoch, timezone, latitude, selected, language, freeDays: order});
   $: if (html) ready = false;
   async function loaded() {

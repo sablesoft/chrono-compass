@@ -12,6 +12,7 @@ export type FreeDaysOrder = 'end' | 'start' | 'both';
 export type PrintAppendix = { title: string; front: string[]; back?: string[] };
 export type PrintOptions = { year: CalendarYear; epoch: number; timezone: string; latitude: number; selected: string[]; language: PrintLanguage; freeDays: FreeDaysOrder; appendices?: PrintAppendix[] };
 export const printText = (lang: PrintLanguage, en: string, ru: string, pt = en) => lang === 'ru' ? ru : lang === 'pt' ? pt : en;
+export const printDocumentTitle = (year: CalendarYear, language: PrintLanguage) => `Harmonic Calendar - ${year.wave === 0 ? 'X' : `W${year.wave}`}-Y${year.year} - ${language.toUpperCase()}`;
 const escape = (value: unknown) => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[c]!));
 const ruTones = ['Магнитный','Лунный','Электрический','Самосущный','Обертонный','Ритмический','Резонансный','Галактический','Солнечный','Планетарный','Спектральный','Кристаллический','Космический'];
 const ruActions = ['Инициировать','Очищать','Преобразовывать','Созревать'];
@@ -155,8 +156,7 @@ export function buildPrintDocument(options: PrintOptions): string {
   const yearCoordinate = (value: CalendarYear) => `GC ${value.gc} · A ${value.phrase}(${PHRASES[value.phrase - 1]}) · ${value.wave === 0 ? 'X' : `W ${value.wave}`} · Y ${value.year}`;
   const coordinate = yearCoordinate(year);
   const yearName = has('dreamspell') ? (year.wave ? tone(year.year) : PHRASES[year.phrase - 1] === 4 ? actions[year.year - 1] : '') : '';
-  const yearCode = `${year.wave === 0 ? 'X' : `W${year.wave}`}-Y${year.year}`;
-  const documentTitle = `Harmonic Calendar - ${yearCode} - ${language.toUpperCase()}`;
+  const documentTitle = printDocumentTitle(year, language);
   const civil = (absolute: number) => {
     const d = fromGregorianDay(epoch + absolute);
     return `${d.day}.${String(d.month).padStart(2,'0')}.${d.year <= 0 ? `${1-d.year} ${t('BCE','до н. э.','a.C.')}` : d.year}`;

@@ -8,7 +8,9 @@ import { pathToFileURL } from 'node:url';
 const dir = await mkdtemp(join(tmpdir(), 'calendar-print-'));
 try {
   await build({configFile:false,logLevel:'silent',build:{outDir:dir,lib:{entry:'src/lib/calendar/print.ts',formats:['es'],fileName:()=> 'print.mjs'}}});
-  const {printPeriods,buildPrintDocument} = await import(pathToFileURL(join(dir,'print.mjs')).href);
+  const {printPeriods,buildPrintDocument,printDocumentTitle} = await import(pathToFileURL(join(dir,'print.mjs')).href);
+  assert.equal(printDocumentTitle({gc:1,phrase:15,wave:13,year:5},'ru'), 'Harmonic Calendar - W13-Y5 - RU');
+  assert.equal(printDocumentTitle({gc:1,phrase:1,wave:0,year:4},'pt'), 'Harmonic Calendar - X-Y4 - PT');
   for (const year of [{gc:1,phrase:1,wave:0,year:1},{gc:1,phrase:1,wave:1,year:1},{gc:1,phrase:1,wave:1,year:12},{gc:0,phrase:122,wave:0,year:4}]) {
     const start = printPeriods(year,'start'), end = printPeriods(year,'end'), both = printPeriods(year,'both');
     assert.equal(start[0].moon,14); assert.equal(end[13].moon,14);
