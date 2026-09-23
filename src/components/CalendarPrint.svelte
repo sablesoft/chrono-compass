@@ -16,7 +16,7 @@
   let ready = false;
   let error = '';
   $: t = (en: string, ru: string) => printText(language, en, ru);
-  $: sheetCount = order === 'both' ? 16 : 15;
+  $: calendarSheetCount = order === 'both' ? 16 : 15;
   $: html = buildPrintDocument({year, epoch, timezone, latitude, selected, language, freeDays: order});
   $: if (html) ready = false;
   function loaded() {
@@ -56,8 +56,8 @@
     <label>{t('Free Days','Дни Свободы')} <select bind:value={order}><option value="end">{t('At end (default)','В конце (по умолчанию)')}</option><option value="start">{t('At start','В начале')}</option><option value="both">{t('At both ends','С обеих сторон')}</option></select></label>
     <button on:click={print} disabled={!ready}>{t('Print / Save as PDF','Печать / Сохранить PDF')}</button>
     <button on:click={onClose}>{t('Close','Закрыть')}</button>
-    <p>A4 {t('landscape','альбомный')} · {sheetCount} {t('sheets','листов')} / {sheetCount * 2} {t('sides','сторон')} · {t('Duplex: flip on long edge. Scale 100%, margins none, browser headers/footers off. Keep blank pages. Test one sheet first.', 'Двусторонняя печать: переворот по длинному краю. Масштаб 100%, без полей и колонтитулов браузера. Сохраняйте пустые страницы. Сначала проверьте один лист.')}</p>
-    <p>{t('Binding space: 24 mm at the top of fronts and bottom of backs. At end uses the Free Day(s) after Month 13; at start uses those before Month 1; at both ends includes both distinct periods.', 'Место для колец: 24 мм сверху лицевой стороны и снизу оборота. В конце используются Дни Свободы после Месяца 13; в начале — перед Месяцем 1; с обеих сторон — оба разных периода.')}</p>
+    <p>A4 {t('landscape','альбомный')} · {calendarSheetCount} {t('calendar sheets plus the guide','листов календаря плюс руководство')} · {t('Duplex: flip on long edge. Scale 100%, margins none, browser headers/footers off. Keep the blank cover reverse; the guide adds no spacer pages. Test one sheet first.', 'Двусторонняя печать: переворот по длинному краю. Масштаб 100%, без полей и колонтитулов браузера. Сохраните пустой оборот обложки; в руководстве нет пустых разделительных страниц. Сначала проверьте один лист.')}</p>
+    <p>{t('Binding space: 24 mm at the top of fronts and bottom of backs, including the guide. At end uses the Free Day(s) after Month 13; at start uses those before Month 1; at both ends includes both distinct periods.', 'Место для колец: 24 мм сверху лицевой стороны и снизу оборота, включая руководство. В конце используются Дни Свободы после Месяца 13; в начале — перед Месяцем 1; с обеих сторон — оба разных периода.')}</p>
     {#if error}<p role="alert">{error}</p>{/if}
   </div>
   <iframe bind:this={frame} title={t('Printable year','Год для печати')} srcdoc={html} on:load={loaded}></iframe>

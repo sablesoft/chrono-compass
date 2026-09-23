@@ -39,8 +39,14 @@ try {
     assert.ok(!html.includes('Special days &amp; reading the grid'));
     assert.ok(!html.includes('Weeks 1–4'));
     assert.ok(!html.includes('Grid dates: day.month.year'));
+    assert.equal((html.match(/class="supplement-section"/g)||[]).length,7);
+    for (const title of ['Contents','About','Free Days: Time Outside the Matrix','The Number 4: Space Becoming Time','The Number 7: The Measure of a Human Step','The Number 13: Restoring Its Greatness','Practice: How to Reclaim Your Time']) assert.ok(html.includes(title),title);
+    assert.ok(html.includes('@page supplement:right { size: A4 landscape; margin: 24mm 12mm 12mm; }'));
+    assert.ok(html.includes('@page supplement:left { size: A4 landscape; margin: 12mm 12mm 24mm; }'));
+    assert.ok(!html.includes('supplement-section blank'));
     const ru = buildPrintDocument({...opts,language:'ru',selected:['gregorian','chakras','dreamspell','season','bind','lunar']});
     for (const label of ['Гармоничный Календарь','Григорианские даты','Dreamspell','Сезонные события','Расстояние Земля–Солнце','Фазы Луны','Недоступно']) assert.ok(ru.includes(label),label);
+    for (const title of ['Содержание','Описание','Дни Свободы: Время вне матрицы','Число 4: Пространство, ставшее временем','Число 7: Масштаб человеческого шага','Число 13: Возвращение величия','Практика: Как вернуть себе время']) assert.ok(ru.includes(title),title);
     assert.ok(!ru.includes('<h2>Чакры</h2>'));
     if (year.wave === 1 && year.year === 1) {
       assert.ok(ru.includes('Год Магнитный'));

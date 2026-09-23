@@ -19,6 +19,23 @@
         typographer: true,
     });
 
+    const defaultHeadingOpen = mdIt.renderer.rules.heading_open ?? ((tokens, idx, options, _env, self) =>
+        self.renderToken(tokens, idx, options));
+
+    mdIt.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+        const base = (tokens[idx + 1]?.content || 'section')
+            .normalize('NFKC')
+            .toLocaleLowerCase()
+            .replace(/[^\p{L}\p{N}\s-]/gu, '')
+            .trim()
+            .replace(/[\s-]+/g, '-') || 'section';
+        const headingSlugs: Map<string, number> = env.headingSlugs ??= new Map<string, number>();
+        const occurrence = headingSlugs.get(base) || 0;
+        headingSlugs.set(base, occurrence + 1);
+        tokens[idx].attrSet('id', occurrence === 0 ? base : `${base}-${occurrence + 1}`);
+        return defaultHeadingOpen(tokens, idx, options, env, self);
+    };
+
     $: html = mdIt.render(md || '');
 
     function close() {

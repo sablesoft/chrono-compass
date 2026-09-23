@@ -103,6 +103,15 @@ function stripMarkdown(value) {
     .trim();
 }
 
+function headingSlug(value) {
+  return stripMarkdown(value)
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .trim()
+    .replace(/[\s-]+/g, '-');
+}
+
 function titleFromMarkdown(markdown, relativePath) {
   const match = markdown.match(/^#\s+(.+)$/m);
   if (match && match[1]) return stripMarkdown(match[1]);
@@ -225,8 +234,20 @@ function languageLinks(entry, byRelative) {
 
 function rendererFor(entry, lookup) {
   const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+  const headingSlugs = new Map();
+  const defaultHeadingOpen = md.renderer.rules.heading_open || function (tokens, idx, options, env, self) {
+    return self.renderToken(tokens, idx, options);
+  };
   const defaultLinkOpen = md.renderer.rules.link_open || function (tokens, idx, options, env, self) {
     return self.renderToken(tokens, idx, options);
+  };
+
+  md.renderer.rules.heading_open = function (tokens, idx, options, env, self) {
+    const base = headingSlug(tokens[idx + 1]?.content || 'section') || 'section';
+    const occurrence = headingSlugs.get(base) || 0;
+    headingSlugs.set(base, occurrence + 1);
+    tokens[idx].attrSet('id', occurrence === 0 ? base : `${base}-${occurrence + 1}`);
+    return defaultHeadingOpen(tokens, idx, options, env, self);
   };
 
   md.renderer.rules.link_open = function (tokens, idx, options, env, self) {

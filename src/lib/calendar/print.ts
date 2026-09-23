@@ -2,6 +2,9 @@ import { correctionDays, toDay, notation, fromDay, fromGregorianDay, PHRASES, ty
 import { resolveCalendarLayers } from './layers';
 import { calendarEventMarker } from './events';
 import { DREAMSPELL_TONES, HARMONIC_ACTIONS } from './dreamspell';
+import MarkdownIt from 'markdown-it';
+import printSupplementEn from '../../../public/docs/en/calendars/harmonic-calendar-print-supplement.md?raw';
+import printSupplementRu from '../../../public/docs/ru/calendars/harmonic-calendar-print-supplement.md?raw';
 
 export type PrintLanguage = 'en' | 'ru';
 export type FreeDaysOrder = 'end' | 'start' | 'both';
@@ -16,6 +19,34 @@ const ruEvents: Record<string, string[]> = {
   bind: ['Среднее расстояние Земля–Солнце: удаление','Афелий Земли','Среднее расстояние Земля–Солнце: сближение','Перигелий Земли'],
   lunar: ['Первая четверть Луны','Полнолуние','Последняя четверть Луны','Новолуние']
 };
+
+function supplementMarkdown(language: PrintLanguage): string[] {
+  const source = language === 'ru' ? printSupplementRu : printSupplementEn;
+  const headings = [...source.matchAll(/^##\s+(.+)$/gm)];
+  const contentsTitle = language === 'ru' ? 'Содержание' : 'Contents';
+  const contents = headings.findIndex(match => match[1].trim() === contentsTitle);
+  const firstSection = contents >= 0 ? contents + 1 : 0;
+  if (!headings[firstSection]?.index) return [source];
+  return [source.slice(0, headings[firstSection].index), ...headings.slice(firstSection).map((match, index) => {
+    const end = headings[firstSection + index + 1]?.index ?? source.length;
+    return source.slice(match.index, end);
+  })].map(fragment => fragment.trim()).filter(Boolean);
+}
+
+function renderSupplement(language: PrintLanguage): string {
+  const md = new MarkdownIt({html:false,linkify:true,typographer:true});
+  const counts = new Map<string, number>();
+  const headingOpen = md.renderer.rules.heading_open || ((tokens, idx, options, _env, self) => self.renderToken(tokens, idx, options));
+  md.renderer.rules.heading_open = (tokens, idx, options, env, self) => {
+    const base = String(tokens[idx + 1]?.content || 'section').normalize('NFKC').toLocaleLowerCase()
+      .replace(/[^\p{L}\p{N}\s-]/gu, '').trim().replace(/[\s-]+/g, '-') || 'section';
+    const occurrence = counts.get(base) || 0;
+    counts.set(base, occurrence + 1);
+    tokens[idx].attrSet('id', occurrence ? `${base}-${occurrence + 1}` : base);
+    return headingOpen(tokens, idx, options, env, self);
+  };
+  return `<article class="supplement">${supplementMarkdown(language).map(fragment => `<section class="supplement-section">${md.render(fragment)}</section>`).join('')}</article>`;
+}
 
 type PrintPeriod = { moon: number; year: CalendarYear; days: Array<{number: number; absolute: number; address: string}> };
 
@@ -138,6 +169,8 @@ export function buildPrintDocument(options: PrintOptions): string {
   }
   return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><title>${escape(coordinate)} · ${t('Harmonic Calendar','Гармоничный Календарь')}</title><style>
     @page { size: A4 landscape; margin: 0; }
+    @page supplement:right { size: A4 landscape; margin: 24mm 12mm 12mm; }
+    @page supplement:left { size: A4 landscape; margin: 12mm 12mm 24mm; }
     * { box-sizing: border-box; } body { margin: 0; color: #17212b; background: #d9dde2; font: 11pt Arial, sans-serif; }
     .page { width: 297mm; height: 210mm; padding: 24mm 12mm 12mm; margin: 8mm auto; background: white; break-after: page; page-break-after: always; position: relative; }
     .page.back { padding: 12mm 12mm 24mm; } .page:last-child { break-after: auto; page-break-after: auto; }
@@ -149,6 +182,15 @@ export function buildPrintDocument(options: PrintOptions): string {
     .free-wheel { height: 147mm; display: flex; justify-content: center; align-items: center; } .free-wheel svg { width: 145mm; height: 145mm; } .free-wheel text { text-anchor: middle; fill: #17212b; font-family: Arial,sans-serif; } .free-number { font-size: 54px; font-weight: 700; } .free-civil { font-size: 27px; } .free-event { font-size: 34px; }
     .cover { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; } .cover h1 { font-size: 38pt; } .cover a { color: inherit; text-decoration: none; }
     .zone { font-size: 9pt; } .legend { columns: 2; column-gap: 10mm; font-size: 10pt; line-height: 1.35; } .legend section { break-inside: avoid; margin-bottom: 4mm; } ul, ol { margin: 0; padding-left: 5mm; } li { margin-bottom: 2.5mm; } .event-description { margin: .7mm 0 0 7mm; color: #4c5864; font-size: 9pt; }
-    @media print { html, body { background: white; } .page { margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-  </style></head><body>${sheets.join('')}</body></html>`;
+    .supplement-section { page: supplement; break-before: page; font: 10pt Georgia, 'Times New Roman', serif; line-height: 1.35; }
+    .supplement-section h1 { font-size: 26pt; } .supplement-section h2 { font-size: 21pt; margin: 0 0 5mm; } .supplement-section h3 { font-size: 14pt; margin: 5mm 0 2mm; }
+    .supplement-section h1, .supplement-section h2, .supplement-section h3 { break-after: avoid; }
+    .supplement-section p { margin: 0 0 3mm; } .supplement-section ul, .supplement-section ol { margin: 0 0 4mm; padding-left: 7mm; }
+    .supplement-section li { margin-bottom: 2mm; } .supplement-section table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; break-inside: avoid; }
+    .supplement-section th, .supplement-section td { border: .25mm solid #8e969e; padding: 1.5mm 2mm; text-align: left; vertical-align: top; }
+    .supplement-section pre { white-space: pre-wrap; break-inside: avoid; font: 8.5pt ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .supplement-section a { color: inherit; }
+    @media screen { .supplement-section { width: 297mm; min-height: 210mm; margin: 8mm auto; padding: 24mm 12mm 12mm; background: white; } .supplement-section:nth-child(even) { padding: 12mm 12mm 24mm; } }
+    @media print { html, body { background: white; } .page { margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; } .supplement-section { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
+  </style></head><body>${sheets.join('')}${renderSupplement(language)}</body></html>`;
 }
