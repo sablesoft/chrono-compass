@@ -160,10 +160,6 @@ O sete ocupa um lugar central na arquitetura do Calendário Harmônico:
 Um esclarecimento importante: a camada dos chakras não é anatomia médica, mas um instrumento sutil de auto-observação. Ela abre sete direções fundamentais para uma conversa honesta conosco dentro de cada Semana: segurança, prazer, vontade, relações, autoexpressão, compreensão e sentido.
 O número 7 é o lugar onde nosso plano perfeito encontra a vida real. Se o 4 descreve as etapas estratégicas de qualquer processo e o 13 define a escala da grande aventura anual, então o 7 determina o passo rítmico pelo qual percebemos nossos resultados atuais e corrigimos criativamente nosso caminho.
 
-Esta seção é o final monumental da tríade de números — 4, 7 e 13. Entre os três, o treze foi o mais difamado, envolvido em falso misticismo e histórias de terror tolas. Nossa tarefa é arrancar essa embalagem barata da cultura popular e devolver-lhe o status de número da ordem superior, do conhecimento e da beleza natural.
-Vamos abandonar as justificativas desnecessárias, tornar a estrutura perfeitamente clara e deixar as listas vivas e afiadas.
-Eis a versão revisada para seu manifesto:
-
 ## O Número 13: A restauração de sua grandeza
 
 O número treze talvez possua o destino mais surpreendente e dramático da história humana.
