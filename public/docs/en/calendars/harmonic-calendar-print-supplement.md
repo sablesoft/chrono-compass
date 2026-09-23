@@ -160,10 +160,6 @@ Seven occupies a central place in the architecture of the Harmonic Calendar:
 An important clarification: the chakra layer is not medical anatomy, but a subtle instrument of self-observation. It unfolds seven fundamental directions for an honest conversation with ourselves inside every Week: safety, pleasure, will, relationships, self-expression, understanding, and meaning.
 The number 7 is where our perfect plan meets real life. If 4 describes the strategic stages of any process and 13 defines the scale of the great yearly adventure, then 7 determines the rhythmic step through which we notice our present results and creatively correct our course.
 
-This section is the monumental finale of the triad of numbers—4, 7, and 13. Of all three, thirteen has been slandered most, wrapped in false mysticism and foolish horror stories. Our task is to tear away this cheap pop-culture packaging and restore its status as a number of the highest order, knowledge, and natural beauty.
-Let us cast off unnecessary apologies, make the structure perfectly scannable, and make the lists vivid and sharp.
-Here is the revised version for your manifesto:
-
 ## The Number 13: Restoring Its Greatness
 
 The number thirteen has perhaps the most astonishing and dramatic fate in human history.
