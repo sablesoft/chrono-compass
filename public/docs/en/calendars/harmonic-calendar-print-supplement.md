@@ -242,15 +242,15 @@ Every Month of the year is a complete Ceremony of the Four Directions. Move cons
 4. 🟨 Week 4. Completion (South): The time to gather fruit. Integrate the experience, whatever it has been. Thank yourself and the world, take stock, and celebrate the end of the cycle.
 
 The longer you practice this four-step rhythm, the more clearly you will notice the same circle and its four directions revealing themselves in all your other undertakings and projects. Beginning in the East on the right, the wheel of time rises toward the North, moves into the West on the left, and concludes in the South below:
-
-                      ⬜ Week 2: ACCELERATION (North)
-                                    ↑
-                                    |
-🟦 Week 3: TRANSFORMATION (West) ←--+--← 🟥 Week 1: DIRECTION (East)
-                                    |
-                                    ↓
-                      🟨 Week 4: COMPLETION (South)
-
+```
+                        ⬜ Week 2: ACCELERATION (North)
+                                     ↑
+                                     |
+🟦 Week 3: TRANSFORMATION (West) ←───┼───← 🟥 Week 1: DIRECTION (East)
+                                     |
+                                     ↓
+                        🟨 Week 4: COMPLETION (South)
+```
 Now your compass of time is set perfectly, aligned with the direction of the Earth’s own rotation.
 
 ### Seven Steps: Daily Creativity
