@@ -48,6 +48,23 @@ function renderSupplement(language: PrintLanguage): string {
   return `<article class="supplement">${supplementMarkdown(language).map(fragment => `<section class="supplement-section">${md.render(fragment)}</section>`).join('')}</article>`;
 }
 
+const supplementPaginationScript = `<script>(() => {
+  const paginate = () => {
+    const sections = [...document.querySelectorAll('.supplement-section')];
+    const probe = document.createElement('div');
+    probe.className = 'supplement-measure';
+    document.body.append(probe);
+    for (const section of sections.slice(0, -1)) {
+      probe.innerHTML = section.innerHTML;
+      const pages = Math.max(1, Math.round(probe.scrollWidth / probe.clientWidth));
+      if (pages % 2 === 1) section.insertAdjacentHTML('afterend', '<section class="supplement-blank" aria-hidden="true"></section>');
+    }
+    probe.remove();
+    document.documentElement.dataset.supplementReady = 'true';
+  };
+  document.fonts.ready.then(paginate);
+})()<\/script>`;
+
 type PrintPeriod = { moon: number; year: CalendarYear; days: Array<{number: number; absolute: number; address: string}> };
 
 function period(year: CalendarYear, moon: number): PrintPeriod {
@@ -182,15 +199,17 @@ export function buildPrintDocument(options: PrintOptions): string {
     .free-wheel { height: 147mm; display: flex; justify-content: center; align-items: center; } .free-wheel svg { width: 145mm; height: 145mm; } .free-wheel text { text-anchor: middle; fill: #17212b; font-family: Arial,sans-serif; } .free-number { font-size: 54px; font-weight: 700; } .free-civil { font-size: 27px; } .free-event { font-size: 34px; }
     .cover { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; } .cover h1 { font-size: 38pt; } .cover a { color: inherit; text-decoration: none; }
     .zone { font-size: 9pt; } .legend { columns: 2; column-gap: 10mm; font-size: 10pt; line-height: 1.35; } .legend section { break-inside: avoid; margin-bottom: 4mm; } ul, ol { margin: 0; padding-left: 5mm; } li { margin-bottom: 2.5mm; } .event-description { margin: .7mm 0 0 7mm; color: #4c5864; font-size: 9pt; }
-    .supplement-section { page: supplement; break-before: right; page-break-before: right; font: 10pt Georgia, 'Times New Roman', serif; line-height: 1.35; }
-    .supplement-section h1 { font-size: 26pt; } .supplement-section h2 { font-size: 21pt; margin: 0 0 5mm; } .supplement-section h3 { font-size: 14pt; margin: 5mm 0 2mm; }
-    .supplement-section h1, .supplement-section h2, .supplement-section h3 { break-after: avoid; }
-    .supplement-section p { margin: 0 0 3mm; } .supplement-section ul, .supplement-section ol { margin: 0 0 4mm; padding-left: 7mm; }
-    .supplement-section li { margin-bottom: 2mm; } .supplement-section table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; break-inside: avoid; }
-    .supplement-section th, .supplement-section td { border: .25mm solid #8e969e; padding: 1.5mm 2mm; text-align: left; vertical-align: top; }
-    .supplement-section pre { white-space: pre-wrap; break-inside: avoid; font: 8.5pt ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .supplement-section a { color: inherit; }
-    @media screen { .supplement-section { width: 297mm; min-height: 210mm; margin: 8mm auto; padding: 24mm 12mm 12mm; background: white; } .supplement-section:nth-child(even) { padding: 12mm 12mm 24mm; } }
+    .supplement-section { page: supplement; break-before: page; page-break-before: always; font: 10pt Georgia, 'Times New Roman', serif; line-height: 1.35; }
+    .supplement-section h1, .supplement-measure h1 { font-size: 26pt; } .supplement-section h2, .supplement-measure h2 { font-size: 21pt; margin: 0 0 5mm; } .supplement-section h3, .supplement-measure h3 { font-size: 14pt; margin: 5mm 0 2mm; }
+    .supplement-section h1, .supplement-section h2, .supplement-section h3, .supplement-measure h1, .supplement-measure h2, .supplement-measure h3 { break-after: avoid; }
+    .supplement-section p, .supplement-measure p { margin: 0 0 3mm; } .supplement-section ul, .supplement-section ol, .supplement-measure ul, .supplement-measure ol { margin: 0 0 4mm; padding-left: 7mm; }
+    .supplement-section li, .supplement-measure li { margin-bottom: 2mm; } .supplement-section table, .supplement-measure table { width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; break-inside: avoid; }
+    .supplement-section th, .supplement-section td, .supplement-measure th, .supplement-measure td { border: .25mm solid #8e969e; padding: 1.5mm 2mm; text-align: left; vertical-align: top; }
+    .supplement-section pre, .supplement-measure pre { white-space: pre-wrap; break-inside: avoid; font: 8.5pt ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .supplement-section a, .supplement-measure a { color: inherit; }
+    .supplement-measure { position: absolute; left: -10000mm; top: 0; visibility: hidden; width: 273mm; height: 174mm; columns: 273mm auto; column-gap: 0; column-fill: auto; overflow: visible; font: 10pt Georgia, 'Times New Roman', serif; line-height: 1.35; }
+    .supplement-blank { page: supplement; break-before: page; break-after: page; page-break-before: always; page-break-after: always; height: 174mm; }
+    @media screen { .supplement-section, .supplement-blank { width: 297mm; min-height: 210mm; margin: 8mm auto; padding: 24mm 12mm 12mm; background: white; } .supplement-blank { padding: 12mm 12mm 24mm; } }
     @media print { html, body { background: white; } .page { margin: 0; print-color-adjust: exact; -webkit-print-color-adjust: exact; } .supplement-section { print-color-adjust: exact; -webkit-print-color-adjust: exact; } }
-  </style></head><body>${sheets.join('')}${renderSupplement(language)}</body></html>`;
+  </style></head><body>${sheets.join('')}${renderSupplement(language)}${supplementPaginationScript}</body></html>`;
 }

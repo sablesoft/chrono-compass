@@ -19,8 +19,10 @@
   $: calendarSheetCount = order === 'both' ? 16 : 15;
   $: html = buildPrintDocument({year, epoch, timezone, latitude, selected, language, freeDays: order});
   $: if (html) ready = false;
-  function loaded() {
-    ready = true;
+  async function loaded() {
+    await frame.contentDocument?.fonts.ready;
+    await tick();
+    ready = frame.contentDocument?.documentElement.dataset.supplementReady === 'true';
     error = '';
     frame.contentDocument?.addEventListener('keydown', event => {
       if (event.key === 'Escape') onClose();
