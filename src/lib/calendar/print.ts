@@ -157,15 +157,15 @@ export function buildPrintDocument(options: PrintOptions): string {
   const yearName = has('dreamspell') ? (year.wave ? tone(year.year) : PHRASES[year.phrase - 1] === 4 ? actions[year.year - 1] : '') : '';
   const yearCode = `${year.wave === 0 ? 'X' : `W${year.wave}`}-Y${year.year}`;
   const documentTitle = `Harmonic Calendar - ${yearCode} - ${language.toUpperCase()}`;
-  const coverYearName = yearName ? (year.wave ? t(`${yearName} Year`, `Год ${yearName}`, `Ano ${yearName}`) : t(`${yearName} Year`, `Год · ${yearName}`, `Ano · ${yearName}`)) : '';
   const civil = (absolute: number) => {
     const d = fromGregorianDay(epoch + absolute);
     return `${d.day}.${String(d.month).padStart(2,'0')}.${d.year <= 0 ? `${1-d.year} ${t('BCE','до н. э.','a.C.')}` : d.year}`;
   };
   const sheets: string[] = [];
-  const page = (content: string, back = false, blank = false) => `<section class="page ${back ? 'back' : 'front'}${blank ? ' blank' : ''}">${content}</section>`;
+  const page = (content: string, back = false, blank = false, extraClass = '') => `<section class="page ${back ? 'back' : 'front'}${blank ? ' blank' : ''}${extraClass ? ` ${extraClass}` : ''}">${content}</section>`;
   const heading = (title: string, value: CalendarYear = year) => `<header><h1>${escape(title)}</h1><p>${escape(yearCoordinate(value))}${value === year && yearName ? ` · ${escape(yearName)}` : ''}</p></header>`;
-  sheets.push(page(`<div class="cover"><p>CHRONO COMPASS</p><h1>${t('Harmonic Calendar','Гармоничный Календарь','Calendário Harmônico')}</h1><h2>${escape(coordinate)}</h2><p>${escape(coverYearName)}</p><p>${escape(timezone)}</p><p><a href="https://chrono-compass.app">https://chrono-compass.app</a></p></div>`), page('', true, true));
+  const coverTitle = t('Harmonic Calendar','Гармоничный Календарь','Calendário Harmônico');
+  sheets.push(page(`<div class="cover"><img src="/print/harmonic-calendar-cover.png" alt=""><h1>${escape(coverTitle)}</h1><h2>${escape(coordinate)}</h2></div>`, false, false, 'cover-page'), page('', true, true));
   for (const period of printPeriods(year, freeDays)) {
     const free = period.moon === 14;
     const title = free ? (period.days.length === 1 ? t('Free Day','День Свободы','Dia Livre') : t('Free Days','Дни Свободы','Dias Livres')) : `${t('Month','Месяц','Mês')} ${period.moon}${has('dreamspell') ? ` · ${tone(period.moon)}` : ''}`;
@@ -207,7 +207,7 @@ export function buildPrintDocument(options: PrintOptions): string {
     .cell strong { font-size: 23pt; } .cell small { font-size: 12pt; min-height: 5mm; }
     .week0 { background: #f6dedd; } .week1 { background: #fafafa; } .week2 { background: #dde8f7; } .week3 { background: #f9eac2; }
     .free-wheel { height: 147mm; display: flex; justify-content: center; align-items: center; } .free-wheel svg { width: 145mm; height: 145mm; } .free-wheel text { text-anchor: middle; fill: #17212b; font-family: Arial,sans-serif; } .free-number { font-size: 54px; font-weight: 700; } .free-civil { font-size: 27px; } .free-event { font-size: 34px; }
-    .cover { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8mm; } .cover h1 { font-size: 38pt; } .cover a { color: inherit; text-decoration: none; }
+    .page.cover-page { padding: 0; overflow: hidden; } .cover { position: relative; width: 100%; height: 100%; color: white; font-family: Arial, Helvetica, sans-serif; } .cover img { display: block; width: 100%; height: 100%; object-fit: fill; } .cover h1, .cover h2 { position: absolute; left: 50%; margin: 0; transform: translateX(-50%); text-align: center; white-space: nowrap; } .cover h1 { top: 37.4%; color: rgba(255,170,0,.56); font-size: 58px; font-weight: 700; line-height: 1; text-transform: uppercase; text-shadow: 0 35px 17px #000; } .cover h2 { top: 49.4%; color: #fff; font-size: 20pt; font-weight: 700; line-height: 1; }
     .zone { font-size: 9pt; } .legend { columns: 2; column-gap: 10mm; font-size: 10pt; line-height: 1.35; } .legend section { break-inside: avoid; margin-bottom: 4mm; } ul, ol { margin: 0; padding-left: 5mm; } li { margin-bottom: 2.5mm; } .event-description { margin: .7mm 0 0 7mm; color: #4c5864; font-size: 9pt; }
     .supplement-section { page: supplement; break-before: page; page-break-before: always; font: 10pt Georgia, 'Times New Roman', serif; line-height: 1.35; }
     .supplement-section h1, .supplement-measure h1 { font-size: 26pt; } .supplement-section h2, .supplement-measure h2 { font-size: 21pt; margin: 0 0 5mm; } .supplement-section h3, .supplement-measure h3 { font-size: 14pt; margin: 5mm 0 2mm; }

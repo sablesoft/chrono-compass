@@ -28,13 +28,15 @@ try {
     const html = buildPrintDocument(opts);
     assert.equal((html.match(/class="page /g)||[]).length,30);
     assert.ok(html.includes('</section><section class="page back blank"></section>'));
-    assert.equal((html.match(/class="page front"/g)||[]).length,15);
+    assert.equal((html.match(/class="page front(?: |")/g)||[]).length,15);
     assert.equal((html.match(/class="page back/g)||[]).length,15);
     assert.ok(!html.includes('<h2>Chakras</h2>'));
     assert.ok(html.includes('Harmonic Calendar'));
     const cover = html.match(/<div class="cover">[\s\S]*?<\/div>/)?.[0] || '';
-    assert.ok(cover.includes('UTC'));
-    assert.ok(cover.includes('https://chrono-compass.app'));
+    assert.ok(cover.includes('/print/harmonic-calendar-cover.png'));
+    assert.ok(!cover.includes('UTC'));
+    assert.ok(!cover.includes('https://chrono-compass.app'));
+    assert.match(cover, /<h2>GC \d+ · A \d+\(\d+\) · (?:W \d+|X) · Y \d+<\/h2>/);
     assert.ok(!cover.includes('Free Days at'));
     assert.ok(!html.includes('Special days &amp; reading the grid'));
     assert.ok(!html.includes('Weeks 1–4'));
@@ -54,16 +56,11 @@ try {
     const pt = buildPrintDocument({...opts,language:'pt',selected:['gregorian','dreamspell','season','bind','lunar']});
     assert.match(pt, /<title>Harmonic Calendar - (?:W\d+|X)-Y\d+ - PT<\/title>/);
     for (const label of ['Calendário Harmônico','Mês 1','Legenda','Datas gregorianas','Eventos sazonais','Distância Terra–Sol','Fases da Lua','Conteúdo','Sobre','Dias Livres: Tempo fora da matriz','Prática: Como recuperar seu tempo']) assert.ok(pt.includes(label),label);
-    if (year.wave === 1 && year.year === 1) {
-      assert.ok(ru.includes('Год Магнитный'));
-      assert.ok(buildPrintDocument({...opts,selected:['dreamspell']}).includes('Magnetic Year'));
-      assert.ok(pt.includes('Ano Magnético'));
-    }
     const bothHtml = buildPrintDocument({...opts,freeDays:'both'});
     assert.equal((bothHtml.match(/class="page /g)||[]).length,32);
     const appendix = buildPrintDocument({...opts,appendices:[{title:'<script>',front:['<img onerror="bad">']}]});
     assert.equal((appendix.match(/class="page /g)||[]).length,32);
-    assert.ok(appendix.includes('&lt;script&gt;')); assert.ok(!appendix.includes('<img'));
+    assert.ok(appendix.includes('&lt;script&gt;')); assert.ok(!appendix.includes('<img onerror'));
   }
   const epoch = gregorianDay(-554,12,22);
   const modernYear = fromDay(gregorianDay(2026,9,22)-epoch);
@@ -80,9 +77,5 @@ try {
   const fourDays = buildPrintDocument({year:{gc:1,phrase:1,wave:1,year:13},epoch,timezone:'UTC',latitude:0,selected:[],language:'en',freeDays:'start'});
   assert.ok(fourDays.includes('Correction days outside the calendar grid.'));
   assert.ok(fourDays.includes('stroke="#dff3df"'));
-  const overtoneYear = {gc:1,phrase:1,wave:1,year:5};
-  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'en',freeDays:'end'}).includes('Overtone Year'));
-  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'ru',freeDays:'end'}).includes('Год Обертонный'));
-  assert.ok(buildPrintDocument({year:overtoneYear,epoch,timezone:'UTC',latitude:0,selected:['dreamspell'],language:'pt',freeDays:'end'}).includes('Ano Entonado'));
   console.log('Print calendar: chronology, three order modes, circular Free Days, locales, descriptions, layers and appendices passed.');
 } finally { await rm(dir,{recursive:true,force:true}); }

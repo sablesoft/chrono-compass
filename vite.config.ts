@@ -16,6 +16,7 @@ export default defineConfig({
         'favicon.ico',
         'favicon.svg',
         'apple-touch-icon-180x180.png',
+        'print/harmonic-calendar-cover.png',
         'robots.txt',
         'docs/**/*.md'
       ],
