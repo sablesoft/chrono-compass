@@ -242,15 +242,15 @@ Cada Mês do ano é uma Cerimônia completa das Quatro Direções. Atravesse con
 4. 🟨 Semana 4. Conclusão (Sul): O momento de colher os frutos. Integre a experiência, seja qual for. Agradeça a si mesmo e ao mundo, faça um balanço e celebre o fim do ciclo.
 
 Quanto mais tempo você praticar esse ritmo de quatro passos, mais claramente perceberá o mesmo círculo e suas quatro direções se revelando em todos os seus outros trabalhos e projetos. Começando no Leste, à direita, a roda do tempo sobe em direção ao Norte, segue para o Oeste, à esquerda, e termina no Sul, abaixo:
-
-                      ⬜ Semana 2: ACELERAÇÃO (Norte)
-                                    ↑
-                                    |
-🟦 Semana 3: TRANSFORMAÇÃO (Oeste) ←--+--← 🟥 Semana 1: DIREÇÃO (Leste)
-                                    |
-                                    ↓
-                      🟨 Semana 4: CONCLUSÃO (Sul)
-
+```
+                           ⬜ Semana 2: ACELERAÇÃO (Norte)
+                                       ↑
+                                       |
+🟦 Semana 3: TRANSFORMAÇÃO (Oeste) ←───┼───← 🟥 Semana 1: DIREÇÃO (Leste)
+                                       |
+                                       ↓
+                           🟨 Semana 4: CONCLUSÃO (Sul)
+```
 Agora sua bússola do tempo está ajustada perfeitamente, alinhada à direção da própria rotação da Terra.
 
 ### Sete Passos: Criatividade diária
