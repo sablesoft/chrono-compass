@@ -1,9 +1,16 @@
 import { defineConfig } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { VitePWA } from 'vite-plugin-pwa'
+import { siteOrigin } from './scripts/site-origin.mjs'
 
 export default defineConfig({
   plugins: [
+    {
+      name: 'canonical-origin',
+      transformIndexHtml(html) {
+        return html.replaceAll('__SITE_ORIGIN__', siteOrigin());
+      }
+    },
     svelte(),
     VitePWA({
       // В dev SW обычно мешает, но если тебе надо тестировать — оставь true.
@@ -17,7 +24,6 @@ export default defineConfig({
         'favicon.svg',
         'apple-touch-icon-180x180.png',
         'print/harmonic-calendar-cover.png',
-        'robots.txt',
         'docs/**/*.md'
       ],
 
