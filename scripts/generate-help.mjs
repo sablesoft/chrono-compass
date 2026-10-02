@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
+import { siteOrigin } from './site-origin.mjs';
 
 const ROOT = process.cwd();
 const DOCS_ROOT = path.join(ROOT, 'public', 'docs');
@@ -78,19 +79,7 @@ function renderCategorySections(items, lang, includePaths = true) {
     .join('\n');
 }
 
-const SITE_ORIGIN = normalizeOrigin(
-  process.env.CHRONO_SITE_ORIGIN ||
-  process.env.SITE_ORIGIN ||
-  process.env.URL ||
-  process.env.DEPLOY_PRIME_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? 'https://' + process.env.VERCEL_PROJECT_PRODUCTION_URL : '') ||
-  process.env.CF_PAGES_URL ||
-  ''
-);
-
-function normalizeOrigin(value) {
-  return value ? value.replace(/\/+$/, '') : '';
-}
+const SITE_ORIGIN = siteOrigin();
 
 function escapeHtml(value) {
   return String(value)
@@ -160,7 +149,7 @@ function pageFile(lang, relativePath) {
 }
 
 function absolute(urlPath) {
-  return SITE_ORIGIN ? SITE_ORIGIN + urlPath : urlPath;
+  return SITE_ORIGIN + urlPath;
 }
 
 function nav() {
@@ -281,7 +270,7 @@ function rendererFor(entry, lookup) {
 
 async function main() {
   const languageDirs = (await fs.readdir(DOCS_ROOT, { withFileTypes: true }))
-    .filter(function (item) { return item.isDirectory(); })
+    .filter(function (item) { return item.isDirectory() && Object.hasOwn(LABELS, item.name); })
     .map(function (item) { return item.name; })
     .sort();
 
@@ -371,8 +360,7 @@ async function main() {
       title: 'Documentation',
       description: 'ChronoCompass documentation in all available languages.',
       lang: 'en',
-      canonical: '/help/',
-      alternates: languageDirs.map(function (code) { return { lang: code, href: '/help/' + code + '/' }; })
+      canonical: '/help/'
     }),
     '<body>', nav(),
     '<main class="docIndex"><h1>ChronoCompass Documentation</h1>',
@@ -383,25 +371,21 @@ async function main() {
   await fs.writeFile(path.join(HELP_ROOT, 'index.html'), helpIndex);
 
   const robotsLines = ['User-agent: *', 'Allow: /', 'Disallow: /docs/'];
-  if (SITE_ORIGIN) robotsLines.push('Sitemap: ' + SITE_ORIGIN + '/sitemap.xml');
+  robotsLines.push('Sitemap: ' + SITE_ORIGIN + '/sitemap.xml');
   robotsLines.push('');
   await fs.writeFile(path.join(DIST_ROOT, 'robots.txt'), robotsLines.join('\n'));
 
-  if (SITE_ORIGIN) {
-    const urls = ['/','/help/']
-      .concat(languageDirs.map(function (lang) { return '/help/' + lang + '/'; }))
-      .concat(entries.map(function (entry) { return helpUrl(entry.lang, entry.relativePath); }));
-    const sitemap = [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-      urls.map(function (url) { return '  <url><loc>' + escapeHtml(SITE_ORIGIN + url) + '</loc></url>'; }).join('\n'),
-      '</urlset>',
-      ''
-    ].join('\n');
-    await fs.writeFile(path.join(DIST_ROOT, 'sitemap.xml'), sitemap);
-  } else {
-    console.warn('[generate-help] No site origin configured; sitemap.xml was not generated. Set CHRONO_SITE_ORIGIN for production builds.');
-  }
+  const urls = ['/','/help/']
+    .concat(languageDirs.map(function (lang) { return '/help/' + lang + '/'; }))
+    .concat(entries.map(function (entry) { return helpUrl(entry.lang, entry.relativePath); }));
+  const sitemap = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    urls.map(function (url) { return '  <url><loc>' + escapeHtml(SITE_ORIGIN + url) + '</loc></url>'; }).join('\n'),
+    '</urlset>',
+    ''
+  ].join('\n');
+  await fs.writeFile(path.join(DIST_ROOT, 'sitemap.xml'), sitemap);
 
   console.log('[generate-help] Generated ' + entries.length + ' documentation pages in ' + languageDirs.length + ' languages.');
 }
