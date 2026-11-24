@@ -109,3 +109,18 @@ export function fromGregorianDay(value: number): { year: number; month: number; 
   const month = mp + (mp < 10 ? 3 : -9);
   return { year: y + (month <= 2 ? 1 : 0), month, day };
 }
+
+/** Reuse the canonical year table for all nested period boundaries. End is exclusive. */
+export function calendarPeriods(value: CalendarYear): Record<'greatCycle' | 'age' | 'wave', { start: number; end: number }> {
+  const { index } = rowFor(value);
+  const offset = (value.gc - 1) * DAYS_PER_GC;
+  const span = (matches: (row: CalendarYear) => boolean) => {
+    let first = index, last = index;
+    while (first > 0 && matches(years[first - 1])) first--;
+    while (last + 1 < years.length && matches(years[last + 1])) last++;
+    return { start: offset + years[first].start, end: offset + years[last].start + years[last].length };
+  };
+  return { greatCycle: {start: offset, end: offset + DAYS_PER_GC},
+    age: span(row => row.phrase === value.phrase),
+    wave: span(row => row.phrase === value.phrase && row.wave === value.wave) };
+}
