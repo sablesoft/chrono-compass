@@ -1,0 +1,644 @@
+{
+  "utc": {
+    "timestamp": 1795521600,
+    "timezone": "UTC",
+    "utcDatetime": "2026-11-24T12:00:00.000Z",
+    "local": {
+      "datetime": "2026-11-24T12:00:00+00:00",
+      "date": "2026-11-24",
+      "time": "12:00:00",
+      "offset": "+00:00"
+    },
+    "gregorian": {
+      "year": 2026,
+      "month": 11,
+      "day": 24
+    },
+    "harmonic": {
+      "notation": "1.15(4).13.5.13.3",
+      "absoluteDay": 942298,
+      "state": "regular",
+      "greatCycle": 1,
+      "age": {
+        "number": 15,
+        "type": 4
+      },
+      "wave": {
+        "number": 13,
+        "label": "13"
+      },
+      "year": {
+        "number": 5,
+        "name": "Overtone",
+        "days": 365,
+        "correctionDays": 1
+      },
+      "month": {
+        "number": 13,
+        "name": "Cosmic"
+      },
+      "week": {
+        "number": 1,
+        "name": "Initiate",
+        "direction": "East"
+      },
+      "day": {
+        "number": 3,
+        "weekday": 3,
+        "symbolicName": "Solar Plexus"
+      },
+      "freeDay": null,
+      "isDayOutOfTime": false,
+      "isEndOfWeek": false,
+      "isEndOfMonth": false,
+      "isEndOfYear": false,
+      "boundaries": {
+        "day": {
+          "startDate": "2026-11-24",
+          "endDateExclusive": "2026-11-25",
+          "startTimestamp": 1795478400,
+          "endTimestampExclusive": 1795564800,
+          "calendarDays": 1
+        },
+        "year": {
+          "startDate": "2025-12-20",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1766188800,
+          "endTimestampExclusive": 1797724800,
+          "calendarDays": 365
+        },
+        "month": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1797724800,
+          "calendarDays": 28
+        },
+        "week": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-11-29",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1795910400,
+          "calendarDays": 7
+        },
+        "freePeriod": null
+      }
+    }
+  },
+  "saoPaulo": {
+    "timestamp": 1795521600,
+    "timezone": "America/Sao_Paulo",
+    "utcDatetime": "2026-11-24T12:00:00.000Z",
+    "local": {
+      "datetime": "2026-11-24T09:00:00-03:00",
+      "date": "2026-11-24",
+      "time": "09:00:00",
+      "offset": "-03:00"
+    },
+    "gregorian": {
+      "year": 2026,
+      "month": 11,
+      "day": 24
+    },
+    "harmonic": {
+      "notation": "1.15(4).13.5.13.3",
+      "absoluteDay": 942298,
+      "state": "regular",
+      "greatCycle": 1,
+      "age": {
+        "number": 15,
+        "type": 4
+      },
+      "wave": {
+        "number": 13,
+        "label": "13"
+      },
+      "year": {
+        "number": 5,
+        "name": "Overtone",
+        "days": 365,
+        "correctionDays": 1
+      },
+      "month": {
+        "number": 13,
+        "name": "Cosmic"
+      },
+      "week": {
+        "number": 1,
+        "name": "Initiate",
+        "direction": "East"
+      },
+      "day": {
+        "number": 3,
+        "weekday": 3,
+        "symbolicName": "Solar Plexus"
+      },
+      "freeDay": null,
+      "isDayOutOfTime": false,
+      "isEndOfWeek": false,
+      "isEndOfMonth": false,
+      "isEndOfYear": false,
+      "boundaries": {
+        "day": {
+          "startDate": "2026-11-24",
+          "endDateExclusive": "2026-11-25",
+          "startTimestamp": 1795489200,
+          "endTimestampExclusive": 1795575600,
+          "calendarDays": 1
+        },
+        "year": {
+          "startDate": "2025-12-20",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1766199600,
+          "endTimestampExclusive": 1797735600,
+          "calendarDays": 365
+        },
+        "month": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1795316400,
+          "endTimestampExclusive": 1797735600,
+          "calendarDays": 28
+        },
+        "week": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-11-29",
+          "startTimestamp": 1795316400,
+          "endTimestampExclusive": 1795921200,
+          "calendarDays": 7
+        },
+        "freePeriod": null
+      }
+    }
+  },
+  "freeDay": {
+    "timestamp": -79619068800,
+    "timezone": "UTC",
+    "utcDatetime": "-000554-12-22T00:00:00.000Z",
+    "local": {
+      "datetime": "-000554-12-22T00:00:00+00:00",
+      "date": "-000554-12-22",
+      "time": "00:00:00",
+      "offset": "+00:00"
+    },
+    "gregorian": {
+      "year": -554,
+      "month": 12,
+      "day": 22
+    },
+    "harmonic": {
+      "notation": "1.1(1).X.1.0.S1",
+      "absoluteDay": 0,
+      "state": "free_day",
+      "greatCycle": 1,
+      "age": {
+        "number": 1,
+        "type": 1
+      },
+      "wave": {
+        "number": null,
+        "label": "X"
+      },
+      "year": {
+        "number": 1,
+        "name": null,
+        "days": 368,
+        "correctionDays": 4
+      },
+      "month": null,
+      "week": null,
+      "day": null,
+      "freeDay": {
+        "number": 1,
+        "label": "S1",
+        "count": 4
+      },
+      "isDayOutOfTime": true,
+      "isEndOfWeek": false,
+      "isEndOfMonth": false,
+      "isEndOfYear": false,
+      "boundaries": {
+        "day": {
+          "startDate": "-000554-12-22",
+          "endDateExclusive": "-000554-12-23",
+          "startTimestamp": -79619068800,
+          "endTimestampExclusive": -79618982400,
+          "calendarDays": 1
+        },
+        "year": {
+          "startDate": "-000554-12-22",
+          "endDateExclusive": "-000553-12-25",
+          "startTimestamp": -79619068800,
+          "endTimestampExclusive": -79587273600,
+          "calendarDays": 368
+        },
+        "month": null,
+        "week": null,
+        "freePeriod": {
+          "startDate": "-000554-12-22",
+          "endDateExclusive": "-000554-12-26",
+          "startTimestamp": -79619068800,
+          "endTimestampExclusive": -79618723200,
+          "calendarDays": 4
+        }
+      }
+    }
+  },
+  "cycles": {
+    "timestamp": 1795521600,
+    "timezone": "UTC",
+    "utcDatetime": "2026-11-24T12:00:00.000Z",
+    "local": {
+      "datetime": "2026-11-24T12:00:00+00:00",
+      "date": "2026-11-24",
+      "time": "12:00:00",
+      "offset": "+00:00"
+    },
+    "gregorian": {
+      "year": 2026,
+      "month": 11,
+      "day": 24
+    },
+    "harmonic": {
+      "notation": "1.15(4).13.5.13.3",
+      "absoluteDay": 942298,
+      "state": "regular",
+      "greatCycle": 1,
+      "age": {
+        "number": 15,
+        "type": 4
+      },
+      "wave": {
+        "number": 13,
+        "label": "13"
+      },
+      "year": {
+        "number": 5,
+        "name": "Overtone",
+        "days": 365,
+        "correctionDays": 1
+      },
+      "month": {
+        "number": 13,
+        "name": "Cosmic"
+      },
+      "week": {
+        "number": 1,
+        "name": "Initiate",
+        "direction": "East"
+      },
+      "day": {
+        "number": 3,
+        "weekday": 3,
+        "symbolicName": "Solar Plexus"
+      },
+      "freeDay": null,
+      "isDayOutOfTime": false,
+      "isEndOfWeek": false,
+      "isEndOfMonth": false,
+      "isEndOfYear": false,
+      "boundaries": {
+        "day": {
+          "startDate": "2026-11-24",
+          "endDateExclusive": "2026-11-25",
+          "startTimestamp": 1795478400,
+          "endTimestampExclusive": 1795564800,
+          "calendarDays": 1
+        },
+        "year": {
+          "startDate": "2025-12-20",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1766188800,
+          "endTimestampExclusive": 1797724800,
+          "calendarDays": 365
+        },
+        "month": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1797724800,
+          "calendarDays": 28
+        },
+        "week": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-11-29",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1795910400,
+          "calendarDays": 7
+        },
+        "freePeriod": null
+      }
+    },
+    "cycles": {
+      "moon": {
+        "status": "available",
+        "startTimestamp": 1794916080,
+        "endTimestampExclusive": 1797486180,
+        "elapsedTimeFraction": 0.23560172755923894,
+        "segment": "NNE",
+        "spokes": [
+          {
+            "code": "E",
+            "timestamp": 1794916080,
+            "data": {
+              "distanceAu": 0.002657158067591237,
+              "distanceKm": 397505.1890249757,
+              "focusDistAu": 0.9887506212403733,
+              "exactTimestamp": 1794916106.529182
+            }
+          },
+          {
+            "code": "ENE",
+            "timestamp": 1795076760,
+            "data": {
+              "distanceAu": 0.0025925532468317955,
+              "distanceKm": 387840.4454024081,
+              "focusDistAu": 0.9883464759518333,
+              "exactTimestamp": 1795076737.0870094
+            }
+          },
+          {
+            "code": "NE",
+            "timestamp": 1795237380,
+            "data": {
+              "distanceAu": 0.0025162909398436842,
+              "distanceKm": 376431.7666623169,
+              "focusDistAu": 0.9879560729093863,
+              "exactTimestamp": 1795237367.6448371
+            }
+          },
+          {
+            "code": "NNE",
+            "timestamp": 1795398000,
+            "data": {
+              "distanceAu": 0.002447774908289829,
+              "distanceKm": 366181.9142330462,
+              "focusDistAu": 0.9875815305942106,
+              "exactTimestamp": 1795397998.202665
+            }
+          },
+          {
+            "code": "N",
+            "timestamp": 1795558620,
+            "data": {
+              "distanceAu": 0.002407418232416805,
+              "distanceKm": 360144.6414539117,
+              "focusDistAu": 0.9872245482073989,
+              "exactTimestamp": 1795558628.7604926
+            }
+          },
+          {
+            "code": "NNW",
+            "timestamp": 1795719240,
+            "data": {
+              "distanceAu": 0.00240685261593496,
+              "distanceKm": 360060.02643259487,
+              "focusDistAu": 0.9868859984090298,
+              "exactTimestamp": 1795719259.3183203
+            }
+          },
+          {
+            "code": "NW",
+            "timestamp": 1795879860,
+            "data": {
+              "distanceAu": 0.0024426909856921277,
+              "distanceKm": 365421.3702376264,
+              "focusDistAu": 0.9865656996598229,
+              "exactTimestamp": 1795879889.876148
+            }
+          },
+          {
+            "code": "WNW",
+            "timestamp": 1796040540,
+            "data": {
+              "distanceAu": 0.0024999678990744838,
+              "distanceKm": 373989.87451989524,
+              "focusDistAu": 0.9862625006079887,
+              "exactTimestamp": 1796040520.4339757
+            }
+          },
+          {
+            "code": "W",
+            "timestamp": 1796201160,
+            "data": {
+              "distanceAu": 0.0025618592411355318,
+              "distanceKm": 383248.68750699336,
+              "focusDistAu": 0.9859746644457789,
+              "exactTimestamp": 1796201150.9918032
+            }
+          },
+          {
+            "code": "WSW",
+            "timestamp": 1796361780,
+            "data": {
+              "distanceAu": 0.0026169669683479674,
+              "distanceKm": 391492.6861570902,
+              "focusDistAu": 0.9857003978746012,
+              "exactTimestamp": 1796361781.549631
+            }
+          },
+          {
+            "code": "SW",
+            "timestamp": 1796522400,
+            "data": {
+              "distanceAu": 0.002660612239056738,
+              "distanceKm": 398021.9257212474,
+              "focusDistAu": 0.9854383108849676,
+              "exactTimestamp": 1796522412.1074588
+            }
+          },
+          {
+            "code": "SSW",
+            "timestamp": 1796683020,
+            "data": {
+              "distanceAu": 0.0026921877618761377,
+              "distanceKm": 402745.5567012688,
+              "focusDistAu": 0.9851876521435771,
+              "exactTimestamp": 1796683042.6652863
+            }
+          },
+          {
+            "code": "S",
+            "timestamp": 1796843700,
+            "data": {
+              "distanceAu": 0.002711469324380729,
+              "distanceKm": 405630.0373957246,
+              "focusDistAu": 0.9849483007668347,
+              "exactTimestamp": 1796843673.223114
+            }
+          },
+          {
+            "code": "SSE",
+            "timestamp": 1797004320,
+            "data": {
+              "distanceAu": 0.002716286888335437,
+              "distanceKm": 406350.73470531,
+              "focusDistAu": 0.9847206234577399,
+              "exactTimestamp": 1797004303.7809417
+            }
+          },
+          {
+            "code": "SE",
+            "timestamp": 1797164940,
+            "data": {
+              "distanceAu": 0.0027025016317537127,
+              "distanceKm": 404288.4896736309,
+              "focusDistAu": 0.9845053490138369,
+              "exactTimestamp": 1797164934.3387694
+            }
+          },
+          {
+            "code": "ESE",
+            "timestamp": 1797325560,
+            "data": {
+              "distanceAu": 0.0026660968675659615,
+              "distanceKm": 398842.4144678077,
+              "focusDistAu": 0.9843035493462245,
+              "exactTimestamp": 1797325564.8965971
+            }
+          },
+          {
+            "code": "E_next",
+            "timestamp": 1797486180,
+            "data": {
+              "distanceAu": 0.002606704344528121,
+              "distanceKm": 389957.41948584607,
+              "focusDistAu": 0.9841166951621763,
+              "exactTimestamp": 1797486195.4544249
+            }
+          }
+        ],
+        "instant": {
+          "phaseDeg": 178.3060362129362,
+          "motion": "ccw",
+          "distanceAu": 0.0024133902635148823,
+          "focusDistAu": 0.9873052209393499
+        }
+      },
+      "solar": {
+        "status": "available",
+        "startTimestamp": 1774017642.232,
+        "endTimestampExclusive": 1805574583.585,
+        "elapsedTimeFraction": 0.6814335244805244,
+        "segment": "SW",
+        "spokes": [
+          {
+            "code": "E",
+            "timestamp": 1774017642.232,
+            "data": {}
+          },
+          {
+            "code": "ENE",
+            "timestamp": 1776020790.57525,
+            "data": {}
+          },
+          {
+            "code": "NE",
+            "timestamp": 1778023938.9185,
+            "data": {}
+          },
+          {
+            "code": "NNE",
+            "timestamp": 1780027087.26175,
+            "data": {}
+          },
+          {
+            "code": "N",
+            "timestamp": 1782030235.605,
+            "data": {}
+          },
+          {
+            "code": "NNW",
+            "timestamp": 1784053282.57825,
+            "data": {}
+          },
+          {
+            "code": "NW",
+            "timestamp": 1786076329.5515,
+            "data": {}
+          },
+          {
+            "code": "WNW",
+            "timestamp": 1788099376.52475,
+            "data": {}
+          },
+          {
+            "code": "W",
+            "timestamp": 1790122423.498,
+            "data": {}
+          },
+          {
+            "code": "WSW",
+            "timestamp": 1792063425.40275,
+            "data": {}
+          },
+          {
+            "code": "SW",
+            "timestamp": 1794004427.3075,
+            "data": {}
+          },
+          {
+            "code": "SSW",
+            "timestamp": 1795945429.21225,
+            "data": {}
+          },
+          {
+            "code": "S",
+            "timestamp": 1797886431.117,
+            "data": {}
+          },
+          {
+            "code": "SSE",
+            "timestamp": 1799808469.234,
+            "data": {}
+          },
+          {
+            "code": "SE",
+            "timestamp": 1801730507.351,
+            "data": {}
+          },
+          {
+            "code": "ESE",
+            "timestamp": 1803652545.468,
+            "data": {}
+          },
+          {
+            "code": "E_next",
+            "timestamp": 1805574583.585,
+            "data": {}
+          }
+        ]
+      },
+      "harmonic_long_cycles": {
+        "status": "available",
+        "greatCycle": {
+          "startDate": "-000554-12-22",
+          "endDateExclusive": "+020633-12-08",
+          "startTimestamp": -79619068800,
+          "endTimestampExclusive": 588976876800,
+          "calendarDays": 7738379,
+          "elapsedCalendarDays": 942298,
+          "fraction": 0.12176943000594827
+        },
+        "age": {
+          "startDate": "1865-12-23",
+          "endDateExclusive": "2038-12-23",
+          "startTimestamp": -3282681600,
+          "endTimestampExclusive": 2176675200,
+          "calendarDays": 63187,
+          "elapsedCalendarDays": 58775,
+          "fraction": 0.9301755107854464
+        },
+        "wave": {
+          "startDate": "2021-12-21",
+          "endDateExclusive": "2034-12-21",
+          "startTimestamp": 1640044800,
+          "endTimestampExclusive": 2050272000,
+          "calendarDays": 4748,
+          "elapsedCalendarDays": 1799,
+          "fraction": 0.37889637742207244
+        }
+      }
+    }
+  }
+}

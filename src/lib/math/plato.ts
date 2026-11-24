@@ -476,7 +476,8 @@ function buildPlatoInstantMeta(ts: number, looker?: ObjId): PlatoInstantMeta {
     };
 }
 
-export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<PlatoMeta> {
+/** The UI uses a moving window; API callers may supply a fixed reference for deterministic bounds. */
+export function solvePlatoWheel(input: WheelInput<'plato'>, timeframeBaseTs: number = Date.now()): CycleSolveResult<PlatoMeta> {
     const ts = input.ts;
     const fail = (reason: string): CycleSolveResult<PlatoMeta> => ({
         ok: false,
@@ -497,7 +498,7 @@ export function solvePlatoWheel(input: WheelInput<'plato'>): CycleSolveResult<Pl
     if (!lookerObj || !isReferenceLikeKind(lookerObj.kind as any)) {
         return fail('Plato wheel: looker must be a reference object');
     }
-    if (!isTsWithinWheelTimeframe(ts)) {
+    if (!isTsWithinWheelTimeframe(ts, undefined, timeframeBaseTs)) {
         return fail('Plato wheel: requested timestamp is outside supported timeframe');
     }
     const lookerUnit = lookerUnitById(looker);

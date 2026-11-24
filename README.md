@@ -174,3 +174,9 @@ Attribution appreciated but not required.
 ---
 
 If you’re interested in time as a **navigable space** rather than a ticking counter — welcome.
+
+## Moment API
+
+The optional Node service exposes `/api/v1/moment`, bounded range sampling, full harmonic years, and a cycle registry using the same calendar and astronomy functions as the interface. Build with `npm run build:production` and run `npm start`. Static-only builds remain available through `npm run build`.
+
+See [API documentation](docs/moment-api.md), [OpenAPI 3.1](docs/moment-api.openapi.json), and [complete JSON examples](docs/moment-api.examples.json). Publishing the dynamic API requires a Node Web Service; a static host cannot execute it.
