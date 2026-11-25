@@ -31,7 +31,7 @@ The existing static app is in ATL1, which is not listed as a supported Functions
 
 - App: `chrono-compass-api` (`8faf1383-0c51-4c1a-bd2c-70c32b813924`).
 - Component: `chrono-compass-serverless`.
-- Source: `sablesoft/chrono-compass`, branch `feat/digitalocean-functions`, directory `serverless`, autodeploy enabled.
+- Source: `sablesoft/chrono-compass`, branch `main`, directory `serverless`, autodeploy enabled.
 - Public base URL: `https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1`.
 - Initial deployment: `99de9d56-e45e-4d6a-b9f7-f0d6334a14a8`, source `c55a2482b3e04f14962a533315a03c60c008b2dc`.
 - Route: `/api`, prefix trimmed before package/action routing.
@@ -90,7 +90,7 @@ Real HTTPS requests to the deployed application verified:
 - Moment response has `Content-Type: application/json` and `Cache-Control: no-store`.
 - Original website still returns HTTP 200.
 
-The `/openapi.json` ingress alias is not configured on the separate app; use `/openapi`. The feature PR remains separate from `main`; after merging, repoint the Functions component branch to `main` and verify autodeployment.
+The `/openapi.json` ingress alias is not configured on the separate app; use `/openapi`. PR #34 was merged as `753e2e3`; the Functions component was switched to `main` with autodeploy enabled and that commit was verified live. Future pushes to `main` automatically rebuild and publish Functions as well as the separate Static Site. Feature-branch pushes do not deploy this production component. No manual `doctl` command or control-panel update is needed for ordinary releases. When API source or its dependencies change, run `npm run build:functions` and commit the generated `serverless/lib/bundle.cjs` and manifest before merging; the remote builder deploys that committed artifact. `npm run test:functions` checks it is current. A successful Git push is not proof of deployment success: wait for the app deployment and smoke-test `/api/v1/moment` after publication.
 
 ## Primary references
 
@@ -99,3 +99,7 @@ The `/openapi.json` ingress alias is not configured on the separate app; use `/o
 - [Functions build layout and include files](https://docs.digitalocean.com/products/functions/reference/build-process/)
 - [App Platform Functions](https://docs.digitalocean.com/products/app-platform/how-to/manage-functions/)
 - [Functions pricing](https://docs.digitalocean.com/products/functions/details/pricing/)
+
+## Calendar contract update
+
+The revised API defaults to compact numeric calendar positions; `labels=true` adds symbolic names. Regular years are 364 dates with preceding free dates separately in `/year.freeDays`, year positions distinguish `yearInWave` and `yearInX`, and harmonic boundaries omit `calendarDays`. See [Moment API](moment-api.md) for migration and examples. Historical live verification above describes the initial release, not proof that a later PR is deployed.

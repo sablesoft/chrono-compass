@@ -25,27 +25,24 @@
       },
       "wave": {
         "number": 13,
-        "label": "13"
+        "isX": false
       },
       "year": {
-        "number": 5,
-        "name": "Overtone",
-        "days": 365,
+        "yearInWave": 5,
+        "yearInX": null,
         "correctionDays": 1
       },
       "month": {
-        "number": 13,
-        "name": "Cosmic"
+        "number": 13
       },
       "week": {
         "number": 1,
-        "name": "Initiate",
-        "direction": "East"
+        "weekOfYear": 49
       },
       "day": {
         "number": 3,
         "weekday": 3,
-        "symbolicName": "Solar Plexus"
+        "dayOfYear": 339
       },
       "freeDay": null,
       "isDayOutOfTime": false,
@@ -57,29 +54,25 @@
           "startDate": "2026-11-24",
           "endDateExclusive": "2026-11-25",
           "startTimestamp": 1795478400,
-          "endTimestampExclusive": 1795564800,
-          "calendarDays": 1
+          "endTimestampExclusive": 1795564800
         },
         "year": {
-          "startDate": "2025-12-20",
+          "startDate": "2025-12-21",
           "endDateExclusive": "2026-12-20",
-          "startTimestamp": 1766188800,
-          "endTimestampExclusive": 1797724800,
-          "calendarDays": 365
+          "startTimestamp": 1766275200,
+          "endTimestampExclusive": 1797724800
         },
         "month": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-12-20",
           "startTimestamp": 1795305600,
-          "endTimestampExclusive": 1797724800,
-          "calendarDays": 28
+          "endTimestampExclusive": 1797724800
         },
         "week": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-11-29",
           "startTimestamp": 1795305600,
-          "endTimestampExclusive": 1795910400,
-          "calendarDays": 7
+          "endTimestampExclusive": 1795910400
         },
         "freePeriod": null
       }
@@ -111,27 +104,24 @@
       },
       "wave": {
         "number": 13,
-        "label": "13"
+        "isX": false
       },
       "year": {
-        "number": 5,
-        "name": "Overtone",
-        "days": 365,
+        "yearInWave": 5,
+        "yearInX": null,
         "correctionDays": 1
       },
       "month": {
-        "number": 13,
-        "name": "Cosmic"
+        "number": 13
       },
       "week": {
         "number": 1,
-        "name": "Initiate",
-        "direction": "East"
+        "weekOfYear": 49
       },
       "day": {
         "number": 3,
         "weekday": 3,
-        "symbolicName": "Solar Plexus"
+        "dayOfYear": 339
       },
       "freeDay": null,
       "isDayOutOfTime": false,
@@ -143,29 +133,25 @@
           "startDate": "2026-11-24",
           "endDateExclusive": "2026-11-25",
           "startTimestamp": 1795489200,
-          "endTimestampExclusive": 1795575600,
-          "calendarDays": 1
+          "endTimestampExclusive": 1795575600
         },
         "year": {
-          "startDate": "2025-12-20",
+          "startDate": "2025-12-21",
           "endDateExclusive": "2026-12-20",
-          "startTimestamp": 1766199600,
-          "endTimestampExclusive": 1797735600,
-          "calendarDays": 365
+          "startTimestamp": 1766286000,
+          "endTimestampExclusive": 1797735600
         },
         "month": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-12-20",
           "startTimestamp": 1795316400,
-          "endTimestampExclusive": 1797735600,
-          "calendarDays": 28
+          "endTimestampExclusive": 1797735600
         },
         "week": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-11-29",
           "startTimestamp": 1795316400,
-          "endTimestampExclusive": 1795921200,
-          "calendarDays": 7
+          "endTimestampExclusive": 1795921200
         },
         "freePeriod": null
       }
@@ -197,12 +183,11 @@
       },
       "wave": {
         "number": null,
-        "label": "X"
+        "isX": true
       },
       "year": {
-        "number": 1,
-        "name": null,
-        "days": 368,
+        "yearInWave": null,
+        "yearInX": 1,
         "correctionDays": 4
       },
       "month": null,
@@ -222,25 +207,102 @@
           "startDate": "-000554-12-22",
           "endDateExclusive": "-000554-12-23",
           "startTimestamp": -79619068800,
-          "endTimestampExclusive": -79618982400,
-          "calendarDays": 1
+          "endTimestampExclusive": -79618982400
         },
-        "year": {
-          "startDate": "-000554-12-22",
-          "endDateExclusive": "-000553-12-25",
-          "startTimestamp": -79619068800,
-          "endTimestampExclusive": -79587273600,
-          "calendarDays": 368
-        },
+        "year": null,
         "month": null,
         "week": null,
         "freePeriod": {
           "startDate": "-000554-12-22",
           "endDateExclusive": "-000554-12-26",
           "startTimestamp": -79619068800,
-          "endTimestampExclusive": -79618723200,
-          "calendarDays": 4
+          "endTimestampExclusive": -79618723200
         }
+      }
+    }
+  },
+  "labels": {
+    "timestamp": 1795564800,
+    "timezone": "UTC",
+    "utcDatetime": "2026-11-25T00:00:00.000Z",
+    "local": {
+      "datetime": "2026-11-25T00:00:00+00:00",
+      "date": "2026-11-25",
+      "time": "00:00:00",
+      "offset": "+00:00"
+    },
+    "gregorian": {
+      "year": 2026,
+      "month": 11,
+      "day": 25
+    },
+    "harmonic": {
+      "notation": "1.15(4).13.5.13.4",
+      "absoluteDay": 942299,
+      "state": "regular",
+      "greatCycle": 1,
+      "age": {
+        "number": 15,
+        "type": 4
+      },
+      "wave": {
+        "number": 13,
+        "isX": false,
+        "label": "13"
+      },
+      "year": {
+        "yearInWave": 5,
+        "yearInX": null,
+        "correctionDays": 1,
+        "name": "Overtone"
+      },
+      "month": {
+        "number": 13,
+        "name": "Cosmic"
+      },
+      "week": {
+        "number": 1,
+        "weekOfYear": 49,
+        "name": "Initiate",
+        "direction": "East"
+      },
+      "day": {
+        "number": 4,
+        "weekday": 4,
+        "dayOfYear": 340,
+        "symbolicName": "Heart"
+      },
+      "freeDay": null,
+      "isDayOutOfTime": false,
+      "isEndOfWeek": false,
+      "isEndOfMonth": false,
+      "isEndOfYear": false,
+      "boundaries": {
+        "day": {
+          "startDate": "2026-11-25",
+          "endDateExclusive": "2026-11-26",
+          "startTimestamp": 1795564800,
+          "endTimestampExclusive": 1795651200
+        },
+        "year": {
+          "startDate": "2025-12-21",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1766275200,
+          "endTimestampExclusive": 1797724800
+        },
+        "month": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-12-20",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1797724800
+        },
+        "week": {
+          "startDate": "2026-11-22",
+          "endDateExclusive": "2026-11-29",
+          "startTimestamp": 1795305600,
+          "endTimestampExclusive": 1795910400
+        },
+        "freePeriod": null
       }
     }
   },
@@ -270,27 +332,24 @@
       },
       "wave": {
         "number": 13,
-        "label": "13"
+        "isX": false
       },
       "year": {
-        "number": 5,
-        "name": "Overtone",
-        "days": 365,
+        "yearInWave": 5,
+        "yearInX": null,
         "correctionDays": 1
       },
       "month": {
-        "number": 13,
-        "name": "Cosmic"
+        "number": 13
       },
       "week": {
         "number": 1,
-        "name": "Initiate",
-        "direction": "East"
+        "weekOfYear": 49
       },
       "day": {
         "number": 3,
         "weekday": 3,
-        "symbolicName": "Solar Plexus"
+        "dayOfYear": 339
       },
       "freeDay": null,
       "isDayOutOfTime": false,
@@ -302,29 +361,25 @@
           "startDate": "2026-11-24",
           "endDateExclusive": "2026-11-25",
           "startTimestamp": 1795478400,
-          "endTimestampExclusive": 1795564800,
-          "calendarDays": 1
+          "endTimestampExclusive": 1795564800
         },
         "year": {
-          "startDate": "2025-12-20",
+          "startDate": "2025-12-21",
           "endDateExclusive": "2026-12-20",
-          "startTimestamp": 1766188800,
-          "endTimestampExclusive": 1797724800,
-          "calendarDays": 365
+          "startTimestamp": 1766275200,
+          "endTimestampExclusive": 1797724800
         },
         "month": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-12-20",
           "startTimestamp": 1795305600,
-          "endTimestampExclusive": 1797724800,
-          "calendarDays": 28
+          "endTimestampExclusive": 1797724800
         },
         "week": {
           "startDate": "2026-11-22",
           "endDateExclusive": "2026-11-29",
           "startTimestamp": 1795305600,
-          "endTimestampExclusive": 1795910400,
-          "calendarDays": 7
+          "endTimestampExclusive": 1795910400
         },
         "freePeriod": null
       }

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ChronoCompass Moment API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Public read-only API using the same calendar and wheel solvers as the UI. No authentication. Unknown/duplicate query parameters are rejected. Bounds are half-open. All public timestamps are seconds."
   },
   "servers": [
@@ -42,6 +42,16 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated unique cycle IDs: harmonic_long_cycles, moon, solar, mercury_anomalistic, venus_anomalistic, solar_anomalistic, mars_anomalistic, jupiter_anomalistic, saturn_anomalistic, uranus_anomalistic, neptune_anomalistic, pluto_anomalistic, lunar_anomalistic, lunar_draconic, mercury_nodal, mercury, venus_nodal, venus, mars_nodal, mars, jupiter_nodal, jupiter, saturn_nodal, saturn, uranus_nodal, uranus, neptune_nodal, neptune, pluto_nodal, pluto, diurnal, plato. Only requested cycles are evaluated."
+            }
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "description": "true adds symbolic day/month/week/year names, week direction and wave label. Only literal true and false are accepted."
             }
           },
           {
@@ -244,6 +254,16 @@
             }
           },
           {
+            "name": "labels",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "description": "true adds symbolic day/month/week/year names, week direction and wave label. Only literal true and false are accepted."
+            }
+          },
+          {
             "name": "latitude",
             "in": "query",
             "required": false,
@@ -392,7 +412,7 @@
     },
     "/api/v1/year": {
       "get": {
-        "summary": "Complete harmonic year; timestamp or all gc/age/wave/year coordinates. Only harmonic_long_cycles may be included. Skipped local dates are explicit.",
+        "summary": "364 regular dates plus separate preceding freeDays; timestamp or all gc/age/wave/year coordinates. Only harmonic_long_cycles may be included. Skipped local dates are explicit.",
         "parameters": [
           {
             "name": "timestamp",
@@ -454,6 +474,16 @@
             "schema": {
               "type": "string",
               "description": "Comma-separated unique cycle IDs: harmonic_long_cycles, moon, solar, mercury_anomalistic, venus_anomalistic, solar_anomalistic, mars_anomalistic, jupiter_anomalistic, saturn_anomalistic, uranus_anomalistic, neptune_anomalistic, pluto_anomalistic, lunar_anomalistic, lunar_draconic, mercury_nodal, mercury, venus_nodal, venus, mars_nodal, mars, jupiter_nodal, jupiter, saturn_nodal, saturn, uranus_nodal, uranus, neptune_nodal, neptune, pluto_nodal, pluto, diurnal, plato. Only requested cycles are evaluated."
+            }
+          },
+          {
+            "name": "labels",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "description": "true adds symbolic day/month/week/year names, week direction and wave label. Only literal true and false are accepted."
             }
           }
         ],
@@ -752,17 +782,13 @@
           },
           "endTimestampExclusive": {
             "type": "number"
-          },
-          "calendarDays": {
-            "type": "integer"
           }
         },
         "required": [
           "startDate",
           "endDateExclusive",
           "startTimestamp",
-          "endTimestampExclusive",
-          "calendarDays"
+          "endTimestampExclusive"
         ],
         "additionalProperties": false
       },
@@ -817,21 +843,45 @@
                   }
                 ]
               },
+              "isX": {
+                "type": "boolean"
+              },
               "label": {
                 "type": "string"
               }
             },
             "required": [
               "number",
-              "label"
+              "isX"
             ],
             "additionalProperties": false
           },
           "year": {
             "type": "object",
             "properties": {
-              "number": {
-                "type": "integer"
+              "yearInWave": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 13
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "yearInX": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 7
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "name": {
                 "anyOf": [
@@ -843,12 +893,6 @@
                   }
                 ]
               },
-              "days": {
-                "enum": [
-                  365,
-                  368
-                ]
-              },
               "correctionDays": {
                 "enum": [
                   1,
@@ -857,12 +901,33 @@
               }
             },
             "required": [
-              "number",
-              "name",
-              "days",
+              "yearInWave",
+              "yearInX",
               "correctionDays"
             ],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "oneOf": [
+              {
+                "properties": {
+                  "yearInWave": {
+                    "type": "integer"
+                  },
+                  "yearInX": {
+                    "type": "null"
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "yearInWave": {
+                    "type": "null"
+                  },
+                  "yearInX": {
+                    "type": "integer"
+                  }
+                }
+              }
+            ]
           },
           "month": {
             "anyOf": [
@@ -877,8 +942,7 @@
                   }
                 },
                 "required": [
-                  "number",
-                  "name"
+                  "number"
                 ],
                 "additionalProperties": false
               },
@@ -895,6 +959,11 @@
                   "number": {
                     "type": "integer"
                   },
+                  "weekOfYear": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 52
+                  },
                   "name": {
                     "type": "string"
                   },
@@ -904,8 +973,7 @@
                 },
                 "required": [
                   "number",
-                  "name",
-                  "direction"
+                  "weekOfYear"
                 ],
                 "additionalProperties": false
               },
@@ -925,6 +993,11 @@
                   "weekday": {
                     "type": "integer"
                   },
+                  "dayOfYear": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 364
+                  },
                   "symbolicName": {
                     "type": "string"
                   }
@@ -932,7 +1005,7 @@
                 "required": [
                   "number",
                   "weekday",
-                  "symbolicName"
+                  "dayOfYear"
                 ],
                 "additionalProperties": false
               },
@@ -990,7 +1063,14 @@
                 "$ref": "#/components/schemas/Period"
               },
               "year": {
-                "$ref": "#/components/schemas/Period"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/Period"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "month": {
                 "anyOf": [
@@ -1285,71 +1365,23 @@
             "additionalProperties": false
           },
           "calendarDays": {
-            "type": "integer"
+            "const": 364
           },
           "samples": {
             "type": "array",
             "items": {
-              "oneOf": [
-                {
-                  "type": "object",
-                  "required": [
-                    "skipped",
-                    "timestamp",
-                    "harmonic"
-                  ],
-                  "properties": {
-                    "skipped": {
-                      "const": false
-                    },
-                    "timestamp": {
-                      "type": "number"
-                    },
-                    "harmonic": {
-                      "$ref": "#/components/schemas/Harmonic"
-                    },
-                    "timezone": {
-                      "type": "string"
-                    },
-                    "utcDatetime": {
-                      "type": "string"
-                    },
-                    "local": {
-                      "type": "object"
-                    },
-                    "gregorian": {
-                      "$ref": "#/components/schemas/Gregorian"
-                    },
-                    "cycles": {
-                      "type": "object",
-                      "additionalProperties": {
-                        "$ref": "#/components/schemas/Cycle"
-                      }
-                    }
-                  }
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "gregorian": {
-                      "$ref": "#/components/schemas/Gregorian"
-                    },
-                    "skipped": {
-                      "const": true
-                    },
-                    "timestamp": {
-                      "type": "null"
-                    }
-                  },
-                  "required": [
-                    "gregorian",
-                    "skipped",
-                    "timestamp"
-                  ],
-                  "additionalProperties": false
-                }
-              ]
-            }
+              "$ref": "#/components/schemas/YearSample"
+            },
+            "minItems": 364,
+            "maxItems": 364
+          },
+          "freeDays": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/YearSample"
+            },
+            "minItems": 1,
+            "maxItems": 4
           }
         },
         "required": [
@@ -1357,9 +1389,71 @@
           "calendar",
           "coordinates",
           "calendarDays",
-          "samples"
+          "samples",
+          "freeDays"
         ],
         "additionalProperties": false
+      },
+      "YearSample": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": [
+              "skipped",
+              "timestamp",
+              "harmonic"
+            ],
+            "properties": {
+              "skipped": {
+                "const": false
+              },
+              "timestamp": {
+                "type": "number"
+              },
+              "harmonic": {
+                "$ref": "#/components/schemas/Harmonic"
+              },
+              "timezone": {
+                "type": "string"
+              },
+              "utcDatetime": {
+                "type": "string"
+              },
+              "local": {
+                "type": "object"
+              },
+              "gregorian": {
+                "$ref": "#/components/schemas/Gregorian"
+              },
+              "cycles": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/Cycle"
+                }
+              }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "gregorian": {
+                "$ref": "#/components/schemas/Gregorian"
+              },
+              "skipped": {
+                "const": true
+              },
+              "timestamp": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "gregorian",
+              "skipped",
+              "timestamp"
+            ],
+            "additionalProperties": false
+          }
+        ]
       },
       "CycleRegistry": {
         "type": "object",

@@ -30,8 +30,11 @@ function integer(q: URLSearchParams, name: string) {
   if (!Number.isSafeInteger(value)) return bad(`${name} must be an integer.`);
   return value;
 }
-function options(q: URLSearchParams): { context: Omit<CycleContext, 'ts'>; include: string[] } {
+function options(q: URLSearchParams): { context: Omit<CycleContext, 'ts'>; include: string[]; labels: boolean } {
   const timezone = q.get('timezone') ?? 'UTC';
+  const rawLabels = q.get('labels') ?? 'false';
+  if (!['true', 'false'].includes(rawLabels)) return bad('labels must be true or false.');
+  const labels = rawLabels === 'true';
   try {
     if (/^[+-]/.test(timezone)) return bad('timezone must be an IANA time zone.');
     new Intl.DateTimeFormat('en-US', {timeZone: timezone});
@@ -56,7 +59,7 @@ function options(q: URLSearchParams): { context: Omit<CycleContext, 'ts'>; inclu
     if (!Object.hasOwn(objects, looker) || !isReferenceLikeKind(objects[looker as ObjId]!.kind)) return bad('looker must be a catalog reference.');
     context.looker = looker as ObjId;
   } else if (q.has('looker')) return bad('looker requires include=plato.');
-  return {context, include};
+  return {context, include, labels};
 }
 function moment(ts: number, opts: ReturnType<typeof options>) {
   const local = localInstant(ts, opts.context.timezone);
@@ -71,9 +74,9 @@ function moment(ts: number, opts: ReturnType<typeof options>) {
   }));
   return { timestamp: ts / 1000, timezone: opts.context.timezone, utcDatetime: new Date(ts).toISOString(),
     local: {datetime: local.toString({timeZoneName: 'never', calendarName: 'never'}), date: local.toPlainDate().toString(), time: local.toPlainTime().toString(), offset: local.offset},
-    gregorian, harmonic: harmonicAt(ts, opts.context.timezone), ...(opts.include.length ? {cycles} : {}) };
+    gregorian, harmonic: harmonicAt(ts, opts.context.timezone, opts.labels), ...(opts.include.length ? {cycles} : {}) };
 }
-const COMMON = ['timezone', 'include', 'latitude', 'longitude', 'target', 'looker'];
+const COMMON = ['timezone', 'include', 'labels', 'latitude', 'longitude', 'target', 'looker'];
 /** No clock access or UI state is allowed below this request boundary. */
 export function queryApi(url: URL, clock: () => number = Date.now): unknown {
   const q = url.searchParams;
@@ -122,7 +125,11 @@ export function queryApi(url: URL, clock: () => number = Date.now): unknown {
       const skipped = gregorianDay(actual.year, actual.month, actual.day) !== day;
       return skipped ? {gregorian: date, skipped: true, timestamp: null} : {skipped: false, ...moment(ts, opts)};
     });
-    return {timezone: opts.context.timezone, calendar: 'harmonic', coordinates: value, calendarDays: length, samples: days};
+    // The core associates a preceding free period with the next year's coordinates.
+    // Keep that association for lookup, but expose those dates outside the 364-day year.
+    const freeCount = length - 364;
+    return {timezone: opts.context.timezone, calendar: 'harmonic', coordinates: value, calendarDays: 364,
+      freeDays: days.slice(0, freeCount), samples: days.slice(freeCount)};
   }
   return { timezone: opts.context.timezone, endExclusive: true, samples: samples.map(ts => moment(ts, opts)) };
 }
