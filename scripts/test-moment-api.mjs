@@ -60,11 +60,69 @@ try {
       for (const p of Object.values(periods)) assert.ok(p.start <= day && day < p.end);
     }
     const initial = call(`/api/v1/year?gc=1&age=1&wave=0&year=1`);
-    assert.equal(initial.calendarDays, 368); assert.equal(initial.samples[0].harmonic.freeDay.label, 'S1');
-    assert.equal(initial.samples[3].harmonic.freeDay.label, 'S4'); assert.equal(initial.samples[4].harmonic.month.number, 1);
+    assert.equal(initial.calendarDays, 364); assert.equal(initial.samples.length, 364); assert.equal(initial.freeDays.length, 4);
+    assert.equal(initial.freeDays[0].harmonic.freeDay.label, 'S1');
+    assert.equal(initial.freeDays[3].harmonic.freeDay.label, 'S4'); assert.equal(initial.samples[0].harmonic.month.number, 1);
     const regular = call('/api/v1/year?gc=1&age=1&wave=1&year=1');
-    assert.equal(regular.calendarDays, 365); assert.equal(regular.samples[0].harmonic.freeDay.label, 'S');
+    assert.equal(regular.calendarDays, 364); assert.equal(regular.freeDays.length, 1); assert.equal(regular.freeDays[0].harmonic.freeDay.label, 'S');
     assert.ok(regular.samples.at(-1).harmonic.isEndOfYear);
+  });
+  check('compact defaults, opt-in labels, explicit wave/X year coordinates and yearly ordinals', () => {
+    const path = '/api/v1/moment?timestamp=1795564800';
+    const compact = call(path), verbose = call(path + '&labels=true');
+    assert.deepEqual(call(path + '&labels=false'), compact);
+    const h = compact.harmonic;
+    assert.deepEqual(h.year, {yearInWave: 5, yearInX: null, correctionDays: 1});
+    assert.deepEqual(h.wave, {number: 13, isX: false});
+    assert.deepEqual(h.day, {number: 4, weekday: 4, dayOfYear: 340});
+    assert.deepEqual(h.week, {number: 1, weekOfYear: 49});
+    assert.deepEqual(h.month, {number: 13});
+    assert.equal(verbose.harmonic.day.symbolicName, 'Heart');
+    assert.equal(verbose.harmonic.month.name, 'Cosmic');
+    assert.equal(verbose.harmonic.year.name, 'Overtone');
+    assert.equal(verbose.harmonic.wave.label, '13');
+    assert.equal(verbose.harmonic.week.name, 'Initiate');
+    assert.equal(verbose.harmonic.week.direction, 'East');
+    const x = call('/api/v1/year?gc=1&age=1&wave=0&year=1&labels=true');
+    assert.deepEqual(x.samples[0].harmonic.wave, {number: null, isX: true, label: 'X'});
+    assert.equal(x.samples[0].harmonic.year.yearInWave, null);
+    assert.equal(x.samples[0].harmonic.year.yearInX, 1);
+    assert.equal(x.samples[0].harmonic.day.dayOfYear, 1);
+    assert.equal(x.samples.at(-1).harmonic.day.dayOfYear, 364);
+    assert.equal(x.samples.at(-1).harmonic.week.weekOfYear, 52);
+    const range = call('/api/v1/range?start=1795564800&end=1795564802&step=1&labels=true');
+    assert.ok(range.samples.every(s => s.harmonic.day.symbolicName === 'Heart'));
+    for (const {skipped, ...sample} of [...x.samples, ...x.freeDays]) conforms('Moment', sample);
+    conforms('Moment', verbose); conforms('Year', x); conforms('Range', range);
+  });
+  check('364-day calendar boundaries exclude preceding free days for ordinary and four-day periods', () => {
+    for (const coords of ['gc=1&age=1&wave=0&year=1', 'gc=1&age=1&wave=1&year=1', 'gc=1&age=15&wave=13&year=5']) {
+      const y = call('/api/v1/year?' + coords);
+      assert.equal(y.samples.length, 364);
+      const first = y.samples[0], last = y.samples.at(-1), bounds = first.harmonic.boundaries.year;
+      assert.equal(bounds.startTimestamp, first.timestamp);
+      assert.equal(bounds.endTimestampExclusive, last.harmonic.boundaries.day.endTimestampExclusive);
+      assert.equal((bounds.endTimestampExclusive - bounds.startTimestamp) / 86400, 364);
+      for (const [i, sample] of y.samples.entries()) {
+        const h = sample.harmonic;
+        assert.equal(h.day.dayOfYear, i + 1);
+        assert.equal(h.week.weekOfYear, Math.floor(i / 7) + 1);
+        assert.equal(h.isEndOfYear, i === 363);
+        assert.equal(h.isDayOutOfTime, false);
+        assert.deepEqual(h.boundaries.year, bounds);
+        for (const period of Object.values(h.boundaries)) if (period) assert.ok(!('calendarDays' in period));
+      }
+      for (const sample of y.freeDays) {
+        const h = sample.harmonic;
+        assert.equal(h.boundaries.year, null); assert.equal(h.month, null); assert.equal(h.day, null); assert.equal(h.week, null);
+        assert.ok(h.boundaries.freePeriod.startTimestamp <= sample.timestamp);
+        assert.ok(sample.timestamp < bounds.startTimestamp);
+        assert.ok(!h.isEndOfYear);
+        assert.equal(h.boundaries.freePeriod.endTimestampExclusive, bounds.startTimestamp);
+        for (const period of Object.values(h.boundaries)) if (period) assert.ok(!('calendarDays' in period));
+        assert.deepEqual(call('/api/v1/year?timestamp=' + sample.timestamp), y);
+      }
+    }
   });
   check('DST gaps, folds, historical offsets and a skipped civil date', () => {
     for (const [y, m, d, hours] of [[2026, 3, 8, 23], [2026, 11, 1, 25]]) {
@@ -86,7 +144,7 @@ try {
     assert.throws(() => call('/api/v1/year?gc=1&age=1&wave=14&year=1'));
   });
   check('invalid parameters, unknown cycles, milliseconds, date bounds and prototype identifiers', () => {
-    for (const query of ['timestamp=', 'timestamp=NaN','timestamp=Infinity','timestamp=1e9','timestamp=1795521600000','timestamp=1.0001', 'timestamp=1&timestamp=2','timezone=bad','timezone=%2B03:00','include=', 'include=constructor','include=moon,moon','include=__proto__','foo=1','latitude=0','include=diurnal','include=diurnal&latitude=91&longitude=0','include=plato&looker=Earth']) {
+    for (const query of ['timestamp=', 'timestamp=NaN','timestamp=Infinity','timestamp=1e9','timestamp=1795521600000','timestamp=1.0001', 'timestamp=1&timestamp=2','timezone=bad','timezone=%2B03:00','include=', 'include=constructor','include=moon,moon','include=__proto__','foo=1','latitude=0','include=diurnal','include=diurnal&latitude=91&longitude=0','include=plato&looker=Earth','labels=','labels=1','labels=True','labels=false&labels=true']) {
       assert.throws(() => call('/api/v1/moment?' + query), e => e.status === 400, query);
     }
     assert.equal(call('/api/v1/moment?timestamp=0&include=moon').timestamp, 0);
@@ -142,6 +200,8 @@ try {
   const http=(path,init)=>fetch(`http://127.0.0.1:${port}${path}`,init);
   await launch();
   let res=await http('/api/v1/moment');assert.equal(res.status,200);let json=await res.json();assert.equal(json.timezone,'UTC');assert.ok(Math.abs(json.timestamp-Date.now()/1000)<5);
+  res=await http(uri+'&labels=true');assert.equal(res.status,200);json=await res.json();assert.ok('name' in json.harmonic.month);
+  assert.equal((await http(uri+'&labels=invalid')).status,400);
   res=await http(uri+'&include=moon,solar');assert.equal(res.status,200);assert.ok((await res.json()).cycles.moon);
   res=await http('/api/v1/moment?foo=1');assert.equal(res.status,400);assert.equal(res.headers.get('cache-control'),'no-store');conforms('Error',await res.json());
   assert.equal((await http('/api/v1/nope')).status,404);assert.equal((await http('/api/v2/moment')).status,404);
@@ -166,7 +226,7 @@ try {
   checks++;console.log('PASS real HTTP: defaults, errors, CORS, methods, OpenAPI, static site, restart, rate limiting, spoof rejection and worker timeout');
   await mkdir('tmp',{recursive:true});
   await writeFile('tmp/moment-example.json',JSON.stringify(call(uri+'&include=moon,solar,harmonic_long_cycles'),null,2)+'\n');
-  const examples = {utc: call('/api/v1/moment?timestamp=1795521600'), saoPaulo: call('/api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo'), freeDay: call('/api/v1/moment?timestamp='+f.CALENDAR_EPOCH_DAY*86400), cycles: call('/api/v1/moment?timestamp=1795521600&include=moon,solar,harmonic_long_cycles')};
+  const examples = {utc: call('/api/v1/moment?timestamp=1795521600'), saoPaulo: call('/api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo'), freeDay: call('/api/v1/moment?timestamp='+f.CALENDAR_EPOCH_DAY*86400), labels: call('/api/v1/moment?timestamp=1795564800&labels=true'), cycles: call('/api/v1/moment?timestamp=1795521600&include=moon,solar,harmonic_long_cycles')};
   for (const example of Object.values(examples)) conforms('Moment',example);
   await writeFile('docs/moment-api.examples.json',JSON.stringify(examples,null,2)+'\n');
   console.log(`Moment API: ${checks} groups passed.`);

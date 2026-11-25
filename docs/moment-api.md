@@ -7,8 +7,8 @@ Public read-only HTTP API, without mandatory authentication. It calls the same p
 Sources: `src/lib/calendar/core.ts`, `epoch.ts`, `events.ts`, `dreamspell.ts`, `chakras.ts`, `src/components/Calendar.svelte`, and `public/docs/en/calendars/epoch-calendar.md`.
 
 - Fixed civil epoch: proleptic Gregorian **-0554-12-22** (555 BCE), using astronomical year numbering; year zero exists.
-- Every year starts with a free period, followed by thirteen 28-day months. Ordinary years start with **S** (365 total days); the last year of each wave/X interval starts with **S1–S4** (368 total days). These are independent of Gregorian leap years. The first one-year A1 X interval has four free days.
-- Free days belong to the following year, have no month/day-of-month/week/weekday, and use `state="free_day"`. The core's internal `moon=14` sentinel is never exposed as a month number. Notation retains the existing `.0.S` / `.0.S1` format.
+- Every calendar year has exactly thirteen 28-day months: **364 regular days**. A separate free period precedes it: normally **S**, or **S1–S4** before the last year of each wave/X interval. The core represents a 365/368-day lookup interval including that preceding period; this is not the calendar year length. This schedule is independent of Gregorian leap years. The first one-year A1 X interval has four free days.
+- Free days are outside the calendar year and have no month/day-of-month/week/weekday or yearly day/week number. The core associates their lookup coordinates with the following regular year; this association does not mean membership in that calendar year. They use `state="free_day"`. The core's internal `moon=14` sentinel is never exposed as a month number. Notation retains the existing `.0.S` / `.0.S1` format.
 - Each month has four seven-day weeks. Week names/actions and direction labels, Dreamspell positional year/month names, and chakra weekday labels come from existing constants. Names are symbolic, rather than a traditional Maya date conversion. Year names are null where no name is defined.
 - Coordinates: Great Cycle (`gc`), age (`phrase` internally, `age` in query), wave (0 = X), year within wave/X, month, day. An A1 age begins with X; A4/A7 ages end with X. `calendarPeriods` derives boundaries from the existing year table, without a second correction schedule.
 - Great Cycle: 122 ages, 21,187 years, 7,738,379 days. Age types and the palindrome are exactly those in `PHRASES`. No new leap rule, solstice alignment, epoch or day-count convention is introduced.
@@ -20,7 +20,7 @@ Sources: `src/lib/calendar/core.ts`, `epoch.ts`, `events.ts`, `dreamspell.ts`, `
 | --- | --- |
 | `/api/v1/moment` | Calendar state at one absolute instant |
 | `/api/v1/range` | Samples at fixed elapsed-time intervals |
-| `/api/v1/year` | Every civil date in one harmonic year |
+| `/api/v1/year` | 364 regular dates, with preceding free dates in a separate array |
 | `/api/v1/cycles` | Cycle IDs, descriptions, accepted parameters, date limits, units and catalog role IDs |
 | `/api/v1/openapi.json` | OpenAPI 3.1 document |
 | `/healthz` | Process liveness; independent of calculation workers |
@@ -33,6 +33,7 @@ Only GET and CORS OPTIONS are supported for API routes. Unknown API paths never 
 | --- | --- | --- |
 | `timestamp` | Server time captured once at request arrival | Unix **seconds**, optional decimal fraction of up to three digits; not milliseconds |
 | `timezone` | `UTC` | IANA zone accepted by the Node ICU/TZDB and Temporal runtime |
+| `labels` | `false` | Literal `true` adds all symbolic names, week direction and wave label; literal `false` omits them. Supported by moment, range and year |
 | `include` | Omitted; no optional cycle computations | Comma-separated, distinct, case-sensitive cycle IDs |
 | `latitude`, `longitude` | Required only for `diurnal` | Degrees north/east; ranges −90..90 and −180..180 |
 | `target` | `Sun`, only for `diurnal` | Catalog object ID other than Earth; see `/cycles` |
@@ -49,6 +50,8 @@ Examples:
 /api/v1/moment?timezone=America/Sao_Paulo
 /api/v1/moment?timestamp=1795521600
 /api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo
+/api/v1/moment?timestamp=1795521600&labels=true
+/api/v1/moment?timestamp=1795521600&include=moon,solar&labels=true
 /api/v1/moment?timestamp=1795521600&include=moon,solar,mercury,harmonic_long_cycles
 /api/v1/moment?timestamp=1795521600&include=diurnal&latitude=-23.55&longitude=-46.63
 ```
@@ -61,14 +64,43 @@ The complete machine-readable schemas are in [moment-api.openapi.json](moment-ap
 - `timezone`: requested IANA zone (UTC by default).
 - `utcDatetime`: ISO UTC string; `local` contains the local ISO datetime with offset, date, time and offset including historical seconds when relevant.
 - `gregorian`: astronomical year, numeric month and day in the selected zone.
-- `harmonic`: notation, continuous day number from the epoch, state, Great Cycle/age/wave/year coordinates, named month/week/day or null, and `freeDay` or null. `freeDay.number` indexes only the free period, not a fictitious day of month.
-- `isDayOutOfTime` is true for **every** free day, including S1–S4. `isEndOfWeek`/`isEndOfMonth` are false on free days. `isEndOfYear` is true on Month 13 day 28; the next date starts the next year's free period.
-- `harmonic.boundaries`: current day, week, month, year and (only on free days) free-period boundaries. Each contains civil start/end-exclusive dates, UTC Unix seconds and `calendarDays`. Week/month boundaries are null on free days.
+- `harmonic`: notation, continuous day number from the epoch, state, Great Cycle/age/wave/year coordinates, numeric month/week/day or null, optional symbolic names, and `freeDay` or null. `freeDay.number` indexes only the free period, not a fictitious day of month.
+- `isDayOutOfTime` is true for **every** free day, including S1–S4. `isEndOfWeek`/`isEndOfMonth` are false on free days. `isEndOfYear` is true on Month 13 day 28; the next date starts the separate free period preceding the next regular year.
+- `harmonic.boundaries`: current day, week, month, regular year and (only on free days) free-period boundaries. Each non-null period contains only `startDate`, `endDateExclusive`, `startTimestamp` and `endTimestampExclusive`. Date strings are Gregorian dates in the selected timezone; timestamps are absolute Unix seconds. End bounds are exclusive. `calendarDays` is omitted. Year boundaries span exactly 364 regular dates; year/week/month boundaries are null on free days. Free-period boundaries are null on regular days.
 - `cycles`: omitted unless requested. Keys are stable cycle IDs. Each result has `status="available"` or `"unavailable"`; unresolved existing algorithms return a generic reason, rather than a fabricated cycle.
 - Wheel data includes start/end timestamps, `elapsedTimeFraction`, current spoke interval `segment`, and the original 17 spokes. Spoke timestamps, including optional `exactTimestamp`, are converted from internal milliseconds to public seconds. Solver rounding is preserved. `segment` may be null within rounding tolerance at a cycle seam; minute rounding can also put the elapsed fraction just outside 0..1 near that seam; it is an interval between spokes, not the UI's centered house label.
 - `instant` on synodic cycles contains the original projected `phaseDeg` (0=S, 90=E, 180=N, 270=W), `motion` (`ccw`/`cw`), `distanceAu` and `focusDistAu`. On `diurnal`, it contains the shared horizon instant, including altitude/azimuth, RA, declination and distances. No illumination fraction is invented from angular phase.
 - Suffix `Deg`: degrees; `Rad`: radians; `Au`: astronomical units; `Km`: kilometres; `raHours`: hours of right ascension; `Fraction`/`fraction`: dimensionless; day counts: civil days. `exactTimestamp` is seconds. Distance fields on spokes refer to the spoke instant, while `instant` fields refer to the requested timestamp.
 - `harmonic_long_cycles`: Great Cycle, age and wave/X boundaries, elapsed **whole calendar days** and calendar-day fraction; no astronomical assumptions.
+
+### Compact calendar fields and labels
+
+Default responses omit `day.symbolicName`, `month.name`, `wave.label`, `week.name`, `week.direction` and `year.name`. `labels=true` restores all six fields where their parent objects exist, using the same UI constants; `year.name` may be null when no name exists. Labels do not select or recompute astronomical cycles. `labels=1`, empty values, other spellings and duplicated `labels` parameters return HTTP 400. The same option applies to every moment inside `/range`, `/year.samples` and `/year.freeDays`.
+
+- `day.number`: day of month, 1–28; `day.weekday`: day of week, 1–7; `day.dayOfYear`: regular day of year, 1–364.
+- `week.number`: week of month, 1–4; `week.weekOfYear`: regular week of year, 1–52.
+- `year.yearInWave`: 1–13 within the current wave, or null in X.
+- `year.yearInX`: position within the current X interval (1–1, 1–4 or 1–7 according to age type), or null in a wave. Exactly one of the two year numbers is null. The ambiguous `year.number` and `year.days` fields are removed.
+- `wave.number`: 1–13, or null in X; `wave.isX` identifies X without needing the optional `wave.label`.
+- `year.correctionDays`: number of dates in the separately represented preceding free period, 1 or 4. It is not added to the 364-day calendar year. On a free date, year/wave coordinates identify the following regular year's core lookup context.
+- `freeDay.label` (`S` / `S1`–`S4`) and `notation` remain machine-readable calendar identifiers, not optional artistic names.
+- `/year` request coordinates keep `year` as the existing query coordinate within wave/X; response `coordinates` echoes these lookup coordinates. Moment positions use the explicit fields above.
+
+For Gregorian 2026-11-25 UTC, the default position includes:
+
+```json
+{
+  "wave": {"number": 13, "isX": false},
+  "year": {"yearInWave": 5, "yearInX": null, "correctionDays": 1},
+  "month": {"number": 13},
+  "week": {"number": 1, "weekOfYear": 49},
+  "day": {"number": 4, "weekday": 4, "dayOfYear": 340}
+}
+```
+
+The regular year starts on 2025-12-21 and ends exclusively on 2026-12-20. Gregorian 2025-12-20 is S, outside that calendar year. A week starting 2026-11-22 and ending exclusively 2026-11-29 includes November 22–28. Local DST can change elapsed seconds between boundaries without changing these civil-date counts.
+
+These owner-approved contract changes replace the initial v1 calendar representation. Existing consumers must migrate the removed fields and `/year` array handling; no compatibility aliases silently retain the old meanings. The OpenAPI document version is 1.1.0; endpoint paths remain `/api/v1`.
 
 ### Supported cycles
 
@@ -96,13 +128,13 @@ To extend the API, add an adapter/description to `src/lib/api/cycles.ts`. Discov
 
 `/api/v1/range?start=1795521600&end=1795780800&step=86400&timezone=UTC&include=moon`
 
-`start` inclusive and `end` exclusive are required Unix seconds. `step` defaults to 86,400 elapsed seconds (minimum 1 second, millisecond precision). This does **not** mean one local calendar day across DST. Maximum 512 basic/long-calendar samples, or 16 samples and 128 total astronomical cycle evaluations. Invalid or oversized requests fail before computation. All results use the same timezone and include selection, with each sample's own timestamp.
+`start` inclusive and `end` exclusive are required Unix seconds. `step` defaults to 86,400 elapsed seconds (minimum 1 second, millisecond precision). This does **not** mean one local calendar day across DST. Maximum 512 basic/long-calendar samples, or 16 samples and 128 total astronomical cycle evaluations. Invalid or oversized requests fail before computation. All results use the same timezone, include and labels selection, with each sample's own timestamp.
 
 `/api/v1/year?timestamp=1795521600&timezone=UTC`
 
 `/api/v1/year?gc=1&age=1&wave=0&year=1`
 
-Without coordinates, returns the harmonic year containing the timestamp (current server time by default). Alternatively provide **all** `gc,age,wave,year`; `wave=0` denotes X. Coordinates and timestamp are mutually exclusive. The full year contains its initial free period and thirteen months, sampled at the **start of each local civil date**, giving 365 or 368 entries. A historically skipped civil date is retained explicitly as `{gregorian, skipped:true, timestamp:null}`. Ordinary samples have `skipped:false` and the moment fields. Only `harmonic_long_cycles` may be included for full-year samples; use bounded `/range` requests for astronomical samples.
+Without coordinates, returns the harmonic year containing the timestamp (current server time by default). Alternatively provide **all** `gc,age,wave,year`; `wave=0` denotes X. Coordinates and timestamp are mutually exclusive. On a free date, timestamp lookup selects the following regular year using existing core coordinates. `samples` contains exactly **364 regular dates** and top-level `calendarDays` is always 364. The preceding free period is returned separately as `freeDays` (1 or 4 dates), outside the calendar year. Both arrays are sampled at the **start of each local civil date**. A historically skipped civil date is retained explicitly as `{gregorian, skipped:true, timestamp:null}`. Ordinary samples have `skipped:false` and the moment fields. Only `harmonic_long_cycles` may be included for full-year samples; use bounded `/range` requests for astronomical samples.
 
 ## Errors, CORS and resource limits
 

@@ -21,10 +21,18 @@ try {
   r=await invoke('moment',query);ok(r.statusCode===200,'combined cycles');ok(r.body.local.time==='09:00:00','IANA local time');ok(r.body.cycles.moon.status==='available','moon solver');ok(r.body.cycles.solar.status==='available','solar solver');ok(r.body.cycles.harmonic_long_cycles.status==='available','long cycles');
   assert.deepEqual(r.body,handlers.moment.compute('https://test/api/v1/moment?'+query,0).body);assertions++;
   r=await invoke('range','start=0&end=3&step=1.001');assert.deepEqual(r.body.samples.map(s=>s.timestamp),[0,1.001,2.002]);assertions++;
-  r=await invoke('year','gc=1&age=1&wave=0&year=1');ok(r.body.calendarDays===368,'free circle year');ok(r.body.samples[0].harmonic.freeDay.label==='S1','free state');
+  r=await invoke('year','gc=1&age=1&wave=0&year=1');ok(r.body.calendarDays===364 && r.body.samples.length===364,'364 regular dates');ok(r.body.freeDays.length===4 && r.body.freeDays[0].harmonic.freeDay.label==='S1','separate free state');
+  ok(r.body.freeDays[0].harmonic.boundaries.year===null,'free day outside year');
+  ok(r.body.samples[0].harmonic.year.yearInWave===null && r.body.samples[0].harmonic.year.yearInX===1,'X year coordinates');
+  ok(r.body.samples.at(-1).harmonic.day.dayOfYear===364 && r.body.samples.at(-1).harmonic.week.weekOfYear===52,'yearly ordinals');
+  r=await invoke('moment','timestamp=1795564800');ok(!('name' in r.body.harmonic.month) && !('days' in r.body.harmonic.year) && !('number' in r.body.harmonic.year),'compact defaults');
+  ok(!('calendarDays' in r.body.harmonic.boundaries.year),'compact boundaries');
+  r=await invoke('moment','timestamp=1795564800&labels=true&include=moon');ok(r.body.harmonic.day.symbolicName==='Heart' && r.body.cycles.moon.status==='available','labels with cycles');
+  r=await invoke('range','start=1795564800&end=1795564801&labels=true');ok(r.body.samples[0].harmonic.month.name==='Cosmic','range labels');
+  r=await invoke('year','gc=1&age=1&wave=1&year=1&labels=true');ok(r.body.samples[0].harmonic.year.yearInWave===1 && r.body.samples[0].harmonic.year.yearInX===null && 'name' in r.body.samples[0].harmonic.month,'wave year and labels');
   r=await invoke('cycles');ok(r.body.cycles.length===32,'registry');
   r=await invoke('openapi');ok(r.body.openapi==='3.1.0','OpenAPI');
-  for(const query of ['timestamp=1&timestamp=2','timestamp=1795521600000','include=unknown','foo=1','include=moon,moon']) {r=await invoke('moment',query);ok(r.statusCode===400,'invalid '+query);}
+  for(const query of ['timestamp=1&timestamp=2','timestamp=1795521600000','include=unknown','foo=1','include=moon,moon','labels=yes','labels=true&labels=false']) {r=await invoke('moment',query);ok(r.statusCode===400,'invalid '+query);}
   r=await invoke('moment','',{method:'POST'});ok(r.statusCode===405,'method');
   r=await invoke('moment','',{path:'/unexpected'});ok(r.statusCode===404,'path');
   r=await invoke('moment','',{headers:{origin:'https://bad.example'}});ok(r.statusCode===403,'CORS rejection');
