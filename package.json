@@ -18,7 +18,10 @@
     "build:api": "node scripts/build-api.mjs",
     "build:production": "npm run build && npm run build:api",
     "start": "node dist-ssr/index.js",
-    "test:api": "node scripts/test-moment-api.mjs"
+    "test:api": "node scripts/test-moment-api.mjs",
+    "build:functions": "node scripts/build-functions.mjs",
+    "test:functions": "node scripts/build-functions.mjs --check && node scripts/test-functions.mjs",
+    "test:client": "node scripts/test-client-boundary.mjs"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.2.1",

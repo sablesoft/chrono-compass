@@ -1,0 +1,71 @@
+# DigitalOcean Functions deployment
+
+The production App Platform application `2c459c23-c7cb-4cce-b9a9-a90bed204938` has a Static Site named `chrono-compass`: source `/`, branch `main`, autodeploy enabled, build `npm ci && npm run build`, output `dist`. Keep this component and its domain settings intact. The installed PWA remains fully offline and never imports the HTTP adapter.
+
+## Source and package
+
+- Calendar/astronomy algorithms remain in `src/lib/calendar` and `src/lib/math`.
+- `src/lib/api/response.ts` is the shared JSON error boundary used by the Node server and Functions worker.
+- `serverless/src/handler.ts` adapts raw DigitalOcean web events to the same API, with CORS, method/query validation, a per-instance rate guard and isolated calculation deadlines.
+- `serverless/project.yml` declares Node 22 functions in package `v1`: `moment`, `range`, `year`, `cycles`, `openapi`. Each invocation has 256 MiB and a 25-second platform deadline; the internal worker budget is at most 20 seconds, with time reserved for an error response.
+- `serverless/lib/bundle.cjs` is a generated, self-contained deployment artifact, not hand-maintained duplicate algorithms. It includes pinned runtime dependencies and needs no npm install at invocation time. The manifest records every bundled source input and SHA256 hashes. `npm run build:functions` updates it; `npm run test:functions` rejects stale output.
+- Each action's `.include` includes the shared artifact and its small CommonJS `package.json`. This follows DO's restricted remote build layout: only `project.yml`, `lib` and the selected function directory are available. It avoids depending on source files outside the remote build container.
+
+## Commands
+
+```sh
+npm ci
+npm run check
+npm run build:functions
+npm run test:functions
+npm run test:client
+npm run build:production
+npm run test:api
+```
+
+Functions tests copy each deployable package into an isolated temporary directory without `node_modules`. They cover default UTC/clock, fixed timestamp/timezone, one/multiple cycles, exact parity with the shared API, range/year/registry/OpenAPI, duplicate keys, invalid input, CORS, methods, deadlines, recovery and rate guard. The client test builds the PWA and rejects server/API/Functions code in its output module graph. This is an HTTP service only; no new browser SDK is created.
+
+## Add to the existing App Platform application
+
+Add a Functions component from `sablesoft/chrono-compass`, source directory `/serverless`, using the reviewed code branch initially (then `main` with autodeploy once released). Name the component `moment-api`. The component is a Functions component, not a Web Service; it does not need an instance plan, `npm start`, a TCP port or a `/healthz` service.
+
+Route the component at `/api`. DO's package/function routing gives:
+
+- `/api/v1/moment`
+- `/api/v1/range`
+- `/api/v1/year`
+- `/api/v1/cycles`
+- `/api/v1/openapi`
+
+Keep the Static Site route at `/`. Use a more specific ingress rewrite for `/api/v1/openapi.json` to the Functions path `/v1/openapi` if supported by the active app ingress. This avoids DO's special `.json` action representation, which otherwise returns the whole function response envelope. Verify the rewrite in production; `/api/v1/openapi` is the direct equivalent and works without a rewrite. The existing OpenAPI document remains the protocol reference. Do not claim the `.json` alias works until the deployed rewrite has been checked.
+
+The Node `/healthz` endpoint is not necessary for serverless deployment. Readiness is verified by a successful `/api/v1/moment` response. DO's function context is used only to identify the function and its deadline; credentials, activation context and exception stacks are never returned or logged.
+
+Raw web events preserve duplicate query parameters. The adapter rejects them exactly as the Node service does. All successful and error responses use `no-store`. Only GET and simple CORS OPTIONS are allowed. Catalog and model limitations remain as documented in [Moment API](moment-api.md).
+
+## Price and resource limits
+
+At the time of implementation the official tariff includes 90,000 GiB-seconds per team per month, then $0.0000185 per additional GiB-second; App Platform bandwidth rules also apply. At 256 MiB, 0.1 seconds uses 0.025 GiB-seconds (3.6 million such calls fit in the free compute allowance); one second uses 0.25 GiB-seconds (360,000 calls). These are estimates, not measured production performance or a promise of a zero invoice. Cold starts, workers, heavy cycles and other team functions consume allowance. Platform execution-time billing rounds up to 100 ms.
+
+The warm-instance rate guard defaults to 60 calls per client per minute. It resets on cold starts and is not distributed across containers. It cannot be used as a global rate limit or billing cap. Public serverless compute can incur overage; the owner accepted the disclosed Functions tariff. No persistent server or database is added. Check actual invocation duration/compute usage after initial smoke tests before considering additional infrastructure or a distributed limiter.
+
+## Production smoke tests
+
+```sh
+curl -fsS https://chrono-compass.app/api/v1/moment
+curl -fsS 'https://chrono-compass.app/api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo&include=moon,solar'
+curl -fsS https://chrono-compass.app/api/v1/cycles
+curl -fsS 'https://chrono-compass.app/api/v1/range?start=1795521600&end=1795694400&step=86400'
+curl -fsS 'https://chrono-compass.app/api/v1/year?timestamp=1795521600'
+curl -fsS https://chrono-compass.app/api/v1/openapi
+```
+
+Verify JSON content types and no-store, fixed timestamp parity, UTC default, unsupported inputs, allowed/disallowed origins, homepage/help routes, and the separate OpenAPI alias. Test again after a cold start/redeployment. Publication is complete only after the live API has returned and validated the expected JSON.
+
+## Primary references
+
+- [Node.js runtime](https://docs.digitalocean.com/products/functions/reference/runtimes/node-js/)
+- [Raw HTTP parameters](https://docs.digitalocean.com/products/functions/reference/parameters-responses/)
+- [Functions build layout and include files](https://docs.digitalocean.com/products/functions/reference/build-process/)
+- [App Platform Functions](https://docs.digitalocean.com/products/app-platform/how-to/manage-functions/)
+- [Functions pricing](https://docs.digitalocean.com/products/functions/details/pricing/)
