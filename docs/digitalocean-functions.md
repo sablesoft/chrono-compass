@@ -25,7 +25,21 @@ npm run test:api
 
 Functions tests copy each deployable package into an isolated temporary directory without `node_modules`. They cover default UTC/clock, fixed timestamp/timezone, one/multiple cycles, exact parity with the shared API, range/year/registry/OpenAPI, duplicate keys, invalid input, CORS, methods, deadlines, recovery and rate guard. The client test builds the PWA and rejects server/API/Functions code in its output module graph. This is an HTTP service only; no new browser SDK is created.
 
-## Add to the existing App Platform application
+## Deployment topology
+
+The existing static app is in ATL1, which is not listed as a supported Functions region. The API was therefore deployed as a separate **Functions-only** App Platform application in TOR1, without a persistent service or database:
+
+- App: `chrono-compass-api` (`8faf1383-0c51-4c1a-bd2c-70c32b813924`).
+- Component: `chrono-compass-serverless`.
+- Source: `sablesoft/chrono-compass`, branch `feat/digitalocean-functions`, directory `serverless`, autodeploy enabled.
+- Public base URL: `https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1`.
+- Initial deployment: `99de9d56-e45e-4d6a-b9f7-f0d6334a14a8`, source `c55a2482b3e04f14962a533315a03c60c008b2dc`.
+- Route: `/api`, prefix trimmed before package/action routing.
+- The existing `chrono-compass.app` Static Site remains in ATL1. Its `/api` path is not connected to this separate app. No custom API domain or cross-app proxy has been configured.
+
+The following same-app instructions apply only in a Functions-supported region; they are not the current production topology.
+
+## Same-app deployment option
 
 Add a Functions component from `sablesoft/chrono-compass`, source directory `/serverless`, using the reviewed code branch initially (then `main` with autodeploy once released). Name the component `moment-api`. The component is a Functions component, not a Web Service; it does not need an instance plan, `npm start`, a TCP port or a `/healthz` service.
 
@@ -52,15 +66,31 @@ The warm-instance rate guard defaults to 60 calls per client per minute. It rese
 ## Production smoke tests
 
 ```sh
-curl -fsS https://chrono-compass.app/api/v1/moment
-curl -fsS 'https://chrono-compass.app/api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo&include=moon,solar'
-curl -fsS https://chrono-compass.app/api/v1/cycles
-curl -fsS 'https://chrono-compass.app/api/v1/range?start=1795521600&end=1795694400&step=86400'
-curl -fsS 'https://chrono-compass.app/api/v1/year?timestamp=1795521600'
-curl -fsS https://chrono-compass.app/api/v1/openapi
+curl -fsS https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/moment
+curl -fsS 'https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/moment?timestamp=1795521600&timezone=America/Sao_Paulo&include=moon,solar'
+curl -fsS https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/cycles
+curl -fsS 'https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/range?start=1795521600&end=1795694400&step=86400'
+curl -fsS 'https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/year?timestamp=1795521600'
+curl -fsS https://chrono-compass-api-cppxh.ondigitalocean.app/api/v1/openapi
 ```
 
 Verify JSON content types and no-store, fixed timestamp parity, UTC default, unsupported inputs, allowed/disallowed origins, homepage/help routes, and the separate OpenAPI alias. Test again after a cold start/redeployment. Publication is complete only after the live API has returned and validated the expected JSON.
+
+## Live verification (2026-11-25 UTC)
+
+Real HTTPS requests to the deployed application verified:
+
+- Default moment: HTTP 200, current timestamp and UTC, structured Gregorian/harmonic dates and period boundaries.
+- Fixed timestamp `1795521600`: UTC `2026-11-24T12:00:00.000Z`; with `America/Sao_Paulo`, local `2026-11-24T09:00:00-03:00`.
+- One cycle (`moon`) and three cycles (`moon,solar,harmonic_long_cycles`): HTTP 200, matching requested timestamp.
+- Cycle registry: HTTP 200, 32 entries. Range, harmonic year and direct OpenAPI action: HTTP 200.
+- Unknown cycle, milliseconds, duplicate timestamp and invalid IANA zone: HTTP 400 with structured errors.
+- POST: HTTP 405. Allowed website Origin: HTTP 200. Disallowed Origin: HTTP 403.
+- DO normalizes successful OPTIONS to HTTP 200 with an empty body; its gateway also adds CORS headers. The handler enforces Origin rejection and method checks independently of those gateway headers.
+- Moment response has `Content-Type: application/json` and `Cache-Control: no-store`.
+- Original website still returns HTTP 200.
+
+The `/openapi.json` ingress alias is not configured on the separate app; use `/openapi`. The feature PR remains separate from `main`; after merging, repoint the Functions component branch to `main` and verify autodeployment.
 
 ## Primary references
 
