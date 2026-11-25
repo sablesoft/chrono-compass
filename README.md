@@ -180,3 +180,5 @@ If you’re interested in time as a **navigable space** rather than a ticking co
 The optional Node service exposes `/api/v1/moment`, bounded range sampling, full harmonic years, and a cycle registry using the same calendar and astronomy functions as the interface. Build with `npm run build:production` and run `npm start`. Static-only builds remain available through `npm run build`.
 
 See [API documentation](docs/moment-api.md), [OpenAPI 3.1](docs/moment-api.openapi.json), and [complete JSON examples](docs/moment-api.examples.json). Publishing the dynamic API requires a Node Web Service; a static host cannot execute it.
+
+For the existing free Static Site, deploy the HTTP API as a separate [DigitalOcean Functions component](docs/digitalocean-functions.md). The offline client excludes all HTTP API and serverless modules.

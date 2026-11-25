@@ -165,3 +165,7 @@ Verify a valid HTTPS certificate, JSON content types, the unchanged homepage and
 ### Read-only production observation (2026-11-24)
 
 HTTPS requests with normal certificate verification succeeded. The homepage returned HTTP 200 and HTML; `/api/v1/moment` returned HTTP 404 and HTML. Headers indicated DigitalOcean App Platform behind Cloudflare (`x-do-app-origin`, `x-rgw-object-type`, `x-amz-request-id`). This is consistent with static hosting, but does not substitute for inspecting the actual App Platform component settings. Production was not modified.
+
+## Preferred deployment for the existing Static Site
+
+The owner selected DigitalOcean Functions to retain static hosting and offline client calculations. See [DigitalOcean Functions deployment](digitalocean-functions.md). The standalone Node service above remains an alternative, not a requirement for the static website.

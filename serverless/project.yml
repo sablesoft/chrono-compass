@@ -1,0 +1,42 @@
+# Keep the static website component separate; this project contains HTTP functions only.
+packages:
+  - name: v1
+    environment:
+      API_CORS_ORIGINS: "https://chrono-compass.app"
+      API_RATE_LIMIT: "60"
+    functions:
+      - name: moment
+        runtime: nodejs:22
+        web: raw
+        limits:
+          memory: 256
+          timeout: 25000
+          logs: 64
+      - name: range
+        runtime: nodejs:22
+        web: raw
+        limits:
+          memory: 256
+          timeout: 25000
+          logs: 64
+      - name: year
+        runtime: nodejs:22
+        web: raw
+        limits:
+          memory: 256
+          timeout: 25000
+          logs: 64
+      - name: cycles
+        runtime: nodejs:22
+        web: raw
+        limits:
+          memory: 256
+          timeout: 25000
+          logs: 64
+      - name: openapi
+        runtime: nodejs:22
+        web: raw
+        limits:
+          memory: 256
+          timeout: 25000
+          logs: 64
